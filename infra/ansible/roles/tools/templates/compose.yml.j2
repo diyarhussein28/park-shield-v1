@@ -1,0 +1,57 @@
+{% set wg_ip = wireguard_network | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') %}
+# Off-the-shelf tools (01-requirements §6.7), reachable only through WireGuard.
+services:
+  # Metabase reads the replica with a role that has no access to *_enc columns (AD-18).
+  metabase:
+    image: metabase/metabase:latest
+    environment:
+      MB_DB_TYPE: h2
+      MB_ANON_TRACKING_ENABLED: "false"
+      MB_CHECK_FOR_UPDATES: "false"
+    volumes: ["metabase-data:/metabase-data"]
+    ports: ["{{ wg_ip }}:3003:3000"]
+    restart: unless-stopped
+
+  unleash-db:
+    image: postgres:{{ postgres_version }}
+    environment:
+      POSTGRES_USER: unleash
+      POSTGRES_PASSWORD: "{{ unleash_db_password }}"
+    volumes: ["unleash-db:/var/lib/postgresql/data"]
+    restart: unless-stopped
+  unleash:
+    image: unleashorg/unleash-server:latest
+    environment:
+      DATABASE_URL: postgres://unleash:{{ unleash_db_password | urlencode }}@unleash-db:5432/unleash
+      DATABASE_SSL: "false"
+    depends_on: [unleash-db]
+    ports: ["{{ wg_ip }}:4242:4242"]
+    restart: unless-stopped
+
+  # Zammad is the source of truth for tickets; see the official zammad-docker-compose for the full stack.
+  zammad:
+    image: ghcr.io/zammad/zammad:latest
+    command: ["zammad-railsserver"]
+    environment:
+      POSTGRESQL_HOST: zammad-db
+      POSTGRESQL_PASS: "{{ zammad_db_password }}"
+      REDIS_URL: redis://zammad-redis:6379
+      ELASTICSEARCH_ENABLED: "false"
+    depends_on: [zammad-db, zammad-redis]
+    ports: ["{{ wg_ip }}:3004:3000"]
+    restart: unless-stopped
+  zammad-db:
+    image: postgres:{{ postgres_version }}
+    environment:
+      POSTGRES_USER: zammad
+      POSTGRES_PASSWORD: "{{ zammad_db_password }}"
+    volumes: ["zammad-db:/var/lib/postgresql/data"]
+    restart: unless-stopped
+  zammad-redis:
+    image: valkey/valkey:{{ valkey_version }}
+    restart: unless-stopped
+
+volumes:
+  metabase-data:
+  unleash-db:
+  zammad-db:

@@ -1,0 +1,31 @@
+{% set wg_ip = wireguard_network | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') %}
+# Everything here binds to the WireGuard address only: unreachable without the VPN (AD-01).
+services:
+  api-ops:
+    image: {{ registry }}/parkshield-api:{{ release }}
+    command: ["node", "dist/main-ops.js"]
+    env_file: app.env
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+  ops:
+    image: {{ registry }}/parkshield-ops:{{ release }}
+    env_file: app.env
+    environment:
+      HOSTNAME: "{{ wg_ip }}"
+      PORT: "3001"
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+  valkey-replica:
+    image: valkey/valkey:{{ valkey_version }}
+    command: >-
+      valkey-server --replicaof {{ hostvars[groups['worker'][0]].ansible_host }} 6379
+      --masterauth "{{ valkey_password }}" --requirepass "{{ valkey_password }}" --appendonly yes
+    ports: ["{{ ansible_host }}:6379:6379"]
+    volumes: ["valkey-replica:/data"]
+    restart: unless-stopped
+
+volumes:
+  valkey-replica:

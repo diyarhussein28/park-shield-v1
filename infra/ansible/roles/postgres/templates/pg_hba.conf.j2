@@ -1,0 +1,6 @@
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+local   all             postgres                                peer
+local   all             all                                     scram-sha-256
+hostssl {{ postgres_db }} {{ postgres_app_user }} {{ private_network }} scram-sha-256
+hostssl {{ postgres_db }} {{ postgres_metabase_user }} {{ private_network }} scram-sha-256
+hostssl replication     replicator      {{ private_network }}   scram-sha-256

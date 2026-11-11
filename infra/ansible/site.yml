@@ -1,0 +1,52 @@
+---
+# Full environment: ansible-playbook -i inventories/<env>/hosts.yml site.yml
+- name: Baseline hardening on every server
+  hosts: all
+  become: true
+  roles:
+    - common
+
+- name: WireGuard gateway (the only public port in the environment)
+  hosts: tools
+  become: true
+  roles:
+    - wireguard
+
+- name: PostgreSQL 18 primary and streaming replica with pgBackRest
+  hosts: db
+  become: true
+  roles:
+    - postgres
+
+- name: Docker on application hosts
+  hosts: app:worker:tools
+  become: true
+  roles:
+    - docker
+
+- name: Caddy (TLS 1.3) and the public app stack
+  hosts: app
+  become: true
+  roles:
+    - caddy
+    - role: app_stack
+      vars:
+        app_stack_profile: app
+
+- name: Worker and Valkey
+  hosts: worker
+  become: true
+  roles:
+    - role: app_stack
+      vars:
+        app_stack_profile: worker
+
+- name: Ops app, api-ops, monitoring and tools (VPN only)
+  hosts: tools
+  become: true
+  roles:
+    - role: app_stack
+      vars:
+        app_stack_profile: tools
+    - monitoring
+    - tools

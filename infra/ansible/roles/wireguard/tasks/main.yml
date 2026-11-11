@@ -1,0 +1,24 @@
+---
+- name: Install WireGuard
+  ansible.builtin.apt:
+    name: wireguard
+    state: present
+
+- name: Allow forwarding from VPN peers into the private network
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_set: true
+
+- name: WireGuard interface config
+  ansible.builtin.template:
+    src: wg0.conf.j2
+    dest: /etc/wireguard/wg0.conf
+    mode: '0600'
+  notify: Restart wireguard
+
+- name: Enable WireGuard
+  ansible.builtin.service:
+    name: wg-quick@wg0
+    enabled: true
+    state: started

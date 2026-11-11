@@ -1,0 +1,22 @@
+listen_addresses = 'localhost,{{ ansible_host }}'
+password_encryption = scram-sha-256
+ssl = on
+
+# Logs must not contain personal data: no statement or parameter logging.
+log_statement = 'none'
+log_min_duration_statement = -1
+log_parameter_max_length = 0
+log_parameter_max_length_on_error = 0
+log_connections = off
+
+# Streaming replication + WAL archiving. archive_timeout 60 s keeps RPO well under 5 min.
+wal_level = replica
+max_wal_senders = 5
+hot_standby = on
+archive_mode = on
+archive_command = 'pgbackrest --stanza=main archive-push %p'
+archive_timeout = 60
+{% if db_role == 'replica' %}
+primary_conninfo = 'host={{ hostvars[groups['db'] | select('search', 'primary') | first].ansible_host }} user=replicator password={{ postgres_replication_password }} application_name={{ inventory_hostname }}'
+restore_command = 'pgbackrest --stanza=main archive-get %f "%p"'
+{% endif %}

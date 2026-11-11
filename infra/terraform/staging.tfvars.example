@@ -1,0 +1,16 @@
+environment = "staging"
+location    = "nbg1"
+app_count   = 1
+
+server_types = {
+  app    = "cx22"
+  worker = "cx22"
+  db     = "cx22"
+  tools  = "cx32"
+}
+
+ssh_public_keys = {
+  techlead = "ssh-ed25519 AAAA... techlead@parkshield"
+}
+
+# hcloud_token, s3_access_key, s3_secret_key: pass via TF_VAR_* environment variables, never in files.

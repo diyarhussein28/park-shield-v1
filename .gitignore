@@ -1,0 +1,39 @@
+node_modules/
+dist/
+.next/
+.next-*/
+.turbo/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+apps/web/public/scanner-assets/
+
+# local runtime data (embedded PostgreSQL, uploads, backups)
+.local/
+
+# secrets: only .env.example is committed
+.env
+.env.*
+!.env.example
+
+# test output
+playwright-report/
+test-results/
+blob-report/
+
+# infra state
+infra/terraform/.terraform/
+infra/terraform/*.tfstate*
+infra/terraform/*.tfvars
+infra/terraform/backend.hcl
+infra/ansible/inventories/*/hosts.yml
+infra/monitoring/.terraform/
+infra/monitoring/*.tfstate*
+infra/monitoring/*.tfvars
+# Vercel CLI project link (local only)
+.vercel/
+
+.vercel
+.env*
+# Ansible collections installed by CI for ansible-lint
+infra/ansible/collections/

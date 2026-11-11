@@ -1,0 +1,66 @@
+groups:
+  - name: availability
+    rules:
+      - alert: EndpointDown
+        expr: probe_success == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ '{{' }} $labels.instance {{ '}}' }} is down"
+      - alert: HostDown
+        expr: up{job="node"} == 0
+        for: 3m
+        labels: { severity: critical }
+        annotations:
+          summary: "Host {{ '{{' }} $labels.instance {{ '}}' }} is not reporting"
+
+  # Error budgets (01-requirements §8): 99.9 % scanner path, 99.5 % portal. Multi-window burn rates
+  # (Google SRE workbook): page when 2 % of the 30-day budget burns in an hour, ticket at 5 % in 6 h.
+  - name: error-budgets
+    rules:
+      - alert: ScannerBudgetFastBurn
+        expr: |
+          (1 - avg_over_time(probe_success{instance=~".*/v1/ready"}[1h])) > 14.4 * 0.001
+          and (1 - avg_over_time(probe_success{instance=~".*/v1/ready"}[5m])) > 14.4 * 0.001
+        labels: { severity: critical }
+        annotations:
+          summary: Scanner path is burning its 99.9 % error budget fast (runbook database-outage / on-call)
+      - alert: ScannerBudgetSlowBurn
+        expr: |
+          (1 - avg_over_time(probe_success{instance=~".*/v1/ready"}[6h])) > 6 * 0.001
+          and (1 - avg_over_time(probe_success{instance=~".*/v1/ready"}[30m])) > 6 * 0.001
+        labels: { severity: warning }
+        annotations:
+          summary: Scanner path has used 5 % of its monthly error budget in 6 hours
+      - alert: PortalBudgetFastBurn
+        expr: |
+          (1 - avg_over_time(probe_success{instance=~"https://[^/]+/"}[1h])) > 14.4 * 0.005
+          and (1 - avg_over_time(probe_success{instance=~"https://[^/]+/"}[5m])) > 14.4 * 0.005
+        labels: { severity: critical }
+        annotations:
+          summary: Portal is burning its 99.5 % error budget fast
+      - alert: PortalBudgetSlowBurn
+        expr: |
+          (1 - avg_over_time(probe_success{instance=~"https://[^/]+/"}[6h])) > 6 * 0.005
+          and (1 - avg_over_time(probe_success{instance=~"https://[^/]+/"}[30m])) > 6 * 0.005
+        labels: { severity: warning }
+        annotations:
+          summary: Portal has used 5 % of its monthly error budget in 6 hours
+
+  - name: backups
+    rules:
+      - alert: BackupStale
+        expr: time() - pgbackrest_last_backup_timestamp_seconds > 2 * 3600
+        for: 10m
+        labels: { severity: critical }
+        annotations:
+          summary: No successful pgBackRest backup in the last 2 hours (RPO at risk)
+
+  - name: capacity
+    rules:
+      - alert: DiskAlmostFull
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes) < 0.15
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Less than 15% disk left on {{ '{{' }} $labels.instance {{ '}}' }}"

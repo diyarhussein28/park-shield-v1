@@ -1,0 +1,26 @@
+---
+- name: Monitoring directories
+  ansible.builtin.file:
+    path: '/opt/monitoring/{{ item }}'
+    state: directory
+    mode: '0755'
+  loop: [prometheus, alertmanager, loki]
+
+- name: Monitoring config files
+  ansible.builtin.template:
+    src: '{{ item.src }}'
+    dest: '/opt/monitoring/{{ item.dest }}'
+    mode: '0640'
+  loop:
+    - { src: compose.yml.j2, dest: compose.yml }
+    - { src: prometheus.yml.j2, dest: prometheus/prometheus.yml }
+    - { src: rules.yml.j2, dest: prometheus/rules.yml }
+    - { src: alertmanager.yml.j2, dest: alertmanager/alertmanager.yml }
+    - { src: loki.yml.j2, dest: loki/loki.yml }
+  no_log: true
+
+- name: Start monitoring stack
+  community.docker.docker_compose_v2:
+    project_src: /opt/monitoring
+    state: present
+    pull: always

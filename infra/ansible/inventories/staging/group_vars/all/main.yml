@@ -1,0 +1,26 @@
+---
+# Non-secret settings. Secrets live next to this file in secrets.sops.yml (SOPS + age), decrypted at run time.
+domain_scanner: staging.pkshd.de
+domain_web: staging.parkshield.de
+domain_ops: ops.staging.internal
+registry: ghcr.io/parkshield
+release: latest
+
+private_network: 10.10.0.0/16
+wireguard_network: 10.20.0.0/24
+wireguard_port: 51820
+
+postgres_version: 18
+postgres_db: parkshield
+postgres_app_user: parkshield_app
+postgres_metabase_user: metabase_ro
+pgbackrest_bucket: ps-staging-backups
+pgbackrest_retention_days: 35
+s3_endpoint: nbg1.your-objectstorage.com
+s3_region: nbg1
+audit_bucket: ps-staging-audit
+
+valkey_version: 8
+log_retention_days: 14
+
+alert_telegram_chat_id: ''

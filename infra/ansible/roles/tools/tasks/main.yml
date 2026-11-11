@@ -1,0 +1,19 @@
+---
+- name: Tools directory
+  ansible.builtin.file:
+    path: /opt/tools
+    state: directory
+    mode: '0750'
+
+- name: Tools compose file (Metabase, Unleash, Zammad)
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: /opt/tools/compose.yml
+    mode: '0640'
+  no_log: true
+
+- name: Start tools
+  community.docker.docker_compose_v2:
+    project_src: /opt/tools
+    state: present
+    pull: always

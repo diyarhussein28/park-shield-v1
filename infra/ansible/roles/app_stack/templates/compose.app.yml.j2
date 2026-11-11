@@ -1,0 +1,20 @@
+services:
+  web:
+    image: {{ registry }}/parkshield-web:{{ release }}
+    env_file: app.env
+    ports: ["127.0.0.1:3000:3000"]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+  api:
+    image: {{ registry }}/parkshield-api:{{ release }}
+    command: ["node", "dist/main.js"]
+    env_file: app.env
+    ports: ["127.0.0.1:4000:4000"]
+    restart: unless-stopped
+    read_only: true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/v1/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3

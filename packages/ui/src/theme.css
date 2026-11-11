@@ -1,0 +1,117 @@
+/* ParkShield design tokens. Import after `@import "tailwindcss";` in each app.
+   Every text/background pair is checked for WCAG AA by src/contrast.test.ts, which parses this file. */
+
+:root {
+  --ps-bg: #ffffff;
+  --ps-fg: #0f172a;
+  --ps-muted: #475569;
+  --ps-surface: #f8fafc;
+  --ps-border: #e2e8f0;
+  --ps-border-strong: #64748b;
+  --ps-primary: #1d4ed8;
+  --ps-primary-hover: #1e40af;
+  --ps-primary-fg: #ffffff;
+  --ps-secondary: #e2e8f0;
+  --ps-secondary-fg: #0f172a;
+  --ps-danger: #b91c1c;
+  --ps-danger-fg: #ffffff;
+  --ps-focus: #1d4ed8;
+  --ps-info-bg: #eff6ff;
+  --ps-info-fg: #1e3a8a;
+  --ps-success-bg: #f0fdf4;
+  --ps-success-fg: #14532d;
+  --ps-warning-bg: #fffbeb;
+  --ps-warning-fg: #78350f;
+  --ps-danger-bg: #fef2f2;
+  --ps-danger-text: #7f1d1d;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ps-bg: #0b1220;
+    --ps-fg: #f1f5f9;
+    --ps-muted: #94a3b8;
+    --ps-surface: #111a2e;
+    --ps-border: #1e293b;
+    --ps-border-strong: #64748b;
+    --ps-primary: #60a5fa;
+    --ps-primary-hover: #93c5fd;
+    --ps-primary-fg: #0b1220;
+    --ps-secondary: #1e293b;
+    --ps-secondary-fg: #f1f5f9;
+    --ps-danger: #f87171;
+    --ps-danger-fg: #0b1220;
+    --ps-focus: #93c5fd;
+    --ps-info-bg: #172554;
+    --ps-info-fg: #dbeafe;
+    --ps-success-bg: #052e16;
+    --ps-success-fg: #dcfce7;
+    --ps-warning-bg: #451a03;
+    --ps-warning-fg: #fef3c7;
+    --ps-danger-bg: #450a0a;
+    --ps-danger-text: #fee2e2;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--ps-bg);
+  --color-fg: var(--ps-fg);
+  --color-muted: var(--ps-muted);
+  --color-surface: var(--ps-surface);
+  --color-border: var(--ps-border);
+  --color-border-strong: var(--ps-border-strong);
+  --color-primary: var(--ps-primary);
+  --color-primary-hover: var(--ps-primary-hover);
+  --color-primary-fg: var(--ps-primary-fg);
+  --color-secondary: var(--ps-secondary);
+  --color-secondary-fg: var(--ps-secondary-fg);
+  --color-danger: var(--ps-danger);
+  --color-danger-fg: var(--ps-danger-fg);
+  --color-focus: var(--ps-focus);
+  --color-info-bg: var(--ps-info-bg);
+  --color-info-fg: var(--ps-info-fg);
+  --color-success-bg: var(--ps-success-bg);
+  --color-success-fg: var(--ps-success-fg);
+  --color-warning-bg: var(--ps-warning-bg);
+  --color-warning-fg: var(--ps-warning-fg);
+  --color-danger-bg: var(--ps-danger-bg);
+  --color-danger-text: var(--ps-danger-text);
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+@layer base {
+  html {
+    background: var(--ps-bg);
+    color: var(--ps-fg);
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    font-size: 1rem;
+    line-height: 1.5;
+    /* Long e-mail addresses, plates and links break instead of widening the page on a phone. */
+    overflow-wrap: break-word;
+  }
+  /* Browsers size a fieldset to its longest word (min-inline-size: min-content); let it shrink so
+     long e-mail addresses wrap instead of widening the page (WCAG 1.4.10). */
+  fieldset {
+    min-inline-size: 0;
+  }
+  :focus-visible {
+    outline: 3px solid var(--ps-focus);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      animation-delay: 0s !important;
+      transition-duration: 0.01ms !important;
+      transition-delay: 0s !important;
+    }
+  }
+}

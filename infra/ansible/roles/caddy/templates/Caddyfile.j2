@@ -1,0 +1,60 @@
+{
+	servers {
+		listener_wrappers {
+			proxy_protocol {
+				allow {{ private_network }}
+			}
+			tls
+		}
+		protocols h1 h2 h3
+	}
+}
+
+(hardening) {
+	tls {
+		protocols tls1.3
+	}
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		-Server
+	}
+	# Ops routes exist only on api-ops behind the VPN; reject here as a second layer (AD-01).
+	@ops path /ops/*
+	respond @ops 404
+	# Access log keeps method, status and timing only: no client IP, headers or URL (tokens live in URLs).
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>remote_ip delete
+				request>remote_port delete
+				request>client_ip delete
+				request>headers delete
+				request>uri delete
+				request>tls delete
+				resp_headers delete
+			}
+		}
+	}
+}
+
+{{ domain_scanner }} {
+	import hardening
+	handle /v1/* {
+		reverse_proxy 127.0.0.1:4000
+	}
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+}
+
+{{ domain_web }} {
+	import hardening
+	handle /v1/* {
+		reverse_proxy 127.0.0.1:4000
+	}
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+}

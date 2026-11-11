@@ -1,0 +1,18 @@
+# What `vercel deploy` must never upload (secrets, local data, build output). Vercel builds from source.
+.env
+.env.*
+!.env.example
+.local/
+.vercel/
+**/node_modules/
+**/.next/
+**/.next-*/
+**/dist/
+**/coverage/
+.turbo/
+**/.turbo/
+e2e/test-results/
+e2e/playwright-report/
+infra/**/.terraform/
+infra/**/*.tfstate*
+infra/**/*.tfvars

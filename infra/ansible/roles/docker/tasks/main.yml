@@ -1,0 +1,19 @@
+---
+- name: Install Docker Engine and Compose v2
+  ansible.builtin.apt:
+    name: [docker.io, docker-compose-v2]
+    state: present
+
+- name: Bounded container logs (apps log no personal data; this caps disk use)
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      { "log-driver": "local", "log-opts": { "max-size": "50m", "max-file": "5" }, "live-restore": true }
+    mode: '0644'
+  notify: Restart docker
+
+- name: Enable Docker
+  ansible.builtin.service:
+    name: docker
+    enabled: true
+    state: started

@@ -1,0 +1,141 @@
+---
+- name: Add PGDG apt key
+  ansible.builtin.get_url:
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    dest: /etc/apt/keyrings/pgdg.asc
+    mode: '0644'
+
+- name: Add PGDG repository
+  ansible.builtin.apt_repository:
+    repo: 'deb [signed-by=/etc/apt/keyrings/pgdg.asc] https://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main'
+    filename: pgdg
+
+- name: Install PostgreSQL and pgBackRest (version {{ postgres_version }})
+  ansible.builtin.apt:
+    name: ['postgresql-{{ postgres_version }}', pgbackrest, python3-psycopg2]
+    state: present
+    update_cache: true
+
+- name: LUKS key file (disk encryption layer under the app-level field encryption)
+  ansible.builtin.copy:
+    dest: /root/.pgdata.key
+    content: '{{ pgdata_luks_key }}'
+    mode: '0400'
+  no_log: true
+
+- name: Open LUKS volume
+  community.crypto.luks_device:
+    device: '{{ db_device }}'
+    state: opened
+    name: pgdata
+    keyfile: /root/.pgdata.key
+
+- name: Filesystem on encrypted volume
+  community.general.filesystem:
+    dev: /dev/mapper/pgdata
+    fstype: ext4
+
+- name: Mount data volume
+  ansible.posix.mount:
+    path: /var/lib/postgresql
+    src: /dev/mapper/pgdata
+    fstype: ext4
+    opts: noatime
+    state: mounted
+
+- name: PostgreSQL configuration
+  ansible.builtin.template:
+    src: postgresql.conf.j2
+    dest: '/etc/postgresql/{{ postgres_version }}/main/conf.d/parkshield.conf'
+    mode: '0644'
+  notify: Restart postgres
+
+- name: Client authentication (private network only, scram-sha-256)
+  ansible.builtin.template:
+    src: pg_hba.conf.j2
+    dest: '/etc/postgresql/{{ postgres_version }}/main/pg_hba.conf'
+    mode: '0640'
+    owner: postgres
+  notify: Reload postgres
+
+- name: Configure pgBackRest (S3 repo, AES-256 client-side encryption, 35-day retention)
+  ansible.builtin.template:
+    src: pgbackrest.conf.j2
+    dest: /etc/pgbackrest.conf
+    mode: '0640'
+    owner: postgres
+  no_log: true
+
+- name: Primary-only setup
+  when: db_role == 'primary'
+  block:
+    - name: Create pgBackRest stanza
+      ansible.builtin.command: pgbackrest --stanza=main stanza-create
+      become: true
+      become_user: postgres
+      register: postgres_stanza
+      changed_when: "'completed successfully' in postgres_stanza.stdout"
+
+    - name: Application role
+      community.postgresql.postgresql_user:
+        name: '{{ postgres_app_user }}'
+        password: '{{ postgres_app_password }}'
+      become: true
+      become_user: postgres
+      no_log: true
+
+    - name: Application database
+      community.postgresql.postgresql_db:
+        name: '{{ postgres_db }}'
+        owner: '{{ postgres_app_user }}'
+      become: true
+      become_user: postgres
+
+    # US-43 / AD-18: the migration creates metabase_ro (NOLOGIN) and grants it the metrics views
+    # only; here it gets its login and password. It replicates to the read replica Metabase uses.
+    - name: Metabase read-only role (metrics views only, no table, no encrypted column)
+      community.postgresql.postgresql_user:
+        name: '{{ postgres_metabase_user }}'
+        password: '{{ postgres_metabase_password }}'
+        role_attr_flags: LOGIN,NOSUPERUSER,NOCREATEDB,NOCREATEROLE
+      become: true
+      become_user: postgres
+      no_log: true
+
+    - name: Replication role
+      community.postgresql.postgresql_user:
+        name: replicator
+        password: '{{ postgres_replication_password }}'
+        role_attr_flags: REPLICATION
+      become: true
+      become_user: postgres
+      no_log: true
+
+    - name: Nightly full and hourly differential backups
+      ansible.builtin.cron:
+        name: 'pgbackrest {{ item.type }}'
+        user: postgres
+        minute: '{{ item.minute }}'
+        hour: '{{ item.hour }}'
+        job: 'pgbackrest --stanza=main --type={{ item.type }} backup && /usr/local/bin/pg-backup-metric'
+      loop:
+        - { type: full, minute: '15', hour: '2' }
+        - { type: diff, minute: '45', hour: '*' }
+
+    - name: Backup freshness metric for Prometheus (alerts if no successful backup)
+      ansible.builtin.copy:
+        dest: /usr/local/bin/pg-backup-metric
+        mode: '0755'
+        content: |
+          #!/bin/sh
+          ts=$(pgbackrest --stanza=main --output=json info | jq '.[0].backup[-1].timestamp.stop')
+          echo "pgbackrest_last_backup_timestamp_seconds $ts" > /var/lib/prometheus/node-exporter/pgbackrest.prom
+
+- name: Replica bootstrap from the backup repository
+  when: db_role == 'replica'
+  ansible.builtin.command:
+    cmd: pgbackrest --stanza=main --type=standby --delta restore
+    creates: '/var/lib/postgresql/{{ postgres_version }}/main/standby.signal'
+  become: true
+  become_user: postgres
+  notify: Restart postgres

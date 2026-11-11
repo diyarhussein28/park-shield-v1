@@ -1,0 +1,22 @@
+---
+# Application release only (weekly, by tag): ansible-playbook deploy.yml -e release=<git sha or tag>
+- name: Run database migrations from the worker host
+  hosts: worker
+  become: true
+  tasks:
+    - name: Apply dbmate migrations
+      ansible.builtin.command:
+        cmd: >-
+          docker run --rm --network host --env-file /opt/parkshield/app.env
+          {{ registry }}/parkshield-api:{{ release }} npx dbmate --migrations-dir ../../db/migrations --no-dump-schema up
+      register: migrate
+      changed_when: "'Applied' in migrate.stdout"
+
+- name: Roll out app containers
+  hosts: app:worker:tools
+  become: true
+  serial: 1
+  roles:
+    - role: app_stack
+      vars:
+        app_stack_profile: "{{ group_names | intersect(['app', 'worker', 'tools']) | first }}"

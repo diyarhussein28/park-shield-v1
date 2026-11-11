@@ -1,0 +1,27 @@
+---
+- name: App directory
+  ansible.builtin.file:
+    path: /opt/parkshield
+    state: directory
+    mode: '0750'
+
+- name: Application environment (secrets from SOPS, never in the image)
+  ansible.builtin.template:
+    src: app.env.j2
+    dest: /opt/parkshield/app.env
+    mode: '0600'
+  no_log: true
+
+- name: Compose file for profile {{ app_stack_profile }}
+  ansible.builtin.template:
+    src: 'compose.{{ app_stack_profile }}.yml.j2'
+    dest: /opt/parkshield/compose.yml
+    mode: '0640'
+
+- name: Pull and start containers
+  community.docker.docker_compose_v2:
+    project_src: /opt/parkshield
+    pull: always
+    state: present
+    wait: true
+    wait_timeout: 120
