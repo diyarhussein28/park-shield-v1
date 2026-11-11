@@ -191,6 +191,9 @@ Stripe account settings the code relies on (test mode and live, set once per acc
 - Customer portal saved, with payment method, billing details and invoice history on and
   **cancellation and plan changes off**: cancelling goes through the app (`/kuendigen`), which
   computes the §309 BGB end date and sends the `cancel_received` confirmation.
+- Payment methods (Settings → Payment methods): card with Apple Pay and Google Pay, SEPA Direct
+  Debit, PayPal, Link. Everything else off, including Klarna (no instalments at 10 €/year,
+  `docs/02-architecture.md` §2).
 
 WhatsApp templates that must exist in 360dialog (DE and EN): `ps_alert` (`{{1}}` problem,
 `{{2}}` car nickname, three quick-reply buttons in this order: Ich komme · In ca. 30 Min · Bin
