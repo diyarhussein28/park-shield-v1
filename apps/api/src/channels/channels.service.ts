@@ -18,12 +18,19 @@ import {
   type OrderableChannel,
 } from '../notifications/channel-order';
 import { CRYPTO, DB, ENV, VALKEY } from '../core/tokens';
-import { WHATSAPP, type WhatsAppSender } from '../providers/ports';
+import { smsLinkedText, smsOtpText } from '../notifications/sms-texts';
+import { SMS, WHATSAPP, type SmsSender, type WhatsAppSender } from '../providers/ports';
 import { allowedPushEndpoint } from '../providers/push';
 
 const OTP_TTL = 600;
 const OTP_ATTEMPTS = 5;
 export const WHATSAPP_CONSENT_VERSION = '2026-11';
+export const SMS_CONSENT_VERSION = '2026-11';
+
+/** Channels linked to a phone number after a one-time code (US-21, NT-07). */
+export type PhoneChannel = 'whatsapp' | 'sms';
+const OTP_KEY = { whatsapp: 'wa:otp', sms: 'sms:otp' } as const;
+const CONSENT_VERSION = { whatsapp: WHATSAPP_CONSENT_VERSION, sms: SMS_CONSENT_VERSION } as const;
 
 export type Platform = 'ios' | 'android' | 'desktop';
 
@@ -54,11 +61,29 @@ export class ChannelsService {
     @Inject(CRYPTO) private readonly crypto: FieldCrypto,
     @Inject(RateLimitService) private readonly limits: RateLimitService,
     @Inject(WHATSAPP) private readonly whatsapp: WhatsAppSender,
+    @Inject(SMS) private readonly sms: SmsSender,
     @Inject(SettingsService) private readonly settings: SettingsService,
   ) {}
 
+  private async linkedPhone(userId: string, type: PhoneChannel) {
+    const row = await this.db
+      .selectFrom('contact_channels')
+      .select(['address_enc', 'verified_at', 'is_enabled'])
+      .where('user_id', '=', userId)
+      .where('type', '=', type)
+      .where('verified_at', 'is not', null)
+      .executeTakeFirst();
+    return row?.address_enc
+      ? {
+          phone: maskPhone(this.crypto.decrypt(row.address_enc)),
+          verifiedAt: row.verified_at,
+          enabled: row.is_enabled,
+        }
+      : null;
+  }
+
   async overview(user: AuthContext) {
-    const [devices, wa] = await Promise.all([
+    const [devices, whatsapp, sms] = await Promise.all([
       this.db
         .selectFrom('push_subscriptions')
         .select([
@@ -71,26 +96,16 @@ export class ChannelsService {
         .where('user_id', '=', user.userId)
         .orderBy('created_at')
         .execute(),
-      this.db
-        .selectFrom('contact_channels')
-        .select(['address_enc', 'verified_at', 'is_enabled'])
-        .where('user_id', '=', user.userId)
-        .where('type', '=', 'whatsapp')
-        .where('verified_at', 'is not', null)
-        .executeTakeFirst(),
+      this.linkedPhone(user.userId, 'whatsapp'),
+      this.linkedPhone(user.userId, 'sms'),
     ]);
     return {
       // US-22: normal alerts try channels in this order and stop at the first that works.
       order: await channelOrder(this.db, this.settings, user.userId),
       email: { address: user.email },
       push: { publicKey: this.env.VAPID_PUBLIC_KEY, devices },
-      whatsapp: wa?.address_enc
-        ? {
-            phone: maskPhone(this.crypto.decrypt(wa.address_enc)),
-            verifiedAt: wa.verified_at,
-            enabled: wa.is_enabled,
-          }
-        : null,
+      whatsapp,
+      sms,
     };
   }
 
@@ -147,32 +162,60 @@ export class ChannelsService {
     if (!Number(r.numDeletedRows)) throw new NotFoundException();
   }
 
-  // --- WhatsApp (US-21) -----------------------------------------------------------------------
+  // --- WhatsApp (US-21) and SMS (NT-07) -----------------------------------------------------
 
-  async startWhatsApp(user: AuthContext, phoneInput: string): Promise<{ phone: string }> {
+  async startWhatsApp(user: AuthContext, phoneInput: string) {
+    return this.startPhone(user, 'whatsapp', phoneInput);
+  }
+
+  async verifyWhatsApp(user: AuthContext, code: string) {
+    return this.verifyPhone(user, 'whatsapp', code);
+  }
+
+  async unlinkWhatsApp(userId: string) {
+    return this.unlinkPhone(userId, 'whatsapp');
+  }
+
+  /** Sends a one-time code to the number; nothing is stored in PostgreSQL before it is confirmed. */
+  async startPhone(
+    user: AuthContext,
+    channel: PhoneChannel,
+    phoneInput: string,
+  ): Promise<{ phone: string }> {
     const phone = normalizePhone(phoneInput);
     if (!phone) throw new BadRequestException({ error: 'phone_invalid' });
-    await this.limits.enforce('whatsapp.otp_user', user.userId);
-    await this.limits.enforce('whatsapp.otp_phone', this.crypto.blindIndex(phone).toString('hex'));
+    await this.limits.enforce(`${channel}.otp_user`, user.userId);
+    await this.limits.enforce(
+      `${channel}.otp_phone`,
+      this.crypto.blindIndex(phone).toString('hex'),
+    );
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     await this.valkey.set(
-      `wa:otp:${user.userId}`,
+      `${OTP_KEY[channel]}:${user.userId}`,
       JSON.stringify({ phone, codeHash: sha256(code).toString('hex'), attempts: 0 }),
       'EX',
       OTP_TTL,
     );
-    await this.whatsapp.sendTemplate({
-      to: phone.slice(1),
-      template: 'ps_otp',
-      lang: user.preferredLang,
-      params: [code],
-    });
+    if (channel === 'whatsapp') {
+      await this.whatsapp.sendTemplate({
+        to: phone.slice(1),
+        template: 'ps_otp',
+        lang: user.preferredLang,
+        params: [code],
+      });
+    } else {
+      await this.sms.send({
+        to: phone,
+        body: smsOtpText(user.preferredLang, code, this.env.WEB_BASE_URL),
+        tag: 'sms_otp',
+      });
+    }
     return { phone: maskPhone(phone) };
   }
 
-  /** Verifies the code, records the opt-in (Art. 6(1)(a)) and sends a test message. */
-  async verifyWhatsApp(user: AuthContext, code: string): Promise<void> {
-    const key = `wa:otp:${user.userId}`;
+  /** Verifies the code, records the opt-in (Art. 6(1)(a)) and sends a first message. */
+  async verifyPhone(user: AuthContext, channel: PhoneChannel, code: string): Promise<void> {
+    const key = `${OTP_KEY[channel]}:${user.userId}`;
     const raw = await this.valkey.get(key);
     if (!raw) throw new BadRequestException({ error: 'code_expired' });
     const pending = JSON.parse(raw) as { phone: string; codeHash: string; attempts: number };
@@ -187,56 +230,60 @@ export class ChannelsService {
       });
     }
     await this.valkey.del(key);
-    // Keep WhatsApp where the owner's order puts it (US-22).
+    // Keep the channel where the owner's order puts it (US-22).
     const order = await channelOrder(this.db, this.settings, user.userId);
     await this.db.transaction().execute(async (trx) => {
       await trx
         .deleteFrom('contact_channels')
         .where('user_id', '=', user.userId)
-        .where('type', '=', 'whatsapp')
+        .where('type', '=', channel)
         .execute();
       await trx
         .insertInto('contact_channels')
         .values({
           user_id: user.userId,
-          type: 'whatsapp',
+          type: channel,
           address_enc: this.crypto.encrypt(pending.phone),
           address_bidx: this.crypto.blindIndex(pending.phone),
           key_version: this.crypto.keyVersion,
-          priority: order.indexOf('whatsapp') + 1,
+          priority: order.indexOf(channel) + 1,
           verified_at: sql`now()`,
           opted_in_at: sql`now()`,
         })
         .execute();
       await trx
         .insertInto('consents')
-        .values({
-          user_id: user.userId,
-          purpose: 'whatsapp',
-          doc_version: WHATSAPP_CONSENT_VERSION,
-        })
+        .values({ user_id: user.userId, purpose: channel, doc_version: CONSENT_VERSION[channel] })
         .execute();
     });
-    await this.whatsapp.sendTemplate({
-      to: pending.phone.slice(1),
-      template: 'ps_test',
-      lang: user.preferredLang,
-      params: ['ParkShield'],
-    });
+    if (channel === 'whatsapp') {
+      await this.whatsapp.sendTemplate({
+        to: pending.phone.slice(1),
+        template: 'ps_test',
+        lang: user.preferredLang,
+        params: ['ParkShield'],
+      });
+    } else {
+      await this.sms.send({
+        to: pending.phone,
+        body: smsLinkedText(user.preferredLang),
+        tag: 'sms_linked',
+      });
+    }
   }
 
-  async unlinkWhatsApp(userId: string): Promise<void> {
+  async unlinkPhone(userId: string, channel: PhoneChannel): Promise<void> {
     await this.db.transaction().execute(async (trx) => {
       await trx
         .deleteFrom('contact_channels')
         .where('user_id', '=', userId)
-        .where('type', '=', 'whatsapp')
+        .where('type', '=', channel)
         .execute();
       await trx
         .updateTable('consents')
         .set({ withdrawn_at: sql`now()` })
         .where('user_id', '=', userId)
-        .where('purpose', '=', 'whatsapp')
+        .where('purpose', '=', channel)
         .where('withdrawn_at', 'is', null)
         .execute();
     });

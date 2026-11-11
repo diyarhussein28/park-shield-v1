@@ -163,7 +163,9 @@ product works offline. Production refuses to start with fakes (unless `APP_ENV=c
 | Provider                       | Env vars                                                                                                | Fake behaviour                          |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | Stripe (payments)              | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PLUS_YEARLY`, `STRIPE_PRICE_PREMIUM_YEARLY` | `/dev/checkout` simulates payment       |
-| Brevo (e-mail)                 | `BREVO_API_KEY`                                                                                         | `/dev/postfach` inbox                   |
+| E-mail: Brevo (default)        | `BREVO_API_KEY`, `MAIL_FROM`                                                                            | `/dev/postfach` inbox                   |
+| E-mail: SendGrid (optional)    | `MAIL_PROVIDER=sendgrid`, `SENDGRID_API_KEY`, `SENDGRID_REGION` (`global`/`eu`), `MAIL_FROM`            | `/dev/postfach` inbox                   |
+| SMS (Twilio)                   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` (sender ID, number or `MG…`)               | SMS in `/dev/postfach`                  |
 | WhatsApp (Twilio, default)     | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`, `TWILIO_CONTENT_*` (8)               | messages stored locally                 |
 | WhatsApp (360dialog, optional) | `WHATSAPP_PROVIDER=360dialog`, `D360_API_KEY`, `D360_BASE_URL`, `D360_WEBHOOK_SECRET`                   | messages stored locally                 |
 | Friendly Captcha               | `FRIENDLY_CAPTCHA_SITEKEY`, `FRIENDLY_CAPTCHA_API_KEY`, `NEXT_PUBLIC_FRIENDLY_CAPTCHA_SITEKEY`          | "Sicherheitsprüfung: lokal simuliert"   |
@@ -204,6 +206,13 @@ Stripe account settings the code relies on (test mode and live, set once per acc
 - Payment methods (Settings → Payment methods): card with Apple Pay and Google Pay, SEPA Direct
   Debit, PayPal, Link. Everything else off, including Klarna (no instalments at 10 €/year,
   `docs/02-architecture.md` §2).
+
+SMS (NT-07) go through the same Twilio account: `TWILIO_SMS_FROM` is an alphanumeric sender ID (max.
+11 characters, one-way, no registration needed in Germany), a Twilio number or a Messaging Service SID
+(`MG…`). SMS carry the reply-page link instead of buttons; each one counts against
+`limits.<plan>.sms_per_month` (Plus 5, Premium 10) and costs `sms.cost_micros`. Status callbacks arrive
+signed at `https://<domain>/v1/webhooks/twilio/sms` (locally only through a tunnel and
+`TWILIO_WEBHOOK_BASE_URL`).
 
 WhatsApp templates (DE and EN): `ps_alert`, `ps_followup`, `ps_test`, `ps_otp`; texts, variables
 and button order in [`docs/whatsapp-templates.md`](docs/whatsapp-templates.md). With Twilio each
@@ -363,7 +372,11 @@ Also:
 - [ ] **Twilio / WhatsApp:** Twilio account, Meta business verification through Twilio, sender
       number, display name, the four templates (Content Template Builder), the eight content SIDs,
       webhook URL (needs hosting or a tunnel).
-- [ ] **Brevo** (transactional e-mail) — deliberately skipped for now; fake inbox in use.
+- [ ] **E-mail provider:** Brevo (default) or SendGrid (`MAIL_PROVIDER=sendgrid`): account, verified
+      sender domain (SPF/DKIM), API key, `MAIL_FROM`.
+- [ ] **Twilio SMS:** upgraded Twilio account, Germany enabled under Messaging → Geo permissions,
+      `TWILIO_SMS_FROM` (alphanumeric sender ID `ParkShield`, a number or a Messaging Service), status
+      callback `https://<domain>/v1/webhooks/twilio/sms`.
 - [ ] **Print partner:** choose (Flyeralarm, WIRmachenDRUCK or local) and API vs. SFTP; an adapter
       must then be written (`PRINT_PARTNER`). Until then orders go to `.local/print-outbox`.
 - [ ] **Hosting:** Hetzner servers + domain (e.g. parkshield.de), then run Terraform + Ansible, add

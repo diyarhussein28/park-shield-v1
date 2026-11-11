@@ -219,14 +219,15 @@ test('WhatsApp: consent, code, test message, unlink (US-21)', async ({ page, req
   const email = uniqueEmail('wa');
   await signUp(page, request, email);
   await page.goto('/konto/benachrichtigungen');
+  const card = page.getByRole('region', { name: 'WhatsApp' });
   const phone = `0151${String(Date.now()).slice(-8)}`;
-  await page.getByLabel('Handynummer').fill(phone);
-  await page.getByRole('button', { name: 'Code per WhatsApp senden' }).click();
-  await expect(page.getByRole('alert').filter({ hasText: /\S/ })).toHaveText(
+  await card.getByLabel('Handynummer').fill(phone);
+  await card.getByRole('button', { name: 'Code per WhatsApp senden' }).click();
+  await expect(card.getByRole('alert').filter({ hasText: /\S/ })).toHaveText(
     /Bitte bestätigen Sie/,
   );
-  await page.getByLabel(/per WhatsApp erhalten/).check();
-  await page.getByRole('button', { name: 'Code per WhatsApp senden' }).click();
+  await card.getByLabel(/per WhatsApp erhalten/).check();
+  await card.getByRole('button', { name: 'Code per WhatsApp senden' }).click();
   await expect(page.getByText(/Wir haben einen Code an \+49 ••• \d{4} geschickt/)).toBeVisible();
 
   const to = `49${phone.slice(1)}`;
@@ -244,8 +245,8 @@ test('WhatsApp: consent, code, test message, unlink (US-21)', async ({ page, req
     )
     .toMatch(/^\d{6}$/);
   await expectAccessible(page);
-  await page.getByLabel('6-stelliger Code').fill(code);
-  await page.getByRole('button', { name: 'Bestätigen' }).click();
+  await card.getByLabel('6-stelliger Code').fill(code);
+  await card.getByRole('button', { name: 'Bestätigen' }).click();
   await expect(
     page.getByText('WhatsApp ist verbunden. Wir haben Ihnen eine Testnachricht geschickt.'),
   ).toBeVisible();
@@ -255,7 +256,45 @@ test('WhatsApp: consent, code, test message, unlink (US-21)', async ({ page, req
   };
   expect(messages.find((m) => m.to === to)?.template).toBe('ps_test');
 
-  await page.getByRole('button', { name: 'WhatsApp trennen' }).click();
+  await card.getByRole('button', { name: 'WhatsApp trennen' }).click();
   await expect(page.getByText('WhatsApp ist getrennt.', { exact: false })).toBeVisible();
-  await expect(page.getByLabel('Handynummer')).toBeVisible();
+  await expect(card.getByLabel('Handynummer')).toBeVisible();
+});
+
+test('SMS: consent, code, confirmation, unlink (NT-07)', async ({ page, request }) => {
+  test.setTimeout(60_000);
+  const email = uniqueEmail('sms');
+  await signUp(page, request, email);
+  await page.goto('/konto/benachrichtigungen');
+  const card = page.getByRole('region', { name: 'SMS' });
+  const phone = `0151${String(Date.now() + 7).slice(-8)}`;
+  await card.getByLabel('Handynummer').fill(phone);
+  await card.getByLabel(/per SMS erhalten/).check();
+  await card.getByRole('button', { name: 'Code per SMS senden' }).click();
+  await expect(card.getByText(/Wir haben einen Code an \+49 ••• \d{4} geschickt/)).toBeVisible();
+
+  const to = `+49${phone.slice(1)}`;
+  let code = '';
+  await expect
+    .poll(
+      async () => {
+        const { messages } = (await (await request.get(`${API_URL}/v1/dev/sms`)).json()) as {
+          messages: { to: string; tag: string; body: string }[];
+        };
+        const otp = messages.find((m) => m.to === to && m.tag === 'sms_otp');
+        code = /(\d{6})/.exec(otp?.body ?? '')?.[1] ?? '';
+        return code;
+      },
+      { timeout: 10_000 },
+    )
+    .toMatch(/^\d{6}$/);
+  await card.getByLabel('6-stelliger Code').fill(code);
+  await card.getByRole('button', { name: 'Bestätigen' }).click();
+  await expect(card.getByText('SMS ist eingerichtet.', { exact: false })).toBeVisible();
+  await expect(card.getByText(`Verbunden: +49 ••• ${phone.slice(-4)}`)).toBeVisible();
+  await expectAccessible(page);
+
+  await card.getByRole('button', { name: 'SMS abschalten' }).click();
+  await expect(card.getByText('SMS ist abgeschaltet.', { exact: false })).toBeVisible();
+  await expect(card.getByLabel('Handynummer')).toBeVisible();
 });

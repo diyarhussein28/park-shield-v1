@@ -32,8 +32,45 @@ export class BrevoMailer implements Mailer {
         htmlContent: mail.html,
         tags: [mail.tag],
       }),
+      signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) throw new Error(`Brevo send failed with HTTP ${res.status}`);
+  }
+}
+
+/** SendGrid (Twilio's e-mail service). `eu` sends through the EU data-residency endpoint. */
+export class SendGridMailer implements Mailer {
+  constructor(
+    private readonly apiKey: string,
+    private readonly from: string,
+    private readonly region: 'global' | 'eu' = 'global',
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
+
+  async send(mail: OutgoingMail): Promise<void> {
+    const host = this.region === 'eu' ? 'api.eu.sendgrid.com' : 'api.sendgrid.com';
+    const res = await this.fetchImpl(`https://${host}/v3/mail/send`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${this.apiKey}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: mail.to }] }],
+        from: parseSender(this.from),
+        subject: mail.subject,
+        // text/plain must come first (SendGrid API).
+        content: [
+          { type: 'text/plain', value: mail.text },
+          { type: 'text/html', value: mail.html },
+        ],
+        categories: [mail.tag],
+        // No click or open tracking: links stay as they are and nobody is tracked (hard rule 2).
+        tracking_settings: {
+          click_tracking: { enable: false, enable_text: false },
+          open_tracking: { enable: false },
+        },
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) throw new Error(`SendGrid send failed with HTTP ${res.status}`);
   }
 }
 

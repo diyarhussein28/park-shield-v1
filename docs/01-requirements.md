@@ -75,7 +75,7 @@ Urgent alerts go to all enabled channels at once and bypass quiet hours by defau
 | NT-04 | Track every message status (queued/sent/delivered/read/failed/suppressed) and cost in EUR via provider webhooks. | Must | 1 |
 | NT-05 | Monthly fair-use limits per plan. When exceeded, fall back to free Push and e-mail and notify the owner. | Must | 1 |
 | NT-06 | Push subscription removed after HTTP 410 or 5 consecutive errors; owner notified by e-mail to re-enable. | Must | 1 |
-| NT-07 | SMS as fallback (Premium). | Should | 2 |
+| NT-07 | SMS through Twilio for every paid plan (Plus 5, Premium 10 per month, `limits.<plan>.sms_per_month`), last in the default order; text with the reply-page link, opt-in with a one-time code. | Should | 1 |
 | NT-08 | Route to on-duty driver by schedule (Business). | Coming soon | after G3 |
 | NT-09 *(new)* | Follow-up after acknowledgement: on "Ich warte noch", send one reminder to the owner on the fastest channel, with fresh reply buttons. Never repeated. Escalation afterwards as in SC-14. | Must | 1 |
 | NT-10 *(new)* | Quick-reply handling: "In ca. 30 Min" postpones escalation by 30 min and shows that to the scanner; "Bin nicht in der Nähe" escalates immediately if escalation applies (NT-03), otherwise the scanner sees "Fahrer ist nicht in der Nähe" and the SC-13 guidance. Atomic state update, same as acknowledgement. Rules in `02-architecture.md` §3–4. | Must | 1 |

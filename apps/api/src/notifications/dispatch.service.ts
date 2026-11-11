@@ -9,12 +9,20 @@ import { SettingsService } from '../core/settings.service';
 import { CRYPTO, DB, ENV, LOGGER } from '../core/tokens';
 import type { ChannelType } from '../db/types.generated';
 import { MailService } from '../mail/mail.service';
-import { PUSH, WHATSAPP, type PushSender, type WhatsAppSender } from '../providers/ports';
+import {
+  PUSH,
+  SMS,
+  WHATSAPP,
+  type PushSender,
+  type SmsSender,
+  type WhatsAppSender,
+} from '../providers/ports';
 import { PreferencesService } from '../preferences/preferences.service';
 import { AckService, OWNER_REPLIES, type ReplyLinks } from './ack.service';
 import { FairUseService } from './fair-use.service';
 import { channelOrder, type OrderableChannel } from './channel-order';
 import { pushText, REPLY_LABELS, REPLY_SENT, type PushKind } from './push-texts';
+import { smsText } from './sms-texts';
 
 /** NT-06: a subscription is removed after HTTP 404/410 or this many consecutive failures. */
 export const PUSH_MAX_FAILURES = 5;
@@ -35,7 +43,7 @@ interface Message {
 }
 
 /** Order for the NT-09 reminder: fastest first, regardless of cost. */
-const FASTEST: OrderableChannel[] = ['webpush', 'whatsapp', 'email'];
+const FASTEST: OrderableChannel[] = ['webpush', 'whatsapp', 'sms', 'email'];
 
 /**
  * Delivers an alert to the owner (US-22, NT-01). Normal alerts go through the owner's channel order
@@ -56,6 +64,7 @@ export class DispatchService {
     @Inject(SettingsService) private readonly settings: SettingsService,
     @Inject(PUSH) private readonly push: PushSender,
     @Inject(WHATSAPP) private readonly whatsapp: WhatsAppSender,
+    @Inject(SMS) private readonly sms: SmsSender,
     @Inject(LOGGER) private readonly logger: Logger,
     @Inject(AckService) private readonly ack: AckService,
     @Inject(PreferencesService) private readonly preferences: PreferencesService,
@@ -185,7 +194,9 @@ export class DispatchService {
             ? await this.sendPush(alert, msg)
             : channel === 'email'
               ? await this.sendEmail(alert, msg)
-              : await this.sendWhatsApp(alert, msg);
+              : channel === 'sms'
+                ? await this.sendSms(alert, msg)
+                : await this.sendWhatsApp(alert, msg);
       } catch (err) {
         errors.push(err);
         outcome = 'failed';
@@ -492,6 +503,65 @@ export class DispatchService {
     } catch (err) {
       await this.finish(delivery.id, { ok: false, error: String(err) });
       await this.fairUse.release(alert.userId, 'whatsapp');
+      throw err;
+    }
+  }
+
+  /** NT-07: plain-text SMS with the reply-page link (no buttons). Metered like WhatsApp (US-27). */
+  private async sendSms(alert: AlertRow, msg: Message): Promise<Outcome> {
+    const channel = await this.db
+      .selectFrom('contact_channels')
+      .select(['address_enc'])
+      .where('user_id', '=', alert.userId)
+      .where('type', '=', 'sms')
+      .where('is_enabled', '=', true)
+      .where('verified_at', 'is not', null)
+      .where('opted_in_at', 'is not', null)
+      .executeTakeFirst();
+    if (!channel?.address_enc) return 'unavailable';
+    const provider = fakeProviders(this.env).sms ? 'dev' : 'twilio';
+    if (msg.dedupe && (await this.alreadySent(alert.id, 'sms'))) return 'already';
+    if (!(await this.enabled('sms'))) {
+      await this.record({
+        alertId: alert.id,
+        channel: 'sms',
+        provider,
+        status: 'suppressed',
+        reason: 'kill_switch',
+      });
+      return 'suppressed';
+    }
+    const owner = { id: alert.userId, email: alert.email, lang: alert.preferred_lang };
+    if (!(await this.fairUse.reserve(owner, 'sms'))) {
+      await this.record({
+        alertId: alert.id,
+        channel: 'sms',
+        provider,
+        status: 'suppressed',
+        reason: 'fair_use',
+      });
+      return 'suppressed';
+    }
+    const cost = Number(await this.settings.get('sms.cost_micros', 100_000));
+    const delivery = await this.record({
+      alertId: alert.id,
+      channel: 'sms',
+      provider,
+      status: 'queued',
+      costMicros: cost,
+    });
+    const values = this.alertValues(alert);
+    try {
+      const { messageId } = await this.sms.send({
+        to: this.crypto.decrypt(channel.address_enc),
+        body: smsText(alert.preferred_lang, msg.kind, values.type, values.nickname, msg.links.page),
+        tag: `sms_${msg.kind}`,
+      });
+      await this.finish(delivery.id, { ok: true, messageId });
+      return 'sent';
+    } catch (err) {
+      await this.finish(delivery.id, { ok: false, error: String(err) });
+      await this.fairUse.release(alert.userId, 'sms');
       throw err;
     }
   }

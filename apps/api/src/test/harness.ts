@@ -100,6 +100,7 @@ export async function addConfirmedContact(
 export async function createHarness(): Promise<Harness> {
   const env = loadEnv({
     STRIPE_SECRET_KEY: '',
+    MAIL_PROVIDER: 'brevo',
     BREVO_API_KEY: '',
     FRIENDLY_CAPTCHA_API_KEY: '',
     FRIENDLY_CAPTCHA_SITEKEY: '',
@@ -109,6 +110,7 @@ export async function createHarness(): Promise<Harness> {
     // Twilio stays a fake sender (no account SID); the token signs test webhooks.
     WHATSAPP_PROVIDER: 'twilio',
     TWILIO_ACCOUNT_SID: '',
+    TWILIO_SMS_FROM: '',
     TWILIO_AUTH_TOKEN: TEST_TWILIO_AUTH_TOKEN,
     TWILIO_WEBHOOK_BASE_URL: TEST_TWILIO_WEBHOOK_BASE,
     D360_WEBHOOK_SECRET: TEST_WA_WEBHOOK_SECRET,

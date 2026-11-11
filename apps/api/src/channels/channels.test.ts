@@ -6,12 +6,16 @@ import type { FieldCrypto } from '../core/crypto';
 import { CRYPTO } from '../core/tokens';
 import { DispatchService, PUSH_MAX_FAILURES } from '../notifications/dispatch.service';
 import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
+import { TWILIO_SMS_WEBHOOK_PATH } from '../providers/twilio-sms';
+import { twilioSignature } from '../providers/twilio-whatsapp';
 import {
   createHarness,
   lastMail,
   resetState,
   setSetting,
   signIn,
+  TEST_TWILIO_AUTH_TOKEN,
+  TEST_TWILIO_WEBHOOK_BASE,
   subscribe,
   TEST_WA_WEBHOOK_SECRET,
   UA_IPHONE,
@@ -119,6 +123,14 @@ const waInbox = async () =>
     to: string;
     template: string;
     params: string[];
+    messageId: string;
+  }[];
+
+const smsInbox = async () =>
+  (await h.app.inject({ method: 'GET', url: '/v1/dev/sms' })).json().messages as {
+    to: string;
+    body: string;
+    tag: string;
     messageId: string;
   }[];
 
@@ -454,5 +466,143 @@ describe('WhatsApp linking (US-21)', () => {
       status: 'suppressed',
       suppressed_reason: 'kill_switch',
     });
+  });
+});
+
+describe('SMS (NT-07)', () => {
+  async function linkSms(s: Session, phone = '0151 23456789') {
+    const start = await h.app.inject({
+      method: 'POST',
+      url: '/v1/channels/sms',
+      headers: s.headers,
+      payload: { phone, consent: true },
+    });
+    expect(start.statusCode).toBe(200);
+    const otp = (await smsInbox()).find((m) => m.tag === 'sms_otp')!;
+    const code = /(\d{6})/.exec(otp.body)![1]!;
+    return { start, otp, code };
+  }
+
+  it('links a number with an SMS code, records the opt-in and unlinks', async () => {
+    const s = await signIn(h, 'owner@example.de');
+    const noConsent = await h.app.inject({
+      method: 'POST',
+      url: '/v1/channels/sms',
+      headers: s.headers,
+      payload: { phone: '0151 23456789' },
+    });
+    expect(noConsent.statusCode).toBe(400);
+
+    const { start, otp, code } = await linkSms(s);
+    expect(start.json().phone).toBe('+49 ••• 6789');
+    expect(otp.to).toBe('+4915123456789');
+    expect(otp.body).toContain('ParkShield-Code');
+    const ok = await h.app.inject({
+      method: 'POST',
+      url: '/v1/channels/sms/verify',
+      headers: s.headers,
+      payload: { code },
+    });
+    expect(ok.statusCode).toBe(200);
+    expect((await smsInbox())[0]?.tag).toBe('sms_linked');
+    const channel = await h.db.selectFrom('contact_channels').selectAll().executeTakeFirstOrThrow();
+    expect(channel).toMatchObject({ type: 'sms' });
+    expect(channel.opted_in_at).not.toBeNull();
+    expect(channel.address_enc!.toString('latin1')).not.toContain('15123456789');
+    const consent = await h.db.selectFrom('consents').selectAll().executeTakeFirstOrThrow();
+    expect(consent).toMatchObject({ purpose: 'sms', withdrawn_at: null });
+    const overview = (
+      await h.app.inject({ method: 'GET', url: '/v1/channels', headers: s.headers })
+    ).json();
+    expect(overview.sms.phone).toBe('+49 ••• 6789');
+    expect(overview.whatsapp).toBeNull();
+    expect(overview.order).toEqual(['webpush', 'email', 'whatsapp', 'sms']);
+
+    await h.app.inject({ method: 'DELETE', url: '/v1/channels/sms', headers: s.headers });
+    expect(await h.db.selectFrom('contact_channels').selectAll().execute()).toHaveLength(0);
+    const withdrawn = await h.db
+      .selectFrom('consents')
+      .select('withdrawn_at')
+      .executeTakeFirstOrThrow();
+    expect(withdrawn.withdrawn_at).not.toBeNull();
+  });
+
+  it('limits SMS code requests per user', async () => {
+    const s = await signIn(h, 'owner@example.de');
+    for (let i = 0; i < 3; i++) await linkSms(s);
+    const fourth = await h.app.inject({
+      method: 'POST',
+      url: '/v1/channels/sms',
+      headers: s.headers,
+      payload: { phone: '0151 23456789', consent: true },
+    });
+    expect(fourth.statusCode).toBe(429);
+    expect(fourth.json().limit).toBe('sms.otp_user');
+  });
+
+  it('texts urgent alerts with the reply link and cost, and tracks signed status callbacks', async () => {
+    const { s, code: decal } = await vehicleWithCode();
+    const { code } = await linkSms(s);
+    await h.app.inject({
+      method: 'POST',
+      url: '/v1/channels/sms/verify',
+      headers: s.headers,
+      payload: { code },
+    });
+    const id = await alert(decal, 'blocking');
+    await h.app.get(DispatchService).dispatch(id);
+    const msg = (await smsInbox())[0]!;
+    expect(msg).toMatchObject({ tag: 'sms_alert', to: '+4915123456789' });
+    expect(msg.body).toContain('Fahrzeug versperrt Ausfahrt (Der Blaue)');
+    expect(msg.body).toMatch(/\/antwort#t=[A-Za-z0-9_-]{66}$/);
+    const row = (await deliveries(id)).find((r) => r.channel === 'sms')!;
+    expect(row).toMatchObject({
+      status: 'sent',
+      cost_micros_eur: 100_000,
+      provider_message_id: msg.messageId,
+    });
+
+    const url = `${TEST_TWILIO_WEBHOOK_BASE}${TWILIO_SMS_WEBHOOK_PATH}`;
+    const params = { MessageSid: msg.messageId, MessageStatus: 'delivered' };
+    const post = (signature: string) =>
+      h.app.inject({
+        method: 'POST',
+        url: TWILIO_SMS_WEBHOOK_PATH,
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          'x-twilio-signature': signature,
+        },
+        payload: new URLSearchParams(params).toString(),
+      });
+    expect((await post('forged')).statusCode).toBe(403);
+    const ok = await post(twilioSignature(TEST_TWILIO_AUTH_TOKEN, url, params));
+    expect(ok.statusCode).toBe(200);
+    expect((await deliveries(id)).find((r) => r.channel === 'sms')!.status).toBe('delivered');
+  });
+
+  it('stops at the monthly SMS limit and falls through to the other channels', async () => {
+    const { s, code: decal } = await vehicleWithCode();
+    const { code } = await linkSms(s);
+    await h.app.inject({
+      method: 'POST',
+      url: '/v1/channels/sms/verify',
+      headers: s.headers,
+      payload: { code },
+    });
+    await setSetting(h, 'limits.plus.sms_per_month', 1);
+    const first = await alert(decal, 'blocking', '198.51.100.9');
+    await h.app.get(DispatchService).dispatch(first);
+    const second = await alert(decal, 'blocking', '192.0.2.44');
+    await h.app.get(DispatchService).dispatch(second);
+    const rows = await deliveries(second);
+    expect(rows.find((r) => r.channel === 'sms')).toMatchObject({
+      status: 'suppressed',
+      suppressed_reason: 'fair_use',
+    });
+    expect(rows.find((r) => r.channel === 'email')?.status).toBe('sent');
+    const usage = (
+      await h.app.inject({ method: 'GET', url: '/v1/me/usage', headers: s.headers })
+    ).json();
+    expect(usage.sms).toEqual({ used: 1, limit: 1 });
   });
 });

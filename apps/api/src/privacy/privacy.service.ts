@@ -247,6 +247,13 @@ export class PrivacyService {
             verifiedAt: fmt(c.verified_at),
             optedInAt: fmt(c.opted_in_at),
           })),
+        sms: channels
+          .filter((c) => c.type === 'sms' && c.address_enc)
+          .map((c) => ({
+            phone: this.dec(c.address_enc),
+            verifiedAt: fmt(c.verified_at),
+            optedInAt: fmt(c.opted_in_at),
+          })),
         order: channels.map((c) => ({ type: c.type, priority: c.priority })),
         pushDevices: push.map((p) => ({
           platform: p.platform,

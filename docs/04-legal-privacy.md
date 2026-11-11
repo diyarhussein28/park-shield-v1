@@ -91,7 +91,8 @@ The co-driver needs their own account (no subscription) and must explicitly acce
 | Print partner (e.g. Flyeralarm, WIRmachenDRUCK, local printer) | Printing and shipping | Germany | Address deletion request via e-mail/SFTP with confirmation. AVV (receives shipping address) |
 | Sentry | Error tracking | EU (Frankfurt) | Usually not applicable (PII scrubbing); recorded as `not_applicable` with reason |
 | Friendly Captcha | Captcha | Germany | No personal data linked to the user |
-| seven.io / Twilio | SMS and masked calls (Phase 2) | Germany / US (DPF) | Via API depending on chosen vendor; technical spike in Phase 2 |
+| Twilio | SMS (NT-07, opt-in with a one-time code) | Twilio Ireland Limited, Dublin (US transfer under EU-US DPF and SCCs) | Same Twilio deletion request as WhatsApp. Masked calls stay Phase 2. |
+| SendGrid (optional) | E-mail instead of Brevo when `MAIL_PROVIDER=sendgrid` | Twilio Ireland Limited / SendGrid (US transfer under DPF and SCCs; EU data residency with `SENDGRID_REGION=eu`) | Deletion via SendGrid support; click and open tracking are switched off in code. |
 | Mistral | Support assistant (Phase 2) | France | No personal data in requests |
 
 ## 7. Identity verification for GDPR requests *(new)*

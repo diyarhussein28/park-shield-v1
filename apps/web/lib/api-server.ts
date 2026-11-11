@@ -26,7 +26,7 @@ export interface PushDevice {
   lastOkAt: string | null;
 }
 
-export type OrderableChannel = 'webpush' | 'email' | 'whatsapp';
+export type OrderableChannel = 'webpush' | 'email' | 'whatsapp' | 'sms';
 
 export interface EmergencyContact {
   id: string;
@@ -53,6 +53,7 @@ export interface ChannelsOverview {
   email: { address: string };
   push: { publicKey: string; devices: PushDevice[] };
   whatsapp: { phone: string; verifiedAt: string; enabled: boolean } | null;
+  sms: { phone: string; verifiedAt: string; enabled: boolean } | null;
 }
 
 export interface QuietRule {
@@ -122,6 +123,7 @@ export interface DeliveryHelp {
 
 export interface Usage {
   whatsapp: { used: number; limit: number };
+  sms: { used: number; limit: number };
 }
 
 export interface Me {

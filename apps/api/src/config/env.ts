@@ -28,7 +28,18 @@ export const envSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().default(''),
   STRIPE_PRICE_PLUS_YEARLY: z.string().default(''),
   STRIPE_PRICE_PREMIUM_YEARLY: z.string().default(''),
+  // E-mail provider: Brevo (EU, default) or SendGrid (Twilio's e-mail service). Empty key: dev inbox.
+  MAIL_PROVIDER: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.enum(['brevo', 'sendgrid']).default('brevo'),
+  ),
   BREVO_API_KEY: z.string().default(''),
+  SENDGRID_API_KEY: z.string().default(''),
+  /** eu = api.eu.sendgrid.com (EU data residency, needs an EU subuser); global = api.sendgrid.com. */
+  SENDGRID_REGION: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.enum(['global', 'eu']).default('global'),
+  ),
   MAIL_FROM: z.string().default('ParkShield <hallo@parkshield.de>'),
   FRIENDLY_CAPTCHA_SITEKEY: z.string().default(''),
   FRIENDLY_CAPTCHA_API_KEY: z.string().default(''),
@@ -51,6 +62,11 @@ export const envSchema = z.object({
   TWILIO_AUTH_TOKEN: z.string().default(''),
   /** The WhatsApp sender number in E.164 form, e.g. +4915123456789. */
   TWILIO_WHATSAPP_FROM: z.string().default(''),
+  /**
+   * SMS sender (NT-07): an alphanumeric sender ID (max. 11 characters, e.g. ParkShield), a Twilio
+   * number in E.164 form, or a Messaging Service SID (MG…). Uses the same Twilio account.
+   */
+  TWILIO_SMS_FROM: z.string().default(''),
   /** Public https origin Twilio calls (status callbacks, button replies); empty: WEB_BASE_URL. */
   TWILIO_WEBHOOK_BASE_URL: z.string().default(''),
   // Content SIDs (HX…) of the approved templates, one per template and language.
@@ -85,13 +101,14 @@ export const envSchema = z.object({
 /** Providers without keys fall back to local fakes, which are never allowed in production. */
 export function fakeProviders(env: Env) {
   return {
-    mail: !env.BREVO_API_KEY,
+    mail: env.MAIL_PROVIDER === 'sendgrid' ? !env.SENDGRID_API_KEY : !env.BREVO_API_KEY,
     captcha: !env.FRIENDLY_CAPTCHA_API_KEY || !env.FRIENDLY_CAPTCHA_SITEKEY,
     payments: !env.STRIPE_SECRET_KEY,
     whatsapp:
       env.WHATSAPP_PROVIDER === 'twilio'
         ? !env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN || !env.TWILIO_WHATSAPP_FROM
         : !env.D360_API_KEY,
+    sms: !env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN || !env.TWILIO_SMS_FROM,
     // No real print partner adapter yet: it is built once the partner is chosen in Phase 0.
     print: !env.PRINT_PARTNER,
     auditBucket: !env.AUDIT_BUCKET,

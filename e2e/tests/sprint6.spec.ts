@@ -153,12 +153,27 @@ test('owner changes the channel order (US-22, OW-05)', async ({ page, request })
   await ownerWithActiveDecal(page, request, uniqueEmail('order'));
   await page.goto('/konto/benachrichtigungen');
   const order = page.getByRole('list', { name: 'Reihenfolge bei normalen Warnungen' });
-  await expect(order.getByRole('listitem')).toHaveText([/1\. Push/, /2\. E-Mail/, /3\. WhatsApp/]);
+  await expect(order.getByRole('listitem')).toHaveText([
+    /1\. Push/,
+    /2\. E-Mail/,
+    /3\. WhatsApp/,
+    /4\. SMS/,
+  ]);
   await expect(page.getByRole('button', { name: 'Push nach oben' })).toBeDisabled();
   await page.getByRole('button', { name: 'E-Mail nach oben' }).click();
   await expect(page.getByText('Reihenfolge gespeichert.')).toBeVisible();
-  await expect(order.getByRole('listitem')).toHaveText([/1\. E-Mail/, /2\. Push/, /3\. WhatsApp/]);
+  await expect(order.getByRole('listitem')).toHaveText([
+    /1\. E-Mail/,
+    /2\. Push/,
+    /3\. WhatsApp/,
+    /4\. SMS/,
+  ]);
   await page.reload();
-  await expect(order.getByRole('listitem')).toHaveText([/1\. E-Mail/, /2\. Push/, /3\. WhatsApp/]);
+  await expect(order.getByRole('listitem')).toHaveText([
+    /1\. E-Mail/,
+    /2\. Push/,
+    /3\. WhatsApp/,
+    /4\. SMS/,
+  ]);
   await expectAccessible(page);
 });

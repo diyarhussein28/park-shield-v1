@@ -25,6 +25,7 @@ import { simplePdf } from '../providers/pdf';
 import { PAYMENTS } from '../providers/ports';
 import { DEV_TICKETS_KEY } from '../providers/support-desk';
 import { DEV_WHATSAPP_KEY } from '../providers/whatsapp';
+import { DEV_SMS_KEY } from '../providers/twilio-sms';
 import { TokensService } from '../vehicles/tokens.service';
 
 export const DEV_PUSH_KEY = 'dev:push';
@@ -57,6 +58,12 @@ export class DevController {
   @Get('whatsapp')
   async whatsappInbox() {
     const rows = await this.valkey.lrange(DEV_WHATSAPP_KEY, 0, 49);
+    return { messages: rows.map((r) => JSON.parse(r) as unknown) };
+  }
+
+  @Get('sms')
+  async smsInbox() {
+    const rows = await this.valkey.lrange(DEV_SMS_KEY, 0, 49);
     return { messages: rows.map((r) => JSON.parse(r) as unknown) };
   }
 

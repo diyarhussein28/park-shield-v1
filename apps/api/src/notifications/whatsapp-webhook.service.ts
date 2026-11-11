@@ -68,9 +68,12 @@ export class WhatsAppWebhookService {
    * Twilio (form-encoded, signature checked by the controller): a status callback carries MessageSid +
    * MessageStatus; a quick-reply tap is an inbound message with ButtonPayload.
    */
-  async handleTwilio(params: Record<string, unknown>): Promise<number> {
+  async handleTwilio(
+    params: Record<string, unknown>,
+    channel: 'whatsapp' | 'sms' = 'whatsapp',
+  ): Promise<number> {
     const str = (k: string) => (typeof params[k] === 'string' ? (params[k] as string) : '');
-    const payload = REPLY_PAYLOAD.exec(str('ButtonPayload'));
+    const payload = channel === 'whatsapp' ? REPLY_PAYLOAD.exec(str('ButtonPayload')) : null;
     if (payload) {
       try {
         await this.ack.reply(payload[1]!, payload[2] as OwnerReply);
@@ -87,7 +90,8 @@ export class WhatsAppWebhookService {
       status,
       ...(str('ErrorCode') ? { errors: [{ code: str('ErrorCode') }] } : {}),
     });
-    return s.success ? this.apply(s.data) : 0;
+    // SMS has no read receipts: "read" would never come, so it is not expected either.
+    return s.success ? this.apply(s.data, channel) : 0;
   }
 
   async handle(body: unknown): Promise<number> {
@@ -151,12 +155,15 @@ export class WhatsAppWebhookService {
     return rows.length;
   }
 
-  private async apply(s: z.infer<typeof Status>): Promise<number> {
+  private async apply(
+    s: z.infer<typeof Status>,
+    channel: 'whatsapp' | 'sms' = 'whatsapp',
+  ): Promise<number> {
     const status = s.status;
     const at = s.timestamp ? new Date(s.timestamp * 1000) : new Date();
     const base = this.db
       .updateTable('alert_deliveries')
-      .where('channel', '=', 'whatsapp')
+      .where('channel', '=', channel)
       .where('provider_message_id', '=', s.id);
     if (status === 'failed') {
       const r = await base

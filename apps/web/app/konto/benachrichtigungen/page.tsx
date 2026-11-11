@@ -16,7 +16,7 @@ export default async function NotificationsPage() {
     <NotificationsView
       initial={res.data}
       quiet={quiet.data ?? { timezone: 'Europe/Berlin', rules: [] }}
-      usage={usage.data ?? { whatsapp: { used: 0, limit: 0 } }}
+      usage={usage.data ?? { whatsapp: { used: 0, limit: 0 }, sms: { used: 0, limit: 0 } }}
     />
   );
 }

@@ -7,7 +7,7 @@ import { LOGGER, VALKEY } from '../core/tokens';
 import { DevCaptcha, FriendlyCaptcha } from './captcha';
 import { FakePayments } from './fake-payments';
 import { FakePrintPartner } from './fake-print';
-import { BrevoMailer, DevMailer } from './mailer';
+import { BrevoMailer, DevMailer, SendGridMailer } from './mailer';
 import { LocalAuditBucket, S3AuditBucket } from './audit-bucket';
 import {
   AUDIT_BUCKET,
@@ -16,6 +16,7 @@ import {
   PAYMENTS,
   PRINT,
   PUSH,
+  SMS,
   SUPPORT_DESK,
   WHATSAPP,
 } from './ports';
@@ -24,6 +25,7 @@ import { VapidPushSender } from './push';
 import { Dialog360Sender, DevWhatsAppSender } from './whatsapp';
 import { contentSidsFromEnv, twilioWebhookUrl, TwilioWhatsAppSender } from './twilio-whatsapp';
 import { StripePayments } from './stripe-payments';
+import { DevSmsSender, TwilioSmsSender, twilioSmsWebhookUrl } from './twilio-sms';
 
 @Global()
 @Module({})
@@ -39,7 +41,9 @@ export class ProvidersModule {
           useFactory: (valkey: Redis, logger: Logger) =>
             fakes.mail
               ? new DevMailer(valkey, logger)
-              : new BrevoMailer(env.BREVO_API_KEY, env.MAIL_FROM),
+              : env.MAIL_PROVIDER === 'sendgrid'
+                ? new SendGridMailer(env.SENDGRID_API_KEY, env.MAIL_FROM, env.SENDGRID_REGION)
+                : new BrevoMailer(env.BREVO_API_KEY, env.MAIL_FROM),
         },
         {
           provide: CAPTCHA,
@@ -99,6 +103,19 @@ export class ProvidersModule {
                 : new Dialog360Sender(env.D360_API_KEY, env.D360_BASE_URL),
         },
         {
+          provide: SMS,
+          inject: [VALKEY, LOGGER],
+          useFactory: (valkey: Redis, logger: Logger) =>
+            fakes.sms
+              ? new DevSmsSender(valkey, logger)
+              : new TwilioSmsSender(
+                  env.TWILIO_ACCOUNT_SID,
+                  env.TWILIO_AUTH_TOKEN,
+                  env.TWILIO_SMS_FROM,
+                  twilioSmsWebhookUrl(env),
+                ),
+        },
+        {
           provide: AUDIT_BUCKET,
           useFactory: () =>
             fakes.auditBucket
@@ -122,7 +139,7 @@ export class ProvidersModule {
               : new ZammadDesk(env.ZAMMAD_URL, env.ZAMMAD_TOKEN, env.ZAMMAD_GROUP),
         },
       ],
-      exports: [MAILER, CAPTCHA, PAYMENTS, PRINT, PUSH, WHATSAPP, AUDIT_BUCKET, SUPPORT_DESK],
+      exports: [MAILER, CAPTCHA, PAYMENTS, PRINT, PUSH, WHATSAPP, SMS, AUDIT_BUCKET, SUPPORT_DESK],
     };
   }
 }

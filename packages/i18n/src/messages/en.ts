@@ -360,6 +360,18 @@ const en: typeof de = {
     waCodeWrong:
       'The code is wrong. {left, plural, =0 {Please request a new one.} one {# attempt left.} other {# attempts left.}}',
     waCodeExpired: 'The code has expired. Please request a new one.',
+    smsTitle: 'SMS',
+    smsIntro:
+      'Alerts as a text message with a link to reply. Works without mobile internet too. Nobody who scans sees your number.',
+    smsUsage:
+      'This month: {used} of {limit} text messages. After that, alerts reach you on your other channels.',
+    smsConsent:
+      'I want to receive alerts and notices about my vehicles by SMS. I can turn this off here at any time.',
+    smsConsentRequired: 'Please confirm that you want to receive messages by SMS.',
+    smsSendCode: 'Send code by SMS',
+    smsLinkedNow: 'SMS is set up. We sent you a confirmation.',
+    smsUnlink: 'Turn off SMS',
+    smsUnlinked: 'SMS is turned off. We will not text you any more.',
     orderTitle: 'Order for normal alerts',
     orderIntro:
       'We try the channels one after another and stop at the first one that works. If one fails, we move straight to the next.',
@@ -369,7 +381,7 @@ const en: typeof de = {
     orderSaved: 'Order saved.',
     orderNotSetUp: 'not set up yet',
     channelName:
-      '{channel, select, webpush {Push} email {E-mail} whatsapp {WhatsApp} other {{channel}}}',
+      '{channel, select, webpush {Push} email {E-mail} whatsapp {WhatsApp} sms {SMS} other {{channel}}}',
   },
   history: {
     title: 'History',
@@ -808,7 +820,8 @@ const en: typeof de = {
     cancel: 'Cancel',
     sessionGone: 'This test payment has expired or was already completed.',
     inboxTitle: 'Local inbox',
-    inboxIntro: 'E-mails sent without a Brevo key. Newest first.',
+    inboxIntro:
+      'E-mails, text messages and WhatsApp messages sent without provider keys. Newest first.',
     inboxEmpty: 'No e-mails yet.',
     to: 'To: {to}',
   },
@@ -1377,12 +1390,14 @@ const en: typeof de = {
     k_limits_plus_vehicles: 'Plus: vehicles',
     k_limits_plus_emergency_contacts: 'Plus: emergency contacts',
     k_limits_plus_whatsapp_per_month: 'Plus: WhatsApp alerts per month',
+    k_limits_plus_sms_per_month: 'Plus: SMS per month',
     k_limits_premium_vehicles: 'Premium: vehicles',
     k_limits_premium_emergency_contacts: 'Premium: emergency contacts',
     k_limits_premium_whatsapp_per_month: 'Premium: WhatsApp alerts per month',
     k_limits_premium_sms_per_month: 'Premium: SMS per month',
     k_fair_use_warn_percent: 'Tell the customer from (% of the allowance)',
     k_whatsapp_cost_micros: 'Cost per WhatsApp message (micro-euros)',
+    k_sms_cost_micros: 'Cost per SMS (micro-euros)',
     k_plans_premium_purchasable: 'Premium can be bought',
     k_abuse_code_alerts_per_hour: 'Pattern: alerts per code and hour',
     k_abuse_scanner_vehicles_per_day: 'Pattern: vehicles per scanner and day',

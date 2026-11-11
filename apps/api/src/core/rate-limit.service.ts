@@ -44,6 +44,9 @@ export const RATE_LIMITS = {
   'report.fake_ip': { max: 5, windowSeconds: 3600 },
   'whatsapp.otp_user': { max: 3, windowSeconds: 3600 },
   'whatsapp.otp_phone': { max: 5, windowSeconds: 86_400 },
+  // NT-07: every SMS code costs money and reaches a third party's phone if mistyped.
+  'sms.otp_user': { max: 3, windowSeconds: 3600 },
+  'sms.otp_phone': { max: 5, windowSeconds: 86_400 },
   'magic_link.ip': { max: 30, windowSeconds: 3600 },
   'magic_link.email': { max: 5, windowSeconds: 3600 },
   'cancel.ip': { max: 10, windowSeconds: 3600 },

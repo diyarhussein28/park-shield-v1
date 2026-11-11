@@ -8,7 +8,8 @@ import { SettingsService } from '../core/settings.service';
 import { DB, ENV, LOGGER } from '../core/tokens';
 import { MailService } from '../mail/mail.service';
 
-export type MeteredChannel = 'whatsapp';
+export type MeteredChannel = 'whatsapp' | 'sms';
+const CHANNEL_NAME: Record<MeteredChannel, string> = { whatsapp: 'WhatsApp', sms: 'SMS' };
 
 /** Current month as YYYY-MM-01 in German time (counters reset at local midnight on the 1st). */
 export function usagePeriod(now = new Date()): string {
@@ -24,7 +25,7 @@ export function usagePeriod(now = new Date()): string {
 
 /**
  * Monthly fair-use limits per paid channel (NT-05, US-27). Limits come from the plan, overridable in
- * app_settings (`limits.<plan>.whatsapp_per_month`). The counter is reserved atomically before sending,
+ * app_settings (`limits.<plan>.<channel>_per_month`). The counter is reserved atomically before sending,
  * so concurrent alerts cannot overshoot; a failed send gives the unit back. At the warning threshold
  * and at the limit, the owner gets one e-mail per month; above the limit the channel is skipped and
  * the alert falls through to Push and e-mail.
@@ -46,15 +47,20 @@ export class FairUseService {
   }
 
   async usage(userId: string) {
-    const limit = await this.limitFor(userId, 'whatsapp');
-    const row = await this.db
-      .selectFrom('usage_counters')
-      .select('value')
-      .where('subject_id', '=', userId)
-      .where('period', '=', sql<Date>`${usagePeriod()}::date`)
-      .where('metric', '=', 'whatsapp')
-      .executeTakeFirst();
-    return { whatsapp: { used: row?.value ?? 0, limit } };
+    const [whatsapp, sms] = await Promise.all(
+      (['whatsapp', 'sms'] as const).map(async (channel) => {
+        const limit = await this.limitFor(userId, channel);
+        const row = await this.db
+          .selectFrom('usage_counters')
+          .select('value')
+          .where('subject_id', '=', userId)
+          .where('period', '=', sql<Date>`${usagePeriod()}::date`)
+          .where('metric', '=', channel)
+          .executeTakeFirst();
+        return { used: row?.value ?? 0, limit };
+      }),
+    );
+    return { whatsapp: whatsapp!, sms: sms! };
   }
 
   /** true = within the limit and counted; false = limit reached (the caller suppresses the channel). */
@@ -73,12 +79,12 @@ export class FairUseService {
       RETURNING value`.execute(this.db);
     const used = row.rows[0]?.value;
     if (used === undefined) {
-      await this.notifyOnce(owner, 'fair_use_reached', period, { used: limit, limit });
+      await this.notifyOnce(owner, channel, 'fair_use_reached', period, { used: limit, limit });
       return false;
     }
     const warnPercent = Number(await this.settings.get('fair_use.warn_percent', 80));
     if (used >= Math.ceil((limit * warnPercent) / 100) && used < limit) {
-      await this.notifyOnce(owner, 'fair_use_warning', period, { used, limit });
+      await this.notifyOnce(owner, channel, 'fair_use_warning', period, { used, limit });
     }
     return true;
   }
@@ -96,14 +102,17 @@ export class FairUseService {
 
   private async notifyOnce(
     owner: { id: string; email: string; lang: 'de' | 'en' },
+    channel: MeteredChannel,
     template: 'fair_use_warning' | 'fair_use_reached',
     period: string,
     values: { used: number; limit: number },
   ) {
-    // The marker row makes the mail once-per-month, even with concurrent alerts.
+    // The marker row makes the mail once-per-month per channel, even with concurrent alerts.
+    // WhatsApp keeps its original marker name so existing counters stay valid.
+    const marker = channel === 'whatsapp' ? template : `${template}:${channel}`;
     const marked = await sql`
       INSERT INTO usage_counters (subject_id, period, metric, value)
-      VALUES (${owner.id}, ${period}::date, ${template}, 1)
+      VALUES (${owner.id}, ${period}::date, ${marker}, 1)
       ON CONFLICT DO NOTHING RETURNING value`.execute(this.db);
     if (!marked.rows.length) return;
     await this.mail
@@ -111,7 +120,7 @@ export class FairUseService {
         to: owner.email,
         template,
         locale: owner.lang,
-        values: { ...values, channel: 'WhatsApp' },
+        values: { ...values, channel: CHANNEL_NAME[channel] },
         actionUrl: `${this.env.WEB_BASE_URL}/konto/benachrichtigungen`,
       })
       .catch((err: unknown) => this.logger.warn({ err: String(err) }, 'fair-use mail failed'));

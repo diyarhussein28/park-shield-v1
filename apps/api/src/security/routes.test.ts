@@ -36,6 +36,10 @@ const PUBLIC: Record<string, Control> = {
     kind: 'signed',
     what: 'X-Twilio-Signature (HMAC-SHA1 with the auth token)',
   },
+  'POST /v1/webhooks/twilio/sms': {
+    kind: 'signed',
+    what: 'X-Twilio-Signature (HMAC-SHA1 with the auth token)',
+  },
   'POST /v1/business-waitlist': {
     kind: 'rate',
     limits: ['waitlist.ip', 'waitlist.email'],

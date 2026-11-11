@@ -196,7 +196,7 @@ describe('channel order and fallback (US-22, NT-01, NT-12)', () => {
     const { s, code } = await vehicleWithCode();
     await registerPush(s, `${pushBase}/ok/1`);
     const overview = await h.app.inject({ method: 'GET', url: '/v1/channels', headers: s.headers });
-    expect(overview.json().order).toEqual(['webpush', 'email', 'whatsapp']);
+    expect(overview.json().order).toEqual(['webpush', 'email', 'whatsapp', 'sms']);
 
     await setSetting(h, 'channels.order', ['email', 'webpush', 'whatsapp']);
     const a = await alert(code);
@@ -207,17 +207,17 @@ describe('channel order and fallback (US-22, NT-01, NT-12)', () => {
       method: 'PUT',
       url: '/v1/channels/order',
       headers: s.headers,
-      payload: { order: ['email', 'email', 'whatsapp'] },
+      payload: { order: ['email', 'email', 'whatsapp', 'sms'] },
     });
     expect(bad.statusCode).toBe(400);
     const saved = await h.app.inject({
       method: 'PUT',
       url: '/v1/channels/order',
       headers: s.headers,
-      payload: { order: ['whatsapp', 'webpush', 'email'] },
+      payload: { order: ['whatsapp', 'sms', 'webpush', 'email'] },
     });
-    expect(saved.json().order).toEqual(['whatsapp', 'webpush', 'email']);
-    // WhatsApp is not linked, so the first channel that works is Push.
+    expect(saved.json().order).toEqual(['whatsapp', 'sms', 'webpush', 'email']);
+    // WhatsApp and SMS are not linked, so the first channel that works is Push.
     const b = await alert(code);
     await h.app.get(DispatchService).dispatch(b.alertId);
     expect((await ownerChannels(b.alertId)).map((d) => d.channel)).toEqual(['webpush']);

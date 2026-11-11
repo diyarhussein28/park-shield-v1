@@ -33,11 +33,20 @@ interface WhatsAppMessage {
   sentAt: string;
 }
 
-/** Local inbox for mails and WhatsApp messages sent while the provider keys are empty. */
+interface SmsMessage {
+  to: string;
+  body: string;
+  tag: string;
+  messageId: string;
+  sentAt: string;
+}
+
+/** Local inbox for mails, SMS and WhatsApp messages sent while the provider keys are empty. */
 export default function DevInbox() {
   const { t } = useI18n();
   const [mails, setMails] = useState<Mail[] | null>(null);
   const [whatsapp, setWhatsapp] = useState<WhatsAppMessage[]>([]);
+  const [sms, setSms] = useState<SmsMessage[]>([]);
   useEffect(() => {
     const load = () =>
       Promise.all([
@@ -48,6 +57,10 @@ export default function DevInbox() {
         api<{ messages: WhatsAppMessage[] }>('/v1/dev/whatsapp').then(
           (r) => setWhatsapp(r.messages),
           () => setWhatsapp([]),
+        ),
+        api<{ messages: SmsMessage[] }>('/v1/dev/sms').then(
+          (r) => setSms(r.messages),
+          () => setSms([]),
         ),
       ]);
     void load();
@@ -61,6 +74,26 @@ export default function DevInbox() {
         <Stack gap={4}>
           <Heading level={1}>{t('dev.inboxTitle')}</Heading>
           <Text muted>{t('dev.inboxIntro')}</Text>
+          {sms.length > 0 && (
+            <section aria-labelledby="sms-h">
+              <Heading level={2} id="sms-h" className="mb-3 text-xl">
+                SMS
+              </Heading>
+              <ul className="flex flex-col gap-2">
+                {sms.map((m) => (
+                  <li key={m.messageId}>
+                    <Card>
+                      <div className="whitespace-pre-wrap wrap-anywhere">{linkify(m.body)}</div>
+                      <Text muted className="text-sm">
+                        {t('dev.to', { to: m.to })} · {new Date(m.sentAt).toLocaleString()} ·{' '}
+                        {m.tag}
+                      </Text>
+                    </Card>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           {whatsapp.length > 0 && (
             <section aria-labelledby="wa-h">
               <Heading level={2} id="wa-h" className="mb-3 text-xl">

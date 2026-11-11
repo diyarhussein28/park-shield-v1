@@ -254,7 +254,7 @@ describe('fair use (US-27, NT-05)', () => {
     );
     expect(mails.filter((m) => m.tag === 'fair_use_reached')).toHaveLength(1);
     const usage = await h.app.inject({ method: 'GET', url: '/v1/me/usage', headers: s.headers });
-    expect(usage.json()).toEqual({ whatsapp: { used: 5, limit: 5 } });
+    expect(usage.json()).toEqual({ whatsapp: { used: 5, limit: 5 }, sms: { used: 0, limit: 5 } });
   });
 
   it('cannot be overshot by concurrent alerts, and a failed send gives the unit back', async () => {

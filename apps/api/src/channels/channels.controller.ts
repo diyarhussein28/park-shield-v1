@@ -17,6 +17,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { twilioWebhookUrl, validTwilioSignature } from '../providers/twilio-whatsapp';
+import { twilioSmsWebhookUrl } from '../providers/twilio-sms';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -40,6 +41,9 @@ const WhatsAppStart = z.object({
   consent: z.literal(true),
 });
 const WhatsAppVerify = z.object({ code: z.string().regex(/^\d{6}$/) });
+// NT-07: same opt-in as WhatsApp; SMS are service messages only, never advertising.
+const SmsStart = WhatsAppStart;
+const SmsVerify = WhatsAppVerify;
 const ChannelOrder = z.object({ order: z.array(z.enum(ORDERABLE)).length(ORDERABLE.length) });
 
 @Controller('v1')
@@ -110,6 +114,32 @@ export class ChannelsController {
     await this.channels.unlinkWhatsApp(user.userId);
     return { ok: true };
   }
+
+  @Post('channels/sms')
+  @HttpCode(200)
+  startSms(
+    @CurrentUser() user: AuthContext,
+    @Body(new ZodPipe(SmsStart)) body: z.infer<typeof SmsStart>,
+  ) {
+    return this.channels.startPhone(user, 'sms', body.phone);
+  }
+
+  @Post('channels/sms/verify')
+  @HttpCode(200)
+  async verifySms(
+    @CurrentUser() user: AuthContext,
+    @Body(new ZodPipe(SmsVerify)) body: z.infer<typeof SmsVerify>,
+  ) {
+    await this.channels.verifyPhone(user, 'sms', body.code);
+    return { ok: true };
+  }
+
+  @Delete('channels/sms')
+  @HttpCode(200)
+  async unlinkSms(@CurrentUser() user: AuthContext) {
+    await this.channels.unlinkPhone(user.userId, 'sms');
+    return { ok: true };
+  }
 }
 
 /** Delivery statuses from 360dialog (Meta Cloud API format). The path carries a shared secret. */
@@ -170,6 +200,30 @@ export class TwilioWebhookController {
       throw new ForbiddenException();
     await this.webhook.handleTwilio(params);
     // Empty TwiML: acknowledge without sending an automatic reply to the owner.
-    return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
+    return EMPTY_TWIML;
+  }
+
+  /** SMS status callbacks (NT-04). Replies by SMS are not used: the text links to the reply page. */
+  @Post('twilio/sms')
+  @HttpCode(200)
+  @Header('content-type', 'text/xml; charset=utf-8')
+  async receiveSms(
+    @Body() body: unknown,
+    @Headers('x-twilio-signature') signature: string | undefined,
+  ) {
+    const params = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    if (
+      !validTwilioSignature(
+        this.env.TWILIO_AUTH_TOKEN,
+        twilioSmsWebhookUrl(this.env),
+        params,
+        signature,
+      )
+    )
+      throw new ForbiddenException();
+    await this.webhook.handleTwilio(params, 'sms');
+    return EMPTY_TWIML;
   }
 }
+
+const EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';

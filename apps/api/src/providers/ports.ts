@@ -4,6 +4,7 @@ export const PAYMENTS = Symbol('PAYMENTS');
 export const PRINT = Symbol('PRINT');
 export const PUSH = Symbol('PUSH');
 export const WHATSAPP = Symbol('WHATSAPP');
+export const SMS = Symbol('SMS');
 export const AUDIT_BUCKET = Symbol('AUDIT_BUCKET');
 export const SUPPORT_DESK = Symbol('SUPPORT_DESK');
 
@@ -59,6 +60,17 @@ export interface WhatsAppSender {
     params: string[];
     /** Quick-reply button payloads, in template button order (NT-02). */
     buttons?: string[];
+  }): Promise<{ messageId: string }>;
+}
+
+/** Plain-text SMS through Twilio (NT-07). SMS has no buttons: replies go through the link in the text. */
+export interface SmsSender {
+  send(input: {
+    /** E.164 with the leading "+" */
+    to: string;
+    body: string;
+    /** Template name for the dev inbox and logs; never personal data. */
+    tag: string;
   }): Promise<{ messageId: string }>;
 }
 

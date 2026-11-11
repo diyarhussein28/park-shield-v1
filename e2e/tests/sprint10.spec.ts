@@ -153,7 +153,8 @@ test('partner batch: the scanner offers set-up and the owner claims the decal (U
 test('settings: a switch is versioned with its reason; provider status and orders render (US-39, US-41)', async ({
   browser,
 }, info) => {
-  // Settings are global state; one project is enough. SMS is unused, so switching it disturbs nobody.
+  // Settings are global state; one project is enough. No other E2E test sends SMS alerts, so a
+  // short switch-off disturbs nobody.
   test.skip(info.project.name !== 'desktop-chrome', 'global settings: one project only');
   test.setTimeout(120_000);
   const admin = await staffBrowser(browser, 'admin', ['admin']);
@@ -163,14 +164,14 @@ test('settings: a switch is versioned with its reason; provider status and order
     .getByRole('list', { name: 'Kill Switches' })
     .getByRole('listitem')
     .filter({ hasText: 'SMS' });
-  await expect(sms).toContainText('aus');
-  await sms.getByLabel('Begründung für „SMS“').fill('E2E: Kanal kurz prüfen');
-  await sms.getByRole('button', { name: /^Einschalten\s?: SMS$/ }).click();
-  await expect(admin.getByText('„SMS“ gespeichert.')).toBeVisible();
   await expect(sms).toContainText('an');
-  await sms.getByLabel('Begründung für „SMS“').fill('E2E: wieder aus');
+  await sms.getByLabel('Begründung für „SMS“').fill('E2E: Kanal kurz prüfen');
   await sms.getByRole('button', { name: /^Abschalten\s?: SMS$/ }).click();
+  await expect(admin.getByText('„SMS“ gespeichert.')).toBeVisible();
   await expect(sms).toContainText('aus');
+  await sms.getByLabel('Begründung für „SMS“').fill('E2E: wieder an');
+  await sms.getByRole('button', { name: /^Einschalten\s?: SMS$/ }).click();
+  await expect(sms).toContainText('an');
   await expectAccessible(admin);
   const [{ n }] = await sql(
     `SELECT count(*)::int AS n FROM audit_logs WHERE action = 'settings.kill_switch'

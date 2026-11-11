@@ -2,8 +2,8 @@ import type { Kysely } from 'kysely';
 import type { SettingsService } from '../core/settings.service';
 import type { DB } from '../db/types.generated';
 
-/** Channels an owner can order (SMS follows with Premium, NT-07). */
-export const ORDERABLE = ['webpush', 'email', 'whatsapp'] as const;
+/** Channels an owner can order (NT-01: cheapest first; SMS last, NT-07). */
+export const ORDERABLE = ['webpush', 'email', 'whatsapp', 'sms'] as const;
 export type OrderableChannel = (typeof ORDERABLE)[number];
 
 const isOrderable = (v: unknown): v is OrderableChannel =>
@@ -51,7 +51,7 @@ export async function saveChannelOrder(
   await db.transaction().execute(async (trx) => {
     for (const [i, type] of order.entries()) {
       const priority = i + 1;
-      // Updates the linked WhatsApp row too; an unlinked one keeps its place in an address-less row,
+      // Updates the linked WhatsApp/SMS row too; an unlinked one keeps its place in an address-less row,
       // which dispatch ignores (never verified).
       const updated = await trx
         .updateTable('contact_channels')

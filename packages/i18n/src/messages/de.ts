@@ -372,6 +372,18 @@ const de = {
     waCodeWrong:
       'Der Code stimmt nicht. {left, plural, =0 {Bitte fordern Sie einen neuen an.} one {Noch # Versuch.} other {Noch # Versuche.}}',
     waCodeExpired: 'Der Code ist abgelaufen. Bitte fordern Sie einen neuen an.',
+    smsTitle: 'SMS',
+    smsIntro:
+      'Warnungen als SMS mit einem Link zum Antworten. Funktioniert auch ohne Internet am Handy. Ihre Nummer sieht niemand, der scannt.',
+    smsUsage:
+      'Diesen Monat: {used} von {limit} SMS. Danach erreichen Warnungen Sie über die anderen Kanäle.',
+    smsConsent:
+      'Ich möchte Warnungen und Hinweise zu meinen Fahrzeugen per SMS erhalten. Ich kann das hier jederzeit abschalten.',
+    smsConsentRequired: 'Bitte bestätigen Sie, dass Sie Nachrichten per SMS erhalten möchten.',
+    smsSendCode: 'Code per SMS senden',
+    smsLinkedNow: 'SMS ist eingerichtet. Wir haben Ihnen eine Bestätigung geschickt.',
+    smsUnlink: 'SMS abschalten',
+    smsUnlinked: 'SMS ist abgeschaltet. Wir schicken Ihnen keine SMS mehr.',
     orderTitle: 'Reihenfolge bei normalen Warnungen',
     orderIntro:
       'Wir versuchen die Kanäle nacheinander und hören beim ersten auf, der funktioniert. Klappt einer nicht, nehmen wir sofort den nächsten.',
@@ -381,7 +393,7 @@ const de = {
     orderSaved: 'Reihenfolge gespeichert.',
     orderNotSetUp: 'noch nicht eingerichtet',
     channelName:
-      '{channel, select, webpush {Push} email {E-Mail} whatsapp {WhatsApp} other {{channel}}}',
+      '{channel, select, webpush {Push} email {E-Mail} whatsapp {WhatsApp} sms {SMS} other {{channel}}}',
   },
   history: {
     title: 'Verlauf',
@@ -833,7 +845,8 @@ const de = {
     cancel: 'Abbrechen',
     sessionGone: 'Diese Testzahlung ist abgelaufen oder wurde schon ausgeführt.',
     inboxTitle: 'Lokales Postfach',
-    inboxIntro: 'E-Mails, die ohne Brevo-Schlüssel versendet wurden. Die neuesten stehen oben.',
+    inboxIntro:
+      'E-Mails, SMS und WhatsApp-Nachrichten, die ohne Anbieter-Schlüssel versendet wurden. Die neuesten stehen oben.',
     inboxEmpty: 'Noch keine E-Mails.',
     to: 'An: {to}',
   },
@@ -1410,12 +1423,14 @@ const de = {
     k_limits_plus_vehicles: 'Plus: Fahrzeuge',
     k_limits_plus_emergency_contacts: 'Plus: Notfallkontakte',
     k_limits_plus_whatsapp_per_month: 'Plus: WhatsApp-Warnungen pro Monat',
+    k_limits_plus_sms_per_month: 'Plus: SMS pro Monat',
     k_limits_premium_vehicles: 'Premium: Fahrzeuge',
     k_limits_premium_emergency_contacts: 'Premium: Notfallkontakte',
     k_limits_premium_whatsapp_per_month: 'Premium: WhatsApp-Warnungen pro Monat',
     k_limits_premium_sms_per_month: 'Premium: SMS pro Monat',
     k_fair_use_warn_percent: 'Hinweis an Kunden ab (% des Kontingents)',
     k_whatsapp_cost_micros: 'Kosten pro WhatsApp-Nachricht (Mikro-Euro)',
+    k_sms_cost_micros: 'Kosten pro SMS (Mikro-Euro)',
     k_plans_premium_purchasable: 'Premium buchbar',
     k_abuse_code_alerts_per_hour: 'Muster: Warnungen pro Code und Stunde',
     k_abuse_scanner_vehicles_per_day: 'Muster: Fahrzeuge pro Scanner und Tag',

@@ -28,7 +28,7 @@ For families and people whose driveway is blocked often. Everything in Plus, plu
 
 - Up to 5 vehicles
 - Up to 3 co-drivers
-- WhatsApp up to 40/month; SMS fallback up to 5/month
+- WhatsApp up to 40/month; SMS up to 10/month (Plus: 5)
 - Masked calls up to 10 min/month
 - Two-way anonymous chat with the scanner
 - Multi-level escalation up to 3 contacts
@@ -52,7 +52,7 @@ No published price. For fleets, trades, delivery and rental companies. On the pr
 | Emergency contacts | 1 | 3 |
 | Co-drivers | 0 | 3 |
 | WhatsApp / month | 10 | 40 |
-| SMS / month | 0 | 5 |
+| SMS / month | 5 | 10 |
 | Masked-call minutes / month | 0 | 10 |
 | Included decals (once) | 1 | 1 |
 
@@ -248,7 +248,7 @@ Founders' salaries not included. At launch the founders handle support themselve
 | Web Push | €0.00 | VAPID, no provider |
 | E-mail (Brevo) | ~€0.0006 | Within monthly plan |
 | WhatsApp (Utility template, Germany) | ~€0.055 | Meta per-message pricing; may change, so limits are editable in ops |
-| SMS Germany | €0.075–0.09 | Phase 2 |
+| SMS Germany | €0.10 (Twilio $0.112 per segment) | Phase 1 (Twilio, `sms.cost_micros` 100,000) |
 | Masked call | €0.02–0.04/min | Plus ~€1/month per pool number |
 | Vinyl decal incl. packaging and postage | €2.40–2.60 | Print €0.90–1.10, stamp €1.10, packaging €0.20–0.40 |
 
