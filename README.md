@@ -33,7 +33,7 @@ Provider sandbox keys (Stripe test mode, Brevo, 360dialog, Friendly Captcha) go 
 | Payments (Stripe)          | Checkout redirects to http://localhost:3000/dev/checkout, which simulates payment and PDF invoices |
 | Captcha (Friendly Captcha) | Forms show "Sicherheitsprüfung: lokal simuliert"                                                   |
 
-For the real Friendly Captcha widget, also set `NEXT_PUBLIC_FRIENDLY_CAPTCHA_SITEKEY` for the web app. Stripe webhooks locally: `stripe listen --forward-to localhost:4000/v1/webhooks/stripe` and put the printed secret into `STRIPE_WEBHOOK_SECRET`.
+For the real Friendly Captcha widget, also set `NEXT_PUBLIC_FRIENDLY_CAPTCHA_SITEKEY` for the web app. Stripe webhooks locally: `stripe listen --events checkout.session.completed,customer.subscription.updated,customer.subscription.deleted,invoice.paid,invoice.payment_failed --forward-to localhost:4000/v1/webhooks/stripe` and put the printed secret into `STRIPE_WEBHOOK_SECRET`. The Stripe account settings the code needs (inclusive prices, Stripe Tax, customer portal) are listed in [`AGENTS.md`](AGENTS.md) §4.
 
 ## Commands
 

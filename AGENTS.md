@@ -171,9 +171,26 @@ product works offline. Production refuses to start with fakes (unless `APP_ENV=c
 | Zammad (support desk)          | `ZAMMAD_URL`, `ZAMMAD_TOKEN`, `ZAMMAD_GROUP`                                                            | tickets stored locally                  |
 | Better Stack heartbeat         | `HEARTBEAT_URL_WORKER`                                                                                  | no ping                                 |
 
-Local Stripe webhooks: `stripe listen --forward-to localhost:4000/v1/webhooks/stripe`, then put the
-printed `whsec_…` into `STRIPE_WEBHOOK_SECRET`. WhatsApp replies need a public URL:
+Local Stripe webhooks: current Stripe CLI versions require the events to be named; these are the
+ones `StripePayments.parseWebhook` handles:
+
+```bash
+stripe listen --events checkout.session.completed,customer.subscription.updated,customer.subscription.deleted,invoice.paid,invoice.payment_failed --forward-to localhost:4000/v1/webhooks/stripe
+```
+
+Put the printed `whsec_…` into `STRIPE_WEBHOOK_SECRET`. WhatsApp replies need a public URL:
 `https://<domain>/v1/webhooks/whatsapp/<D360_WEBHOOK_SECRET>`.
+
+Stripe account settings the code relies on (test mode and live, set once per account):
+
+- Use a test key (`sk_test_…`) locally, never a live or restricted live key (`rk_live_…`).
+- `STRIPE_PRICE_*` are **price** IDs (`price_…`), not product IDs (`prod_…`): yearly, EUR, Plus
+  10.00 and Premium 15.00, **tax behaviour inclusive** (checkout uses `automatic_tax`).
+- Stripe Tax active with the German head office and a **registration for Germany** (otherwise
+  invoices show 0 € VAT instead of the included 19 %).
+- Customer portal saved, with payment method, billing details and invoice history on and
+  **cancellation and plan changes off**: cancelling goes through the app (`/kuendigen`), which
+  computes the §309 BGB end date and sends the `cancel_received` confirmation.
 
 WhatsApp templates that must exist in 360dialog (DE and EN): `ps_alert` (`{{1}}` problem,
 `{{2}}` car nickname, three quick-reply buttons in this order: Ich komme · In ca. 30 Min · Bin
@@ -293,6 +310,10 @@ Also:
 - **Orphaned PostgreSQL:** stopping `npm run dev` can leave an embedded `postgres.exe
 --forkchild="io_worker"` holding port 5432; the next `npm run dev` then dies with "undefined".
   Kill that process and restart.
+- **Port 5432 already in use (macOS):** a Homebrew or Postgres.app server on 5432 makes
+  `npm run dev` die with the same bare "undefined". Leave that server alone and move ParkShield to
+  another port by changing it in `DATABASE_URL` and `TEST_DATABASE_URL` in `.env` (e.g. 5433).
+  Homebrew Valkey listens on 6379, so set `VALKEY_URL=redis://127.0.0.1:6379/0` there too.
 - **New folder under `apps/api/src`:** the SWC watcher on Windows misses it — restart `npm run dev`.
 - **`next build` while `next dev` runs** causes an HMR reload loop: build with
   `NEXT_DIST_DIR=.next-prod`. Measure performance (scanner page) on a production build, not dev.
