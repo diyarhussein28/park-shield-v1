@@ -9,7 +9,7 @@ a switched-off channel is skipped at once instead of failing and retrying.
 - Ops app → **Anbieter**: `whatsapp.failures`, `email.failures` or `webpush.failures` critical;
   for WhatsApp also `whatsapp.quality` RED or a template PAUSED/DISABLED. The team gets an e-mail.
 - Logs: `outbox handler failed` with the provider's error, many `alert_deliveries` in `failed`.
-- Status pages of Twilio (status.twilio.com) / Meta, Brevo, Apple / Google push.
+- Status pages of Twilio (status.twilio.com, also SendGrid and SMS) / Meta, Brevo, Apple / Google push.
 
 ## WhatsApp (Twilio / Meta)
 
@@ -23,9 +23,9 @@ a switched-off channel is skipped at once instead of failing and retrying.
 4. Status page: "WhatsApp-Benachrichtigungen verzögert/aus; Push und E-Mail funktionieren."
 5. When the provider recovers: switch on with a reason, watch `whatsapp.failures` for 30 minutes.
 
-## E-mail (Brevo)
+## E-mail (SendGrid, or Brevo with `MAIL_PROVIDER=brevo`)
 
-E-mail is also the sign-in channel (magic links): a Brevo outage stops new sign-ins, not alerts on
+E-mail is also the sign-in channel (magic links): an e-mail provider outage stops new sign-ins, not alerts on
 other channels.
 
 1. Kill switch **E-Mail** only if alerts are failing and customers have other channels; otherwise

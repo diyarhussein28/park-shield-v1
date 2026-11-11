@@ -26,6 +26,7 @@ describe('test helpers are limited to dev, unit tests and CI', () => {
       loadEnv({
         NODE_ENV: 'production',
         APP_ENV: 'production',
+        MAIL_PROVIDER: 'brevo',
         BREVO_API_KEY: 'k',
         FRIENDLY_CAPTCHA_API_KEY: 'k',
         FRIENDLY_CAPTCHA_SITEKEY: 's',
@@ -58,6 +59,7 @@ describe('test helpers are limited to dev, unit tests and CI', () => {
       AUDIT_BUCKET: 'b',
       ZAMMAD_TOKEN: 't',
       FRIENDLY_CAPTCHA_ENDPOINT: 'eu',
+      MAIL_PROVIDER: 'brevo',
     } as const;
     expect(() => loadEnv({ ...prod, BREVO_API_KEY: 'k', TWILIO_SMS_FROM: '' })).toThrow(
       /Missing provider keys in production: sms/,
@@ -77,6 +79,7 @@ describe('test helpers are limited to dev, unit tests and CI', () => {
       loadEnv({
         NODE_ENV: 'production',
         APP_ENV: 'production',
+        MAIL_PROVIDER: 'brevo',
         BREVO_API_KEY: 'k',
         FRIENDLY_CAPTCHA_API_KEY: 'k',
         FRIENDLY_CAPTCHA_SITEKEY: 's',

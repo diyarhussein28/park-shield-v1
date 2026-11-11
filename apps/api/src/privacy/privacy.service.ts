@@ -412,8 +412,12 @@ export class PrivacyService {
         status: userId ? 'pending' : 'not_applicable',
       },
       { processor: 'stripe', automated: type === 'erasure', status: na(u?.stripe_customer_id) },
-      // Transactional mail only: Brevo keeps no contact list for us, only 30-day logs.
-      { processor: 'brevo', automated: type === 'erasure', status: 'pending' },
+      // Transactional mail only. Brevo keeps no contact list for us, only 30-day logs (done
+      // automatically). SendGrid may keep the address on a suppression list (bounce, block, spam
+      // report): staff remove it under Suppressions and tick the step; the activity log expires.
+      this.env.MAIL_PROVIDER === 'sendgrid'
+        ? { processor: 'sendgrid', automated: false, status: 'pending' }
+        : { processor: 'brevo', automated: type === 'erasure', status: 'pending' },
       {
         processor: 'sentry',
         automated: true,

@@ -15,6 +15,7 @@ let staff: StaffService;
 beforeAll(async () => {
   h = await createHarness();
   const env = loadEnv({
+    MAIL_PROVIDER: 'brevo',
     BREVO_API_KEY: '',
     STRIPE_SECRET_KEY: '',
     D360_API_KEY: '',

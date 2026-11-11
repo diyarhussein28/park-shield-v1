@@ -3,43 +3,42 @@
  * Please do not edit it manually.
  */
 
-import type { ColumnType } from "kysely";
+import type { ColumnType } from 'kysely';
 
-export type AbuseStatus = "actioned" | "dismissed" | "open";
+export type AbuseStatus = 'actioned' | 'dismissed' | 'open';
 
-export type AlertSeverity = "info" | "normal" | "urgent";
+export type AlertSeverity = 'info' | 'normal' | 'urgent';
 
-export type AlertStatus = "acknowledged" | "blocked" | "created" | "delivered" | "dispatched" | "escalated" | "expired";
+export type AlertStatus =
+  'acknowledged' | 'blocked' | 'created' | 'delivered' | 'dispatched' | 'escalated' | 'expired';
 
-export type ArrayType<T> = ArrayTypeImpl<T> extends (infer U)[]
-  ? U[]
-  : ArrayTypeImpl<T>;
+export type ArrayType<T> = ArrayTypeImpl<T> extends (infer U)[] ? U[] : ArrayTypeImpl<T>;
 
-export type ArrayTypeImpl<T> = T extends ColumnType<infer S, infer I, infer U>
-  ? ColumnType<S[], I[], U[]>
-  : T[];
+export type ArrayTypeImpl<T> =
+  T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S[], I[], U[]> : T[];
 
-export type BillingInterval = "year";
+export type BillingInterval = 'year';
 
-export type BreakGlassStatus = "approved" | "expired" | "rejected" | "requested" | "used";
+export type BreakGlassStatus = 'approved' | 'expired' | 'rejected' | 'requested' | 'used';
 
-export type ChannelType = "email" | "native_push" | "sms" | "voice" | "webpush" | "whatsapp";
+export type ChannelType = 'email' | 'native_push' | 'sms' | 'voice' | 'webpush' | 'whatsapp';
 
-export type ChatSender = "owner" | "scanner" | "system";
+export type ChatSender = 'owner' | 'scanner' | 'system';
 
-export type ConsentState = "confirmed" | "declined" | "pending" | "revoked";
+export type ConsentState = 'confirmed' | 'declined' | 'pending' | 'revoked';
 
-export type DecalProduct = "a6_dashboard_card" | "nfc_vinyl_sticker" | "uv_vinyl_sticker";
+export type DecalProduct = 'a6_dashboard_card' | 'nfc_vinyl_sticker' | 'uv_vinyl_sticker';
 
-export type DeliveryStatus = "delivered" | "failed" | "queued" | "read" | "sent" | "suppressed";
+export type DeliveryStatus = 'delivered' | 'failed' | 'queued' | 'read' | 'sent' | 'suppressed';
 
-export type DsrStatus = "awaiting_identity" | "completed" | "in_progress" | "received" | "rejected";
+export type DsrStatus = 'awaiting_identity' | 'completed' | 'in_progress' | 'received' | 'rejected';
 
-export type DsrType = "access_export" | "erasure" | "objection" | "rectification" | "restriction";
+export type DsrType = 'access_export' | 'erasure' | 'objection' | 'rectification' | 'restriction';
 
-export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
-  ? ColumnType<S, I | undefined, U>
-  : ColumnType<T, T | undefined, T>;
+export type Generated<T> =
+  T extends ColumnType<infer S, infer I, infer U>
+    ? ColumnType<S, I | undefined, U>
+    : ColumnType<T, T | undefined, T>;
 
 export type Int8 = ColumnType<string, bigint | number | string, bigint | number | string>;
 
@@ -55,49 +54,58 @@ export type JsonPrimitive = boolean | number | string | null;
 
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
-export type ModerationState = "blocked" | "not_required" | "passed" | "review";
+export type ModerationState = 'blocked' | 'not_required' | 'passed' | 'review';
 
 export type Numeric = ColumnType<string, number | string, number | string>;
 
-export type OrderStatus = "canceled" | "delivered" | "in_production" | "paid" | "pending_payment" | "refunded" | "returned" | "shipped";
+export type OrderStatus =
+  | 'canceled'
+  | 'delivered'
+  | 'in_production'
+  | 'paid'
+  | 'pending_payment'
+  | 'refunded'
+  | 'returned'
+  | 'shipped';
 
-export type OrgRole = "driver" | "manager" | "owner";
+export type OrgRole = 'driver' | 'manager' | 'owner';
 
-export type OwnerReply = "coming" | "in_30_min" | "not_nearby";
+export type OwnerReply = 'coming' | 'in_30_min' | 'not_nearby';
 
-export type PartnerKind = "dealer" | "driving_school" | "hausverwaltung" | "insurer" | "other" | "rental";
+export type PartnerKind =
+  'dealer' | 'driving_school' | 'hausverwaltung' | 'insurer' | 'other' | 'rental';
 
-export type PlanAvailability = "available" | "coming_soon" | "retired";
+export type PlanAvailability = 'available' | 'coming_soon' | 'retired';
 
-export type PlanCode = "business" | "plus" | "premium";
+export type PlanCode = 'business' | 'plus' | 'premium';
 
-export type PromoKind = "amount_off" | "extra_months" | "percent_off";
+export type PromoKind = 'amount_off' | 'extra_months' | 'percent_off';
 
-export type RecipientKind = "co_driver" | "emergency_contact" | "org_member" | "owner";
+export type RecipientKind = 'co_driver' | 'emergency_contact' | 'org_member' | 'owner';
 
-export type RefundKind = "decal_defect" | "goodwill" | "proration" | "withdrawal";
+export type RefundKind = 'decal_defect' | 'goodwill' | 'proration' | 'withdrawal';
 
-export type ReviewDecision = "correct_block" | "false_positive" | "unclear";
+export type ReviewDecision = 'correct_block' | 'false_positive' | 'unclear';
 
-export type StepStatus = "done" | "failed" | "not_applicable" | "pending";
+export type StepStatus = 'done' | 'failed' | 'not_applicable' | 'pending';
 
-export type SubscriptionState = "active" | "canceled" | "expired" | "incomplete" | "past_due";
+export type SubscriptionState = 'active' | 'canceled' | 'expired' | 'incomplete' | 'past_due';
 
-export type SummaryFrequency = "monthly" | "off" | "weekly";
+export type SummaryFrequency = 'monthly' | 'off' | 'weekly';
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
-export type TokenStatus = "active" | "generated" | "printed" | "revoked" | "shipped";
+export type TokenStatus = 'active' | 'generated' | 'printed' | 'revoked' | 'shipped';
 
-export type TransferStatus = "accepted" | "canceled" | "expired" | "pending";
+export type TransferStatus = 'accepted' | 'canceled' | 'expired' | 'pending';
 
-export type UiLang = "de" | "en";
+export type UiLang = 'de' | 'en';
 
-export type UserKind = "customer" | "staff";
+export type UserKind = 'customer' | 'staff';
 
-export type UserStatus = "active" | "pending_deletion" | "suspended";
+export type UserStatus = 'active' | 'pending_deletion' | 'suspended';
 
-export type VehicleModeKind = "sensitive_spot" | "short_stop";
+export type VehicleModeKind = 'sensitive_spot' | 'short_stop';
 
 export interface AbuseReports {
   alert_id: string | null;
@@ -775,14 +783,14 @@ export interface DB {
   emergency_contacts: EmergencyContacts;
   filter_word_lists: FilterWordLists;
   magic_link_tokens: MagicLinkTokens;
-  "metrics.activation_funnel": MetricsActivationFunnel;
-  "metrics.churn_monthly": MetricsChurnMonthly;
-  "metrics.delivery_daily": MetricsDeliveryDaily;
-  "metrics.ios_push": MetricsIosPush;
-  "metrics.message_cost_daily": MetricsMessageCostDaily;
-  "metrics.protection_score_distribution": MetricsProtectionScoreDistribution;
-  "metrics.refunds_monthly": MetricsRefundsMonthly;
-  "metrics.revenue_by_plan": MetricsRevenueByPlan;
+  'metrics.activation_funnel': MetricsActivationFunnel;
+  'metrics.churn_monthly': MetricsChurnMonthly;
+  'metrics.delivery_daily': MetricsDeliveryDaily;
+  'metrics.ios_push': MetricsIosPush;
+  'metrics.message_cost_daily': MetricsMessageCostDaily;
+  'metrics.protection_score_distribution': MetricsProtectionScoreDistribution;
+  'metrics.refunds_monthly': MetricsRefundsMonthly;
+  'metrics.revenue_by_plan': MetricsRevenueByPlan;
   moderation_reviews: ModerationReviews;
   notification_rules: NotificationRules;
   organization_members: OrganizationMembers;

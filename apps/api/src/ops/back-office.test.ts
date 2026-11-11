@@ -35,6 +35,7 @@ beforeAll(async () => {
   h = await createHarness();
   crypto = h.app.get<FieldCrypto>(CRYPTO);
   const env = loadEnv({
+    MAIL_PROVIDER: 'brevo',
     BREVO_API_KEY: '',
     STRIPE_SECRET_KEY: '',
     D360_API_KEY: '',

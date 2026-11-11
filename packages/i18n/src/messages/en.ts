@@ -1434,7 +1434,7 @@ const en: typeof de = {
     c_whatsapp_failures: 'WhatsApp: failure rate (24 h)',
     h_whatsapp_failures: 'Failed out of all WhatsApp deliveries.',
     c_email_failures: 'E-mail: failure rate (24 h)',
-    h_email_failures: 'Failed out of all e-mail deliveries (Brevo).',
+    h_email_failures: 'Failed out of all e-mail deliveries (SendGrid or Brevo).',
     c_webpush_failures: 'Push: failure rate by platform (24 h)',
     h_webpush_failures: 'Failed out of all push deliveries per platform.',
     c_stripe_webhooks: 'Stripe: webhook failures (24 h)',

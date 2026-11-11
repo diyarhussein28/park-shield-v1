@@ -1469,7 +1469,7 @@ const de = {
     c_whatsapp_failures: 'WhatsApp: Fehlerquote (24 h)',
     h_whatsapp_failures: 'Fehlgeschlagene von allen WhatsApp-Zustellungen.',
     c_email_failures: 'E-Mail: Fehlerquote (24 h)',
-    h_email_failures: 'Fehlgeschlagene von allen E-Mail-Zustellungen (Brevo).',
+    h_email_failures: 'Fehlgeschlagene von allen E-Mail-Zustellungen (SendGrid oder Brevo).',
     c_webpush_failures: 'Push: Fehlerquote nach Plattform (24 h)',
     h_webpush_failures: 'Fehlgeschlagene von allen Push-Zustellungen je Plattform.',
     c_stripe_webhooks: 'Stripe: Webhook-Fehler (24 h)',

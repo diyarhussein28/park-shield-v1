@@ -84,7 +84,7 @@ The co-driver needs their own account (no subscription) and must explicitly acce
 | Processor | Role | Location | Erasure step on GDPR request *(new)* |
 |---|---|---|---|
 | Hetzner Online | Hosting, backups | Germany | Automatic via DB; backups expire within 35 days. AVV from the console |
-| Brevo | Transactional e-mail | France / EU | API: delete contact and logs. AVV |
+| Brevo (optional) | Transactional e-mail when `MAIL_PROVIDER=brevo` | France / EU | API: delete contact and logs. AVV |
 | Twilio | WhatsApp (via Meta) | Twilio Ireland Limited, Dublin (Twilio and Meta transfer to US under EU-US DPF and SCCs; disclosed in privacy policy with opt-in) | Deletion request via Twilio support / privacy portal; keep the request reference. (360dialog, Berlin, remains possible with `WHATSAPP_PROVIDER=360dialog`.) |
 | Stripe | Payments, subscriptions | Ireland | API: delete customer; legally required invoice data retained. AVV + SCCs |
 | Zammad | Tickets | Self-hosted | API: delete user and tickets |
@@ -92,7 +92,7 @@ The co-driver needs their own account (no subscription) and must explicitly acce
 | Sentry | Error tracking | EU (Frankfurt) | Usually not applicable (PII scrubbing); recorded as `not_applicable` with reason |
 | Friendly Captcha | Captcha | Germany | No personal data linked to the user |
 | Twilio | SMS (NT-07, opt-in with a one-time code) | Twilio Ireland Limited, Dublin (US transfer under EU-US DPF and SCCs) | Same Twilio deletion request as WhatsApp. Masked calls stay Phase 2. |
-| SendGrid (optional) | E-mail instead of Brevo when `MAIL_PROVIDER=sendgrid` | Twilio Ireland Limited / SendGrid (US transfer under DPF and SCCs; EU data residency with `SENDGRID_REGION=eu`) | Deletion via SendGrid support; click and open tracking are switched off in code. |
+| SendGrid (default) | Transactional e-mail (`MAIL_PROVIDER=sendgrid`) | Twilio Ireland Limited / SendGrid (US transfer under DPF and SCCs; EU data residency with `SENDGRID_REGION=eu`) | Erasure step `sendgrid` (manual): remove the address from all suppression lists; activity log expires on its own. Click and open tracking are switched off in code. |
 | Mistral | Support assistant (Phase 2) | France | No personal data in requests |
 
 ## 7. Identity verification for GDPR requests *(new)*

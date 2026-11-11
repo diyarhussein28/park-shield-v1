@@ -293,7 +293,7 @@ export class DispatchService {
   }
 
   private async sendEmail(alert: AlertRow, msg: Message): Promise<Outcome> {
-    const provider = fakeProviders(this.env).mail ? 'dev' : 'brevo';
+    const provider = fakeProviders(this.env).mail ? 'dev' : this.env.MAIL_PROVIDER;
     if (msg.dedupe && (await this.alreadySent(alert.id, 'email'))) return 'already';
     if (!(await this.enabled('email'))) {
       await this.record({

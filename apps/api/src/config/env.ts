@@ -28,10 +28,10 @@ export const envSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().default(''),
   STRIPE_PRICE_PLUS_YEARLY: z.string().default(''),
   STRIPE_PRICE_PREMIUM_YEARLY: z.string().default(''),
-  // E-mail provider: Brevo (EU, default) or SendGrid (Twilio's e-mail service). Empty key: dev inbox.
+  // E-mail provider: SendGrid (Twilio's e-mail service, default) or Brevo (EU). Empty key: dev inbox.
   MAIL_PROVIDER: z.preprocess(
     (v) => (v === '' ? undefined : v),
-    z.enum(['brevo', 'sendgrid']).default('brevo'),
+    z.enum(['sendgrid', 'brevo']).default('sendgrid'),
   ),
   BREVO_API_KEY: z.string().default(''),
   SENDGRID_API_KEY: z.string().default(''),

@@ -127,7 +127,7 @@ export class EscalationService {
       .orderBy('escalation_order')
       .execute();
     const emailOn = await this.settings.get<unknown>('channels.email.enabled', true);
-    const provider = fakeProviders(this.env).mail ? 'dev' : 'brevo';
+    const provider = fakeProviders(this.env).mail ? 'dev' : this.env.MAIL_PROVIDER;
     const errors: unknown[] = [];
 
     for (const c of contacts) {
