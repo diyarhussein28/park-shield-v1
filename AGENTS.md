@@ -164,7 +164,8 @@ product works offline. Production refuses to start with fakes (unless `APP_ENV=c
 | ------------------------------ | ------------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | Stripe (payments)              | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PLUS_YEARLY`, `STRIPE_PRICE_PREMIUM_YEARLY` | `/dev/checkout` simulates payment       |
 | Brevo (e-mail)                 | `BREVO_API_KEY`                                                                                         | `/dev/postfach` inbox                   |
-| 360dialog (WhatsApp)           | `D360_API_KEY`, `D360_BASE_URL`, `D360_WEBHOOK_SECRET`                                                  | messages stored locally                 |
+| WhatsApp (Twilio, default)     | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`, `TWILIO_CONTENT_*` (8)               | messages stored locally                 |
+| WhatsApp (360dialog, optional) | `WHATSAPP_PROVIDER=360dialog`, `D360_API_KEY`, `D360_BASE_URL`, `D360_WEBHOOK_SECRET`                   | messages stored locally                 |
 | Friendly Captcha               | `FRIENDLY_CAPTCHA_SITEKEY`, `FRIENDLY_CAPTCHA_API_KEY`, `NEXT_PUBLIC_FRIENDLY_CAPTCHA_SITEKEY`          | "Sicherheitsprüfung: lokal simuliert"   |
 | Print partner                  | `PRINT_PARTNER`                                                                                         | orders written to `.local/print-outbox` |
 | Audit bucket (S3, Object Lock) | `AUDIT_BUCKET`, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`                            | files in `.local/audit-bucket`          |
@@ -186,7 +187,8 @@ ones `StripePayments.parseWebhook` handles:
 stripe listen --events checkout.session.completed,customer.subscription.updated,customer.subscription.deleted,invoice.paid,invoice.payment_failed --forward-to localhost:4000/v1/webhooks/stripe
 ```
 
-Put the printed `whsec_…` into `STRIPE_WEBHOOK_SECRET`. WhatsApp replies need a public URL:
+Put the printed `whsec_…` into `STRIPE_WEBHOOK_SECRET`. WhatsApp replies need a public URL: with
+Twilio `https://<domain>/v1/webhooks/twilio/whatsapp`, with 360dialog
 `https://<domain>/v1/webhooks/whatsapp/<D360_WEBHOOK_SECRET>`.
 
 Stripe account settings the code relies on (test mode and live, set once per account):
@@ -203,10 +205,14 @@ Stripe account settings the code relies on (test mode and live, set once per acc
   Debit, PayPal, Link. Everything else off, including Klarna (no instalments at 10 €/year,
   `docs/02-architecture.md` §2).
 
-WhatsApp templates that must exist in 360dialog (DE and EN): `ps_alert` (`{{1}}` problem,
-`{{2}}` car nickname, three quick-reply buttons in this order: Ich komme · In ca. 30 Min · Bin
-nicht in der Nähe), `ps_followup` (same), `ps_test` (`{{1}}` nickname, same buttons), `ps_otp`
-(authentication code).
+WhatsApp templates (DE and EN): `ps_alert`, `ps_followup`, `ps_test`, `ps_otp`; texts, variables
+and button order in [`docs/whatsapp-templates.md`](docs/whatsapp-templates.md). With Twilio each
+template and language is a Content Template whose SID (`HX…`) goes into `TWILIO_CONTENT_<NAME>_<LANG>`;
+the quick-reply button ids are variables after the body variables (the code fills them with
+`ack:<token>:<reply>`). Twilio calls one webhook for status callbacks and button taps:
+`https://<domain>/v1/webhooks/twilio/whatsapp` (signature-checked; set it as the sender's "incoming
+message" URL; status callbacks are sent per message). Locally that needs a tunnel and
+`TWILIO_WEBHOOK_BASE_URL`, because Twilio signs the exact public URL.
 
 ## 5. Commands
 
@@ -354,8 +360,9 @@ Also:
 - [ ] **Stripe:** live/test keys, the two yearly prices (Plus 10 €, Premium 15 €, tax-inclusive),
       webhook secret.
 - [ ] **Friendly Captcha:** account, sitekey and API key.
-- [ ] **360dialog / WhatsApp:** Meta business verification, phone number, display name, the four
-      templates above, API key, webhook URL (needs hosting).
+- [ ] **Twilio / WhatsApp:** Twilio account, Meta business verification through Twilio, sender
+      number, display name, the four templates (Content Template Builder), the eight content SIDs,
+      webhook URL (needs hosting or a tunnel).
 - [ ] **Brevo** (transactional e-mail) — deliberately skipped for now; fake inbox in use.
 - [ ] **Print partner:** choose (Flyeralarm, WIRmachenDRUCK or local) and API vs. SFTP; an adapter
       must then be written (`PRINT_PARTNER`). Until then orders go to `.local/print-outbox`.
@@ -392,8 +399,8 @@ Also:
   Meta-approved opt-in template.
 - Muted alerts (quiet hours, sensitive spot) are stored as suppressed deliveries and shown in the
   owner's history — keep it that way.
-- Account deletion leaves an erasure request "in progress" with manual steps (Zammad, 360dialog,
-  print partner) that staff tick off in the ops GDPR queue.
+- Account deletion leaves an erasure request "in progress" with manual steps (Zammad, the WhatsApp
+  provider, print partner) that staff tick off in the ops GDPR queue.
 
 ### D. Next phases (see `docs/03-user-stories.md` §3)
 

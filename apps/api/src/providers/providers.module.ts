@@ -22,6 +22,7 @@ import {
 import { DevSupportDesk, ZammadDesk } from './support-desk';
 import { VapidPushSender } from './push';
 import { Dialog360Sender, DevWhatsAppSender } from './whatsapp';
+import { contentSidsFromEnv, twilioWebhookUrl, TwilioWhatsAppSender } from './twilio-whatsapp';
 import { StripePayments } from './stripe-payments';
 
 @Global()
@@ -87,7 +88,15 @@ export class ProvidersModule {
           useFactory: (valkey: Redis, logger: Logger) =>
             fakes.whatsapp
               ? new DevWhatsAppSender(valkey, logger)
-              : new Dialog360Sender(env.D360_API_KEY, env.D360_BASE_URL),
+              : env.WHATSAPP_PROVIDER === 'twilio'
+                ? new TwilioWhatsAppSender(
+                    env.TWILIO_ACCOUNT_SID,
+                    env.TWILIO_AUTH_TOKEN,
+                    env.TWILIO_WHATSAPP_FROM,
+                    contentSidsFromEnv(env),
+                    twilioWebhookUrl(env),
+                  )
+                : new Dialog360Sender(env.D360_API_KEY, env.D360_BASE_URL),
         },
         {
           provide: AUDIT_BUCKET,

@@ -141,12 +141,12 @@ describe('account deletion (US-32)', () => {
       .orderBy('processor')
       .execute();
     expect(steps).toEqual([
-      { processor: '360dialog', status: 'not_applicable', automated: false },
       { processor: 'brevo', status: 'pending', automated: true },
       { processor: 'parkshield_db', status: 'pending', automated: true },
       { processor: 'print_partner', status: 'not_applicable', automated: false },
       { processor: 'sentry', status: 'done', automated: true },
       { processor: 'stripe', status: 'pending', automated: true },
+      { processor: 'twilio', status: 'not_applicable', automated: false },
       { processor: 'zammad', status: 'pending', automated: false },
     ]);
   });

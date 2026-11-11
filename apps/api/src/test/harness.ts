@@ -29,6 +29,8 @@ export interface Harness {
 export const PRINT_DIR = join(tmpdir(), `ps-print-${process.pid}`);
 export const AUDIT_DIR = join(tmpdir(), `ps-audit-${process.pid}`);
 export const TEST_WA_WEBHOOK_SECRET = 'test-whatsapp-webhook-secret';
+export const TEST_TWILIO_AUTH_TOKEN = 'test-twilio-auth-token';
+export const TEST_TWILIO_WEBHOOK_BASE = 'https://hooks.parkshield.test';
 
 // Original values of settings changed by setSetting (undefined = key did not exist).
 const touched = new Map<string, unknown>();
@@ -104,6 +106,11 @@ export async function createHarness(): Promise<Harness> {
     PRINT_PARTNER: '',
     PRINT_OUTBOX_DIR: PRINT_DIR,
     D360_API_KEY: '',
+    // Twilio stays a fake sender (no account SID); the token signs test webhooks.
+    WHATSAPP_PROVIDER: 'twilio',
+    TWILIO_ACCOUNT_SID: '',
+    TWILIO_AUTH_TOKEN: TEST_TWILIO_AUTH_TOKEN,
+    TWILIO_WEBHOOK_BASE_URL: TEST_TWILIO_WEBHOOK_BASE,
     D360_WEBHOOK_SECRET: TEST_WA_WEBHOOK_SECRET,
     AUDIT_BUCKET: '',
     AUDIT_BUCKET_DIR: AUDIT_DIR,

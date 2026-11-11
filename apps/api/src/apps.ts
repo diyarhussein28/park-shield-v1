@@ -63,7 +63,11 @@ import { OrdersService } from './orders/orders.service';
 import { TokensService } from './vehicles/tokens.service';
 import { ClaimController, VehiclesController } from './vehicles/vehicles.controller';
 import { VehiclesService } from './vehicles/vehicles.service';
-import { ChannelsController, WhatsAppWebhookController } from './channels/channels.controller';
+import {
+  ChannelsController,
+  TwilioWebhookController,
+  WhatsAppWebhookController,
+} from './channels/channels.controller';
 import { ChannelsService } from './channels/channels.service';
 import {
   EmergencyContactInvitationsController,
@@ -149,6 +153,7 @@ export class PublicAppModule {
         ChannelsController,
         PreferencesController,
         WhatsAppWebhookController,
+        TwilioWebhookController,
         AckController,
         EmergencyContactsController,
         EmergencyContactInvitationsController,

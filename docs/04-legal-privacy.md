@@ -85,7 +85,7 @@ The co-driver needs their own account (no subscription) and must explicitly acce
 |---|---|---|---|
 | Hetzner Online | Hosting, backups | Germany | Automatic via DB; backups expire within 35 days. AVV from the console |
 | Brevo | Transactional e-mail | France / EU | API: delete contact and logs. AVV |
-| 360dialog | WhatsApp BSP | Berlin (Meta transfer to US under EU-US DPF; disclosed in privacy policy with opt-in) | Deletion request via API/support; keep the request reference |
+| Twilio | WhatsApp (via Meta) | Twilio Ireland Limited, Dublin (Twilio and Meta transfer to US under EU-US DPF and SCCs; disclosed in privacy policy with opt-in) | Deletion request via Twilio support / privacy portal; keep the request reference. (360dialog, Berlin, remains possible with `WHATSAPP_PROVIDER=360dialog`.) |
 | Stripe | Payments, subscriptions | Ireland | API: delete customer; legally required invoice data retained. AVV + SCCs |
 | Zammad | Tickets | Self-hosted | API: delete user and tickets |
 | Print partner (e.g. Flyeralarm, WIRmachenDRUCK, local printer) | Printing and shipping | Germany | Address deletion request via e-mail/SFTP with confirmation. AVV (receives shipping address) |

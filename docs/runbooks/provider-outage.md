@@ -9,11 +9,11 @@ a switched-off channel is skipped at once instead of failing and retrying.
 - Ops app → **Anbieter**: `whatsapp.failures`, `email.failures` or `webpush.failures` critical;
   for WhatsApp also `whatsapp.quality` RED or a template PAUSED/DISABLED. The team gets an e-mail.
 - Logs: `outbox handler failed` with the provider's error, many `alert_deliveries` in `failed`.
-- Status pages of 360dialog / Meta, Brevo, Apple / Google push.
+- Status pages of Twilio (status.twilio.com) / Meta, Brevo, Apple / Google push.
 
-## WhatsApp (360dialog / Meta)
+## WhatsApp (Twilio / Meta)
 
-1. Ops app → **Einstellungen** → Kill Switches → **WhatsApp** → reason ("360dialog outage, ticket …")
+1. Ops app → **Einstellungen** → Kill Switches → **WhatsApp** → reason ("Twilio outage, ticket …")
    → **Abschalten**. Applies within seconds in every process (settings broadcast).
 2. Check in **Anbieter** that new WhatsApp attempts appear as `suppressed / kill_switch` and that push
    and e-mail deliveries succeed.

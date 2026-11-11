@@ -2,7 +2,10 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
+  Header,
+  Headers,
   HttpCode,
   Inject,
   NotFoundException,
@@ -13,6 +16,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { twilioWebhookUrl, validTwilioSignature } from '../providers/twilio-whatsapp';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -132,5 +136,40 @@ export class WhatsAppWebhookController {
       throw new NotFoundException();
     await this.webhook.handle(body);
     return { received: true };
+  }
+}
+
+/**
+ * Twilio WhatsApp: status callbacks and quick-reply taps (both form-encoded) on one URL. Every request
+ * must carry a valid X-Twilio-Signature (HMAC-SHA1 with the auth token over URL + parameters).
+ */
+@Controller('v1/webhooks')
+@SkipCsrf()
+export class TwilioWebhookController {
+  constructor(
+    @Inject(WhatsAppWebhookService) private readonly webhook: WhatsAppWebhookService,
+    @Inject(ENV) private readonly env: Env,
+  ) {}
+
+  @Post('twilio/whatsapp')
+  @HttpCode(200)
+  @Header('content-type', 'text/xml; charset=utf-8')
+  async receive(
+    @Body() body: unknown,
+    @Headers('x-twilio-signature') signature: string | undefined,
+  ) {
+    const params = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    if (
+      !validTwilioSignature(
+        this.env.TWILIO_AUTH_TOKEN,
+        twilioWebhookUrl(this.env),
+        params,
+        signature,
+      )
+    )
+      throw new ForbiddenException();
+    await this.webhook.handleTwilio(params);
+    // Empty TwiML: acknowledge without sending an automatic reply to the owner.
+    return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
   }
 }

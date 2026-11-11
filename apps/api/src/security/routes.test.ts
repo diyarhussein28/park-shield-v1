@@ -32,6 +32,10 @@ const PUBLIC: Record<string, Control> = {
   },
   'POST /v1/webhooks/stripe': { kind: 'signed', what: 'Stripe-Signature (HMAC over the raw body)' },
   'POST /v1/webhooks/whatsapp/:secret': { kind: 'signed', what: 'shared secret in the path' },
+  'POST /v1/webhooks/twilio/whatsapp': {
+    kind: 'signed',
+    what: 'X-Twilio-Signature (HMAC-SHA1 with the auth token)',
+  },
   'POST /v1/business-waitlist': {
     kind: 'rate',
     limits: ['waitlist.ip', 'waitlist.email'],

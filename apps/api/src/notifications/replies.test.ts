@@ -13,10 +13,13 @@ import {
   resetState,
   setSetting,
   subscribe,
+  TEST_TWILIO_AUTH_TOKEN,
+  TEST_TWILIO_WEBHOOK_BASE,
   TEST_WA_WEBHOOK_SECRET,
   type Harness,
   type Session,
 } from '../test/harness';
+import { twilioSignature, TWILIO_WEBHOOK_PATH } from '../providers/twilio-whatsapp';
 import { DispatchService } from './dispatch.service';
 import { ESCALATE_TOPIC, EscalationService } from './escalation.service';
 
@@ -368,6 +371,55 @@ describe('quick replies (US-23, NT-02, NT-10)', () => {
       },
     });
     expect(hook.statusCode).toBe(200);
+    expect(await status(a)).toMatchObject({ status: 'acknowledged', ownerReply: 'coming' });
+  });
+
+  it('accepts Twilio status callbacks and button taps, only with a valid signature', async () => {
+    const { s, code } = await vehicleWithCode();
+    await linkWhatsApp(s);
+    const a = await alert(code, 'blocking');
+    await h.app.get(DispatchService).dispatch(a.alertId);
+    const token = await replyToken();
+    const waDelivery = () =>
+      h.db
+        .selectFrom('alert_deliveries')
+        .select(['provider_message_id', 'status'])
+        .where('alert_id', '=', a.alertId)
+        .where('channel', '=', 'whatsapp')
+        .executeTakeFirstOrThrow();
+    const url = `${TEST_TWILIO_WEBHOOK_BASE}${TWILIO_WEBHOOK_PATH}`;
+    const post = (
+      params: Record<string, string>,
+      signature = twilioSignature(TEST_TWILIO_AUTH_TOKEN, url, params),
+    ) =>
+      h.app.inject({
+        method: 'POST',
+        url: TWILIO_WEBHOOK_PATH,
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          'x-twilio-signature': signature,
+        },
+        payload: new URLSearchParams(params).toString(),
+      });
+
+    const delivered = {
+      MessageSid: (await waDelivery()).provider_message_id!,
+      MessageStatus: 'delivered',
+    };
+    expect((await post(delivered, 'forged-signature')).statusCode).toBe(403);
+    expect((await waDelivery()).status).toBe('sent');
+    const ok = await post(delivered);
+    expect(ok.statusCode).toBe(200);
+    expect(ok.body).toContain('<Response>');
+    expect((await waDelivery()).status).toBe('delivered');
+
+    const tap = {
+      From: 'whatsapp:+4915123456789',
+      MessageSid: 'SMtap',
+      ButtonText: 'Ich komme',
+      ButtonPayload: `ack:${token}:coming`,
+    };
+    expect((await post(tap)).statusCode).toBe(200);
     expect(await status(a)).toMatchObject({ status: 'acknowledged', ownerReply: 'coming' });
   });
 

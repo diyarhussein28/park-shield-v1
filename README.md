@@ -25,7 +25,7 @@ npm run dev
 | api-ops (VPN-only in production) | http://127.0.0.1:4001/ops/v1/health |
 | Worker                           | background process                  |
 
-Provider sandbox keys (Stripe test mode, Brevo, 360dialog, Friendly Captcha) go into `.env`. While a key is empty, that provider uses a local fake adapter (never allowed in production):
+Provider sandbox keys (Stripe test mode, Brevo, Twilio, Friendly Captcha) go into `.env`. While a key is empty, that provider uses a local fake adapter (never allowed in production):
 
 | Fake                       | Where to see it                                                                                    |
 | -------------------------- | -------------------------------------------------------------------------------------------------- |

@@ -46,7 +46,16 @@ const REPLY_PAYLOAD = /^ack:([A-Za-z0-9_-]{20,100}):(coming|in_30_min|not_nearby
 
 const RANK = { queued: 0, sent: 1, delivered: 2, read: 3 } as const;
 
-/** NT-04 delivery statuses and OW-16 quick replies (Meta Cloud API format, forwarded by 360dialog). */
+/** Twilio MessageStatus → delivery status; queued/accepted/sending are not recorded (still queued). */
+const TWILIO_STATUS: Record<string, 'sent' | 'delivered' | 'read' | 'failed'> = {
+  sent: 'sent',
+  delivered: 'delivered',
+  read: 'read',
+  failed: 'failed',
+  undelivered: 'failed',
+};
+
+/** NT-04 delivery statuses and OW-16 quick replies, from 360dialog (Meta format) or Twilio. */
 @Injectable()
 export class WhatsAppWebhookService {
   constructor(
@@ -54,6 +63,32 @@ export class WhatsAppWebhookService {
     @Inject(AckService) private readonly ack: AckService,
     @Inject(LOGGER) private readonly logger: Logger,
   ) {}
+
+  /**
+   * Twilio (form-encoded, signature checked by the controller): a status callback carries MessageSid +
+   * MessageStatus; a quick-reply tap is an inbound message with ButtonPayload.
+   */
+  async handleTwilio(params: Record<string, unknown>): Promise<number> {
+    const str = (k: string) => (typeof params[k] === 'string' ? (params[k] as string) : '');
+    const payload = REPLY_PAYLOAD.exec(str('ButtonPayload'));
+    if (payload) {
+      try {
+        await this.ack.reply(payload[1]!, payload[2] as OwnerReply);
+        return 1;
+      } catch (err) {
+        this.logger.info({ err: (err as Error).message }, 'whatsapp quick reply not applied');
+        return 0;
+      }
+    }
+    const status = TWILIO_STATUS[str('MessageStatus')];
+    if (!status || !str('MessageSid')) return 0;
+    const s = Status.safeParse({
+      id: str('MessageSid'),
+      status,
+      ...(str('ErrorCode') ? { errors: [{ code: str('ErrorCode') }] } : {}),
+    });
+    return s.success ? this.apply(s.data) : 0;
+  }
 
   async handle(body: unknown): Promise<number> {
     const parsed = Payload.safeParse(body);

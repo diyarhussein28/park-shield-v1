@@ -39,7 +39,7 @@ const fmt = (d: Date | null | undefined) => (d ? d.toISOString() : null);
  * GDPR self-service (OW-12, US-32): export (JSON + PDF) and account deletion with a 24 h grace period.
  * Both need a fresh sign-in. Deletion is a data-subject request with one step per processor (AD-11):
  * automated steps run in the worker; the database rows go only once those are done, and manual steps
- * (Zammad, print partner, 360dialog) stay open for ops until completed.
+ * (Zammad, print partner, the WhatsApp provider) stay open for ops until completed.
  */
 @Injectable()
 export class PrivacyService {
@@ -413,7 +413,8 @@ export class PrivacyService {
         status: 'done',
         evidence: 'no personal data sent (scrubbed at source)',
       },
-      { processor: '360dialog', automated: false, status: na(hasWhatsApp) },
+      // The WhatsApp provider in use ('twilio' or '360dialog'): deletion request handled by staff.
+      { processor: this.env.WHATSAPP_PROVIDER, automated: false, status: na(hasWhatsApp) },
       { processor: 'print_partner', automated: false, status: na(hasOrders) },
       { processor: 'zammad', automated: false, status: 'pending' },
     ];

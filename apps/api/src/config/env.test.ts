@@ -34,8 +34,32 @@ describe('test helpers are limited to dev, unit tests and CI', () => {
         PRINT_PARTNER: 'p',
         AUDIT_BUCKET: 'b',
         ZAMMAD_TOKEN: 't',
+        WHATSAPP_PROVIDER: '360dialog',
         FRIENDLY_CAPTCHA_ENDPOINT: 'global',
       }),
     ).toThrow(/FRIENDLY_CAPTCHA_ENDPOINT must be "eu"/);
+  });
+
+  it('uses Twilio for WhatsApp by default and needs every template SID in real production', () => {
+    expect(loadEnv({ WHATSAPP_PROVIDER: '' as never }).WHATSAPP_PROVIDER).toBe('twilio');
+    expect(() =>
+      loadEnv({
+        NODE_ENV: 'production',
+        APP_ENV: 'production',
+        BREVO_API_KEY: 'k',
+        FRIENDLY_CAPTCHA_API_KEY: 'k',
+        FRIENDLY_CAPTCHA_SITEKEY: 's',
+        STRIPE_SECRET_KEY: 'k',
+        WHATSAPP_PROVIDER: 'twilio',
+        TWILIO_ACCOUNT_SID: 'AC1',
+        TWILIO_AUTH_TOKEN: 't',
+        TWILIO_WHATSAPP_FROM: '+4915100000000',
+        TWILIO_CONTENT_PS_ALERT_DE: 'HX1',
+        TWILIO_CONTENT_PS_ALERT_EN: '',
+        PRINT_PARTNER: 'p',
+        AUDIT_BUCKET: 'b',
+        ZAMMAD_TOKEN: 't',
+      }),
+    ).toThrow(/Missing Twilio template SIDs: .*TWILIO_CONTENT_PS_ALERT_EN/);
   });
 });

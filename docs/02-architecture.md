@@ -25,7 +25,7 @@ flowchart LR
   subgraph External[External, EU first]
     WP[Web Push VAPID]
     BR[Brevo e-mail]
-    WA[360dialog WhatsApp]
+    WA[Twilio WhatsApp]
     ST[Stripe Billing + Tax]
     FC[Friendly Captcha]
     PR[Print partner API/SFTP]

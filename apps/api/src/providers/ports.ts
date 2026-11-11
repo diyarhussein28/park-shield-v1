@@ -49,7 +49,7 @@ export interface PushSender {
 
 export type WhatsAppTemplate = 'ps_otp' | 'ps_alert' | 'ps_test' | 'ps_followup';
 
-/** WhatsApp Business utility/authentication templates via the BSP (360dialog). */
+/** WhatsApp Business utility/authentication templates via Twilio or 360dialog (WHATSAPP_PROVIDER). */
 export interface WhatsAppSender {
   sendTemplate(input: {
     /** E.164 without the leading "+" */

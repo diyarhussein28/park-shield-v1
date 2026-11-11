@@ -444,7 +444,7 @@ export class DispatchService {
       .where('opted_in_at', 'is not', null)
       .executeTakeFirst();
     if (!channel?.address_enc) return 'unavailable';
-    const provider = fakeProviders(this.env).whatsapp ? 'dev' : '360dialog';
+    const provider = fakeProviders(this.env).whatsapp ? 'dev' : this.env.WHATSAPP_PROVIDER;
     if (msg.dedupe && (await this.alreadySent(alert.id, 'whatsapp'))) return 'already';
     if (!(await this.enabled('whatsapp'))) {
       await this.record({

@@ -73,7 +73,7 @@ const de: Record<LegalSlug, LegalDoc> = {
       {
         heading: '4. Empfänger und Auftragsverarbeiter',
         paragraphs: [
-          'Hetzner Online (Hosting, Deutschland); Brevo (E-Mail, Frankreich); 360dialog (WhatsApp, Berlin; dabei überträgt Meta Daten in die USA auf Grundlage des EU-US Data Privacy Framework, nur nach Ihrer Einwilligung); Stripe (Zahlungen, Irland); Friendly Captcha (Sicherheitsprüfung ohne Cookies, Deutschland); unsere Druckerei (Versand des Aufklebers, Deutschland); Sentry (Fehlerprotokolle ohne personenbezogene Daten, EU). Mit allen bestehen Verträge zur Auftragsverarbeitung.',
+          'Hetzner Online (Hosting, Deutschland); Brevo (E-Mail, Frankreich); Twilio (WhatsApp, Twilio Ireland Limited, Irland; dabei übertragen Twilio und Meta Daten in die USA auf Grundlage des EU-US Data Privacy Framework und von EU-Standardvertragsklauseln, nur nach Ihrer Einwilligung); Stripe (Zahlungen, Irland); Friendly Captcha (Sicherheitsprüfung ohne Cookies, Deutschland); unsere Druckerei (Versand des Aufklebers, Deutschland); Sentry (Fehlerprotokolle ohne personenbezogene Daten, EU). Mit allen bestehen Verträge zur Auftragsverarbeitung.',
         ],
       },
       {

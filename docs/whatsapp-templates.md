@@ -1,9 +1,42 @@
-# WhatsApp message templates (360dialog / Meta)
+# WhatsApp message templates (Twilio / Meta)
 
-The four templates the code sends (`apps/api/src/providers/whatsapp.ts`, `WhatsAppTemplate` in
-`providers/ports.ts`). Create each one in the 360dialog hub in **German (`de`)** and **English
-(`en`)**: the code sends the owner's language as the language code, so the language must be exactly
-"German" and "English" (not "English (US)" / `en_US`).
+The four templates the code sends (`WhatsAppTemplate` in `apps/api/src/providers/ports.ts`). Create
+each one in **German** and **English**. The texts below are the same for Twilio (default,
+`providers/twilio-whatsapp.ts`) and 360dialog (`WHATSAPP_PROVIDER=360dialog`,
+`providers/whatsapp.ts`).
+
+## Creating them in Twilio
+
+Console → **Messaging → Content Template Builder → Create new**. One template per name **and**
+language, so eight in total; each gets a Content SID (`HX…`) that goes into `.env`:
+
+| Template      | Content type                 | Language | `.env` variable                   |
+| ------------- | ---------------------------- | -------- | --------------------------------- |
+| `ps_alert`    | Quick reply                  | German   | `TWILIO_CONTENT_PS_ALERT_DE`      |
+| `ps_alert`    | Quick reply                  | English  | `TWILIO_CONTENT_PS_ALERT_EN`      |
+| `ps_followup` | Quick reply                  | German   | `TWILIO_CONTENT_PS_FOLLOWUP_DE`   |
+| `ps_followup` | Quick reply                  | English  | `TWILIO_CONTENT_PS_FOLLOWUP_EN`   |
+| `ps_test`     | Quick reply                  | German   | `TWILIO_CONTENT_PS_TEST_DE`       |
+| `ps_test`     | Quick reply                  | English  | `TWILIO_CONTENT_PS_TEST_EN`       |
+| `ps_otp`      | Authentication (WhatsApp)    | German   | `TWILIO_CONTENT_PS_OTP_DE`        |
+| `ps_otp`      | Authentication (WhatsApp)    | English  | `TWILIO_CONTENT_PS_OTP_EN`        |
+
+Name each template like `ps_alert_de`, set the category as below and submit it for **WhatsApp
+approval**.
+
+**Button IDs are variables.** Each quick-reply button has a title (what the owner sees) and an ID
+(what comes back when tapped). The code fills the IDs with `ack:<reply token>:<reply>` per message,
+so enter the IDs as the variables that follow the body variables:
+
+| Template                   | Body variables         | Button 1 ID | Button 2 ID | Button 3 ID |
+| -------------------------- | ---------------------- | ----------- | ----------- | ----------- |
+| `ps_alert`, `ps_followup`  | `{{1}}` problem, `{{2}}` nickname | `{{3}}` | `{{4}}` | `{{5}}` |
+| `ps_test`                  | `{{1}}` nickname       | `{{2}}`     | `{{3}}`     | `{{4}}`     |
+
+Sample values for the ID variables: `ack:sample:coming`, `ack:sample:in_30_min`,
+`ack:sample:not_nearby`.
+
+## Templates and buttons
 
 Names, categories, variable order and button order must match exactly, or Meta rejects the message.
 

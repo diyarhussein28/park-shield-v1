@@ -41,6 +41,27 @@ export const envSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().min(20),
   VAPID_PRIVATE_KEY: z.string().min(20),
   VAPID_SUBJECT: z.string().default('mailto:hallo@parkshield.de'),
+  // WhatsApp provider: Twilio (no monthly fee) or 360dialog (BSP, Berlin). Both use the same four
+  // Meta-approved templates (docs/whatsapp-templates.md).
+  WHATSAPP_PROVIDER: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.enum(['twilio', '360dialog']).default('twilio'),
+  ),
+  TWILIO_ACCOUNT_SID: z.string().default(''),
+  TWILIO_AUTH_TOKEN: z.string().default(''),
+  /** The WhatsApp sender number in E.164 form, e.g. +4915123456789. */
+  TWILIO_WHATSAPP_FROM: z.string().default(''),
+  /** Public https origin Twilio calls (status callbacks, button replies); empty: WEB_BASE_URL. */
+  TWILIO_WEBHOOK_BASE_URL: z.string().default(''),
+  // Content SIDs (HX…) of the approved templates, one per template and language.
+  TWILIO_CONTENT_PS_ALERT_DE: z.string().default(''),
+  TWILIO_CONTENT_PS_ALERT_EN: z.string().default(''),
+  TWILIO_CONTENT_PS_FOLLOWUP_DE: z.string().default(''),
+  TWILIO_CONTENT_PS_FOLLOWUP_EN: z.string().default(''),
+  TWILIO_CONTENT_PS_TEST_DE: z.string().default(''),
+  TWILIO_CONTENT_PS_TEST_EN: z.string().default(''),
+  TWILIO_CONTENT_PS_OTP_DE: z.string().default(''),
+  TWILIO_CONTENT_PS_OTP_EN: z.string().default(''),
   D360_API_KEY: z.string().default(''),
   D360_BASE_URL: z.url().default('https://waba-v2.360dialog.io'),
   D360_WEBHOOK_SECRET: z.string().default(''),
@@ -67,7 +88,10 @@ export function fakeProviders(env: Env) {
     mail: !env.BREVO_API_KEY,
     captcha: !env.FRIENDLY_CAPTCHA_API_KEY || !env.FRIENDLY_CAPTCHA_SITEKEY,
     payments: !env.STRIPE_SECRET_KEY,
-    whatsapp: !env.D360_API_KEY,
+    whatsapp:
+      env.WHATSAPP_PROVIDER === 'twilio'
+        ? !env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN || !env.TWILIO_WHATSAPP_FROM
+        : !env.D360_API_KEY,
     // No real print partner adapter yet: it is built once the partner is chosen in Phase 0.
     print: !env.PRINT_PARTNER,
     auditBucket: !env.AUDIT_BUCKET,
@@ -108,6 +132,12 @@ export function loadEnv(overrides: Partial<Record<keyof Env, string>> = {}): Env
   const realProduction = parsed.data.NODE_ENV === 'production' && parsed.data.APP_ENV !== 'ci';
   if (realProduction && fakes.length) {
     throw new Error(`Missing provider keys in production: ${fakes.map(([p]) => p).join(', ')}`);
+  }
+  if (realProduction && parsed.data.WHATSAPP_PROVIDER === 'twilio') {
+    const missing = Object.entries(parsed.data)
+      .filter(([k, v]) => k.startsWith('TWILIO_CONTENT_') && !v)
+      .map(([k]) => k);
+    if (missing.length) throw new Error(`Missing Twilio template SIDs: ${missing.join(', ')}`);
   }
   if (realProduction && parsed.data.FRIENDLY_CAPTCHA_ENDPOINT !== 'eu') {
     throw new Error('FRIENDLY_CAPTCHA_ENDPOINT must be "eu" in production (data stays in the EU)');
