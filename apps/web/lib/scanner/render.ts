@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { messages, type Locale } from '@parkshield/i18n';
+import { FRC_EU_HOSTS } from '../frc-hosts';
 import { FRC_GLUE_JS, SCANNER_JS } from './client';
 import { SCANNER_CSS } from './styles';
 
@@ -32,8 +33,8 @@ export function scannerCsp(withCaptcha: boolean): string {
     `script-src ${JS_HASH}${withCaptcha ? ` ${GLUE_HASH} 'self'` : ''}`,
     `style-src ${CSS_HASH}`,
     "img-src 'self' data:",
-    `connect-src 'self'${withCaptcha ? ' https://eu.frcapi.com https://eu1.frcapi.com' : ''}`,
-    ...(withCaptcha ? ['worker-src blob:'] : []),
+    `connect-src 'self'${withCaptcha ? ` ${FRC_EU_HOSTS}` : ''}`,
+    ...(withCaptcha ? [`frame-src ${FRC_EU_HOSTS}`, 'worker-src blob:'] : []),
     "base-uri 'none'",
     "form-action 'none'",
     "frame-ancestors 'none'",
