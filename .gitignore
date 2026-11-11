@@ -35,5 +35,7 @@ infra/monitoring/*.tfvars
 
 .vercel
 .env*
+# keep the template: scripts/dev.ts creates .env from it on the first run
+!.env.example
 # Ansible collections installed by CI for ansible-lint
 infra/ansible/collections/

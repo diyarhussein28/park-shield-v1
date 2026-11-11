@@ -45,7 +45,11 @@ export class ProvidersModule {
           useFactory: () =>
             fakes.captcha
               ? new DevCaptcha()
-              : new FriendlyCaptcha(env.FRIENDLY_CAPTCHA_API_KEY, env.FRIENDLY_CAPTCHA_SITEKEY),
+              : new FriendlyCaptcha(
+                  env.FRIENDLY_CAPTCHA_API_KEY,
+                  env.FRIENDLY_CAPTCHA_SITEKEY,
+                  env.FRIENDLY_CAPTCHA_ENDPOINT,
+                ),
         },
         {
           provide: PAYMENTS,

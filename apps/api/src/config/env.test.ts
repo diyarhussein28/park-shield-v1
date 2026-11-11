@@ -17,4 +17,25 @@ describe('test helpers are limited to dev, unit tests and CI', () => {
       loadEnv({ NODE_ENV: 'production', APP_ENV: 'production', BREVO_API_KEY: '' }),
     ).toThrow(/Missing provider keys in production/);
   });
+
+  it('uses the EU captcha endpoint by default and refuses global in real production', () => {
+    expect(loadEnv({ FRIENDLY_CAPTCHA_ENDPOINT: '' as never }).FRIENDLY_CAPTCHA_ENDPOINT).toBe(
+      'eu',
+    );
+    expect(() =>
+      loadEnv({
+        NODE_ENV: 'production',
+        APP_ENV: 'production',
+        BREVO_API_KEY: 'k',
+        FRIENDLY_CAPTCHA_API_KEY: 'k',
+        FRIENDLY_CAPTCHA_SITEKEY: 's',
+        STRIPE_SECRET_KEY: 'k',
+        D360_API_KEY: 'k',
+        PRINT_PARTNER: 'p',
+        AUDIT_BUCKET: 'b',
+        ZAMMAD_TOKEN: 't',
+        FRIENDLY_CAPTCHA_ENDPOINT: 'global',
+      }),
+    ).toThrow(/FRIENDLY_CAPTCHA_ENDPOINT must be "eu"/);
+  });
 });

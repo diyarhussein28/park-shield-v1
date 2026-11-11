@@ -22,16 +22,17 @@ import { RateLimitService } from '../core/rate-limit.service';
 import { ZodPipe } from '../core/zod.pipe';
 import { CAPTCHA, type Captcha } from '../providers/ports';
 import { ScanService } from './scan.service';
+import { captchaSolution } from '../providers/captcha';
 
 const ReportFake = z.object({
   note: z.string().max(500).optional(),
-  captcha: z.string().max(4096).optional(),
+  captcha: captchaSolution,
 });
 const CreateAlert = z.object({
   type: z.enum(ALERT_TYPE_CODES),
   message: z.string().max(CUSTOM_MESSAGE_MAX).optional(),
   lang: z.enum(['de', 'en']).default('de'),
-  captcha: z.string().max(4096).optional(),
+  captcha: captchaSolution,
 });
 
 /** Scanner endpoints: no account, no cookies, no session (SC-01–SC-07). */

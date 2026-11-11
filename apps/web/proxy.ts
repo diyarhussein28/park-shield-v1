@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { FRC_EU_HOSTS } from './lib/frc-hosts';
+import { frcHosts } from './lib/frc-hosts';
 
 /**
  * ASVS 14.4.3 / 50.x: strict Content-Security-Policy with a fresh nonce per request. Next.js reads the
@@ -16,10 +16,9 @@ export function proxy(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' blob: data:",
     "font-src 'self'",
-    // Friendly Captcha v2 (EU endpoint): the widget runs in an iframe from its API hosts and the SDK
-    // falls back from eu to eu0 and eu1.
-    `connect-src 'self' ${FRC_EU_HOSTS}`,
-    `frame-src ${FRC_EU_HOSTS}`,
+    // Friendly Captcha v2: the widget runs in an iframe from its API hosts (lib/frc-hosts.ts).
+    `connect-src 'self' ${frcHosts()}`,
+    `frame-src ${frcHosts()}`,
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     "object-src 'none'",

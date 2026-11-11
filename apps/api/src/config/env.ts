@@ -32,6 +32,12 @@ export const envSchema = z.object({
   MAIL_FROM: z.string().default('ParkShield <hallo@parkshield.de>'),
   FRIENDLY_CAPTCHA_SITEKEY: z.string().default(''),
   FRIENDLY_CAPTCHA_API_KEY: z.string().default(''),
+  // EU keeps scanner data in the EU (privacy policy) but needs the Advanced plan; `global` is for
+  // local testing on smaller plans and is refused in production. The web app reads the same variable.
+  FRIENDLY_CAPTCHA_ENDPOINT: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.enum(['eu', 'global']).default('eu'),
+  ),
   VAPID_PUBLIC_KEY: z.string().min(20),
   VAPID_PRIVATE_KEY: z.string().min(20),
   VAPID_SUBJECT: z.string().default('mailto:hallo@parkshield.de'),
@@ -99,8 +105,12 @@ export function loadEnv(overrides: Partial<Record<keyof Env, string>> = {}): Env
     throw new Error(`Invalid environment:\n${issues}`);
   }
   const fakes = Object.entries(fakeProviders(parsed.data)).filter(([, isFake]) => isFake);
-  if (parsed.data.NODE_ENV === 'production' && parsed.data.APP_ENV !== 'ci' && fakes.length) {
+  const realProduction = parsed.data.NODE_ENV === 'production' && parsed.data.APP_ENV !== 'ci';
+  if (realProduction && fakes.length) {
     throw new Error(`Missing provider keys in production: ${fakes.map(([p]) => p).join(', ')}`);
+  }
+  if (realProduction && parsed.data.FRIENDLY_CAPTCHA_ENDPOINT !== 'eu') {
+    throw new Error('FRIENDLY_CAPTCHA_ENDPOINT must be "eu" in production (data stays in the EU)');
   }
   return parsed.data;
 }

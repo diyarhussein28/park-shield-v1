@@ -19,6 +19,8 @@ const config: NextConfig = {
   output: process.env.VERCEL ? undefined : 'standalone',
   outputFileTracingRoot: join(import.meta.dirname, '..', '..'),
   transpilePackages: ['@parkshield/ui'],
+  // The captcha widget (client code) uses the same endpoint setting as the API; empty means EU.
+  env: { FRIENDLY_CAPTCHA_ENDPOINT: process.env.FRIENDLY_CAPTCHA_ENDPOINT || 'eu' },
   poweredByHeader: false,
   reactStrictMode: true,
   // Same-origin /v1 in every environment: Caddy routes it to the API in production, Next proxies it locally.

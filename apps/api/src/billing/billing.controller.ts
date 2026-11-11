@@ -26,6 +26,7 @@ import { ZodPipe } from '../core/zod.pipe';
 import { PAYMENTS, type Payments } from '../providers/ports';
 import { BillingService } from './billing.service';
 import { RefundsService } from './refunds.service';
+import { captchaSolution } from '../providers/captcha';
 
 const Checkout = z.object({
   plan: z.enum(['plus', 'premium']),
@@ -40,7 +41,7 @@ const CancelKind = z.object({
 const CancelWithoutLogin = CancelKind.extend({
   email: z.email().max(254),
   contractNo: z.string().trim().min(4).max(12),
-  captcha: z.string().max(4096).optional(),
+  captcha: captchaSolution,
   locale: z.enum(['de', 'en']).default('de'),
 });
 

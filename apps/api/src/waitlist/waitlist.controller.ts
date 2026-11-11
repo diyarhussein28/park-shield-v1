@@ -11,13 +11,14 @@ import { DB, ENV } from '../core/tokens';
 import { ZodPipe } from '../core/zod.pipe';
 import { MailService } from '../mail/mail.service';
 import { CAPTCHA, type Captcha } from '../providers/ports';
+import { captchaSolution } from '../providers/captcha';
 
 const Join = z.object({
   companyName: z.string().trim().min(2).max(120),
   email: z.email().max(254),
   fleetSize: z.coerce.number().int().min(1).max(100_000),
   industry: z.string().trim().max(60).optional(),
-  captcha: z.string().max(4096).optional(),
+  captcha: captchaSolution,
   locale: z.enum(['de', 'en']).default('de'),
 });
 const Confirm = z.object({ token: z.string().min(20).max(100) });

@@ -4,7 +4,14 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "env": ["SITE_NOINDEX", "VERCEL", "APP_ENV", "API_INTERNAL_URL", "NEXT_DIST_DIR"],
+      "env": [
+        "SITE_NOINDEX",
+        "VERCEL",
+        "APP_ENV",
+        "API_INTERNAL_URL",
+        "NEXT_DIST_DIR",
+        "FRIENDLY_CAPTCHA_ENDPOINT"
+      ],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "dev": {

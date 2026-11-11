@@ -228,7 +228,7 @@ if (current) showStatus();
 /** Glue for the real Friendly Captcha widget (only used when a sitekey is configured). */
 export const FRC_GLUE_JS = `import { FriendlyCaptchaSDK } from '/scanner-assets/frc-sdk.js';
 const el = document.getElementById('frc');
-const w = new FriendlyCaptchaSDK({ apiEndpoint: 'eu' }).createWidget({ element: el, sitekey: el.dataset.sitekey, startMode: 'auto' });
+const w = new FriendlyCaptchaSDK({ apiEndpoint: el.dataset.endpoint }).createWidget({ element: el, sitekey: el.dataset.sitekey, startMode: 'auto' });
 w.addEventListener('frc:widget.complete', (e) => { window.__psCaptcha = e.detail.response; document.dispatchEvent(new Event('ps:captcha')); });
 // A solution is single-use: solve a fresh one for the next alert or report.
 document.addEventListener('ps:captcha-used', () => w.reset());`;

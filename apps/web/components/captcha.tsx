@@ -4,6 +4,8 @@ import { Text, useI18n } from '@parkshield/ui';
 import { useEffect, useRef, useState } from 'react';
 
 const SITEKEY = process.env.NEXT_PUBLIC_FRIENDLY_CAPTCHA_SITEKEY ?? '';
+// Inlined at build time by next.config.ts (env), shared with the API: EU unless "global".
+const ENDPOINT = process.env.FRIENDLY_CAPTCHA_ENDPOINT === 'global' ? 'global' : 'eu';
 export const DEV_CAPTCHA_SOLUTION = 'dev-captcha-ok';
 
 /**
@@ -24,7 +26,7 @@ export function Captcha({ onSolved }: { onSolved: (solution: string | undefined)
     let cancelled = false;
     void import('@friendlycaptcha/sdk').then(({ FriendlyCaptchaSDK }) => {
       if (cancelled || !ref.current) return;
-      const sdk = new FriendlyCaptchaSDK({ apiEndpoint: 'eu' });
+      const sdk = new FriendlyCaptchaSDK({ apiEndpoint: ENDPOINT });
       const w = sdk.createWidget({
         element: ref.current,
         sitekey: SITEKEY,

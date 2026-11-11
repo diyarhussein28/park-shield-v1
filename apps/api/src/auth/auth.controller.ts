@@ -28,12 +28,13 @@ import { clearSessionCookies, setSessionCookies } from './cookies';
 import { CurrentUser, SessionGuard } from './guards';
 import { PasskeyService } from './passkey.service';
 import { SessionService, type AuthContext } from './session.service';
+import { captchaSolution } from '../providers/captcha';
 
 const locale = z.enum(['de', 'en']);
 const MagicLinkRequest = z.object({
   email: z.email().max(254),
   locale: locale.default('de'),
-  captcha: z.string().max(4096).optional(),
+  captcha: captchaSolution,
 });
 const MagicLinkConsume = z.object({ token: z.string().min(20).max(100) });
 const PasskeyRegister = z.object({

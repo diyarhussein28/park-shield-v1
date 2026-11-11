@@ -6,13 +6,14 @@ import { SessionService } from '../auth/session.service';
 import { truncateIp } from '../core/ip';
 import { ZodPipe } from '../core/zod.pipe';
 import { SUPPORT_TOPICS, SupportService } from './support.service';
+import { captchaSolution } from '../providers/captcha';
 
 const Contact = z.object({
   email: z.email().max(254),
   name: z.string().trim().max(80).optional(),
   topic: z.enum(SUPPORT_TOPICS),
   message: z.string().trim().min(10).max(4000),
-  captcha: z.string().max(4096).optional(),
+  captcha: captchaSolution,
   locale: z.enum(['de', 'en']).default('de'),
 });
 

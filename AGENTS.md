@@ -171,6 +171,14 @@ product works offline. Production refuses to start with fakes (unless `APP_ENV=c
 | Zammad (support desk)          | `ZAMMAD_URL`, `ZAMMAD_TOKEN`, `ZAMMAD_GROUP`                                                            | tickets stored locally                  |
 | Better Stack heartbeat         | `HEARTBEAT_URL_WORKER`                                                                                  | no ping                                 |
 
+Friendly Captcha endpoint: `FRIENDLY_CAPTCHA_ENDPOINT` is `eu` (default) or `global`, read by the API
+(siteverify URL) and the web app (widget, scanner page, CSP hosts). The EU endpoint keeps scanner
+data in the EU as the privacy policy says, but needs the Friendly Captcha **Advanced** plan and must
+be ticked under Applications → Manage → API Endpoint. On smaller plans set `global` locally for
+testing; production refuses to start with anything but `eu`. The application must be **Captcha
+v2** with `localhost` (and later the real domain) in its domain list. Changing the value needs a
+restart of `npm run dev`, because Next.js inlines it at start-up.
+
 Local Stripe webhooks: current Stripe CLI versions require the events to be named; these are the
 ones `StripePayments.parseWebhook` handles:
 
