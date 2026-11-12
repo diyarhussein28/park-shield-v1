@@ -104,22 +104,25 @@ Samples: as for `ps_alert`.
 
 ## `ps_test` (Utility)
 
-Sent after a WhatsApp number is linked and by "Testwarnung senden".
+Sent after a WhatsApp number is linked and by "Testwarnung senden". In Twilio it is named
+`ps_test_v2_de` / `ps_test_v2_en`: the first wording ("Test erfolgreich … So sieht eine echte Warnung
+aus") was re-categorised by Meta as **Marketing**, so the text is now a plain account notification.
+Submit it as Utility with category changes **not** allowed.
 
 **German body**
 
 ```text
-Test erfolgreich: ParkShield-Warnungen für „{{1}}“ erreichen Sie jetzt per WhatsApp.
+Ihre WhatsApp-Nummer ist jetzt mit ParkShield verbunden. Warnungen zu Ihrem Fahrzeug „{{1}}“ werden ab sofort hierher zugestellt.
 
-So sieht eine echte Warnung aus. Die Antwort-Knöpfe funktionieren genauso.
+Bei einer Warnung antworten Sie mit einem der Knöpfe unten.
 ```
 
 **English body**
 
 ```text
-Test successful: ParkShield alerts for "{{1}}" now reach you on WhatsApp.
+Your WhatsApp number is now connected to ParkShield. Alerts for your vehicle "{{1}}" will be delivered here from now on.
 
-This is what a real alert looks like. The reply buttons work the same way.
+When an alert arrives, reply with one of the buttons below.
 ```
 
 Sample: `{{1}}` = `Der Blaue` / `The blue one`.
