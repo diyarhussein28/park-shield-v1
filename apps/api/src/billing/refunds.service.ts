@@ -13,10 +13,10 @@ import { PAYMENTS, type Charge, type Payments } from '../providers/ports';
 const DAY = 86_400_000;
 const VAT = 0.19;
 
-/** Shown on credit notes until the company is registered (same placeholders as the Impressum). */
+/** Issuer block on credit notes (same data as the Impressum, apps/web/lib/legal-content.ts). */
 export const ISSUER = [
-  '[Firmenname] (in Gründung), [Straße Hausnummer], [PLZ Ort], Deutschland',
-  'Umsatzsteuer-Identifikationsnummer: [USt-IdNr.]',
+  'Diyar Hussein Dienstleistungen, Inhaber Diyar Hussein, Monheimer Str. 24, 51371 Leverkusen, Deutschland',
+  'Umsatzsteuer-Identifikationsnummer: DE454570643',
 ];
 
 export type RefundInput =

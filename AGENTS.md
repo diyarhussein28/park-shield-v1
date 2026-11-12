@@ -361,8 +361,11 @@ Also:
 
 ### A. Needs the project owner (accounts, keys, decisions)
 
-- [ ] **Company data** for the Impressum, invoices, credit notes and `security.txt` (replace
-      `[Firmenname]`, `[USt-IdNr.]` etc.). Then remove `SITE_NOINDEX` on Vercel.
+- [x] **Company data** in the Impressum, Datenschutz, Widerruf and credit notes: Diyar Hussein
+      Dienstleistungen (Einzelunternehmen, Leverkusen), USt-IdNr. DE454570643. The contact address
+      on the legal pages is a Gmail address until `parkshield.de` has a mail server (MX); then set
+      `CONTACT` in `apps/web/lib/legal-content.ts` back to `hallo@parkshield.de`.
+- [ ] Remove `SITE_NOINDEX` on Vercel once the lawyer has reviewed the legal pages.
 - [ ] **Lawyer review:** AGB, Datenschutzerklärung, Widerrufsbelehrung, and the withdrawal formula
       (Wertersatz per started day; printed decal valued via setting
       `refunds.custom_decal_cost_cents`, currently 2.50 €).

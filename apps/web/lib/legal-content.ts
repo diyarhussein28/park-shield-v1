@@ -1,7 +1,8 @@
 import type { Locale } from '@parkshield/i18n';
 
-// Drafts derived from docs/04-legal-privacy.md. Placeholders in [brackets] are filled in Phase 0;
-// the final wording comes from the IT-law firm and the DPO. German is the binding version.
+// Drafts derived from docs/04-legal-privacy.md, filled with the data of the registered business
+// (Gewerbe-Ummeldung Leverkusen, USt-IdNr. from the BZSt). The final wording still comes from the
+// IT-law firm. German is the binding version.
 export type LegalSlug =
   'impressum' | 'datenschutz' | 'agb' | 'widerruf' | 'barrierefreiheit' | 'sicherheit';
 const SECURITY = 'security@parkshield.de';
@@ -11,7 +12,12 @@ export interface LegalDoc {
   sections: { heading: string; paragraphs: string[] }[];
 }
 
-const CONTACT = 'hallo@parkshield.de';
+// parkshield.de has no mail server yet; switch to hallo@parkshield.de once it receives mail.
+const CONTACT = 'diyarhussein21@gmail.com';
+const OPERATOR = 'Diyar Hussein Dienstleistungen, Inhaber Diyar Hussein';
+const ADDRESS = 'Monheimer Str. 24, 51371 Leverkusen';
+const PHONE = '+49 176 20591765';
+const VAT_ID = 'DE454570643';
 
 const de: Record<LegalSlug, LegalDoc> = {
   impressum: {
@@ -20,16 +26,16 @@ const de: Record<LegalSlug, LegalDoc> = {
       {
         heading: 'Angaben gemäß § 5 DDG',
         paragraphs: [
-          '[Firmenname] (in Gründung), [Straße Hausnummer], [PLZ Ort], Deutschland',
-          'Vertreten durch die Geschäftsführung: [Vorname Nachname]',
-          `E-Mail: ${CONTACT} · Telefon: [Telefonnummer]`,
-          'Registereintrag: [Amtsgericht], [HRB-Nummer]',
-          'Umsatzsteuer-Identifikationsnummer gemäß § 27a UStG: [USt-IdNr.]',
+          'ParkShield ist ein Angebot von:',
+          `Diyar Hussein Dienstleistungen, Inhaber: Diyar Hussein, ${ADDRESS}, Deutschland`,
+          `E-Mail: ${CONTACT} · Telefon: ${PHONE}`,
+          'Einzelunternehmen, nicht im Handelsregister eingetragen.',
+          `Umsatzsteuer-Identifikationsnummer gemäß § 27a UStG: ${VAT_ID}`,
         ],
       },
       {
         heading: 'Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV',
-        paragraphs: ['[Vorname Nachname], Anschrift wie oben'],
+        paragraphs: ['Diyar Hussein, Anschrift wie oben'],
       },
       {
         heading: 'Verbraucherstreitbeilegung',
@@ -45,8 +51,8 @@ const de: Record<LegalSlug, LegalDoc> = {
       {
         heading: '1. Verantwortlicher und Datenschutzbeauftragter',
         paragraphs: [
-          'Verantwortlich ist [Firmenname], [Anschrift], E-Mail: ' + CONTACT + '.',
-          'Unseren externen Datenschutzbeauftragten erreichen Sie unter [datenschutz@…].',
+          `Verantwortlich ist ${OPERATOR}, ${ADDRESS}, E-Mail: ${CONTACT}.`,
+          `Einen Datenschutzbeauftragten haben wir nicht benannt, weil dafür keine Pflicht besteht (§ 38 BDSG). Fragen zum Datenschutz richten Sie bitte an ${CONTACT}.`,
         ],
       },
       {
@@ -145,7 +151,7 @@ const de: Record<LegalSlug, LegalDoc> = {
         heading: 'Widerrufsrecht',
         paragraphs: [
           'Sie haben das Recht, binnen vierzehn Tagen ohne Angabe von Gründen diesen Vertrag zu widerrufen. Die Widerrufsfrist beträgt vierzehn Tage ab dem Tag des Vertragsschlusses.',
-          `Um Ihr Widerrufsrecht auszuüben, müssen Sie uns ([Firmenname], [Anschrift], E-Mail: ${CONTACT}) mittels einer eindeutigen Erklärung (zum Beispiel per E-Mail) über Ihren Entschluss informieren. Sie können dafür das unten stehende Muster-Widerrufsformular verwenden, das jedoch nicht vorgeschrieben ist.`,
+          `Um Ihr Widerrufsrecht auszuüben, müssen Sie uns (${OPERATOR}, ${ADDRESS}, E-Mail: ${CONTACT}) mittels einer eindeutigen Erklärung (zum Beispiel per E-Mail) über Ihren Entschluss informieren. Sie können dafür das unten stehende Muster-Widerrufsformular verwenden, das jedoch nicht vorgeschrieben ist.`,
           'Zur Wahrung der Widerrufsfrist reicht es aus, dass Sie die Mitteilung vor Ablauf der Widerrufsfrist absenden.',
         ],
       },
@@ -160,7 +166,7 @@ const de: Record<LegalSlug, LegalDoc> = {
       {
         heading: 'Muster-Widerrufsformular',
         paragraphs: [
-          `An [Firmenname], [Anschrift], E-Mail: ${CONTACT}:`,
+          `An ${OPERATOR}, ${ADDRESS}, E-Mail: ${CONTACT}:`,
           'Hiermit widerrufe(n) ich/wir den von mir/uns abgeschlossenen Vertrag über die Erbringung der folgenden Dienstleistung: ParkShield-Abo, Vertragsnummer ______',
           'Bestellt am ______ · Name ______ · Anschrift ______ · Datum ______',
         ],
@@ -226,10 +232,11 @@ const en: Record<LegalSlug, LegalDoc> = {
       {
         heading: 'Information pursuant to § 5 DDG',
         paragraphs: [
-          '[Company name] (in formation), [Street], [Postcode City], Germany',
-          'Represented by the managing director: [First name Last name]',
-          `E-mail: ${CONTACT} · Phone: [Phone number]`,
-          'Commercial register: [Local court], [HRB number] · VAT ID: [VAT ID]',
+          'ParkShield is offered by:',
+          `Diyar Hussein Dienstleistungen, owner: Diyar Hussein, ${ADDRESS}, Germany`,
+          `E-mail: ${CONTACT} · Phone: ${PHONE}`,
+          'Sole proprietorship, not entered in the commercial register.',
+          `VAT ID pursuant to § 27a UStG: ${VAT_ID}`,
         ],
       },
       {
