@@ -168,9 +168,12 @@ export function SiteFooter() {
         ))}
       </div>
       <div className="border-t border-white/10">
-        <p className={`${WIDE} py-6 text-sm text-slate-400`}>
-          © {new Date().getFullYear()} ParkShield · {t('landing.trust')}
-        </p>
+        <div className={`${WIDE} flex flex-col gap-2 py-6 text-sm text-slate-400`}>
+          <p>
+            © {new Date().getFullYear()} ParkShield · {t('landing.trust')}
+          </p>
+          <p className="wrap-anywhere">{t('common.footer.operator')}</p>
+        </div>
       </div>
     </footer>
   );
