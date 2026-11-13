@@ -259,6 +259,10 @@ Single API test file: `cd apps/api && npx vitest run src/scan`. Single E2E file:
   Ansible, Caddy in front, PostgreSQL 18 with LUKS disk
   encryption and pgBackRest backups to S3, WireGuard VPN for the ops app and ops API. Not yet
   provisioned.
+- **Single-server test stack (temporary):** `infra/single/` runs the website, API, worker,
+  PostgreSQL and Valkey on one Hetzner VM with Docker Compose and Caddy, to test real providers
+  (Twilio webhooks first) on a public domain. `APP_ENV=ci` with fakes for missing keys, so the
+  whole site is behind basic auth except `/v1/webhooks/*`. Not production; see its README.
 - **Website preview on Vercel (temporary):** https://parkshield-seven.vercel.app — Vercel project
   `parkshield`, root `apps/web`, region `fra1`, env `APP_ENV=production` and `SITE_NOINDEX=1`
   (sends `X-Robots-Tag: noindex` while the Impressum has placeholders). **Website only**: sign-in,

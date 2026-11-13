@@ -1,0 +1,99 @@
+# Single-server test stack (Hetzner, one VM): Caddy, web, public API, worker, PostgreSQL 18, Valkey.
+# Not the production topology (that is infra/terraform + infra/ansible). See README.md here.
+#
+# Every container uses the host network and binds to 127.0.0.1, exactly like the production hosts:
+# the API trusts X-Forwarded-For only from loopback (apps/api/src/core/http.ts), so Caddy and the
+# Next.js server must reach it over 127.0.0.1. Only Caddy listens publicly (80/443).
+name: parkshield
+
+x-app: &app
+  env_file: server.env
+  network_mode: host
+  restart: unless-stopped
+  depends_on:
+    postgres: { condition: service_healthy }
+    valkey: { condition: service_started }
+
+services:
+  postgres:
+    image: postgres:18
+    network_mode: host
+    restart: unless-stopped
+    command: ['postgres', '-c', 'listen_addresses=127.0.0.1', '-c', 'port=5432']
+    environment:
+      POSTGRES_USER: parkshield
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: parkshield
+    # PostgreSQL 18 images keep data under /var/lib/postgresql/<major>/docker.
+    volumes: ['pgdata:/var/lib/postgresql']
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-h', '127.0.0.1', '-U', 'parkshield']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  valkey:
+    image: valkey/valkey:8
+    network_mode: host
+    restart: unless-stopped
+    command: >-
+      valkey-server --bind 127.0.0.1 --port 6379 --appendonly yes --appendfsync everysec
+      --requirepass "${VALKEY_PASSWORD:?set VALKEY_PASSWORD in .env}"
+    volumes: ['valkey-data:/data']
+
+  api:
+    <<: *app
+    build: { context: ../.., target: api }
+    image: parkshield-api:local
+    command: ['node', '--enable-source-maps', 'dist/main.js']
+    # Local stand-ins (print outbox, audit files) write here while those providers have no keys.
+    volumes: ['./data:/data']
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/v1/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  worker:
+    <<: *app
+    image: parkshield-api:local
+    command: ['node', '--enable-source-maps', 'dist/worker.js']
+    volumes: ['./data:/data']
+
+  web:
+    <<: *app
+    build: { context: ../.., target: web }
+    image: parkshield-web:local
+    # The image defaults to 0.0.0.0; on the host network that would expose :3000 publicly.
+    environment: { HOSTNAME: 127.0.0.1, PORT: '3000' }
+    depends_on:
+      api: { condition: service_healthy }
+
+  caddy:
+    image: caddy:2
+    network_mode: host
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [web, api]
+
+  # One-off: docker compose run --rm migrate
+  migrate:
+    <<: *app
+    image: parkshield-api:local
+    restart: 'no'
+    profiles: [tools]
+    command: ['npx', 'dbmate', '--migrations-dir', '../../db/migrations', '--no-dump-schema', 'up']
+
+volumes:
+  pgdata:
+  valkey-data:
+  caddy-data:
+  caddy-config:

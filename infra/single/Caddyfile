@@ -1,0 +1,58 @@
+# Single-server test stack. DOMAIN, BASIC_AUTH_USER and BASIC_AUTH_HASH come from .env.
+# The whole site sits behind basic auth because this stack runs with APP_ENV=ci, which enables the
+# dev inbox (/dev/postfach) and other test-only routes. Only provider webhooks stay open: Twilio and
+# Stripe cannot send basic auth, and they are verified by their own signatures.
+{
+	servers {
+		protocols h1 h2 h3
+	}
+}
+
+{$DOMAIN} {
+	tls {
+		protocols tls1.3
+	}
+	header {
+		Strict-Transport-Security "max-age=63072000"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+
+	# Access log keeps method, status and timing only: no client IP, headers or URL (tokens live in URLs).
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>remote_ip delete
+				request>remote_port delete
+				request>client_ip delete
+				request>headers delete
+				request>uri delete
+				request>tls delete
+				resp_headers delete
+			}
+		}
+	}
+
+	# Ops routes never exist on the public API (AD-01); reject as a second layer.
+	@ops path /ops/*
+	respond @ops 404
+
+	@webhooks path /v1/webhooks/*
+	handle @webhooks {
+		reverse_proxy 127.0.0.1:4000
+	}
+
+	handle {
+		basic_auth {
+			{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+		}
+		handle /v1/* {
+			reverse_proxy 127.0.0.1:4000
+		}
+		handle {
+			reverse_proxy 127.0.0.1:3000
+		}
+	}
+}
