@@ -5,15 +5,15 @@ import type { Locale } from '@parkshield/i18n';
 // IT-law firm. German is the binding version.
 export type LegalSlug =
   'impressum' | 'datenschutz' | 'agb' | 'widerruf' | 'barrierefreiheit' | 'sicherheit';
-const SECURITY = 'security@parkshield.de';
+const SECURITY = 'contact@park-shield.de';
 
 export interface LegalDoc {
   title: string;
   sections: { heading: string; paragraphs: string[] }[];
 }
 
-// parkshield.de has no mail server yet; switch to hallo@parkshield.de once it receives mail.
-const CONTACT = 'diyarhussein21@gmail.com';
+// Company mailbox on the website domain (Strato); Twilio Trust Hub needs the same domain for both.
+const CONTACT = 'contact@park-shield.de';
 const OPERATOR = 'Diyar Hussein Dienstleistungen, Inhaber Diyar Hussein';
 const ADDRESS = 'Monheimer Str. 24, 51371 Leverkusen';
 const PHONE = '+49 176 20591765';

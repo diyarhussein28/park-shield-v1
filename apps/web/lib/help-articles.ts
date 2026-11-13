@@ -100,7 +100,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       title: 'Push-Benachrichtigungen auf dem iPhone',
       summary: 'Auf dem iPhone funktioniert Push nur, wenn ParkShield auf dem Home-Bildschirm ist.',
       body: [
-        'Öffnen Sie parkshield.de in Safari, tippen Sie auf „Teilen“ und dann auf „Zum Home-Bildschirm“. Öffnen Sie ParkShield danach über das neue Symbol und melden Sie sich an.',
+        'Öffnen Sie park-shield.de in Safari, tippen Sie auf „Teilen“ und dann auf „Zum Home-Bildschirm“. Öffnen Sie ParkShield danach über das neue Symbol und melden Sie sich an.',
         'Gehen Sie in den Benachrichtigungen auf „Dieses Gerät hinzufügen“ und erlauben Sie Mitteilungen. Ohne den Weg über den Home-Bildschirm bietet iOS keine Web-Push-Nachrichten an.',
         'Prüfen Sie zusätzlich, dass der Fokus-Modus ParkShield nicht stummschaltet. Als zweiten Kanal empfehlen wir WhatsApp oder E-Mail.',
       ],
@@ -109,7 +109,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       title: 'Push notifications on an iPhone',
       summary: 'On an iPhone, push only works when ParkShield is on the home screen.',
       body: [
-        'Open parkshield.de in Safari, tap “Share” and then “Add to Home Screen”. Then open ParkShield from the new icon and sign in.',
+        'Open park-shield.de in Safari, tap “Share” and then “Add to Home Screen”. Then open ParkShield from the new icon and sign in.',
         'In notifications, choose “Add this device” and allow notifications. Without the home screen step, iOS does not offer web push.',
         'Also check that a Focus mode does not silence ParkShield. We recommend WhatsApp or e-mail as a second channel.',
       ],

@@ -313,7 +313,7 @@ const de = {
     rateText: 'Zu viele Aufrufe von diesem Netz. Versuchen Sie es in einer Minute erneut.',
     trustDomain: 'Echte Seite: pkshd.de',
     trustPayment: 'ParkShield verlangt nie eine Zahlung',
-    protectToo: 'Auch schützen? parkshield.de',
+    protectToo: 'Auch schützen? park-shield.de',
   },
   channels: {
     title: 'Benachrichtigungen',
@@ -343,7 +343,7 @@ const de = {
     iosTitle: 'Push auf dem iPhone (ab iOS 16.4)',
     iosIntro:
       'Auf iPhone und iPad funktioniert Push nur, wenn ParkShield auf dem Home-Bildschirm liegt.',
-    iosStep1: 'Öffnen Sie parkshield.de/konto in Safari.',
+    iosStep1: 'Öffnen Sie park-shield.de/konto in Safari.',
     iosStep2: 'Tippen Sie auf „Teilen“ (Quadrat mit Pfeil) und dann auf „Zum Home-Bildschirm“.',
     iosStep3: 'Öffnen Sie ParkShield über das neue Symbol und melden Sie sich an.',
     iosStep4:

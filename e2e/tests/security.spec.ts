@@ -39,7 +39,7 @@ test('strict CSP on the web and ops apps: pages hydrate, nothing is blocked (US-
   expect(scanner.headers()['content-security-policy']).toContain("default-src 'none'");
 
   const txt = await request.get('/.well-known/security.txt');
-  expect(await txt.text()).toContain('Contact: mailto:security@parkshield.de');
+  expect(await txt.text()).toContain('Contact: mailto:contact@park-shield.de');
 
   const ops = await staffBrowser(browser, 'admin', ['admin']);
   const opsViolations = watchCsp(ops);

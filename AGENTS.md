@@ -362,9 +362,11 @@ Also:
 ### A. Needs the project owner (accounts, keys, decisions)
 
 - [x] **Company data** in the Impressum, Datenschutz, Widerruf and credit notes: Diyar Hussein
-      Dienstleistungen (Einzelunternehmen, Leverkusen), USt-IdNr. DE454570643. The contact address
-      on the legal pages is a Gmail address until `parkshield.de` has a mail server (MX); then set
-      `CONTACT` in `apps/web/lib/legal-content.ts` back to `hallo@parkshield.de`.
+      Dienstleistungen (Einzelunternehmen, Leverkusen), USt-IdNr. DE454570643.
+- [x] **Domain and company mailbox:** `park-shield.de` (Strato, `parkshield.de` belongs to someone
+      else), mailbox `contact@park-shield.de`. Used on the legal pages, `security.txt`, the scanner
+      footer and as `MAIL_FROM`. Still `@parkshield.de`: the setting `ops.alert_email`
+      (`datenschutz@parkshield.de`, change it in ops → Einstellungen) and the infra/runbook examples.
 - [ ] Remove `SITE_NOINDEX` on Vercel once the lawyer has reviewed the legal pages.
 - [ ] **Lawyer review:** AGB, Datenschutzerklärung, Widerrufsbelehrung, and the withdrawal formula
       (Wertersatz per started day; printed decal valued via setting

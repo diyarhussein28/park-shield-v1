@@ -50,7 +50,7 @@ function shell(locale: Locale, title: string, body: string, extraHead = ''): str
 
 function footer(s: Strings): string {
   return `<footer><p><b>${esc(s.trustDomain)}</b></p><p>${esc(s.trustPayment)}</p>
-<p><a href="https://parkshield.de/">${esc(s.protectToo)}</a></p></footer>`;
+<p><a href="https://park-shield.de/">${esc(s.protectToo)}</a></p></footer>`;
 }
 
 /** SC-07: reveals nothing about why (unknown, revoked, unpaid all look the same). */

@@ -305,7 +305,7 @@ const en: typeof de = {
     rateText: 'Too many requests from this network. Try again in a minute.',
     trustDomain: 'Genuine page: pkshd.de',
     trustPayment: 'ParkShield never asks for payment',
-    protectToo: 'Protect your car too? parkshield.de',
+    protectToo: 'Protect your car too? park-shield.de',
   },
   channels: {
     title: 'Notifications',
@@ -332,7 +332,7 @@ const en: typeof de = {
     pushRemoveLabel: 'Remove device: {device}',
     iosTitle: 'Push on iPhone (iOS 16.4 or later)',
     iosIntro: 'On iPhone and iPad, push only works when ParkShield is on the home screen.',
-    iosStep1: 'Open parkshield.de/konto in Safari.',
+    iosStep1: 'Open park-shield.de/konto in Safari.',
     iosStep2: 'Tap “Share” (square with arrow), then “Add to Home Screen”.',
     iosStep3: 'Open ParkShield from the new icon and sign in.',
     iosStep4: 'Tap “Turn on push on this device” here and allow notifications.',

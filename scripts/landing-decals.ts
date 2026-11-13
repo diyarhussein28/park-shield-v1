@@ -10,7 +10,7 @@ import { ROOT } from './lib/paths.ts';
 for (const template of ['bold', 'classic', 'night'] as const) {
   const spec = layoutDecal({
     code: 'BEISPIEL',
-    scannerBaseUrl: 'https://parkshield.de',
+    scannerBaseUrl: 'https://park-shield.de',
     template,
     cta: 'Blockiere ich Sie? Bitte scannen',
     product: 'uv_vinyl_sticker',

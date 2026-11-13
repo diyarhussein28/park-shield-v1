@@ -40,7 +40,7 @@ export const envSchema = z.object({
     (v) => (v === '' ? undefined : v),
     z.enum(['global', 'eu']).default('global'),
   ),
-  MAIL_FROM: z.string().default('ParkShield <hallo@parkshield.de>'),
+  MAIL_FROM: z.string().default('ParkShield <contact@park-shield.de>'),
   FRIENDLY_CAPTCHA_SITEKEY: z.string().default(''),
   FRIENDLY_CAPTCHA_API_KEY: z.string().default(''),
   // EU keeps scanner data in the EU (privacy policy) but needs the Advanced plan; `global` is for
@@ -51,7 +51,7 @@ export const envSchema = z.object({
   ),
   VAPID_PUBLIC_KEY: z.string().min(20),
   VAPID_PRIVATE_KEY: z.string().min(20),
-  VAPID_SUBJECT: z.string().default('mailto:hallo@parkshield.de'),
+  VAPID_SUBJECT: z.string().default('mailto:contact@park-shield.de'),
   // WhatsApp provider: Twilio (no monthly fee) or 360dialog (BSP, Berlin). Both use the same four
   // Meta-approved templates (docs/whatsapp-templates.md).
   WHATSAPP_PROVIDER: z.preprocess(
