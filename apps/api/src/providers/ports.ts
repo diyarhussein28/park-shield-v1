@@ -215,6 +215,13 @@ export interface Payments {
   /** Account deletion: removes the customer and cancels subscriptions immediately. Idempotent. */
   deleteCustomer(customerId: string): Promise<{ reference: string }>;
   createCheckout(req: CheckoutRequest): Promise<{ id: string; url: string }>;
+  /**
+   * The completed checkout read straight from the provider, for when the customer returns before (or
+   * without) the webhook. null while the session is not paid yet. Same event shape as the webhook.
+   */
+  checkoutCompletion(
+    ref: { sessionId: string } | { customerId: string },
+  ): Promise<BillingEvent | null>;
   createPaymentCheckout(req: PaymentCheckoutRequest): Promise<{ id: string; url: string }>;
   /** Ends the subscription at `at`, or at the end of the current period when `at` is null. */
   cancelAt(subscriptionId: string, at: Date | null): Promise<{ periodEnd: Date | null }>;

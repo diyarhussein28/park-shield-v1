@@ -221,6 +221,19 @@ test('mobile number: one SMS code for SMS and WhatsApp, add and turn off (US-21,
   test.setTimeout(60_000);
   const email = uniqueEmail('phone');
   await signUp(page, request, email);
+  // Before paying, the section is closed and points to the subscription.
+  await page.goto('/konto/benachrichtigungen');
+  await expect(
+    page.getByRole('heading', { name: 'Erst das Abo, dann geht es hier weiter' }),
+  ).toBeVisible();
+  await expect(page.getByLabel('Handynummer')).toHaveCount(0);
+  await page.getByRole('link', { name: 'Zum Abo' }).click();
+  await page.getByLabel(/Ich verlange ausdrücklich/).check();
+  await page.getByRole('button', { name: 'Zahlungspflichtig bestellen' }).click();
+  await page.getByRole('button', { name: 'Testzahlung ausführen' }).click();
+  await expect(page.getByText('Zahlung erhalten. Willkommen bei ParkShield!')).toBeVisible({
+    timeout: 15_000,
+  });
   await page.goto('/konto/benachrichtigungen');
   await page.waitForLoadState('networkidle');
   const card = page.getByRole('region', { name: 'Ihre Handynummer' });

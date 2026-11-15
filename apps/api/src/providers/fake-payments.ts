@@ -45,7 +45,18 @@ export class FakePayments implements Payments {
   }
 
   createCheckout(req: CheckoutRequest) {
-    return this.store({ ...req, id: `cs_fake_${randomToken(12)}`, kind: 'subscription' });
+    const id = `cs_fake_${randomToken(12)}`;
+    return this.store({
+      ...req,
+      successUrl: req.successUrl.replace('{CHECKOUT_SESSION_ID}', id),
+      id,
+      kind: 'subscription',
+    });
+  }
+
+  /** The dev checkout page completes the session synchronously, so there is nothing to pick up. */
+  async checkoutCompletion(): Promise<BillingEvent | null> {
+    return null;
   }
 
   createPaymentCheckout(req: PaymentCheckoutRequest) {

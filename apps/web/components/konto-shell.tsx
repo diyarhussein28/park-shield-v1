@@ -7,6 +7,7 @@ import { useState, type ReactNode } from 'react';
 import { api } from '@/lib/api-client';
 import { cx } from '@/lib/cx';
 import { Icon, type IconName } from './icons';
+import { isLockedSection, useSubscribed } from './konto-access';
 import { PageShell, WIDE } from './site-chrome';
 
 type Item = { href: string; label: string; icon: IconName };
@@ -28,6 +29,9 @@ export function KontoShell({
   back?: { href: string; label: string };
   children: ReactNode;
 }) {
+  const subscribed = useSubscribed();
+  const pathname = usePathname();
+  const locked = subscribed === false && isLockedSection(pathname);
   return (
     <PageShell>
       <div className={`${WIDE} py-6 lg:py-10`}>
@@ -50,7 +54,7 @@ export function KontoShell({
               </div>
               {actions}
             </header>
-            <div className="flex flex-col gap-6">{children}</div>
+            <div className="flex flex-col gap-6">{locked ? <LockedSection /> : children}</div>
           </div>
         </div>
       </div>
@@ -58,9 +62,27 @@ export function KontoShell({
   );
 }
 
+/** Shown instead of a section that needs a subscription, with the one step that unlocks it. */
+function LockedSection() {
+  const { t } = useI18n();
+  return (
+    <Section title={t('portal.lockedTitle')} icon="lock" className="border-2 border-primary">
+      <p className="text-muted">{t('portal.lockedText')}</p>
+      <Link
+        href="/konto"
+        className="inline-flex min-h-12 w-fit items-center gap-2 rounded-xl bg-primary px-5 font-semibold text-primary-fg hover:bg-primary-hover"
+      >
+        {t('portal.lockedButton')}
+        <Icon name="arrowRight" className="size-5" />
+      </Link>
+    </Section>
+  );
+}
+
 function KontoNav() {
   const { t } = useI18n();
   const pathname = usePathname();
+  const subscribed = useSubscribed();
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -112,26 +134,29 @@ function KontoNav() {
         )}
       >
         <ul className="flex flex-col gap-1">
-          {items.map((i) => {
-            const active = isCurrent(i.href);
-            return (
-              <li key={i.href}>
-                <Link
-                  href={i.href}
-                  aria-current={active ? 'page' : undefined}
-                  onClick={() => setOpen(false)}
-                  className={cx(
-                    row,
-                    active &&
-                      'bg-info-bg font-semibold text-info-fg hover:bg-info-bg hover:text-info-fg',
-                  )}
-                >
-                  <Icon name={i.icon} className="size-5 shrink-0" />
-                  <span className="min-w-0">{i.label}</span>
-                </Link>
-              </li>
-            );
-          })}
+          {/* Before the payment, only what is useful then: overview, plan, data. */}
+          {items
+            .filter((i) => subscribed !== false || !isLockedSection(i.href))
+            .map((i) => {
+              const active = isCurrent(i.href);
+              return (
+                <li key={i.href}>
+                  <Link
+                    href={i.href}
+                    aria-current={active ? 'page' : undefined}
+                    onClick={() => setOpen(false)}
+                    className={cx(
+                      row,
+                      active &&
+                        'bg-info-bg font-semibold text-info-fg hover:bg-info-bg hover:text-info-fg',
+                    )}
+                  >
+                    <Icon name={i.icon} className="size-5 shrink-0" />
+                    <span className="min-w-0">{i.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
         </ul>
         <div className="mt-2 flex flex-col gap-1 border-t border-border pt-2">
           <Link href="/hilfe" className={row}>

@@ -221,10 +221,44 @@ export class BillingService {
       plan: input.plan,
       locale: user.preferredLang,
       stripeCouponId: promo?.stripe_coupon_id ?? null,
-      successUrl: `${this.env.WEB_BASE_URL}/konto?checkout=success`,
+      // Stripe fills in the session id, so the account page can confirm the payment on return.
+      successUrl: `${this.env.WEB_BASE_URL}/konto?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${this.env.WEB_BASE_URL}/konto?checkout=canceled`,
       metadata,
     });
+  }
+
+  /**
+   * The customer is back from Checkout: read the session from the provider and start the subscription
+   * now, instead of waiting for the webhook (which may be late, or missing locally without
+   * `stripe listen`). Idempotent with the webhook: both end in the same insert on the subscription id.
+   */
+  async confirmCheckout(
+    user: AuthContext,
+    sessionId?: string,
+  ): Promise<{ status: 'active' | 'pending' }> {
+    if (await this.liveSubscription(user.userId)) return { status: 'active' };
+    let ref: { sessionId: string } | { customerId: string } | null = sessionId
+      ? { sessionId }
+      : null;
+    if (!ref) {
+      const row = await this.db
+        .selectFrom('users')
+        .select('stripe_customer_id')
+        .where('id', '=', user.userId)
+        .executeTakeFirst();
+      if (!row?.stripe_customer_id) return { status: 'pending' };
+      ref = { customerId: row.stripe_customer_id };
+    }
+    const event = await this.payments.checkoutCompletion(ref).catch((err: unknown) => {
+      this.logger.warn({ err: String(err) }, 'checkout session could not be read');
+      return null;
+    });
+    if (!event || event.kind !== 'checkout_completed') return { status: 'pending' };
+    // Only the person who paid can confirm their own session.
+    if (event.metadata.userId !== user.userId) throw new NotFoundException();
+    await this.handle(event);
+    return { status: (await this.liveSubscription(user.userId)) ? 'active' : 'pending' };
   }
 
   /** Applies a provider event exactly once (webhooks are retried and may arrive more than once). */

@@ -1,5 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
+import type { FakePayments } from '../providers/fake-payments';
+import { PAYMENTS } from '../providers/ports';
+import { BillingService } from './billing.service';
 import {
   createHarness,
   lastMail,
@@ -308,5 +311,50 @@ describe('Business waitlist with double opt-in (US-04)', () => {
       .select('confirmed_at')
       .executeTakeFirstOrThrow();
     expect(confirmed.confirmed_at).toBeInstanceOf(Date);
+  });
+});
+
+describe('back from Checkout without the webhook (US-06)', () => {
+  it('confirms the paid session for its owner only, once', async () => {
+    const payments = h.app.get<FakePayments>(PAYMENTS);
+    const s = await signIn(h, 'return@example.de');
+    const res = await checkout(s, { plan: 'plus', immediateStart: true });
+    const sessionId = new URL(res.json().url).searchParams.get('session')!;
+    const session = (await payments.getSession(sessionId))!;
+    // The success URL carries the session id instead of Stripe's placeholder.
+    expect(session.successUrl).toContain(`session_id=${sessionId}`);
+
+    const event = {
+      kind: 'checkout_completed' as const,
+      eventId: `confirm:${sessionId}`,
+      customerId: session.customerId,
+      subscriptionId: 'sub_confirm_1',
+      metadata: session.metadata,
+      periodStart: new Date(),
+      periodEnd: new Date(Date.now() + 365 * 86_400_000),
+    };
+    const confirm = (who: Session) =>
+      h.app.inject({
+        method: 'POST',
+        url: '/v1/billing/checkout/confirm',
+        headers: who.headers,
+        payload: { sessionId },
+      });
+
+    const original = payments.checkoutCompletion.bind(payments);
+    payments.checkoutCompletion = async () => null;
+    expect((await confirm(s)).json()).toEqual({ status: 'pending' });
+
+    payments.checkoutCompletion = async () => event;
+    const other = await signIn(h, 'stranger@example.de');
+    expect((await confirm(other)).statusCode).toBe(404);
+    expect((await confirm(s)).json()).toEqual({ status: 'active' });
+    expect((await confirm(s)).json()).toEqual({ status: 'active' });
+    // The webhook arriving later changes nothing.
+    await h.app.get(BillingService).handle({ ...event, eventId: 'evt_late_webhook' });
+    const subs = await h.db.selectFrom('subscriptions').select('id').execute();
+    expect(subs).toHaveLength(1);
+    expect((await mailbox(h)).filter((m) => m.tag === 'subscription_started')).toHaveLength(1);
+    payments.checkoutCompletion = original;
   });
 });

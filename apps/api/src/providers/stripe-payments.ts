@@ -181,6 +181,38 @@ export class StripePayments implements Payments {
     return { id: session.id, url: session.url };
   }
 
+  async checkoutCompletion(
+    ref: { sessionId: string } | { customerId: string },
+  ): Promise<BillingEvent | null> {
+    // Without a session id (tab closed before the redirect): the customer's latest completed checkout.
+    const s =
+      'sessionId' in ref
+        ? await this.stripe.checkout.sessions.retrieve(ref.sessionId)
+        : (
+            await this.stripe.checkout.sessions.list({
+              customer: ref.customerId,
+              status: 'complete',
+              limit: 5,
+            })
+          ).data.find((x) => x.mode === 'subscription');
+    if (!s) return null;
+    if (s.mode !== 'subscription' || s.status !== 'complete' || !s.subscription) return null;
+    // SEPA and other delayed methods stay "unpaid" until they settle: access waits for the webhook.
+    if (s.payment_status !== 'paid' && s.payment_status !== 'no_payment_required') return null;
+    const subscriptionId = typeof s.subscription === 'string' ? s.subscription : s.subscription.id;
+    const sub = await this.stripe.subscriptions.retrieve(subscriptionId);
+    const p = period(sub as unknown as Record<string, unknown>);
+    return {
+      kind: 'checkout_completed',
+      eventId: `confirm:${s.id}`,
+      customerId: typeof s.customer === 'string' ? s.customer : String(s.customer?.id ?? ''),
+      subscriptionId: sub.id,
+      metadata: (s.metadata as Record<string, string> | null) ?? {},
+      periodStart: p.start ?? new Date(),
+      periodEnd: p.end ?? new Date(),
+    };
+  }
+
   async createPaymentCheckout(req: PaymentCheckoutRequest): Promise<{ id: string; url: string }> {
     const session = await this.stripe.checkout.sessions.create({
       mode: 'payment',

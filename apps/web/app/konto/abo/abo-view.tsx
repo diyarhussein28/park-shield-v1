@@ -1,6 +1,7 @@
 'use client';
 
-import { Button, Text, useI18n } from '@parkshield/ui';
+import { Badge, Button, Text, useI18n } from '@parkshield/ui';
+import { Icon } from '@/components/icons';
 import Link from 'next/link';
 import { KontoShell, Section } from '@/components/konto-shell';
 import type { CreditNote, InvoiceSummary, Me, SubscriptionSummary } from '@/lib/api-server';
@@ -43,6 +44,8 @@ export function AboView({
         )}
       </Section>
 
+      {subscription?.plan === 'plus' && <UpgradeCard />}
+
       <Invoices invoices={invoices} creditNotes={creditNotes} />
 
       {subscription && <SummarySettings initial={me.summaryFrequency} />}
@@ -61,5 +64,34 @@ export function AboView({
         </Section>
       )}
     </KontoShell>
+  );
+}
+
+/** A paying Plus customer sees the way up, never the checkout again. Premium opens on 9 Nov 2027. */
+function UpgradeCard() {
+  const { t } = useI18n();
+  const features = [
+    t('landing.premiumF2'),
+    t('landing.premiumF3'),
+    t('landing.premiumF4'),
+    t('landing.premiumF5'),
+  ];
+  return (
+    <Section
+      title={t('portal.upgradeTitle')}
+      icon="zap"
+      intro={t('portal.upgradeIntro')}
+      aside={<Badge tone="info">{t('portal.upgradeBadge')}</Badge>}
+    >
+      <ul className="flex flex-col gap-2">
+        {features.map((f) => (
+          <li key={f} className="flex items-start gap-2">
+            <Icon name="check" className="mt-0.5 size-5 shrink-0 text-primary" />
+            <span>{f}</span>
+          </li>
+        ))}
+      </ul>
+      <Text muted>{t('portal.upgradeSoon')}</Text>
+    </Section>
   );
 }

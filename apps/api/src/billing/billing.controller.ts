@@ -34,6 +34,12 @@ const Checkout = z.object({
   // §356(4)/§357a BGB: the customer must expressly request the immediate start (US-06).
   immediateStart: z.literal(true),
 });
+const ConfirmCheckout = z.object({
+  sessionId: z
+    .string()
+    .regex(/^cs_[A-Za-z0-9_]{8,200}$/)
+    .optional(),
+});
 const CancelKind = z.object({
   kind: z.enum(['ordinary', 'extraordinary']).default('ordinary'),
   reason: z.string().trim().max(1000).optional(),
@@ -71,6 +77,17 @@ export class BillingController {
     @Body(new ZodPipe(Checkout)) body: z.infer<typeof Checkout>,
   ) {
     return this.billing.checkout(user, body);
+  }
+
+  /** Back from Checkout: start the subscription without waiting for the webhook. */
+  @Post('billing/checkout/confirm')
+  @HttpCode(200)
+  @UseGuards(SessionGuard)
+  confirmCheckout(
+    @CurrentUser() user: AuthContext,
+    @Body(new ZodPipe(ConfirmCheckout)) body: z.infer<typeof ConfirmCheckout>,
+  ) {
+    return this.billing.confirmCheckout(user, body.sessionId);
   }
 
   @Post('billing/portal')

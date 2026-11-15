@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ checkout?: string }>;
+  searchParams: Promise<{ checkout?: string; session_id?: string }>;
 }) {
   const me = await serverApi<Me>('/v1/me');
   if (me.status === 401 || !me.data) redirect('/anmelden');
@@ -27,7 +27,7 @@ export default async function AccountPage({
     serverApi<EmergencyContactList>('/v1/emergency-contacts'),
     serverApi<Protection>('/v1/me/protection'),
   ]);
-  const { checkout } = await searchParams;
+  const { checkout, session_id: sessionId } = await searchParams;
   return (
     <AccountView
       me={me.data}
@@ -40,6 +40,7 @@ export default async function AccountPage({
       }
       protection={protection.data}
       checkout={checkout === 'success' || checkout === 'canceled' ? checkout : undefined}
+      sessionId={sessionId && /^cs_[A-Za-z0-9_]{8,200}$/.test(sessionId) ? sessionId : undefined}
     />
   );
 }

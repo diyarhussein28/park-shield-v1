@@ -30,6 +30,7 @@ export function AccountView({
   contactCount,
   protection,
   checkout,
+  sessionId,
 }: {
   me: Me;
   subscription: SubscriptionSummary | null;
@@ -38,6 +39,7 @@ export function AccountView({
   contactCount: number;
   protection: Protection | null;
   checkout?: 'success' | 'canceled';
+  sessionId?: string;
 }) {
   const { t, locale, setLocale } = useI18n();
   const router = useRouter();
@@ -63,21 +65,43 @@ export function AccountView({
     setScore(p);
   };
 
-  // After Stripe redirects back, the subscription appears once the payment event has been processed.
+  // Back from Stripe (or a paid checkout whose return was lost): ask the API to confirm the payment
+  // with Stripe right away instead of waiting for the webhook, then reload with the subscription.
+  const [confirming, setConfirming] = useState<'idle' | 'busy' | 'failed'>(
+    checkout === 'success' && !subscription ? 'busy' : 'idle',
+  );
   useEffect(() => {
-    if (checkout !== 'success' || subscription) return;
+    if (subscription) return;
+    let cancelled = false;
     let tries = 0;
-    const timer = setInterval(() => {
-      if (++tries > 20) clearInterval(timer);
-      router.refresh();
-    }, 2000);
-    return () => clearInterval(timer);
-  }, [checkout, subscription, router]);
+    const attempt = async () => {
+      const r = await api<{ status: 'active' | 'pending' }>('/v1/billing/checkout/confirm', {
+        body: sessionId ? { sessionId } : {},
+      }).catch(() => ({ status: 'pending' as const }));
+      if (cancelled) return;
+      if (r.status === 'active') {
+        router.refresh();
+        return;
+      }
+      // Right after the redirect Stripe may still be finishing: try a few more times.
+      if (checkout === 'success' && ++tries < 6) setTimeout(() => void attempt(), 2000);
+      else if (checkout === 'success') setConfirming('failed');
+    };
+    void attempt();
+    return () => {
+      cancelled = true;
+    };
+  }, [checkout, sessionId, subscription, router]);
 
   return (
     <KontoShell title={t('account.title')} intro={t('account.signedInAs', { email: me.email })}>
-      {checkout === 'success' && !subscription && (
-        <Notice tone="info">{t('account.checkoutSuccess')}</Notice>
+      {!subscription && confirming === 'busy' && (
+        <Notice tone="info" title={t('account.checkoutSuccess')}>
+          {t('account.confirming')}
+        </Notice>
+      )}
+      {!subscription && confirming === 'failed' && (
+        <Notice tone="warning">{t('account.confirmFailed')}</Notice>
       )}
       {checkout === 'success' && subscription && (
         <Notice tone="success" title={t('account.welcomeTitle')}>
@@ -126,10 +150,12 @@ export function AccountView({
         </>
       ) : (
         <>
-          <GetStarted />
-          <Section title={t('account.subscription')} icon="card">
-            <CheckoutForm />
-          </Section>
+          {confirming !== 'busy' && <GetStarted />}
+          {confirming !== 'busy' && (
+            <Section title={t('account.subscription')} icon="card">
+              <CheckoutForm />
+            </Section>
+          )}
         </>
       )}
     </KontoShell>
