@@ -73,6 +73,27 @@ services:
     depends_on:
       api: { condition: service_healthy }
 
+  # Back office (AD-01): the ops API and the ops app listen on 127.0.0.1 only and are NOT behind
+  # Caddy. Staff reach them through an SSH tunnel (README "Ops app"): passkeys are bound to
+  # OPS_BASE_URL, which is http://localhost:3001 on this stack.
+  ops-api:
+    <<: *app
+    image: parkshield-api:local
+    command: ['node', '--enable-source-maps', 'dist/main-ops.js']
+    volumes: ['./data:/data']
+    depends_on:
+      api: { condition: service_healthy }
+
+  ops:
+    build: { context: ../.., target: ops }
+    image: parkshield-ops:local
+    network_mode: host
+    restart: unless-stopped
+    # Only what the Next.js server needs: it rewrites /ops/v1/* to the ops API.
+    environment:
+      { HOSTNAME: 127.0.0.1, PORT: '3001', OPS_API_HOST: 127.0.0.1, OPS_API_PORT: '4001' }
+    depends_on: [ops-api]
+
   caddy:
     image: caddy:2
     network_mode: host

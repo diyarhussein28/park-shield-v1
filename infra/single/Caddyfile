@@ -37,8 +37,11 @@
 	}
 
 	# Ops routes never exist on the public API (AD-01); reject as a second layer.
+	# (A bare `respond` would run after the `handle` blocks below, so it is wrapped in its own handle.)
 	@ops path /ops/*
-	respond @ops 404
+	handle @ops {
+		respond 404
+	}
 
 	@webhooks path /v1/webhooks/*
 	handle @webhooks {

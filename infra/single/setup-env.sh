@@ -55,7 +55,8 @@ DATABASE_URL=postgres://parkshield:${pg_pass}@127.0.0.1:5432/parkshield?sslmode=
 VALKEY_URL=redis://:${valkey_pass}@127.0.0.1:6379/0
 SCANNER_BASE_URL=https://${domain}
 WEB_BASE_URL=https://${domain}
-OPS_BASE_URL=https://${domain}
+# The ops app is reached only through an SSH tunnel (README "Ops app"); staff passkeys bind to it.
+OPS_BASE_URL=http://localhost:3001
 API_HOST=127.0.0.1
 API_PORT=4000
 API_INTERNAL_URL=http://127.0.0.1:4000

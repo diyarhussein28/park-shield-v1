@@ -64,6 +64,22 @@ Later deploys: step 7 only. After editing `server.env` on the server:
 - SMS status callbacks go to `https://<domain>/v1/webhooks/twilio/sms`; the code sets them per
   message.
 
+## Ops app (back office)
+
+The ops API (`ops-api`, :4001) and the ops app (`ops`, :3001) run on the server but listen on
+127.0.0.1 only and are not behind Caddy (AD-01: never public). Staff open them through an SSH
+tunnel; `OPS_BASE_URL=http://localhost:3001`, so passkeys are registered for `localhost`.
+
+```bash
+# on the server, once: first superadmin (prints a one-time link, valid 72 h)
+bash ops-invite.sh you@example.com "Your Name" superadmin
+# on your computer: keep this open while you use the ops app
+ssh -N -L 3001:127.0.0.1:3001 root@<server-ip>
+```
+
+Then open the printed link (`http://localhost:3001/einladung#t=…`) in Chrome and register a passkey
+(Touch ID, Windows Hello or a security key). Later sign-ins: tunnel + http://localhost:3001.
+
 ## Useful commands (on the server, in `/opt/parkshield/src/infra/single`)
 
 ```bash
