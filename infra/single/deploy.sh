@@ -19,7 +19,13 @@ rsync -az --delete \
 ssh "$target" bash -s <<'EOF'
 set -euo pipefail
 cd /opt/parkshield/src/infra/single
-docker compose build
+if [[ -e .env ]]; then
+  docker compose build
+else
+  # First run: compose.yml requires the passwords even to build. They are only used at runtime,
+  # so placeholders are fine here; setup-env.sh writes the real ones.
+  POSTGRES_PASSWORD=unused VALKEY_PASSWORD=unused docker compose build
+fi
 if [[ ! -e .env || ! -e server.env ]]; then
   echo
   echo "Images built. First run: create the secrets on the server, then deploy again:"
