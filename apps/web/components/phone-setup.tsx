@@ -52,8 +52,8 @@ export function PhoneSetup({
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const name = (channel: PhoneChannel) => t('channels.channelName', { channel });
 
-  async function start(e: FormEvent) {
-    e.preventDefault();
+  async function start(e?: FormEvent) {
+    e?.preventDefault();
     setMessage(null);
     setPhoneError(null);
     const channels = available.filter((c) => chosen[c]);
@@ -68,6 +68,7 @@ export function PhoneSetup({
       });
       setSent(r);
       setCode('');
+      if (!e) setMessage({ tone: 'info', text: t('channels.phoneResent') });
     } catch (err) {
       if (err instanceof ApiError && err.body?.error === 'phone_invalid') {
         setPhoneError(t('channels.waPhoneInvalid'));
@@ -127,8 +128,10 @@ export function PhoneSetup({
 
   const form = sent ? (
     <form onSubmit={verify} className="flex flex-col gap-4">
+      {/* The number as typed (only in this browser), so a typo is easy to spot. */}
       <Notice tone="info">
-        {t('channels.phoneCodeSent', { phone: sent.phone, via: sent.via })}
+        {t('channels.phoneCodeSent', { phone: phone.trim() || sent.phone, via: sent.via })}{' '}
+        {t('channels.phoneCheckNumber')}
       </Notice>
       <Field label={t('channels.waCode')} hint={t('channels.phoneCodeHint')}>
         {({ id, describedBy }) => (
@@ -149,6 +152,9 @@ export function PhoneSetup({
       <div className="flex flex-wrap gap-3">
         <Button type="submit" busy={busy}>
           {t('channels.waVerify')}
+        </Button>
+        <Button variant="ghost" onClick={() => void start()} busy={busy}>
+          {t('channels.phoneResend')}
         </Button>
         <Button variant="ghost" onClick={() => setSent(null)}>
           {t('channels.waOtherNumber')}

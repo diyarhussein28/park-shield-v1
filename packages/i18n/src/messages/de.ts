@@ -419,6 +419,9 @@ const de = {
     phoneSendCode: '{via, select, whatsapp {Code per WhatsApp senden} other {Code per SMS senden}}',
     phoneCodeSent:
       'Wir haben einen 6-stelligen Code {via, select, whatsapp {per WhatsApp} other {per SMS}} an {phone} geschickt. Er gilt 10 Minuten.',
+    phoneCheckNumber: 'Nichts angekommen? Prüfen Sie, ob die Nummer stimmt.',
+    phoneResend: 'Code erneut senden',
+    phoneResent: 'Wir haben einen neuen Code geschickt. Der alte gilt nicht mehr.',
     phoneCodeHint: 'Der Code kommt meist innerhalb einer Minute.',
     phoneLinkedNow:
       'Fertig! Ihre Handynummer ist bestätigt. Wir haben Ihnen eine Bestätigung geschickt.',

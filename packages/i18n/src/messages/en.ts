@@ -406,6 +406,9 @@ const en: typeof de = {
     phoneSendCode: '{via, select, whatsapp {Send code via WhatsApp} other {Send code by SMS}}',
     phoneCodeSent:
       'We sent a 6-digit code {via, select, whatsapp {via WhatsApp} other {by SMS}} to {phone}. It is valid for 10 minutes.',
+    phoneCheckNumber: 'Nothing arrived? Check that the number is right.',
+    phoneResend: 'Send the code again',
+    phoneResent: 'We sent a new code. The old one no longer works.',
     phoneCodeHint: 'The code usually arrives within a minute.',
     phoneLinkedNow: 'Done! Your mobile number is confirmed. We sent you a confirmation.',
     phoneYours: 'Your number: {phone}',

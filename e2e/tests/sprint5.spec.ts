@@ -245,7 +245,7 @@ test('mobile number: one SMS code for SMS and WhatsApp, add and turn off (US-21,
   await card.getByLabel(/^Per SMS/).check();
   await card.getByRole('button', { name: 'Code per SMS senden' }).click();
   await expect(
-    card.getByText(/6-stelligen Code per SMS an \+49 ••• \d{4} geschickt/),
+    card.getByText(`6-stelligen Code per SMS an ${phone} geschickt`, { exact: false }),
   ).toBeVisible();
 
   const to = `+49${phone.slice(1)}`;
