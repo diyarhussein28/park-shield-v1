@@ -40,7 +40,7 @@ export default async function AccountPage({
       }
       protection={protection.data}
       checkout={checkout === 'success' || checkout === 'canceled' ? checkout : undefined}
-      sessionId={sessionId && /^cs_[A-Za-z0-9_]{8,200}$/.test(sessionId) ? sessionId : undefined}
+      sessionId={sessionId && /^cs_[A-Za-z0-9_-]{8,200}$/.test(sessionId) ? sessionId : undefined}
     />
   );
 }

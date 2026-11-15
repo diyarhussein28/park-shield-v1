@@ -174,10 +174,17 @@ product works offline. Production refuses to start with fakes (unless `APP_ENV=c
 | WhatsApp (Twilio, default)     | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`, `TWILIO_CONTENT_*` (8)               | messages stored locally                 |
 | WhatsApp (360dialog, optional) | `WHATSAPP_PROVIDER=360dialog`, `D360_API_KEY`, `D360_BASE_URL`, `D360_WEBHOOK_SECRET`                   | messages stored locally                 |
 | Friendly Captcha               | `FRIENDLY_CAPTCHA_SITEKEY`, `FRIENDLY_CAPTCHA_API_KEY`, `NEXT_PUBLIC_FRIENDLY_CAPTCHA_SITEKEY`          | "Sicherheitsprüfung: lokal simuliert"   |
-| Print partner                  | `PRINT_PARTNER`                                                                                         | orders written to `.local/print-outbox` |
+| Print partner                  | `PRINT_PARTNER` (`manual` until a partner adapter exists)                                               | orders written to `.local/print-outbox` |
 | Audit bucket (S3, Object Lock) | `AUDIT_BUCKET`, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`                            | files in `.local/audit-bucket`          |
 | Zammad (support desk)          | `ZAMMAD_URL`, `ZAMMAD_TOKEN`, `ZAMMAD_GROUP`                                                            | tickets stored locally                  |
+| Support by e-mail (instead)    | `SUPPORT_PROVIDER=email`, `SUPPORT_EMAIL`                                                               | tickets stored locally                  |
 | Better Stack heartbeat         | `HEARTBEAT_URL_WORKER`                                                                                  | no ping                                 |
+
+Production without every provider account: `WHATSAPP_PROVIDER=off` hides WhatsApp everywhere (SMS,
+push and e-mail still work) until Meta approves the sender; `PRINT_PARTNER=manual` writes print
+files and job tickets to `PRINT_OUTBOX_DIR`, and staff mark orders shipped in the ops app;
+`SUPPORT_PROVIDER=email` with `SUPPORT_EMAIL` sends each contact-form request as one e-mail
+(reply-to = customer) instead of a Zammad ticket. All three count as real providers in production.
 
 Friendly Captcha endpoint: `FRIENDLY_CAPTCHA_ENDPOINT` is `eu` (default) or `global`, read by the API
 (siteverify URL) and the web app (widget, scanner page, CSP hosts). The EU endpoint keeps scanner

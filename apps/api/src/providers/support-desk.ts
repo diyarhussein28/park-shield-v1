@@ -1,7 +1,7 @@
 import type { Redis } from 'ioredis';
 import type { Logger } from 'pino';
 import { randomCrockford } from '../core/crypto';
-import type { SupportDesk, SupportTicket } from './ports';
+import type { Mailer, SupportDesk, SupportTicket } from './ports';
 
 export const DEV_TICKETS_KEY = 'dev:zammad:tickets';
 
@@ -36,6 +36,37 @@ export class ZammadDesk implements SupportDesk {
     if (!res.ok) throw new Error(`zammad ${res.status}: ${(await res.text()).slice(0, 200)}`);
     const ticket = (await res.json()) as { number: string | number };
     return { number: String(ticket.number) };
+  }
+}
+
+const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+/**
+ * Support without a ticket system: each request is one e-mail to the support mailbox, with the
+ * customer as reply-to, so answering is a normal reply. The reference number is in the subject.
+ */
+export class EmailSupportDesk implements SupportDesk {
+  constructor(
+    private readonly mailer: Mailer,
+    private readonly to: string,
+  ) {}
+
+  async createTicket(t: SupportTicket): Promise<{ number: string }> {
+    const number = `PS-${randomCrockford(8)}`;
+    const head = [
+      `Von / From: ${t.name ?? '-'} <${t.email}>`,
+      `Sprache / Language: ${t.locale}`,
+      `Tags: ${t.tags.join(', ') || '-'}`,
+    ].join('\n');
+    await this.mailer.send({
+      to: this.to,
+      subject: `[${number}] ${t.subject}`,
+      text: `${head}\n\n${t.body}`,
+      html: `<pre style="font-family:inherit;white-space:pre-wrap">${escapeHtml(head)}\n\n${escapeHtml(t.body)}</pre>`,
+      tag: 'support_ticket',
+      replyTo: t.email,
+    });
+    return { number };
   }
 }
 

@@ -445,6 +445,7 @@ export class DispatchService {
   }
 
   private async sendWhatsApp(alert: AlertRow, msg: Message): Promise<Outcome> {
+    if (this.env.WHATSAPP_PROVIDER === 'off') return 'unavailable';
     const channel = await this.db
       .selectFrom('contact_channels')
       .select(['address_enc'])

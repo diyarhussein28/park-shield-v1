@@ -76,8 +76,16 @@ VAPID_SUBJECT=mailto:hallo@parkshield.de
 PRINT_OUTBOX_DIR=/data/print-outbox
 AUDIT_BUCKET_DIR=/data/audit-bucket
 
+# --- Providers without an external account yet -------------------------------------
+# Decal orders: print files + job tickets in PRINT_OUTBOX_DIR, staff mark them shipped in ops.
+PRINT_PARTNER=manual
+# Contact form: one e-mail per request to this mailbox (reply-to = customer). Zammad: SUPPORT_PROVIDER=zammad.
+SUPPORT_PROVIDER=email
+SUPPORT_EMAIL=contact@park-shield.de
+
 # --- Providers (empty = fake adapter) ---------------------------------------------
-WHATSAPP_PROVIDER=twilio
+# off until Meta approves the WhatsApp sender; then twilio + the TWILIO_CONTENT_* SIDs below.
+WHATSAPP_PROVIDER=off
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_WHATSAPP_FROM=

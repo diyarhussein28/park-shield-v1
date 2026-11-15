@@ -425,9 +425,19 @@ export class PrivacyService {
         evidence: 'no personal data sent (scrubbed at source)',
       },
       // The WhatsApp provider in use ('twilio' or '360dialog'): deletion request handled by staff.
-      { processor: this.env.WHATSAPP_PROVIDER, automated: false, status: na(hasWhatsApp) },
+      {
+        // With WhatsApp off, Twilio still carried any SMS; the step names the provider either way.
+        processor: this.env.WHATSAPP_PROVIDER === 'off' ? 'twilio' : this.env.WHATSAPP_PROVIDER,
+        automated: false,
+        status: na(hasWhatsApp),
+      },
       { processor: 'print_partner', automated: false, status: na(hasOrders) },
-      { processor: 'zammad', automated: false, status: 'pending' },
+      // Support requests live in Zammad, or in the support mailbox (SUPPORT_PROVIDER=email).
+      {
+        processor: this.env.SUPPORT_PROVIDER === 'email' ? 'support_mailbox' : 'zammad',
+        automated: false,
+        status: 'pending',
+      },
     ];
   }
 

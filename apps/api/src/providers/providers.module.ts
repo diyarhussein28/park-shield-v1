@@ -19,10 +19,11 @@ import {
   SMS,
   SUPPORT_DESK,
   WHATSAPP,
+  type Mailer,
 } from './ports';
-import { DevSupportDesk, ZammadDesk } from './support-desk';
+import { DevSupportDesk, EmailSupportDesk, ZammadDesk } from './support-desk';
 import { VapidPushSender } from './push';
-import { Dialog360Sender, DevWhatsAppSender } from './whatsapp';
+import { Dialog360Sender, DevWhatsAppSender, DisabledWhatsAppSender } from './whatsapp';
 import { contentSidsFromEnv, twilioWebhookUrl, TwilioWhatsAppSender } from './twilio-whatsapp';
 import { StripePayments } from './stripe-payments';
 import { DevSmsSender, TwilioSmsSender, twilioSmsWebhookUrl } from './twilio-sms';
@@ -70,10 +71,10 @@ export class ProvidersModule {
         {
           provide: PRINT,
           useFactory: () => {
-            if (!fakes.print) throw new Error(`Unknown PRINT_PARTNER "${env.PRINT_PARTNER}"`);
-            return new FakePrintPartner(
-              env.PRINT_OUTBOX_DIR || join(repoRoot(), '.local', 'print-outbox'),
-            );
+            const dir = env.PRINT_OUTBOX_DIR || join(repoRoot(), '.local', 'print-outbox');
+            if (fakes.print) return new FakePrintPartner(dir);
+            if (env.PRINT_PARTNER === 'manual') return new FakePrintPartner(dir, 'PRINT');
+            throw new Error(`Unknown PRINT_PARTNER "${env.PRINT_PARTNER}"`);
           },
         },
         {
@@ -90,17 +91,19 @@ export class ProvidersModule {
           provide: WHATSAPP,
           inject: [VALKEY, LOGGER],
           useFactory: (valkey: Redis, logger: Logger) =>
-            fakes.whatsapp
-              ? new DevWhatsAppSender(valkey, logger)
-              : env.WHATSAPP_PROVIDER === 'twilio'
-                ? new TwilioWhatsAppSender(
-                    env.TWILIO_ACCOUNT_SID,
-                    env.TWILIO_AUTH_TOKEN,
-                    env.TWILIO_WHATSAPP_FROM,
-                    contentSidsFromEnv(env),
-                    twilioWebhookUrl(env),
-                  )
-                : new Dialog360Sender(env.D360_API_KEY, env.D360_BASE_URL),
+            env.WHATSAPP_PROVIDER === 'off'
+              ? new DisabledWhatsAppSender()
+              : fakes.whatsapp
+                ? new DevWhatsAppSender(valkey, logger)
+                : env.WHATSAPP_PROVIDER === 'twilio'
+                  ? new TwilioWhatsAppSender(
+                      env.TWILIO_ACCOUNT_SID,
+                      env.TWILIO_AUTH_TOKEN,
+                      env.TWILIO_WHATSAPP_FROM,
+                      contentSidsFromEnv(env),
+                      twilioWebhookUrl(env),
+                    )
+                  : new Dialog360Sender(env.D360_API_KEY, env.D360_BASE_URL),
         },
         {
           provide: SMS,
@@ -132,11 +135,13 @@ export class ProvidersModule {
         },
         {
           provide: SUPPORT_DESK,
-          inject: [VALKEY, LOGGER],
-          useFactory: (valkey: Redis, logger: Logger) =>
+          inject: [VALKEY, LOGGER, MAILER],
+          useFactory: (valkey: Redis, logger: Logger, mailer: Mailer) =>
             fakes.support
               ? new DevSupportDesk(valkey, logger)
-              : new ZammadDesk(env.ZAMMAD_URL, env.ZAMMAD_TOKEN, env.ZAMMAD_GROUP),
+              : env.SUPPORT_PROVIDER === 'email'
+                ? new EmailSupportDesk(mailer, env.SUPPORT_EMAIL)
+                : new ZammadDesk(env.ZAMMAD_URL, env.ZAMMAD_TOKEN, env.ZAMMAD_GROUP),
         },
       ],
       exports: [MAILER, CAPTCHA, PAYMENTS, PRINT, PUSH, WHATSAPP, SMS, AUDIT_BUCKET, SUPPORT_DESK],

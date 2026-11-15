@@ -56,7 +56,8 @@ export const envSchema = z.object({
   // Meta-approved templates (docs/whatsapp-templates.md).
   WHATSAPP_PROVIDER: z.preprocess(
     (v) => (v === '' ? undefined : v),
-    z.enum(['twilio', '360dialog']).default('twilio'),
+    // off: WhatsApp is not offered at all (e.g. until Meta approves the sender); SMS, push and e-mail work.
+    z.enum(['twilio', '360dialog', 'off']).default('twilio'),
   ),
   TWILIO_ACCOUNT_SID: z.string().default(''),
   TWILIO_AUTH_TOKEN: z.string().default(''),
@@ -81,6 +82,7 @@ export const envSchema = z.object({
   D360_API_KEY: z.string().default(''),
   D360_BASE_URL: z.url().default('https://waba-v2.360dialog.io'),
   D360_WEBHOOK_SECRET: z.string().default(''),
+  /** '' = local fake; 'manual' = print files and job tickets in PRINT_OUTBOX_DIR, shipped by staff. */
   PRINT_PARTNER: z.string().default(''),
   PRINT_OUTBOX_DIR: z.string().default(''),
   // AD-17: Object Lock bucket for the audit stream (empty: local folder .local/audit-bucket).
@@ -93,6 +95,12 @@ export const envSchema = z.object({
   // AD-20: Zammad (empty token: tickets go to the dev inbox).
   ZAMMAD_URL: z.string().default(''),
   ZAMMAD_TOKEN: z.string().default(''),
+  /** Support desk: Zammad, or plain e-mail to SUPPORT_EMAIL (reply-to = the customer). */
+  SUPPORT_PROVIDER: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.enum(['zammad', 'email']).default('zammad'),
+  ),
+  SUPPORT_EMAIL: z.string().default(''),
   ZAMMAD_GROUP: z.string().default('Support'),
   // US-45: Better Stack heartbeat (infra/monitoring output worker_heartbeat_url); empty: no heartbeat.
   HEARTBEAT_URL_WORKER: z.string().default(''),
@@ -105,14 +113,16 @@ export function fakeProviders(env: Env) {
     captcha: !env.FRIENDLY_CAPTCHA_API_KEY || !env.FRIENDLY_CAPTCHA_SITEKEY,
     payments: !env.STRIPE_SECRET_KEY,
     whatsapp:
-      env.WHATSAPP_PROVIDER === 'twilio'
-        ? !env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN || !env.TWILIO_WHATSAPP_FROM
-        : !env.D360_API_KEY,
+      env.WHATSAPP_PROVIDER === 'off'
+        ? false
+        : env.WHATSAPP_PROVIDER === 'twilio'
+          ? !env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN || !env.TWILIO_WHATSAPP_FROM
+          : !env.D360_API_KEY,
     sms: !env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN || !env.TWILIO_SMS_FROM,
     // No real print partner adapter yet: it is built once the partner is chosen in Phase 0.
     print: !env.PRINT_PARTNER,
     auditBucket: !env.AUDIT_BUCKET,
-    support: !env.ZAMMAD_TOKEN,
+    support: env.SUPPORT_PROVIDER === 'email' ? !env.SUPPORT_EMAIL : !env.ZAMMAD_TOKEN,
   };
 }
 export type Env = z.infer<typeof envSchema>;

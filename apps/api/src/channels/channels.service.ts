@@ -185,7 +185,10 @@ export class ChannelsService {
       const v = await this.settings.get<unknown>(`channels.${c}.enabled`, true);
       return v === true || v === 'true';
     };
-    return { whatsapp: await on('whatsapp'), sms: await on('sms') };
+    return {
+      whatsapp: this.env.WHATSAPP_PROVIDER !== 'off' && (await on('whatsapp')),
+      sms: await on('sms'),
+    };
   }
 
   /**

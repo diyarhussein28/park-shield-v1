@@ -97,4 +97,49 @@ describe('test helpers are limited to dev, unit tests and CI', () => {
       }),
     ).toThrow(/Missing Twilio template SIDs: .*TWILIO_CONTENT_PS_ALERT_EN/);
   });
+
+  it('starts in real production with WhatsApp off, manual printing and support by e-mail', () => {
+    const env = loadEnv({
+      NODE_ENV: 'production',
+      APP_ENV: 'production',
+      FRIENDLY_CAPTCHA_API_KEY: 'k',
+      FRIENDLY_CAPTCHA_SITEKEY: 's',
+      FRIENDLY_CAPTCHA_ENDPOINT: 'eu',
+      STRIPE_SECRET_KEY: 'k',
+      MAIL_PROVIDER: 'sendgrid',
+      SENDGRID_API_KEY: 'SG',
+      WHATSAPP_PROVIDER: 'off',
+      TWILIO_ACCOUNT_SID: 'AC1',
+      TWILIO_AUTH_TOKEN: 't',
+      TWILIO_SMS_FROM: 'ParkShield',
+      TWILIO_WHATSAPP_FROM: '',
+      TWILIO_CONTENT_PS_ALERT_DE: '',
+      PRINT_PARTNER: 'manual',
+      AUDIT_BUCKET: 'b',
+      SUPPORT_PROVIDER: 'email',
+      SUPPORT_EMAIL: 'contact@park-shield.de',
+      ZAMMAD_TOKEN: '',
+    });
+    expect(env.WHATSAPP_PROVIDER).toBe('off');
+    expect(() =>
+      loadEnv({
+        NODE_ENV: 'production',
+        APP_ENV: 'production',
+        FRIENDLY_CAPTCHA_API_KEY: 'k',
+        FRIENDLY_CAPTCHA_SITEKEY: 's',
+        FRIENDLY_CAPTCHA_ENDPOINT: 'eu',
+        STRIPE_SECRET_KEY: 'k',
+        MAIL_PROVIDER: 'sendgrid',
+        SENDGRID_API_KEY: 'SG',
+        WHATSAPP_PROVIDER: 'off',
+        TWILIO_ACCOUNT_SID: 'AC1',
+        TWILIO_AUTH_TOKEN: 't',
+        TWILIO_SMS_FROM: 'ParkShield',
+        PRINT_PARTNER: 'manual',
+        AUDIT_BUCKET: 'b',
+        SUPPORT_PROVIDER: 'email',
+        SUPPORT_EMAIL: '',
+      }),
+    ).toThrow(/Missing provider keys in production: support/);
+  });
 });

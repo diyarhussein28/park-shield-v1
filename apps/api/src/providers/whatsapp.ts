@@ -85,3 +85,10 @@ export class DevWhatsAppSender implements WhatsAppSender {
     return { messageId };
   }
 }
+
+/** WHATSAPP_PROVIDER=off: the channel is not offered, so nothing should ever reach this. */
+export class DisabledWhatsAppSender implements WhatsAppSender {
+  async sendTemplate(): Promise<{ messageId: string }> {
+    throw new Error('WhatsApp is switched off (WHATSAPP_PROVIDER=off)');
+  }
+}

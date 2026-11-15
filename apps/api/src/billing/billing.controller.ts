@@ -37,7 +37,7 @@ const Checkout = z.object({
 const ConfirmCheckout = z.object({
   sessionId: z
     .string()
-    .regex(/^cs_[A-Za-z0-9_]{8,200}$/)
+    .regex(/^cs_[A-Za-z0-9_-]{8,200}$/)
     .optional(),
 });
 const CancelKind = z.object({

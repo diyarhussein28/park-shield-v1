@@ -31,6 +31,7 @@ export class BrevoMailer implements Mailer {
         textContent: mail.text,
         htmlContent: mail.html,
         tags: [mail.tag],
+        ...(mail.replyTo ? { replyTo: { email: mail.replyTo } } : {}),
       }),
       signal: AbortSignal.timeout(15_000),
     });
@@ -62,6 +63,7 @@ export class SendGridMailer implements Mailer {
           { type: 'text/html', value: mail.html },
         ],
         categories: [mail.tag],
+        ...(mail.replyTo ? { reply_to: { email: mail.replyTo } } : {}),
         // No click or open tracking: links stay as they are and nobody is tracked (hard rule 2).
         tracking_settings: {
           click_tracking: { enable: false, enable_text: false },

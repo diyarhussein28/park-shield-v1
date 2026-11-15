@@ -104,6 +104,8 @@ export interface OutgoingMail {
   html: string;
   /** Template name; used for provider tagging and the dev inbox, never contains personal data. */
   tag: string;
+  /** Where a reply goes (support mails: the customer). */
+  replyTo?: string;
 }
 
 export interface Mailer {
