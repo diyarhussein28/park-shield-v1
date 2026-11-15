@@ -10,24 +10,12 @@ import {
   type DecalProduct,
   type DecalTemplate,
 } from '@parkshield/shared';
-import {
-  Button,
-  Card,
-  Container,
-  Field,
-  Heading,
-  Input,
-  Notice,
-  Select,
-  Stack,
-  Text,
-  useI18n,
-} from '@parkshield/ui';
+import { Badge, Button, Field, Input, Notice, Select, Stack, Text, useI18n } from '@parkshield/ui';
 import { clsx } from 'clsx';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { PageShell } from '@/components/site-chrome';
+import { Icon } from '@/components/icons';
+import { KontoShell, Section } from '@/components/konto-shell';
 import { api, ApiError, errorText } from '@/lib/api-client';
 import type { OrderSummary, Vehicle, VehicleMode } from '@/lib/api-server';
 import { VehicleForm } from '../vehicles-view';
@@ -125,12 +113,9 @@ function Designer({ vehicle, onSaved }: { vehicle: Vehicle; onSaved: (v: Vehicle
   }
 
   return (
-    <Card>
-      <div className="grid gap-6 lg:grid-cols-2">
+    <Section title={t('decal.title')} icon="zap" intro={t('portal.designIntro')}>
+      <div className="grid gap-6 xl:grid-cols-2">
         <Stack gap={6}>
-          <Heading level={2} className="text-xl">
-            {t('decal.title')}
-          </Heading>
           <ChoiceGroup
             legend={t('decal.template')}
             name="template"
@@ -165,7 +150,7 @@ function Designer({ vehicle, onSaved }: { vehicle: Vehicle; onSaved: (v: Vehicle
           </Button>
         </Stack>
         <Stack gap={4}>
-          <Heading level={3}>{t('decal.preview')}</Heading>
+          <h3 className="text-lg font-bold">{t('decal.preview')}</h3>
           <ChoiceGroup
             legend={t('decal.product')}
             name="product"
@@ -187,19 +172,9 @@ function Designer({ vehicle, onSaved }: { vehicle: Vehicle; onSaved: (v: Vehicle
               )}
             />
           )}
-          <a
-            href={`/v1/vehicles/${vehicle.id}/decal.pdf`}
-            download
-            className="inline-flex min-h-12 w-fit items-center rounded-xl bg-secondary px-5 font-semibold text-secondary-fg"
-          >
-            {t('decal.homePdf')}
-          </a>
-          <Text muted className="text-sm">
-            {t('decal.homePdfHint')}
-          </Text>
         </Stack>
       </div>
-    </Card>
+    </Section>
   );
 }
 
@@ -305,10 +280,19 @@ function AddressForm({
 const euro = (cents: number, locale: string) =>
   new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' }).format(cents / 100);
 
-function DecalTest({ vehicle }: { vehicle: Vehicle }) {
+/**
+ * The vehicle's own QR code first: what it is, where a scan leads, how to print it and how to test it.
+ * The code itself lives in the database (qr_tokens: SHA-256 hash for lookups, AES-GCM copy for
+ * re-rendering), so this image and the PDF always show the same, current code.
+ */
+function QrHero({ vehicle }: { vehicle: Vehicle }) {
   const { t } = useI18n();
+  const decal = vehicle.decal!;
   const [open, setOpen] = useState<{ until: string; scanUrl: string } | null>(null);
-  const lastTest = vehicle.decal?.lastTestAt;
+  const src = `/v1/vehicles/${vehicle.id}/decal.svg?${new URLSearchParams({
+    template: decal.template,
+    cta: decal.cta,
+  })}`;
 
   async function start() {
     setOpen(
@@ -319,34 +303,73 @@ function DecalTest({ vehicle }: { vehicle: Vehicle }) {
   }
 
   return (
-    <Card>
-      <Stack gap={3}>
-        <Heading level={2} className="text-xl">
-          {t('decalTest.title')}
-        </Heading>
-        <Text>{t('decalTest.intro')}</Text>
-        <Text muted>
-          {lastTest ? t('decalTest.lastTest', { date: new Date(lastTest) }) : t('decalTest.never')}
-        </Text>
-        {open ? (
-          <>
-            <Notice tone="info">{t('decalTest.open', { time: new Date(open.until) })}</Notice>
+    <Section
+      title={t('portal.qrHeroTitle')}
+      icon="qr"
+      className="border-2 border-primary"
+      aside={
+        <Badge tone={decal.status === 'active' ? 'success' : 'info'}>
+          {t('vehicles.decalStatus', {
+            hint: decal.codeHint,
+            status: t(`vehicles.status_${decal.status}` as MessageKey),
+          })}
+        </Badge>
+      }
+    >
+      <div className="grid gap-6 md:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] md:items-start">
+        <div className="grid place-items-center rounded-2xl border border-border bg-secondary/40 p-4">
+          <img
+            src={src}
+            alt={t('portal.qrAlt', { nickname: vehicle.nickname })}
+            width={256}
+            height={256}
+            className="h-auto w-full max-w-64"
+          />
+        </div>
+        <Stack gap={4}>
+          <Text>{t('portal.qrHeroText', { nickname: vehicle.nickname })}</Text>
+          <div className="flex flex-col gap-2">
             <a
-              href={open.scanUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="w-fit font-semibold text-primary underline"
+              href={`/v1/vehicles/${vehicle.id}/decal.pdf`}
+              download
+              className="inline-flex min-h-12 w-fit items-center gap-2 rounded-xl bg-primary px-5 font-semibold text-primary-fg hover:bg-primary-hover"
             >
-              {t('decalTest.openHere')}
+              <Icon name="download" className="size-5" />
+              {t('decal.homePdf')}
             </a>
-          </>
-        ) : (
-          <Button onClick={start} className="w-fit">
-            {t('decalTest.button')}
-          </Button>
-        )}
-      </Stack>
-    </Card>
+            <Text muted className="text-sm">
+              {t('decal.homePdfHint')}
+            </Text>
+          </div>
+          <div className="flex flex-col gap-3 border-t border-border pt-4">
+            <h3 className="text-lg font-bold">{t('decalTest.title')}</h3>
+            <Text>{t('decalTest.intro')}</Text>
+            <Text muted>
+              {decal.lastTestAt
+                ? t('decalTest.lastTest', { date: new Date(decal.lastTestAt) })
+                : t('decalTest.never')}
+            </Text>
+            {open ? (
+              <>
+                <Notice tone="info">{t('decalTest.open', { time: new Date(open.until) })}</Notice>
+                <a
+                  href={open.scanUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-fit font-semibold text-primary underline"
+                >
+                  {t('decalTest.openHere')}
+                </a>
+              </>
+            ) : (
+              <Button variant="secondary" onClick={start} className="w-fit">
+                {t('decalTest.button')}
+              </Button>
+            )}
+          </div>
+        </Stack>
+      </div>
+    </Section>
   );
 }
 
@@ -379,13 +402,9 @@ function RevokeAndReplace({
   }
 
   return (
-    <Card>
+    <Section title={t('revoke.title')} icon="lock" intro={t('revoke.intro')}>
       <Stack gap={6}>
         <Stack gap={3}>
-          <Heading level={2} className="text-xl">
-            {t('revoke.title')}
-          </Heading>
-          <Text>{t('revoke.intro')}</Text>
           {done && <Notice tone="success">{t('revoke.done')}</Notice>}
           <Field label={t('revoke.reason')}>
             {({ id }) => (
@@ -407,7 +426,7 @@ function RevokeAndReplace({
           </Button>
         </Stack>
         <Stack gap={3}>
-          <Heading level={3}>{t('replacement.title')}</Heading>
+          <h3 className="text-lg font-bold">{t('replacement.title')}</h3>
           {orderResult === 'paid' && <Notice tone="success">{t('replacement.paid')}</Notice>}
           {orderResult === 'canceled' && (
             <Notice tone="warning">{t('replacement.canceled')}</Notice>
@@ -427,7 +446,7 @@ function RevokeAndReplace({
           />
         </Stack>
       </Stack>
-    </Card>
+    </Section>
   );
 }
 
@@ -462,99 +481,88 @@ export function VehicleDetail({
   }
 
   return (
-    <PageShell>
-      <Container className="max-w-5xl py-10">
-        <Stack gap={6}>
-          <div>
-            <Link href="/konto/fahrzeuge" className="text-primary underline">
-              {t('vehicles.back')}
-            </Link>
-            <Heading level={1} className="mt-2">
-              {vehicle.nickname}
-            </Heading>
-          </div>
+    <KontoShell
+      title={vehicle.nickname}
+      intro={[vehicle.plate, vehicle.color, vehicle.makeModel].filter(Boolean).join(' · ')}
+      back={{ href: '/konto/fahrzeuge', label: t('vehicles.back') }}
+    >
+      {vehicle.decal && (
+        <QrHero
+          key={`${vehicle.decal.tokenId}-${vehicle.decal.template}-${vehicle.decal.cta}`}
+          vehicle={vehicle}
+        />
+      )}
+      {vehicle.decal && (
+        <Designer key={`d-${vehicle.decal.tokenId}`} vehicle={vehicle} onSaved={setVehicle} />
+      )}
+      <ModeCard vehicleId={vehicle.id} initial={mode} />
 
-          {vehicle.decal && <DecalTest key={vehicle.decal.tokenId} vehicle={vehicle} />}
-          <ModeCard vehicleId={vehicle.id} initial={mode} />
-          {vehicle.decal && (
-            <Designer key={`d-${vehicle.decal.tokenId}`} vehicle={vehicle} onSaved={setVehicle} />
-          )}
+      <Section title={t('order.title')} icon="truck">
+        {justOrdered && <Notice tone="success">{t('order.submitted')}</Notice>}
+        {canOrder ? (
+          <AddressForm
+            intro={t('order.includedIntro')}
+            submitLabel={t('order.submit')}
+            onSubmit={async (address) => {
+              const o = await api<OrderSummary>(`/v1/vehicles/${vehicle.id}/order-included`, {
+                body: { address },
+              });
+              setOrders((list) => [o, ...list]);
+              setCanOrder(false);
+              setJustOrdered(true);
+            }}
+          />
+        ) : (
+          orders.length === 0 && <Text muted>{t('order.used')}</Text>
+        )}
+        {orders.length > 0 && (
+          <ul className="flex flex-col divide-y divide-border">
+            {orders.map((o) => (
+              <li key={o.id} className="py-2">
+                <Text>
+                  {t('order.orderLine', {
+                    nickname: o.nickname ?? vehicle.nickname,
+                    date: new Date(o.createdAt),
+                    status: t(`order.status_${o.status}` as MessageKey),
+                  })}
+                </Text>
+                {o.trackingNumber && (
+                  <Text muted>{t('order.tracking', { number: o.trackingNumber })}</Text>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
 
-          <Card>
-            <Stack gap={4}>
-              <Heading level={2} className="text-xl">
-                {t('order.title')}
-              </Heading>
-              {justOrdered && <Notice tone="success">{t('order.submitted')}</Notice>}
-              {canOrder ? (
-                <AddressForm
-                  intro={t('order.includedIntro')}
-                  submitLabel={t('order.submit')}
-                  onSubmit={async (address) => {
-                    const o = await api<OrderSummary>(`/v1/vehicles/${vehicle.id}/order-included`, {
-                      body: { address },
-                    });
-                    setOrders((list) => [o, ...list]);
-                    setCanOrder(false);
-                    setJustOrdered(true);
-                  }}
-                />
-              ) : (
-                orders.length === 0 && <Text muted>{t('order.used')}</Text>
-              )}
-              {orders.length > 0 && (
-                <ul className="flex flex-col gap-2">
-                  {orders.map((o) => (
-                    <li key={o.id}>
-                      <Text>
-                        {t('order.orderLine', {
-                          nickname: o.nickname ?? vehicle.nickname,
-                          date: new Date(o.createdAt),
-                          status: t(`order.status_${o.status}` as MessageKey),
-                        })}
-                      </Text>
-                      {o.trackingNumber && (
-                        <Text muted>{t('order.tracking', { number: o.trackingNumber })}</Text>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Stack>
-          </Card>
+      <Section title={t('vehicles.details')} icon="car">
+        {detailsSaved && <Notice tone="success">{t('vehicles.saved')}</Notice>}
+        <VehicleForm
+          initial={vehicle}
+          submitLabel={t('vehicles.save')}
+          onSubmit={async (v) => {
+            setVehicle(
+              await api<Vehicle>(`/v1/vehicles/${vehicle.id}`, { method: 'PATCH', body: v }),
+            );
+            setDetailsSaved(true);
+          }}
+        />
+      </Section>
 
-          {vehicle.decal && (
-            <RevokeAndReplace
-              vehicle={vehicle}
-              onReissued={setVehicle}
-              orderResult={orderResult}
-              freeReplacement={freeReplacements > 0}
-            />
-          )}
+      {vehicle.decal && (
+        <RevokeAndReplace
+          vehicle={vehicle}
+          onReissued={setVehicle}
+          orderResult={orderResult}
+          freeReplacement={freeReplacements > 0}
+        />
+      )}
 
-          <Card>
-            <Stack gap={4}>
-              <Heading level={2} className="text-xl">
-                {t('vehicles.details')}
-              </Heading>
-              {detailsSaved && <Notice tone="success">{t('vehicles.saved')}</Notice>}
-              <VehicleForm
-                initial={vehicle}
-                submitLabel={t('vehicles.save')}
-                onSubmit={async (v) => {
-                  setVehicle(
-                    await api<Vehicle>(`/v1/vehicles/${vehicle.id}`, { method: 'PATCH', body: v }),
-                  );
-                  setDetailsSaved(true);
-                }}
-              />
-              <Button variant="danger" onClick={remove} className="w-fit">
-                {t('vehicles.delete')}
-              </Button>
-            </Stack>
-          </Card>
-        </Stack>
-      </Container>
-    </PageShell>
+      <Section title={t('vehicles.delete')} icon="alert" intro={t('portal.deleteIntro')}>
+        <Button variant="danger" onClick={remove} className="w-fit">
+          {t('vehicles.delete')}
+        </Button>
+      </Section>
+    </KontoShell>
   );
 }

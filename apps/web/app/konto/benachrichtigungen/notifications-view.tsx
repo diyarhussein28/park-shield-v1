@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   Checkbox,
-  Container,
   Field,
   Heading,
   Input,
@@ -13,9 +12,8 @@ import {
   Text,
   useI18n,
 } from '@parkshield/ui';
-import Link from 'next/link';
 import { useEffect, useState, type FormEvent } from 'react';
-import { PageShell } from '@/components/site-chrome';
+import { KontoShell } from '@/components/konto-shell';
 import { api, ApiError, errorText } from '@/lib/api-client';
 import type {
   ChannelsOverview,
@@ -43,48 +41,30 @@ export function NotificationsView({
   const reload = async () => setData(await api<ChannelsOverview>('/v1/channels'));
 
   return (
-    <PageShell>
-      <Container className="py-10">
-        <Stack gap={6}>
-          <div>
-            <Link href="/konto" className="text-primary underline">
-              {t('channels.toAccount')}
-            </Link>
-            <Heading level={1} className="mt-2">
-              {t('channels.title')}
-            </Heading>
-            <Text muted>{t('channels.intro')}</Text>
-          </div>
-          <PushCard publicKey={data.push.publicKey} devices={data.push.devices} reload={reload} />
-          <PhoneCard
-            channel="whatsapp"
-            linked={data.whatsapp}
-            reload={reload}
-            usage={usage.whatsapp}
-          />
-          <PhoneCard channel="sms" linked={data.sms} reload={reload} usage={usage.sms} />
-          <Card>
-            <Stack gap={2}>
-              <Heading level={2} className="text-xl">
-                {t('channels.emailTitle')}
-              </Heading>
-              <Text>{t('channels.emailText', { email: data.email.address })}</Text>
-            </Stack>
-          </Card>
-          <OrderCard
-            order={data.order}
-            setUp={{
-              webpush: data.push.devices.length > 0,
-              email: true,
-              whatsapp: Boolean(data.whatsapp),
-              sms: Boolean(data.sms),
-            }}
-            onSaved={(order) => setData((d) => ({ ...d, order }))}
-          />
-          <QuietHoursCard initial={quiet} />
+    <KontoShell title={t('channels.title')} intro={t('channels.intro')}>
+      <PushCard publicKey={data.push.publicKey} devices={data.push.devices} reload={reload} />
+      <PhoneCard channel="whatsapp" linked={data.whatsapp} reload={reload} usage={usage.whatsapp} />
+      <PhoneCard channel="sms" linked={data.sms} reload={reload} usage={usage.sms} />
+      <Card>
+        <Stack gap={2}>
+          <Heading level={2} className="text-xl">
+            {t('channels.emailTitle')}
+          </Heading>
+          <Text>{t('channels.emailText', { email: data.email.address })}</Text>
         </Stack>
-      </Container>
-    </PageShell>
+      </Card>
+      <OrderCard
+        order={data.order}
+        setUp={{
+          webpush: data.push.devices.length > 0,
+          email: true,
+          whatsapp: Boolean(data.whatsapp),
+          sms: Boolean(data.sms),
+        }}
+        onSaved={(order) => setData((d) => ({ ...d, order }))}
+      />
+      <QuietHoursCard initial={quiet} />
+    </KontoShell>
   );
 }
 

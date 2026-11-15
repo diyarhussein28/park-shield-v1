@@ -42,6 +42,7 @@ const WEB_PUBLIC = [
 const WEB_ACCOUNT = [
   '/konto',
   '/konto/fahrzeuge',
+  '/konto/abo',
   '/konto/benachrichtigungen',
   '/konto/notfallkontakte',
   '/konto/verlauf',

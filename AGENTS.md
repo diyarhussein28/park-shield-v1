@@ -84,9 +84,14 @@ Public: `/`, `/business`, `/hilfe` (+ articles, contact form), `/impressum`, `/d
 `/widerruf`, `/barrierefreiheit`, `/sicherheit`, `/kuendigen` (cancel without login, §312k BGB).
 Flows: `/anmelden` (+ `/link`), `/aktivieren` (claim a pre-printed decal), `/antwort` (owner reply
 from e-mail), `/notfallkontakt` (contact consent), `/datenschutz-anfrage`,
-`/konto-loeschen-abbrechen`. Owner portal: `/konto`, `/konto/fahrzeuge` (+ `[id]`),
+`/konto-loeschen-abbrechen`. Owner portal (all pages share `KontoShell` in
+`apps/web/components/konto-shell.tsx`: sidebar on desktop, collapsible menu on phones): `/konto`
+(overview: the vehicles' QR codes first, or the form that creates the first one; before payment the
+checkout), `/konto/fahrzeuge` (+ `[id]`, QR code with PDF and test at the top),
 `/konto/benachrichtigungen`, `/konto/notfallkontakte`, `/konto/verlauf`, `/konto/zustellung`,
-`/konto/daten`. Scanner: `/s/[code]`. Dev only: `/dev/postfach` (local inbox), `/dev/checkout`
+`/konto/abo` (subscription, invoices, credit notes, e-mail summary, passkeys, cancel),
+`/konto/daten`. A decal's QR code is issued with its vehicle (`TokensService.issue`, stored in
+`qr_tokens` as hash + encrypted copy). Scanner: `/s/[code]`. Dev only: `/dev/postfach` (local inbox), `/dev/checkout`
 (fake Stripe), `/design` (design system).
 
 ### Ops pages (`apps/ops/app`)

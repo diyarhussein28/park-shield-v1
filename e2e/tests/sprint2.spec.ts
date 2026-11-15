@@ -63,9 +63,13 @@ test.describe('sign-up, annual checkout, cancellation (US-05, US-06, US-07)', ()
       'Vertragsnummer: ',
       '',
     );
+    // Invoices, cancellation and sign-in settings live on "Abo & Konto".
+    await page.getByRole('link', { name: 'Abo und Rechnungen verwalten' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Abo & Konto' })).toBeVisible();
     await expect(
       page.getByRole('link', { name: /Rechnung DEV-\d{4}-\d+ vom .* \(PDF\)/ }),
     ).toBeVisible();
+    await expectAccessible(page);
     const welcome = await waitForMail(request, email, 'subscription_started');
     expect(welcome.text).toContain(contract);
 
