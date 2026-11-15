@@ -1,6 +1,6 @@
-# Single-server test stack (Hetzner)
+# Single-server stack (Contabo or Hetzner)
 
-One Hetzner VM running the website, scanner page, public API, worker, PostgreSQL 18, Valkey and
+Currently running on a Contabo Cloud VPS (Germany, `test.park-shield.de`). One VM running the website, scanner page, public API, worker, PostgreSQL 18, Valkey and
 Caddy (automatic HTTPS) with Docker Compose. It exists to test real providers — first of all the
 Twilio WhatsApp/SMS webhooks — on a public HTTPS domain before the full staging topology
 (`infra/terraform` + `infra/ansible`: load balancer, five servers, WireGuard, Object Storage) is
@@ -9,17 +9,19 @@ built.
 **This is not production.** It runs with `APP_ENV=ci`: providers without keys use the fake
 adapters and the dev inbox `/dev/postfach` is on. Therefore Caddy puts the whole site behind basic
 auth; only `/v1/webhooks/*` stays open (Twilio and Stripe verify by signature). There are no
-backups, no ops app and no ops API. Do not put real customer data on it.
+ops app and no ops API yet. Do not put real customer data on it before production mode.
 
 ## Files
 
-| File           | Where it runs | What it does                                                           |
-| -------------- | ------------- | ---------------------------------------------------------------------- |
-| `bootstrap.sh` | server, once  | Docker, Compose, swap, unattended upgrades, SSH keys only              |
-| `deploy.sh`    | your computer | rsync the working tree, build images on the server, migrate, restart   |
-| `setup-env.sh` | server, once  | writes `.env` (Compose/Caddy) and `server.env` (apps) with new secrets |
-| `compose.yml`  | server        | the stack; all containers on the host network, bound to 127.0.0.1      |
-| `Caddyfile`    | server        | TLS 1.3, basic auth, privacy-filtered access log, webhooks open        |
+| File                | Where it runs | What it does                                                           |
+| ------------------- | ------------- | ---------------------------------------------------------------------- |
+| `bootstrap.sh`      | server, once  | Docker, Compose, swap, unattended upgrades, SSH keys only              |
+| `deploy.sh`         | your computer | rsync the working tree, build images on the server, migrate, restart   |
+| `setup-env.sh`      | server, once  | writes `.env` (Compose/Caddy) and `server.env` (apps) with new secrets |
+| `install-backup.sh` | server, once  | backup encryption key + nightly cron (03:15)                           |
+| `backup.sh`         | server, cron  | encrypted pg_dump to Object Storage, restore check, 30-day retention   |
+| `compose.yml`       | server        | the stack; all containers on the host network, bound to 127.0.0.1      |
+| `Caddyfile`         | server        | TLS 1.3, basic auth, privacy-filtered access log, webhooks open        |
 
 `.env`, `server.env` and `data/` exist only on the server (git-ignored, never synced).
 
@@ -70,3 +72,25 @@ docker compose logs -f api worker
 docker compose exec postgres psql -U parkshield
 docker compose down            # stop (data stays in the volumes)
 ```
+
+## Object Storage (audit log and backups)
+
+Contabo Object Storage, EU, endpoint `https://eu2.contabostorage.com`, region `eu2`. The keys go into
+`server.env` by hand (`S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`,
+`AUDIT_BUCKET=parkshield-audit`). Buckets:
+
+- `parkshield-audit`: created with Object Lock (versioning on). The app writes each audit export in
+  COMPLIANCE mode; tested: a locked object can neither be deleted nor have its retention shortened.
+- `parkshield-backups`: `db/parkshield-<UTC time>.dump.enc`, AES-256 encrypted with
+  `/root/parkshield-backup.key`. Keep a copy of that key off the server; without it no backup can be
+  read.
+
+Restore by hand (on the server):
+
+```bash
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass file:/root/parkshield-backup.key \
+  -in /root/backups/<file>.dump.enc > /root/restore.dump
+docker compose exec -T postgres pg_restore -U parkshield -h 127.0.0.1 -d <database> --no-owner < /root/restore.dump
+```
+
+Log: `/var/log/parkshield-backup.log`. Run one now: `/opt/parkshield/src/infra/single/backup.sh`.
