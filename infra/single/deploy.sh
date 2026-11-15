@@ -33,7 +33,8 @@ if [[ ! -e .env || ! -e server.env ]]; then
   exit 0
 fi
 docker compose up -d postgres valkey
-docker compose run --rm migrate
+# -T and </dev/null: this script arrives on stdin; without them `run` swallows the lines below.
+docker compose run --rm -T migrate </dev/null
 docker compose up -d --remove-orphans
 docker image prune -f >/dev/null
 docker compose ps
