@@ -1,59 +1,34 @@
 'use client';
 
-import {
-  Badge,
-  Button,
-  Card,
-  Checkbox,
-  Container,
-  Field,
-  Heading,
-  Input,
-  Notice,
-  Select,
-  Stack,
-  Text,
-  useI18n,
-} from '@parkshield/ui';
-import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/browser';
+import { Badge, Notice, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { PageShell } from '@/components/site-chrome';
-import { api, errorText } from '@/lib/api-client';
-import type {
-  CreditNote,
-  InvoiceSummary,
-  Me,
-  Protection,
-  SubscriptionSummary,
-} from '@/lib/api-server';
+import { useEffect, useRef, useState } from 'react';
+import { Icon, type IconName } from '@/components/icons';
+import { KontoShell, Section } from '@/components/konto-shell';
+import { api } from '@/lib/api-client';
+import type { Me, Protection, SubscriptionSummary, Vehicle } from '@/lib/api-server';
+import { cx } from '@/lib/cx';
 import { usePendingClaim } from '@/lib/pending-claim';
-import { useBrowserValue } from '@/lib/use-browser-value';
-
-const PLAN_LABEL = { plus: 'Plus', premium: 'Premium' } as const;
+import { useAddVehicle, VehicleForm } from './fahrzeuge/vehicles-view';
+import { CheckoutForm, PastDue, SubscriptionInfo } from './parts';
+import { QrCard } from './qr-card';
 
 export function AccountView({
   me,
   subscription,
-  invoices,
-  vehicleCount,
+  vehicles,
   channels,
   contactCount,
   protection,
-  firstVehicleId,
   checkout,
-  creditNotes = [],
 }: {
-  creditNotes?: CreditNote[];
-  contactCount: number;
-  protection: Protection | null;
-  firstVehicleId: string | null;
   me: Me;
   subscription: SubscriptionSummary | null;
-  invoices: InvoiceSummary[];
-  vehicleCount: number;
+  vehicles: Vehicle[];
   channels: { push: number; whatsapp: boolean };
+  contactCount: number;
+  protection: Protection | null;
   checkout?: 'success' | 'canceled';
 }) {
   const { t, locale } = useI18n();
@@ -79,235 +54,101 @@ export function AccountView({
     return () => clearInterval(timer);
   }, [checkout, subscription, router]);
 
-  async function logout() {
-    await api('/v1/auth/logout', { body: {} });
-    router.push('/');
-    router.refresh();
-  }
+  return (
+    <KontoShell title={t('account.title')} intro={t('account.signedInAs', { email: me.email })}>
+      {checkout === 'success' && !subscription && (
+        <Notice tone="info">{t('account.checkoutSuccess')}</Notice>
+      )}
+      {checkout === 'canceled' && <Notice tone="warning">{t('account.checkoutCanceled')}</Notice>}
+      {pending && (
+        <Notice tone="info" title={t('claim.pendingTitle')}>
+          {subscription ? t('claim.pendingReady') : t('claim.pendingPay')}{' '}
+          {subscription && (
+            <Link href="/aktivieren" className="font-semibold underline">
+              {t('claim.pendingLink')}
+            </Link>
+          )}
+        </Notice>
+      )}
 
-  async function paymentMethod() {
-    const { url } = await api<{ url: string }>('/v1/billing/portal', { body: {} });
-    window.location.assign(url);
+      {subscription ? (
+        <>
+          {subscription.status === 'past_due' && <PastDue />}
+          <QrCodes initial={vehicles} />
+          <div className="grid gap-6 xl:grid-cols-2">
+            {protection && (
+              <ProtectionCard protection={protection} firstVehicleId={vehicles[0]?.id ?? null} />
+            )}
+            <Section title={t('account.subscription')} icon="card">
+              <SubscriptionInfo sub={subscription} />
+              <Link
+                href="/konto/abo"
+                className="inline-flex min-h-12 w-fit items-center gap-2 font-semibold text-primary underline-offset-4 hover:underline"
+              >
+                {t('portal.planManage')}
+                <Icon name="arrowRight" className="size-4" />
+              </Link>
+            </Section>
+          </div>
+          <HowScanningWorks />
+          <QuickLinks channels={channels} contactCount={contactCount} />
+        </>
+      ) : (
+        <>
+          <GetStarted />
+          <Section title={t('account.subscription')} icon="card">
+            <CheckoutForm />
+          </Section>
+        </>
+      )}
+    </KontoShell>
+  );
+}
+
+/** The heart of the portal: every vehicle's QR code, ready to download, or the form that creates it. */
+function QrCodes({ initial }: { initial: Vehicle[] }) {
+  const { t } = useI18n();
+  const [vehicles, setVehicles] = useState(initial);
+  const [formKey, setFormKey] = useState(0);
+  const { add, error } = useAddVehicle((v) => {
+    setVehicles((list) => [...list, v]);
+    setFormKey((k) => k + 1);
+  });
+
+  const manage = (
+    <Link
+      href="/konto/fahrzeuge"
+      className="inline-flex min-h-12 items-center gap-2 rounded-xl border-2 border-border-strong px-4 font-semibold hover:border-primary"
+    >
+      {t('vehicles.manage')}
+    </Link>
+  );
+
+  if (vehicles.length === 0) {
+    return (
+      <Section
+        title={t('portal.firstVehicleTitle')}
+        icon="qr"
+        intro={t('portal.firstVehicleText')}
+        aside={manage}
+        className="border-2 border-primary"
+      >
+        <VehicleForm key={formKey} submitLabel={t('portal.createQr')} onSubmit={add} />
+        {error && <Notice tone="warning">{error}</Notice>}
+      </Section>
+    );
   }
 
   return (
-    <PageShell>
-      <Container className="py-10">
-        <Stack gap={6}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <Heading level={1}>{t('account.title')}</Heading>
-              <Text muted>{t('account.signedInAs', { email: me.email })}</Text>
-            </div>
-            <Button variant="secondary" onClick={logout}>
-              {t('account.logout')}
-            </Button>
-          </div>
-
-          {subscription && protection && (
-            <ProtectionCard protection={protection} firstVehicleId={firstVehicleId} />
-          )}
-
-          {checkout === 'success' && !subscription && (
-            <Notice tone="info">{t('account.checkoutSuccess')}</Notice>
-          )}
-          {pending && (
-            <Notice tone="info" title={t('claim.pendingTitle')}>
-              {subscription ? t('claim.pendingReady') : t('claim.pendingPay')}{' '}
-              {subscription && (
-                <Link href="/aktivieren" className="font-semibold underline">
-                  {t('claim.pendingLink')}
-                </Link>
-              )}
-            </Notice>
-          )}
-          {checkout === 'canceled' && (
-            <Notice tone="warning">{t('account.checkoutCanceled')}</Notice>
-          )}
-
-          <Card>
-            <Stack gap={3}>
-              <Heading level={2} className="text-xl">
-                {t('account.subscription')}
-              </Heading>
-              {subscription?.status === 'past_due' && (
-                <Notice tone="warning">{t('account.pastDueNotice')}</Notice>
-              )}
-              {subscription ? <SubscriptionInfo sub={subscription} /> : <CheckoutForm />}
-              {subscription && (
-                <Button variant="secondary" onClick={paymentMethod} className="w-fit">
-                  {t('account.paymentMethod')}
-                </Button>
-              )}
-            </Stack>
-          </Card>
-
-          {subscription && (
-            <Card className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <Heading level={2} className="text-xl">
-                  {t('vehicles.title')}
-                </Heading>
-                <Text muted>{t('vehicles.summary', { count: vehicleCount })}</Text>
-              </div>
-              <Link
-                href="/konto/fahrzeuge"
-                className="inline-flex min-h-12 items-center rounded-xl bg-primary px-5 font-semibold text-primary-fg hover:bg-primary-hover"
-              >
-                {t('vehicles.manage')}
-              </Link>
-            </Card>
-          )}
-
-          <Card className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <Heading level={2} className="text-xl">
-                {t('channels.title')}
-              </Heading>
-              <Text muted>
-                {t('channels.summary', {
-                  push: channels.push,
-                  whatsapp: channels.whatsapp ? 'yes' : 'no',
-                })}
-              </Text>
-            </div>
-            <Link
-              href="/konto/benachrichtigungen"
-              className="inline-flex min-h-12 items-center rounded-xl bg-primary px-5 font-semibold text-primary-fg hover:bg-primary-hover"
-            >
-              {t('channels.manage')}
-            </Link>
-          </Card>
-
-          <Card>
-            <Stack gap={2}>
-              <Heading level={2} className="text-xl">
-                {t('history.title')}
-              </Heading>
-              <ul className="flex flex-col gap-1">
-                <li>
-                  <Link href="/konto/verlauf" className="text-primary underline">
-                    {t('history.manage')}
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/konto/zustellung" className="text-primary underline">
-                    {t('deliveryHelp.link')}
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/konto/daten" className="text-primary underline">
-                    {t('privacy.manage')}
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/hilfe" className="text-primary underline">
-                    {t('help.accountLink')}
-                  </Link>
-                </li>
-              </ul>
-            </Stack>
-          </Card>
-
-          {subscription && (
-            <Card className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <Heading level={2} className="text-xl">
-                  {t('contacts.title')}
-                </Heading>
-                <Text muted>{t('contacts.summary', { count: contactCount })}</Text>
-              </div>
-              <Link
-                href="/konto/notfallkontakte"
-                className="inline-flex min-h-12 items-center rounded-xl bg-primary px-5 font-semibold text-primary-fg hover:bg-primary-hover"
-              >
-                {t('contacts.manage')}
-              </Link>
-            </Card>
-          )}
-
-          <Card>
-            <Stack gap={3}>
-              <Heading level={2} className="text-xl">
-                {t('account.invoices')}
-              </Heading>
-              {invoices.length === 0 ? (
-                <Text muted>{t('account.noInvoices')}</Text>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {invoices.map((i) => (
-                    <li key={i.id}>
-                      {i.pdfUrl ? (
-                        <a
-                          className="text-primary underline"
-                          href={i.pdfUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          {t('account.invoiceLink', {
-                            number: i.number,
-                            date: new Date(i.createdAt),
-                          })}
-                        </a>
-                      ) : (
-                        i.number
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {creditNotes.length > 0 && (
-                <>
-                  <Heading level={3} className="text-base">
-                    {t('account.creditNotes')}
-                  </Heading>
-                  <ul className="flex flex-col gap-2" aria-label={t('account.creditNotes')}>
-                    {creditNotes.map((c) => (
-                      <li key={c.id}>
-                        <a
-                          className="text-primary underline"
-                          href={`/v1/billing/credit-notes/${c.id}/pdf`}
-                        >
-                          {t('account.creditNoteLink', {
-                            number: c.number,
-                            date: new Date(c.createdAt),
-                            amount: new Intl.NumberFormat(locale === 'en' ? 'en-IE' : 'de-DE', {
-                              style: 'currency',
-                              currency: 'EUR',
-                            }).format(c.amountCents / 100),
-                          })}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </Stack>
-          </Card>
-
-          {subscription && <SummarySettings initial={me.summaryFrequency} />}
-
-          <Passkeys initial={me.passkeys} />
-
-          {subscription && !subscription.cancelAtPeriodEnd && (
-            <Card>
-              <Stack gap={3}>
-                <Heading level={2} className="text-xl">
-                  {t('account.cancelTitle')}
-                </Heading>
-                <Text>{t('account.cancelText')}</Text>
-                <Link
-                  href="/kuendigen"
-                  className="inline-flex min-h-12 w-fit items-center rounded-xl border-2 border-fg px-4 font-semibold"
-                >
-                  {t('common.footer.cancelContract')}
-                </Link>
-              </Stack>
-            </Card>
-          )}
-        </Stack>
-      </Container>
-    </PageShell>
+    <Section title={t('portal.qrTitle')} icon="qr" intro={t('portal.qrIntro')} aside={manage}>
+      <ul className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+        {vehicles.map((v) => (
+          <li key={v.id}>
+            <QrCard vehicle={v} />
+          </li>
+        ))}
+      </ul>
+    </Section>
   );
 }
 
@@ -346,275 +187,187 @@ function ProtectionCard({
   ];
   const complete = protection.percent === 100;
   return (
-    <Card>
-      <Stack gap={3}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Heading level={2} className="text-xl">
-            {t('protection.title')}
-          </Heading>
-          <Badge tone={complete ? 'success' : 'warning'}>
-            {complete ? t('protection.complete') : t('protection.incomplete')}
-          </Badge>
-        </div>
-        <div>
-          <p className="mb-1 font-semibold">
-            {t('protection.percent', { percent: protection.percent })}
-          </p>
+    <Section
+      title={t('protection.title')}
+      icon="shieldCheck"
+      aside={
+        <Badge tone={complete ? 'success' : 'warning'}>
+          {complete ? t('protection.complete') : t('protection.incomplete')}
+        </Badge>
+      }
+    >
+      <div>
+        <p className="mb-2 font-semibold">
+          {t('protection.percent', { percent: protection.percent })}
+        </p>
+        <div
+          role="progressbar"
+          aria-label={t('protection.title')}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={protection.percent}
+          className="h-3 w-full overflow-hidden rounded-full bg-secondary"
+        >
           <div
-            role="progressbar"
-            aria-label={t('protection.title')}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={protection.percent}
-            className="h-3 w-full overflow-hidden rounded-full bg-surface"
-          >
-            <div
-              className="h-full rounded-full bg-primary"
-              style={{ width: `${protection.percent}%` }}
-            />
-          </div>
+            className="h-full rounded-full bg-primary transition-[width]"
+            style={{ width: `${protection.percent}%` }}
+          />
         </div>
-        <ol className="flex flex-col gap-2">
-          {steps.map((s) => (
-            <li key={s.key} className="flex flex-wrap items-center justify-between gap-2">
-              <span>
-                <span aria-hidden="true">{s.done ? '✓' : '○'} </span>
+      </div>
+      <ol className="flex flex-col gap-2">
+        {steps.map((s) => (
+          <li key={s.key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <span className="flex min-w-0 items-center gap-3">
+              <span
+                aria-hidden="true"
+                className={cx(
+                  'grid size-7 shrink-0 place-items-center rounded-full border-2',
+                  s.done
+                    ? 'border-success-fg bg-success-bg text-success-fg'
+                    : 'border-border-strong text-muted',
+                )}
+              >
+                {s.done && <Icon name="check" className="size-4" />}
+              </span>
+              <span className={cx('min-w-0', s.done && 'text-muted')}>
                 {s.label}
                 <span className="sr-only">
                   : {s.done ? t('protection.done') : t('protection.todo')}
                 </span>
               </span>
-              {!s.done && s.href && (
-                <Link href={s.href} className="text-primary underline">
-                  {s.go}
-                </Link>
-              )}
-            </li>
-          ))}
-        </ol>
-      </Stack>
-    </Card>
+            </span>
+            {!s.done && s.href && (
+              <Link href={s.href} className="ml-10 font-semibold text-primary underline">
+                {s.go}
+              </Link>
+            )}
+          </li>
+        ))}
+      </ol>
+    </Section>
   );
 }
 
-function SummarySettings({ initial }: { initial: Me['summaryFrequency'] }) {
-  const { t } = useI18n();
-  const [value, setValue] = useState(initial);
-  const [status, setStatus] = useState<string | null>(null);
-
-  async function save(next: Me['summaryFrequency']) {
-    setValue(next);
-    setStatus(null);
-    try {
-      await api('/v1/me', { method: 'PATCH', body: { summaryFrequency: next } });
-      setStatus(t('summarySettings.saved'));
-    } catch (err) {
-      setStatus(errorText(err, t));
-    }
-  }
-
+function Steps({ steps }: { steps: { icon: IconName; title: string; text: string }[] }) {
   return (
-    <Card>
-      <Stack gap={3}>
-        <Heading level={2} className="text-xl">
-          {t('summarySettings.title')}
-        </Heading>
-        <Text>{t('summarySettings.intro')}</Text>
-        <Field label={t('summarySettings.label')}>
-          {({ id }) => (
-            <Select
-              id={id}
-              className="max-w-xs"
-              value={value}
-              onChange={(e) => void save(e.target.value as Me['summaryFrequency'])}
-            >
-              <option value="monthly">{t('summarySettings.monthly')}</option>
-              <option value="weekly">{t('summarySettings.weekly')}</option>
-              <option value="off">{t('summarySettings.off')}</option>
-            </Select>
-          )}
-        </Field>
-        <p role="status" className="text-sm text-muted">
-          {status}
-        </p>
-      </Stack>
-    </Card>
+    <ol className="grid gap-4 md:grid-cols-3">
+      {steps.map((s, i) => (
+        <li key={s.title} className="flex gap-3 rounded-2xl bg-secondary/40 p-4">
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary font-bold text-primary-fg">
+            {i + 1}
+          </span>
+          <div className="min-w-0">
+            <h3 className="flex items-center gap-2 font-semibold">
+              <Icon name={s.icon} className="size-5 shrink-0 text-primary" />
+              <span className="min-w-0">{s.title}</span>
+            </h3>
+            <p className="mt-1 text-sm text-muted">{s.text}</p>
+          </div>
+        </li>
+      ))}
+    </ol>
   );
 }
 
-function SubscriptionInfo({ sub }: { sub: SubscriptionSummary }) {
+/** Answers "what happens when someone scans my code?" in three plain steps. */
+function HowScanningWorks() {
   const { t } = useI18n();
-  const end = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
   return (
-    <Stack gap={2}>
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-lg font-semibold">
-          {t('account.planName', { plan: PLAN_LABEL[sub.plan] })}
-        </span>
-        <Badge tone={sub.status === 'active' ? 'success' : 'warning'}>
-          {sub.status === 'active' ? t('account.statusActive') : t('account.statusPastDue')}
-        </Badge>
-      </div>
-      {sub.contractNo && <Text>{t('account.contractNo', { contractNo: sub.contractNo })}</Text>}
-      {end && (
-        <Text muted>
-          {sub.cancelAtPeriodEnd
-            ? t('account.endsOn', { date: end })
-            : t('account.renewsOn', { date: end })}
-        </Text>
-      )}
-    </Stack>
-  );
-}
-
-function CheckoutForm() {
-  const { t } = useI18n();
-  const pending = usePendingClaim();
-  const [typed, setPromo] = useState<string | null>(null);
-  // A partner decal brings its promo code along (AD-07); the person may still change it.
-  const promo = typed ?? pending?.promoCode ?? '';
-  const [immediate, setImmediate] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showRequired, setShowRequired] = useState(false);
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    if (!immediate) {
-      setShowRequired(true);
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const { url } = await api<{ url: string }>('/v1/billing/checkout', {
-        body: {
-          plan: 'plus',
-          immediateStart: true,
-          ...(promo.trim() ? { promoCode: promo.trim() } : {}),
-        },
-      });
-      window.location.assign(url);
-    } catch (err) {
-      setError(errorText(err, t));
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form onSubmit={submit} className="flex flex-col gap-4">
-      <Text muted>{t('account.noSubscription')}</Text>
-      <p className="text-lg font-semibold">{t('checkout.priceLine')}</p>
-      <Field label={t('checkout.promoLabel')} optionalLabel={t('common.optional')}>
-        {({ id }) => (
-          <Input
-            id={id}
-            value={promo}
-            onChange={(e) => setPromo(e.target.value)}
-            autoComplete="off"
-            maxLength={40}
-          />
-        )}
-      </Field>
-      <Checkbox
-        label={t('checkout.immediateStart')}
-        checked={immediate}
-        onChange={(e) => {
-          setImmediate(e.target.checked);
-          setShowRequired(false);
-        }}
-        aria-describedby={showRequired ? 'immediate-required' : undefined}
+    <Section title={t('portal.howTitle')} icon="scan" intro={t('portal.howIntro')}>
+      <Steps
+        steps={[
+          { icon: 'qr', title: t('portal.how1Title'), text: t('portal.how1Text') },
+          { icon: 'phone', title: t('portal.how2Title'), text: t('portal.how2Text') },
+          { icon: 'bell', title: t('portal.how3Title'), text: t('portal.how3Text') },
+        ]}
       />
-      {showRequired && (
-        <p id="immediate-required" className="font-semibold text-danger-text" role="alert">
-          {t('checkout.immediateRequired')}
-        </p>
-      )}
-      <Text className="text-sm">
-        {t('checkout.withdrawalNotice')}{' '}
-        <Link className="underline" href="/widerruf">
-          {t('checkout.withdrawalLink')}
-        </Link>
-        . {t('checkout.termsNotice')}{' '}
-        <Link className="underline" href="/agb">
-          {t('common.footer.terms')}
-        </Link>{' '}
-        ·{' '}
-        <Link className="underline" href="/datenschutz">
-          {t('common.footer.privacy')}
-        </Link>
-      </Text>
-      {error && <Notice tone="danger">{error}</Notice>}
-      <Button type="submit" size="lg" busy={busy}>
-        {t('checkout.pay')}
-      </Button>
-    </form>
+    </Section>
   );
 }
 
-function Passkeys({ initial }: { initial: Me['passkeys'] }) {
+function GetStarted() {
   const { t } = useI18n();
-  const [list, setList] = useState(initial);
-  const supported = useBrowserValue(browserSupportsWebAuthn, true);
-  const [message, setMessage] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
-
-  async function reload() {
-    setList((await api<Me>('/v1/me')).passkeys);
-  }
-
-  async function add() {
-    setMessage(null);
-    try {
-      const options = await api<never>('/v1/auth/passkey/register/options', { body: {} });
-      const response = await startRegistration({ optionsJSON: options });
-      await api('/v1/auth/passkey/register/verify', {
-        body: { response, label: navigator.platform || 'Passkey' },
-      });
-      await reload();
-      setMessage({ tone: 'success', text: t('account.passkeyAdded') });
-    } catch (err) {
-      setMessage({ tone: 'danger', text: errorText(err, t) });
-    }
-  }
-
-  async function remove(id: string) {
-    await api(`/v1/me/passkeys/${id}`, { method: 'DELETE' });
-    await reload();
-  }
-
   return (
-    <Card>
-      <Stack gap={3}>
-        <Heading level={2} className="text-xl">
-          {t('account.passkeys')}
-        </Heading>
-        <Text>{t('account.passkeysIntro')}</Text>
-        {list.length === 0 ? (
-          <Text muted>{t('account.noPasskeys')}</Text>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {list.map((p) => (
-              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2">
-                <span>
-                  {p.label ?? 'Passkey'} ·{' '}
-                  {t('account.passkeyAddedOn', { date: new Date(p.createdAt) })}
-                </span>
-                <Button variant="ghost" onClick={() => remove(p.id)}>
-                  {t('account.removePasskey', { label: p.label ?? 'Passkey' })}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {message && <Notice tone={message.tone}>{message.text}</Notice>}
-        {supported ? (
-          <Button variant="secondary" onClick={add} className="w-fit">
-            {t('account.addPasskey')}
-          </Button>
-        ) : (
-          <Text muted>{t('account.passkeyUnsupported')}</Text>
-        )}
-      </Stack>
-    </Card>
+    <Section title={t('portal.startTitle')} icon="shield" intro={t('portal.startIntro')}>
+      <Steps
+        steps={[
+          { icon: 'card', title: t('portal.start1Title'), text: t('portal.start1Text') },
+          { icon: 'qr', title: t('portal.start2Title'), text: t('portal.start2Text') },
+          { icon: 'check', title: t('portal.start3Title'), text: t('portal.start3Text') },
+        ]}
+      />
+    </Section>
+  );
+}
+
+function QuickLinks({
+  channels,
+  contactCount,
+}: {
+  channels: { push: number; whatsapp: boolean };
+  contactCount: number;
+}) {
+  const { t } = useI18n();
+  const tiles: { href: string; icon: IconName; title: string; text: string }[] = [
+    {
+      href: '/konto/benachrichtigungen',
+      icon: 'bell',
+      title: t('channels.manage'),
+      text: t('channels.summary', {
+        push: channels.push,
+        whatsapp: channels.whatsapp ? 'yes' : 'no',
+      }),
+    },
+    {
+      href: '/konto/notfallkontakte',
+      icon: 'users',
+      title: t('contacts.manage'),
+      text: t('contacts.summary', { count: contactCount }),
+    },
+    {
+      href: '/konto/verlauf',
+      icon: 'clock',
+      title: t('history.manage'),
+      text: t('portal.historyText'),
+    },
+    {
+      href: '/konto/zustellung',
+      icon: 'alert',
+      title: t('deliveryHelp.link'),
+      text: t('portal.deliveryText'),
+    },
+    {
+      href: '/konto/daten',
+      icon: 'database',
+      title: t('privacy.manage'),
+      text: t('portal.dataText'),
+    },
+  ];
+  return (
+    <section aria-labelledby="quick-links">
+      <h2 id="quick-links" className="mb-3 text-xl font-bold tracking-tight">
+        {t('portal.quickTitle')}
+      </h2>
+      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {tiles.map((tile) => (
+          <li
+            key={tile.href}
+            className="relative flex gap-3 rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:border-primary"
+          >
+            <Icon name={tile.icon} className="mt-0.5 size-6 shrink-0 text-primary" />
+            <div className="min-w-0">
+              {/* The ::after layer makes the whole tile clickable; the name stays the short title. */}
+              <Link
+                href={tile.href}
+                className="font-semibold after:absolute after:inset-0 after:rounded-2xl"
+              >
+                {tile.title}
+              </Link>
+              <p className="mt-1 text-sm text-muted">{tile.text}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

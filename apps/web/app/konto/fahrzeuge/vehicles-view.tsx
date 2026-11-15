@@ -1,24 +1,11 @@
 'use client';
 
-import type { MessageKey } from '@parkshield/i18n';
-import {
-  Badge,
-  Button,
-  Card,
-  Container,
-  Field,
-  Heading,
-  Input,
-  Notice,
-  Stack,
-  Text,
-  useI18n,
-} from '@parkshield/ui';
-import Link from 'next/link';
+import { Button, Field, Input, Notice, useI18n } from '@parkshield/ui';
 import { useState, type FormEvent } from 'react';
-import { PageShell } from '@/components/site-chrome';
+import { KontoShell, Section } from '@/components/konto-shell';
 import { api, ApiError, errorText } from '@/lib/api-client';
 import type { Vehicle } from '@/lib/api-server';
+import { QrCard } from '../qr-card';
 
 const PLAN_LABEL: Record<string, string> = { plus: 'Plus', premium: 'Premium' };
 
@@ -102,18 +89,15 @@ export function VehicleForm({
   );
 }
 
-export function VehiclesView({ initial, subscribed }: { initial: Vehicle[]; subscribed: boolean }) {
+/** Adds a vehicle (its QR code is issued in the same transaction) and turns the plan limit into text. */
+export function useAddVehicle(onAdded: (v: Vehicle) => void) {
   const { t } = useI18n();
-  const [vehicles, setVehicles] = useState(initial);
   const [error, setError] = useState<string | null>(null);
-  const [formKey, setFormKey] = useState(0);
 
   async function add(v: { nickname: string; plate: string; color: string; makeModel: string }) {
     setError(null);
     try {
-      const created = await api<Vehicle>('/v1/vehicles', { body: v });
-      setVehicles((list) => [...list, created]);
-      setFormKey((k) => k + 1);
+      onAdded(await api<Vehicle>('/v1/vehicles', { body: v }));
     } catch (err) {
       if (err instanceof ApiError && err.body?.error === 'vehicle_limit') {
         const body = err.body as { limit: number; plan: string };
@@ -129,68 +113,43 @@ export function VehiclesView({ initial, subscribed }: { initial: Vehicle[]; subs
     }
   }
 
+  return { add, error };
+}
+
+export function VehiclesView({ initial, subscribed }: { initial: Vehicle[]; subscribed: boolean }) {
+  const { t } = useI18n();
+  const [vehicles, setVehicles] = useState(initial);
+  const [formKey, setFormKey] = useState(0);
+  const { add, error } = useAddVehicle((created) => {
+    setVehicles((list) => [...list, created]);
+    setFormKey((k) => k + 1);
+  });
+
   return (
-    <PageShell>
-      <Container className="py-10">
-        <Stack gap={6}>
-          <div>
-            <Link href="/konto" className="text-primary underline">
-              {t('vehicles.toAccount')}
-            </Link>
-            <Heading level={1} className="mt-2">
-              {t('vehicles.title')}
-            </Heading>
-            <Text muted>{t('vehicles.intro')}</Text>
-          </div>
+    <KontoShell title={t('portal.vehiclesTitle')} intro={t('vehicles.intro')}>
+      {vehicles.length > 0 && (
+        <ul className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+          {vehicles.map((v) => (
+            <li key={v.id}>
+              <QrCard vehicle={v} manageLabel={t('vehicles.open')} headingLevel={2} />
+            </li>
+          ))}
+        </ul>
+      )}
 
-          {vehicles.length > 0 && (
-            <ul className="grid gap-4 sm:grid-cols-2">
-              {vehicles.map((v) => (
-                <li key={v.id}>
-                  <Card className="flex h-full flex-col gap-3">
-                    <Heading level={2} className="text-xl">
-                      {v.nickname}
-                    </Heading>
-                    <Text muted>{[v.plate, v.color, v.makeModel].filter(Boolean).join(' · ')}</Text>
-                    {v.decal && (
-                      <Badge
-                        tone={v.decal.status === 'active' ? 'success' : 'info'}
-                        className="w-fit"
-                      >
-                        {t('vehicles.decalStatus', {
-                          hint: v.decal.codeHint,
-                          status: t(`vehicles.status_${v.decal.status}` as MessageKey),
-                        })}
-                      </Badge>
-                    )}
-                    <Link
-                      href={`/konto/fahrzeuge/${v.id}`}
-                      className="mt-auto inline-flex min-h-12 w-fit items-center rounded-xl bg-primary px-5 font-semibold text-primary-fg hover:bg-primary-hover"
-                    >
-                      {t('vehicles.open')}
-                      <span className="sr-only">: {v.nickname}</span>
-                    </Link>
-                  </Card>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <Card>
-            <Stack gap={4}>
-              <Heading level={2} className="text-xl">
-                {t('vehicles.add')}
-              </Heading>
-              {subscribed ? (
-                <VehicleForm key={formKey} submitLabel={t('vehicles.add')} onSubmit={add} />
-              ) : (
-                <Notice tone="info">{t('vehicles.noSubscription')}</Notice>
-              )}
-              {error && <Notice tone="warning">{error}</Notice>}
-            </Stack>
-          </Card>
-        </Stack>
-      </Container>
-    </PageShell>
+      <Section
+        title={t('vehicles.add')}
+        icon="plus"
+        intro={subscribed ? t('portal.addIntro') : undefined}
+        className={vehicles.length === 0 ? 'border-2 border-primary' : undefined}
+      >
+        {subscribed ? (
+          <VehicleForm key={formKey} submitLabel={t('vehicles.add')} onSubmit={add} />
+        ) : (
+          <Notice tone="info">{t('vehicles.noSubscription')}</Notice>
+        )}
+        {error && <Notice tone="warning">{error}</Notice>}
+      </Section>
+    </KontoShell>
   );
 }

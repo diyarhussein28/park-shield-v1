@@ -112,13 +112,17 @@ test('protection score, summary setting and escalation delay (US-28, US-30, OW-0
   await expect(page.getByRole('link', { name: 'Notfallkontakt einladen' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Aufkleber testen' })).toHaveCount(0);
 
+  await expectAccessible(page);
+
+  // The e-mail summary setting lives on "Abo & Konto".
+  await page.goto('/konto/abo');
   await expect(page.getByLabel('Wie oft?')).toHaveValue('monthly');
   await page.getByLabel('Wie oft?').selectOption('weekly');
   await expect(page.getByText('Gespeichert.')).toBeVisible();
-  await expectAccessible(page);
   await page.reload();
   await expect(page.getByLabel('Wie oft?')).toHaveValue('weekly');
 
+  await page.goto('/konto');
   await page.getByRole('link', { name: 'Notfallkontakt einladen' }).click();
   await expect(
     page.getByRole('heading', { name: 'Wann benachrichtigen wir den Kontakt?' }),

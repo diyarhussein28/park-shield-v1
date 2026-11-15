@@ -55,7 +55,7 @@ test('withdrawal: finance refunds a fresh subscription, the customer gets the cr
   expect((await (await scan.newPage()).goto(url))!.status()).toBe(404);
   await scan.close();
 
-  await page.goto('/konto');
+  await page.goto('/konto/abo');
   await expect(page.getByRole('list', { name: 'Gutschriften' }).getByRole('link')).toContainText(
     /Gutschrift GS-/,
   );

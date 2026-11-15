@@ -4,7 +4,6 @@ import {
   Badge,
   Button,
   Card,
-  Container,
   Field,
   Heading,
   Input,
@@ -14,9 +13,8 @@ import {
   Text,
   useI18n,
 } from '@parkshield/ui';
-import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { PageShell } from '@/components/site-chrome';
+import { KontoShell } from '@/components/konto-shell';
 import { api, ApiError, errorText } from '@/lib/api-client';
 import type { EmergencyContact, EmergencyContactList } from '@/lib/api-server';
 
@@ -43,73 +41,57 @@ export function ContactsView({
   }
 
   return (
-    <PageShell>
-      <Container className="py-10">
-        <Stack gap={6}>
-          <div>
-            <Link href="/konto" className="text-primary underline">
-              {t('contacts.toAccount')}
-            </Link>
-            <Heading level={1} className="mt-2">
-              {t('contacts.title')}
-            </Heading>
-            <Text muted>{t('contacts.intro')}</Text>
-            <Text muted className="mt-2 text-sm">
-              {t('contacts.howItWorks')}
-            </Text>
-          </div>
+    <KontoShell title={t('contacts.title')} intro={t('contacts.intro')}>
+      <div>
+        <Text muted className="mt-2 text-sm">
+          {t('contacts.howItWorks')}
+        </Text>
+      </div>
 
-          {data.contacts.length === 0 ? (
-            <Text>{t('contacts.none')}</Text>
+      {data.contacts.length === 0 ? (
+        <Text>{t('contacts.none')}</Text>
+      ) : (
+        <ul className="grid gap-4 sm:grid-cols-2" aria-label={t('contacts.title')}>
+          {data.contacts.map((c) => (
+            <li key={c.id}>
+              <ContactCard contact={c} onRemove={() => remove(c.id)} />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <Card>
+        <Stack gap={4}>
+          <Heading level={2} className="text-xl">
+            {t('contacts.addTitle')}
+          </Heading>
+          {invited && <Notice tone="success">{t('contacts.invited', { name: invited })}</Notice>}
+          {!plan ? (
+            <Notice tone="info">{t('contacts.noSubscription')}</Notice>
+          ) : active.length >= data.limit ? (
+            <Notice tone="info">
+              {t('contacts.limitReached', {
+                plan: PLAN_LABEL[plan] ?? plan,
+                limit: data.limit,
+              })}
+            </Notice>
           ) : (
-            <ul className="grid gap-4 sm:grid-cols-2" aria-label={t('contacts.title')}>
-              {data.contacts.map((c) => (
-                <li key={c.id}>
-                  <ContactCard contact={c} onRemove={() => remove(c.id)} />
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <Card>
-            <Stack gap={4}>
-              <Heading level={2} className="text-xl">
-                {t('contacts.addTitle')}
-              </Heading>
-              {invited && (
-                <Notice tone="success">{t('contacts.invited', { name: invited })}</Notice>
-              )}
-              {!plan ? (
-                <Notice tone="info">{t('contacts.noSubscription')}</Notice>
-              ) : active.length >= data.limit ? (
-                <Notice tone="info">
-                  {t('contacts.limitReached', {
-                    plan: PLAN_LABEL[plan] ?? plan,
-                    limit: data.limit,
-                  })}
-                </Notice>
-              ) : (
-                <InviteForm
-                  vehicles={vehicles}
-                  ownerName={data.ownerName ?? ''}
-                  onInvited={(d, name) => {
-                    setData(d);
-                    setInvited(name);
-                  }}
-                />
-              )}
-            </Stack>
-          </Card>
-
-          {plan && (
-            <DelayCard
-              value={data.escalationMinutes}
-              defaultMinutes={data.defaultEscalationMinutes}
+            <InviteForm
+              vehicles={vehicles}
+              ownerName={data.ownerName ?? ''}
+              onInvited={(d, name) => {
+                setData(d);
+                setInvited(name);
+              }}
             />
           )}
         </Stack>
-      </Container>
-    </PageShell>
+      </Card>
+
+      {plan && (
+        <DelayCard value={data.escalationMinutes} defaultMinutes={data.defaultEscalationMinutes} />
+      )}
+    </KontoShell>
   );
 }
 

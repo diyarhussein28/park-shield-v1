@@ -5,7 +5,6 @@ import {
   Badge,
   Button,
   Card,
-  Container,
   Field,
   Heading,
   Notice,
@@ -17,7 +16,7 @@ import {
 } from '@parkshield/ui';
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { PageShell } from '@/components/site-chrome';
+import { KontoShell } from '@/components/konto-shell';
 import { api, errorText } from '@/lib/api-client';
 import type { HistoryAlert } from '@/lib/api-server';
 
@@ -29,42 +28,31 @@ export function HistoryView({ initial }: { initial: HistoryAlert[] }) {
   const [alerts, setAlerts] = useState(initial);
 
   return (
-    <PageShell>
-      <Container className="py-10">
-        <Stack gap={6}>
-          <div>
-            <Link href="/konto" className="text-primary underline">
-              {t('channels.toAccount')}
-            </Link>
-            <Heading level={1} className="mt-2">
-              {t('history.title')}
-            </Heading>
-            <Text muted>{t('history.intro')}</Text>
-            <Link href="/konto/zustellung" className="mt-2 inline-block text-primary underline">
-              {t('deliveryHelp.link')}
-            </Link>
-          </div>
-          {alerts.length === 0 ? (
-            <Text>{t('history.none')}</Text>
-          ) : (
-            <ol className="flex flex-col gap-4" aria-label={t('history.title')}>
-              {alerts.map((a) => (
-                <li key={a.id}>
-                  <AlertCard
-                    alert={a}
-                    onReported={() =>
-                      setAlerts((list) =>
-                        list.map((x) => (x.id === a.id ? { ...x, reported: true } : x)),
-                      )
-                    }
-                  />
-                </li>
-              ))}
-            </ol>
-          )}
-        </Stack>
-      </Container>
-    </PageShell>
+    <KontoShell title={t('history.title')} intro={t('history.intro')}>
+      <div>
+        <Link href="/konto/zustellung" className="mt-2 inline-block text-primary underline">
+          {t('deliveryHelp.link')}
+        </Link>
+      </div>
+      {alerts.length === 0 ? (
+        <Text>{t('history.none')}</Text>
+      ) : (
+        <ol className="flex flex-col gap-4" aria-label={t('history.title')}>
+          {alerts.map((a) => (
+            <li key={a.id}>
+              <AlertCard
+                alert={a}
+                onReported={() =>
+                  setAlerts((list) =>
+                    list.map((x) => (x.id === a.id ? { ...x, reported: true } : x)),
+                  )
+                }
+              />
+            </li>
+          ))}
+        </ol>
+      )}
+    </KontoShell>
   );
 }
 
