@@ -7,7 +7,7 @@ import { LOGGER, VALKEY } from '../core/tokens';
 import { DevCaptcha, FriendlyCaptcha } from './captcha';
 import { FakePayments } from './fake-payments';
 import { FakePrintPartner } from './fake-print';
-import { BrevoMailer, DevMailer, SendGridMailer } from './mailer';
+import { BrevoMailer, DevMailer, MailjetMailer, SendGridMailer } from './mailer';
 import { LocalAuditBucket, S3AuditBucket } from './audit-bucket';
 import {
   AUDIT_BUCKET,
@@ -42,9 +42,11 @@ export class ProvidersModule {
           useFactory: (valkey: Redis, logger: Logger) =>
             fakes.mail
               ? new DevMailer(valkey, logger)
-              : env.MAIL_PROVIDER === 'sendgrid'
-                ? new SendGridMailer(env.SENDGRID_API_KEY, env.MAIL_FROM, env.SENDGRID_REGION)
-                : new BrevoMailer(env.BREVO_API_KEY, env.MAIL_FROM),
+              : env.MAIL_PROVIDER === 'mailjet'
+                ? new MailjetMailer(env.MAILJET_API_KEY, env.MAILJET_SECRET_KEY, env.MAIL_FROM)
+                : env.MAIL_PROVIDER === 'sendgrid'
+                  ? new SendGridMailer(env.SENDGRID_API_KEY, env.MAIL_FROM, env.SENDGRID_REGION)
+                  : new BrevoMailer(env.BREVO_API_KEY, env.MAIL_FROM),
         },
         {
           provide: CAPTCHA,

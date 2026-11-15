@@ -23,7 +23,7 @@ a switched-off channel is skipped at once instead of failing and retrying.
 4. Status page: "WhatsApp-Benachrichtigungen verzögert/aus; Push und E-Mail funktionieren."
 5. When the provider recovers: switch on with a reason, watch `whatsapp.failures` for 30 minutes.
 
-## E-mail (Brevo, or SendGrid with `MAIL_PROVIDER=sendgrid`)
+## E-mail (Mailjet; Brevo or SendGrid possible via `MAIL_PROVIDER`)
 
 E-mail is also the sign-in channel (magic links): an e-mail provider outage stops new sign-ins, not alerts on
 other channels.

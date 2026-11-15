@@ -28,11 +28,14 @@ export const envSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().default(''),
   STRIPE_PRICE_PLUS_YEARLY: z.string().default(''),
   STRIPE_PRICE_PREMIUM_YEARLY: z.string().default(''),
-  // E-mail provider: Brevo (EU, default) or SendGrid (Twilio's e-mail service). Empty key: dev inbox.
+  // E-mail provider: Mailjet (EU, default; tracking switched off per message), Brevo or SendGrid.
+  // Empty key: dev inbox. Brevo always rewrites links and adds an open pixel (only Enterprise can opt out).
   MAIL_PROVIDER: z.preprocess(
     (v) => (v === '' ? undefined : v),
-    z.enum(['brevo', 'sendgrid']).default('brevo'),
+    z.enum(['mailjet', 'brevo', 'sendgrid']).default('mailjet'),
   ),
+  MAILJET_API_KEY: z.string().default(''),
+  MAILJET_SECRET_KEY: z.string().default(''),
   BREVO_API_KEY: z.string().default(''),
   SENDGRID_API_KEY: z.string().default(''),
   /** eu = api.eu.sendgrid.com (EU data residency, needs an EU subuser); global = api.sendgrid.com. */
@@ -109,7 +112,12 @@ export const envSchema = z.object({
 /** Providers without keys fall back to local fakes, which are never allowed in production. */
 export function fakeProviders(env: Env) {
   return {
-    mail: env.MAIL_PROVIDER === 'sendgrid' ? !env.SENDGRID_API_KEY : !env.BREVO_API_KEY,
+    mail:
+      env.MAIL_PROVIDER === 'mailjet'
+        ? !env.MAILJET_API_KEY || !env.MAILJET_SECRET_KEY
+        : env.MAIL_PROVIDER === 'sendgrid'
+          ? !env.SENDGRID_API_KEY
+          : !env.BREVO_API_KEY,
     captcha: !env.FRIENDLY_CAPTCHA_API_KEY || !env.FRIENDLY_CAPTCHA_SITEKEY,
     payments: !env.STRIPE_SECRET_KEY,
     whatsapp:

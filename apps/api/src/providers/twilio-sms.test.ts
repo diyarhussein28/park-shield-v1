@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { SendGridMailer } from './mailer';
+import { MailjetMailer, SendGridMailer } from './mailer';
 import { smsSender, TwilioSmsSender } from './twilio-sms';
 import { smsOtpText, smsText } from '../notifications/sms-texts';
 
@@ -119,5 +119,54 @@ describe('SendGrid mailer', () => {
     await expect(
       m.send({ to: 'x@y.de', subject: 's', text: 't', html: 'h', tag: 't' }),
     ).rejects.toThrow('SendGrid send failed with HTTP 401');
+  });
+});
+
+describe('Mailjet mailer', () => {
+  it('sends with tracking switched off, reply-to and the template tag', async () => {
+    const fetch = vi.fn(
+      async (_u: string | URL | Request, _i?: RequestInit) =>
+        new Response(JSON.stringify({ Messages: [{ Status: 'success' }] }), { status: 200 }),
+    );
+    await new MailjetMailer('key', 'secret', 'ParkShield <hallo@park-shield.de>', fetch).send({
+      to: 'kunde@example.de',
+      subject: 'Ihr Anmeldelink',
+      text: 'https://park-shield.de/anmelden/link#t=abc',
+      html: '<a href="https://park-shield.de/anmelden/link#t=abc">Anmelden</a>',
+      tag: 'magic_link',
+      replyTo: 'contact@park-shield.de',
+    });
+    const [url, init] = fetch.mock.calls[0]!;
+    expect(url).toBe('https://api.mailjet.com/v3.1/send');
+    expect((init!.headers as Record<string, string>).authorization).toBe(
+      `Basic ${Buffer.from('key:secret').toString('base64')}`,
+    );
+    const msg = JSON.parse(String(init!.body)).Messages[0];
+    expect(msg).toMatchObject({
+      From: { Email: 'hallo@park-shield.de', Name: 'ParkShield' },
+      To: [{ Email: 'kunde@example.de' }],
+      ReplyTo: { Email: 'contact@park-shield.de' },
+      TrackOpens: 'disabled',
+      TrackClicks: 'disabled',
+      CustomID: 'magic_link',
+    });
+    expect(msg.HTMLPart).toContain('#t=abc');
+  });
+
+  it('throws on HTTP errors and on a non-success status', async () => {
+    const failing = (status: number, body: unknown) =>
+      new MailjetMailer(
+        'k',
+        's',
+        'a@b.de',
+        (async () => new Response(JSON.stringify(body), { status })) as typeof fetch,
+      );
+    const mail = { to: 'x@y.de', subject: 's', text: 't', html: 'h', tag: 't' };
+    await expect(failing(401, {}).send(mail)).rejects.toThrow('Mailjet send failed with HTTP 401');
+    await expect(
+      failing(200, { Messages: [{ Status: 'error', Errors: [{ ErrorCode: 'mj-0013' }] }] }).send(
+        mail,
+      ),
+    ).rejects.toThrow('Mailjet send failed with HTTP 200 (mj-0013)');
   });
 });

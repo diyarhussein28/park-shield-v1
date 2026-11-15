@@ -39,6 +39,56 @@ export class BrevoMailer implements Mailer {
   }
 }
 
+/**
+ * Mailjet (Sinch Mailjet SAS, EU). Send API v3.1; open and click tracking are switched off for every
+ * message, so links stay exactly as written (magic-link tokens never pass a tracking redirect) and no
+ * pixel is added.
+ */
+export class MailjetMailer implements Mailer {
+  constructor(
+    private readonly apiKey: string,
+    private readonly secretKey: string,
+    private readonly from: string,
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
+
+  async send(mail: OutgoingMail): Promise<void> {
+    const sender = parseSender(this.from);
+    const res = await this.fetchImpl('https://api.mailjet.com/v3.1/send', {
+      method: 'POST',
+      headers: {
+        authorization: `Basic ${Buffer.from(`${this.apiKey}:${this.secretKey}`).toString('base64')}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        Messages: [
+          {
+            From: { Email: sender.email, Name: sender.name },
+            To: [{ Email: mail.to }],
+            Subject: mail.subject,
+            TextPart: mail.text,
+            HTMLPart: mail.html,
+            ...(mail.replyTo ? { ReplyTo: { Email: mail.replyTo } } : {}),
+            TrackOpens: 'disabled',
+            TrackClicks: 'disabled',
+            // Template name only (no personal data), for the provider's logs.
+            CustomID: mail.tag,
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      Messages?: { Status?: string; Errors?: { ErrorCode?: string }[] }[];
+    };
+    const msg = body.Messages?.[0];
+    if (!res.ok || msg?.Status !== 'success') {
+      const code = msg?.Errors?.[0]?.ErrorCode;
+      throw new Error(`Mailjet send failed with HTTP ${res.status}${code ? ` (${code})` : ''}`);
+    }
+  }
+}
+
 /** SendGrid (Twilio's e-mail service). `eu` sends through the EU data-residency endpoint. */
 export class SendGridMailer implements Mailer {
   constructor(

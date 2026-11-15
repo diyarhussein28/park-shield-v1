@@ -84,7 +84,8 @@ The co-driver needs their own account (no subscription) and must explicitly acce
 | Processor | Role | Location | Erasure step on GDPR request *(new)* |
 |---|---|---|---|
 | Hetzner Online | Hosting, backups | Germany | Automatic via DB; backups expire within 35 days. AVV from the console |
-| Brevo (default) | Transactional e-mail (`MAIL_PROVIDER=brevo`) | France / EU | API: delete contact and logs. AVV |
+| Mailjet (default) | Transactional e-mail (`MAIL_PROVIDER=mailjet`), open/click tracking disabled per message | Sinch Mailjet SAS, France / EU | Erasure step `mailjet` (manual): delete the recipient's message history. |
+| Brevo (optional) | Transactional e-mail when `MAIL_PROVIDER=brevo` (always tracks opens/clicks; not used) | France / EU | API: delete contact and logs. AVV |
 | Twilio | WhatsApp (via Meta) | Twilio Ireland Limited, Dublin (Twilio and Meta transfer to US under EU-US DPF and SCCs; disclosed in privacy policy with opt-in) | Deletion request via Twilio support / privacy portal; keep the request reference. (360dialog, Berlin, remains possible with `WHATSAPP_PROVIDER=360dialog`.) |
 | Stripe | Payments, subscriptions | Ireland | API: delete customer; legally required invoice data retained. AVV + SCCs |
 | Zammad | Tickets | Self-hosted | API: delete user and tickets |
