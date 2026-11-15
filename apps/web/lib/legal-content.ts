@@ -79,7 +79,7 @@ const de: Record<LegalSlug, LegalDoc> = {
       {
         heading: '4. Empfänger und Auftragsverarbeiter',
         paragraphs: [
-          'Hetzner Online (Hosting, Deutschland); Twilio Ireland Limited, Irland (E-Mail über SendGrid sowie, nur nach Ihrer Einwilligung, WhatsApp und SMS; dabei übertragen Twilio und bei WhatsApp auch Meta Daten in die USA auf Grundlage des EU-US Data Privacy Framework und von EU-Standardvertragsklauseln); Stripe (Zahlungen, Irland); Friendly Captcha (Sicherheitsprüfung ohne Cookies, Deutschland); unsere Druckerei (Versand des Aufklebers, Deutschland); Sentry (Fehlerprotokolle ohne personenbezogene Daten, EU). Mit allen bestehen Verträge zur Auftragsverarbeitung.',
+          'Contabo GmbH (Hosting und verschlüsselte Datensicherungen, München, Deutschland); Brevo (E-Mail, Sendinblue SAS, Frankreich); Twilio Ireland Limited, Irland (nur nach Ihrer Einwilligung: SMS und WhatsApp; dabei übertragen Twilio und bei WhatsApp auch Meta Daten in die USA auf Grundlage des EU-US Data Privacy Framework und von EU-Standardvertragsklauseln); Stripe (Zahlungen, Irland); Friendly Captcha (Sicherheitsprüfung ohne Cookies, Deutschland); unsere Druckerei (Versand des Aufklebers, Deutschland); Sentry (Fehlerprotokolle ohne personenbezogene Daten, EU). Mit allen bestehen Verträge zur Auftragsverarbeitung.',
         ],
       },
       {

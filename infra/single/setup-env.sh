@@ -70,7 +70,7 @@ BLOCK_KEY_PREVIOUS=$(key32)
 SESSION_SECRET=$(key32)
 VAPID_PUBLIC_KEY=${vapid_public}
 VAPID_PRIVATE_KEY=${vapid_private}
-VAPID_SUBJECT=mailto:hallo@parkshield.de
+VAPID_SUBJECT=mailto:hallo@park-shield.de
 
 # --- Local stand-ins while a provider has no key --------------------------------
 PRINT_OUTBOX_DIR=/data/print-outbox
@@ -99,10 +99,9 @@ TWILIO_CONTENT_PS_TEST_DE=
 TWILIO_CONTENT_PS_TEST_EN=
 TWILIO_CONTENT_PS_OTP_DE=
 TWILIO_CONTENT_PS_OTP_EN=
-MAIL_PROVIDER=sendgrid
-SENDGRID_API_KEY=
-SENDGRID_REGION=global
-MAIL_FROM=ParkShield <hallo@parkshield.de>
+MAIL_PROVIDER=brevo
+BREVO_API_KEY=
+MAIL_FROM=ParkShield <hallo@park-shield.de>
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 STRIPE_PRICE_PLUS_YEARLY=

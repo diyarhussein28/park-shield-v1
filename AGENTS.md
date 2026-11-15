@@ -168,8 +168,8 @@ product works offline. Production refuses to start with fakes (unless `APP_ENV=c
 | Provider                       | Env vars                                                                                                | Fake behaviour                          |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | Stripe (payments)              | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PLUS_YEARLY`, `STRIPE_PRICE_PREMIUM_YEARLY` | `/dev/checkout` simulates payment       |
-| E-mail: SendGrid (default)     | `SENDGRID_API_KEY`, `SENDGRID_REGION` (`global`/`eu`), `MAIL_FROM`                                      | `/dev/postfach` inbox                   |
-| E-mail: Brevo (optional)       | `MAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `MAIL_FROM`                                                     | `/dev/postfach` inbox                   |
+| E-mail: Brevo (default)        | `BREVO_API_KEY`, `MAIL_FROM`                                                                            | `/dev/postfach` inbox                   |
+| E-mail: SendGrid (optional)    | `MAIL_PROVIDER=sendgrid`, `SENDGRID_API_KEY`, `SENDGRID_REGION` (`global`/`eu`), `MAIL_FROM`            | `/dev/postfach` inbox                   |
 | SMS (Twilio)                   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` (sender ID, number or `MG…`)               | SMS in `/dev/postfach`                  |
 | WhatsApp (Twilio, default)     | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`, `TWILIO_CONTENT_*` (8)               | messages stored locally                 |
 | WhatsApp (360dialog, optional) | `WHATSAPP_PROVIDER=360dialog`, `D360_API_KEY`, `D360_BASE_URL`, `D360_WEBHOOK_SECRET`                   | messages stored locally                 |
@@ -393,10 +393,9 @@ Also:
 - [ ] **Twilio / WhatsApp:** Twilio account, Meta business verification through Twilio, sender
       number, display name, the four templates (Content Template Builder), the eight content SIDs,
       webhook URL (needs hosting or a tunnel).
-- [ ] **SendGrid (e-mail):** account, domain authentication for the sender domain (DNS records),
-      API key with "Mail Send" only, `SENDGRID_API_KEY`, `MAIL_FROM`; EU data residency
-      (`SENDGRID_REGION=eu`) before launch if the plan allows it. Brevo stays possible
-      (`MAIL_PROVIDER=brevo`).
+- [ ] **Brevo (e-mail, default):** account (free plan: 300 mails/day), domain authentication for
+      park-shield.de (DNS records at Strato), API key → `BREVO_API_KEY`, `MAIL_FROM`. SendGrid stays
+      possible (`MAIL_PROVIDER=sendgrid`; its DNS records for park-shield.de are already in place).
 - [ ] **Twilio SMS:** upgraded Twilio account, Germany enabled under Messaging → Geo permissions,
       `TWILIO_SMS_FROM` (alphanumeric sender ID `ParkShield`, a number or a Messaging Service), status
       callback `https://<domain>/v1/webhooks/twilio/sms`.
