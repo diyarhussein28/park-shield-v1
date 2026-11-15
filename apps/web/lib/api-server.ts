@@ -54,6 +54,8 @@ export interface ChannelsOverview {
   push: { publicKey: string; devices: PushDevice[] };
   whatsapp: { phone: string; verifiedAt: string; enabled: boolean } | null;
   sms: { phone: string; verifiedAt: string; enabled: boolean } | null;
+  /** Channels that can be set up right now (kill switches). */
+  available: { sms: boolean; whatsapp: boolean };
 }
 
 export interface QuietRule {

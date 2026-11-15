@@ -191,13 +191,17 @@ const de = {
     loginIntro: 'Ohne Passwort: Wir schicken Ihnen einen Anmeldelink per E-Mail.',
     emailLabel: 'E-Mail-Adresse',
     sendLink: 'Link senden',
-    sent: 'Fast geschafft! Wenn die Adresse stimmt, ist ein Link unterwegs. Er ist 15 Minuten gültig.',
+    sent: 'Fast geschafft! Wir haben einen Anmeldelink an {email} geschickt. Er ist 15 Minuten gültig.',
+    sentHelp:
+      'Öffnen Sie die E-Mail am besten auf diesem Gerät. Nichts angekommen? Schauen Sie auch im Spam-Ordner nach.',
+    sentAgain: 'Andere Adresse oder neuen Link anfordern',
     or: 'oder',
     passkeyLogin: 'Mit Passkey anmelden',
     passkeyFailed:
       'Die Anmeldung mit Passkey hat nicht geklappt. Bitte nutzen Sie den E-Mail-Link.',
     linkTitle: 'Anmeldung bestätigen',
-    linkIntro: 'Tippen Sie auf „Anmelden“, um fortzufahren.',
+    linkIntro:
+      'Tippen Sie auf „Anmelden“, um fortzufahren. Diesen Schritt gibt es, damit Spam-Filter Ihren Link nicht vorzeitig verbrauchen.',
     signIn: 'Anmelden',
     linkInvalid:
       'Dieser Link ist abgelaufen oder wurde schon verwendet. Fordern Sie einfach einen neuen an.',
@@ -241,7 +245,7 @@ const de = {
       'Die Handykamera öffnet die ParkShield-Seite Ihres Fahrzeugs. Dort wählt die Person das Problem, zum Beispiel „Licht brennt noch“. Ohne App, ohne Ihre Nummer zu sehen.',
     how3Title: 'Sie werden benachrichtigt',
     how3Text:
-      'Die Warnung kommt per Push, WhatsApp oder E-Mail. Sie antworten mit einem Tipp, und die Person am Auto sieht Ihre Antwort sofort.',
+      'Die Warnung kommt per Push, SMS, WhatsApp oder E-Mail. Sie antworten mit einem Tipp, und die Person am Auto sieht Ihre Antwort sofort.',
     startTitle: 'In drei Schritten geschützt',
     startIntro: 'Nach der Zahlung erstellen Sie Ihren QR-Code direkt hier im Konto.',
     start1Title: 'Abo abschließen',
@@ -254,6 +258,7 @@ const de = {
     historyText: 'Alle Warnungen der letzten 90 Tage.',
     deliveryText: 'Prüfen Sie, warum eine Warnung nicht ankam.',
     dataText: 'Alles herunterladen, was wir speichern, oder das Konto löschen.',
+    vehiclesText: 'QR-Codes, Aufkleber bestellen, weiteres Fahrzeug hinzufügen.',
     vehiclesTitle: 'Fahrzeuge & QR-Codes',
     addIntro:
       'Für jedes Fahrzeug wird sofort ein eigener QR-Code erstellt und in Ihrem Konto gespeichert.',
@@ -279,6 +284,9 @@ const de = {
     renewsOn: 'Verlängert sich am {date, date, long}',
     endsOn: 'Gekündigt, endet am {date, date, long}',
     checkoutSuccess: 'Danke! Ihre Zahlung wird bestätigt. Das dauert meist nur wenige Sekunden.',
+    welcomeTitle: 'Zahlung erhalten. Willkommen bei ParkShield!',
+    welcomeText:
+      'Ihr Abo läuft. Folgen Sie jetzt den Schritten unter „Ihr Schutz“: In wenigen Minuten ist Ihr Auto erreichbar.',
     checkoutCanceled: 'Die Zahlung wurde abgebrochen. Sie können es jederzeit erneut versuchen.',
     invoices: 'Rechnungen',
     noInvoices: 'Noch keine Rechnungen.',
@@ -377,13 +385,41 @@ const de = {
   channels: {
     title: 'Benachrichtigungen',
     intro:
-      'Hier legen Sie fest, wo Warnungen ankommen. E-Mail ist immer an. Push und WhatsApp sehen Sie schneller.',
+      'Hier legen Sie fest, wo Warnungen ankommen. Am schnellsten erreichen wir Sie auf dem Handy: per SMS, WhatsApp oder Push. E-Mail ist immer dabei.',
     toAccount: '← Zum Konto',
     manage: 'Benachrichtigungen einstellen',
     summary:
       'E-Mail{push, plural, =0 {} one {, Push auf # Gerät} other {, Push auf # Geräten}}{whatsapp, select, yes {, WhatsApp} other {}}',
+    summaryPhone:
+      'E-Mail{phone, select, yes {, Handy} other {}}{push, plural, =0 {} one {, Push auf # Gerät} other {, Push auf # Geräten}}',
     emailTitle: 'E-Mail',
     emailText: 'Warnungen gehen immer an {email}.',
+    phoneTitle: 'Ihre Handynummer',
+    phoneIntro:
+      'Damit eine Warnung Sie sofort erreicht, auch unterwegs. Wer scannt, sieht Ihre Nummer nie.',
+    phoneHow: 'Wie sollen Warnungen Sie auf dem Handy erreichen?',
+    phoneVia_sms: 'Per SMS: klappt auf jedem Handy, auch ohne Internet',
+    phoneVia_whatsapp: 'Per WhatsApp',
+    phoneConsentNote:
+      'Wir schicken nur Warnungen und Hinweise zu Ihren Fahrzeugen, keine Werbung. Abschalten können Sie das hier jederzeit.',
+    phoneChooseOne: 'Bitte wählen Sie SMS oder WhatsApp.',
+    phoneSendCode: '{via, select, whatsapp {Code per WhatsApp senden} other {Code per SMS senden}}',
+    phoneCodeSent:
+      'Wir haben einen 6-stelligen Code {via, select, whatsapp {per WhatsApp} other {per SMS}} an {phone} geschickt. Er gilt 10 Minuten.',
+    phoneCodeHint: 'Der Code kommt meist innerhalb einer Minute.',
+    phoneLinkedNow:
+      'Fertig! Ihre Handynummer ist bestätigt. Wir haben Ihnen eine Bestätigung geschickt.',
+    phoneYours: 'Ihre Nummer: {phone}',
+    phoneOn: 'an',
+    phoneOff: 'aus',
+    phoneUsage: 'Diesen Monat {used} von {limit}',
+    phoneAdd: 'Auch per {channel}',
+    phoneRemove: '{channel} abschalten',
+    phoneAdded: '{channel} ist eingeschaltet.',
+    phoneRemoved: '{channel} ist abgeschaltet.',
+    phoneChange: 'Andere Nummer verwenden',
+    phoneNoneAvailable:
+      'SMS und WhatsApp sind gerade nicht verfügbar. Push und E-Mail funktionieren wie gewohnt.',
     pushTitle: 'Push-Benachrichtigungen',
     pushIntro:
       'Kostenlos und am schnellsten. Schalten Sie Push auf jedem Gerät ein, auf dem Sie Warnungen sehen möchten.',
@@ -619,18 +655,33 @@ const de = {
     end: 'Modus beenden',
     ended: 'Modus beendet.',
   },
+  setup: {
+    vehicleTitle: 'Fahrzeug anlegen und QR-Code erhalten',
+    vehicleText:
+      'Ein Spitzname reicht, zum Beispiel „Der Blaue“. Er hilft der Person am Auto, das richtige Fahrzeug zu erkennen. Ihr QR-Code entsteht sofort.',
+    phoneOr: 'Lieber eine Mitteilung direkt auf dem Bildschirm?',
+    pushLink: 'Push-Benachrichtigungen einschalten',
+    decalText:
+      'Drucken Sie den QR-Code aus oder bestellen Sie Ihren inklusive Aufkleber per Post. Legen Sie ihn hinter die Windschutzscheibe und scannen Sie ihn einmal selbst. Dann wissen Sie sicher, dass Warnungen ankommen.',
+    decalButton: 'Aufkleber bestellen und testen',
+    contactText:
+      'Wenn Sie bei einer dringenden Warnung nicht reagieren, sagen wir einer Person Ihres Vertrauens Bescheid. Sie bestätigt das per E-Mail.',
+    intro:
+      '{count, plural, one {Noch ein Schritt} other {Noch # Schritte}}, dann ist Ihr Auto zuverlässig erreichbar.',
+    allDone: 'Alles eingerichtet. Ihr Auto ist erreichbar.',
+  },
   protection: {
     title: 'Ihr Schutz',
     percent: '{percent} % eingerichtet',
     incomplete: 'Schutz unvollständig',
     complete: 'Vollständig geschützt',
     stepEmail: 'E-Mail bestätigt',
-    stepChannel: 'Zweiter Kanal: Push oder WhatsApp',
+    stepChannel: 'Handy verbinden: SMS, WhatsApp oder Push',
     stepContact: 'Notfallkontakt bestätigt',
     stepDecal: 'Aufkleber angebracht und getestet',
     done: 'erledigt',
     todo: 'offen',
-    goChannel: 'Push oder WhatsApp einschalten',
+    goChannel: 'Handy verbinden',
     goContact: 'Notfallkontakt einladen',
     goDecal: 'Aufkleber testen',
   },
@@ -746,8 +797,8 @@ const de = {
     deleteConfirm:
       'Wirklich löschen? Der Aufkleber wird sofort ungültig, und die Warnungen dieses Fahrzeugs werden gelöscht.',
     back: 'Zurück zu den Fahrzeugen',
-    decalStatus: 'Aufkleber …{hint}: {status}',
-    status_generated: 'erstellt',
+    decalStatus: 'Aufkleber: {status}',
+    status_generated: 'bereit, noch nicht getestet',
     status_printed: 'im Druck',
     status_shipped: 'unterwegs',
     status_active: 'aktiv',

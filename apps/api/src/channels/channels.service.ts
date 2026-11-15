@@ -29,7 +29,7 @@ export const SMS_CONSENT_VERSION = '2026-11';
 
 /** Channels linked to a phone number after a one-time code (US-21, NT-07). */
 export type PhoneChannel = 'whatsapp' | 'sms';
-const OTP_KEY = { whatsapp: 'wa:otp', sms: 'sms:otp' } as const;
+const OTP_KEY = 'phone:otp';
 const CONSENT_VERSION = { whatsapp: WHATSAPP_CONSENT_VERSION, sms: SMS_CONSENT_VERSION } as const;
 
 export type Platform = 'ios' | 'android' | 'desktop';
@@ -106,6 +106,7 @@ export class ChannelsService {
       push: { publicKey: this.env.VAPID_PUBLIC_KEY, devices },
       whatsapp,
       sms,
+      available: await this.available(),
     };
   }
 
@@ -165,11 +166,12 @@ export class ChannelsService {
   // --- WhatsApp (US-21) and SMS (NT-07) -----------------------------------------------------
 
   async startWhatsApp(user: AuthContext, phoneInput: string) {
-    return this.startPhone(user, 'whatsapp', phoneInput);
+    const { phone } = await this.startPhone(user, 'whatsapp', phoneInput);
+    return { phone };
   }
 
   async verifyWhatsApp(user: AuthContext, code: string) {
-    return this.verifyPhone(user, 'whatsapp', code);
+    await this.verifyPhone(user, code);
   }
 
   async unlinkWhatsApp(userId: string) {
@@ -177,26 +179,47 @@ export class ChannelsService {
   }
 
   /** Sends a one-time code to the number; nothing is stored in PostgreSQL before it is confirmed. */
+  /** Kill switches (AD-15) also decide which phone channels can be set up right now. */
+  async available(): Promise<Record<PhoneChannel, boolean>> {
+    const on = async (c: PhoneChannel) => {
+      const v = await this.settings.get<unknown>(`channels.${c}.enabled`, true);
+      return v === true || v === 'true';
+    };
+    return { whatsapp: await on('whatsapp'), sms: await on('sms') };
+  }
+
+  /**
+   * Sends one code to the number; nothing is stored in PostgreSQL before it is confirmed. The code goes
+   * by SMS when SMS is among the chosen channels (proves the number for both), else by WhatsApp.
+   */
   async startPhone(
     user: AuthContext,
-    channel: PhoneChannel,
+    channels: PhoneChannel | PhoneChannel[],
     phoneInput: string,
-  ): Promise<{ phone: string }> {
+  ): Promise<{ phone: string; via: PhoneChannel }> {
+    const wanted = [...new Set(Array.isArray(channels) ? channels : [channels])];
     const phone = normalizePhone(phoneInput);
     if (!phone) throw new BadRequestException({ error: 'phone_invalid' });
-    await this.limits.enforce(`${channel}.otp_user`, user.userId);
-    await this.limits.enforce(
-      `${channel}.otp_phone`,
-      this.crypto.blindIndex(phone).toString('hex'),
-    );
+    const available = await this.available();
+    if (!wanted.length || wanted.some((c) => !available[c])) {
+      throw new BadRequestException({ error: 'channel_unavailable' });
+    }
+    const via: PhoneChannel = wanted.includes('sms') ? 'sms' : 'whatsapp';
+    await this.limits.enforce(`${via}.otp_user`, user.userId);
+    await this.limits.enforce(`${via}.otp_phone`, this.crypto.blindIndex(phone).toString('hex'));
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     await this.valkey.set(
-      `${OTP_KEY[channel]}:${user.userId}`,
-      JSON.stringify({ phone, codeHash: sha256(code).toString('hex'), attempts: 0 }),
+      `${OTP_KEY}:${user.userId}`,
+      JSON.stringify({
+        phone,
+        channels: wanted,
+        codeHash: sha256(code).toString('hex'),
+        attempts: 0,
+      }),
       'EX',
       OTP_TTL,
     );
-    if (channel === 'whatsapp') {
+    if (via === 'whatsapp') {
       await this.whatsapp.sendTemplate({
         to: phone.slice(1),
         template: 'ps_otp',
@@ -210,15 +233,20 @@ export class ChannelsService {
         tag: 'sms_otp',
       });
     }
-    return { phone: maskPhone(phone) };
+    return { phone: maskPhone(phone), via };
   }
 
-  /** Verifies the code, records the opt-in (Art. 6(1)(a)) and sends a first message. */
-  async verifyPhone(user: AuthContext, channel: PhoneChannel, code: string): Promise<void> {
-    const key = `${OTP_KEY[channel]}:${user.userId}`;
+  /** Verifies the code, records the opt-in per channel (Art. 6(1)(a)) and sends a first message. */
+  async verifyPhone(user: AuthContext, code: string): Promise<{ channels: PhoneChannel[] }> {
+    const key = `${OTP_KEY}:${user.userId}`;
     const raw = await this.valkey.get(key);
     if (!raw) throw new BadRequestException({ error: 'code_expired' });
-    const pending = JSON.parse(raw) as { phone: string; codeHash: string; attempts: number };
+    const pending = JSON.parse(raw) as {
+      phone: string;
+      channels: PhoneChannel[];
+      codeHash: string;
+      attempts: number;
+    };
     const ok = timingSafeEqual(Buffer.from(pending.codeHash, 'hex'), sha256(code.trim()));
     if (!ok) {
       pending.attempts += 1;
@@ -230,21 +258,76 @@ export class ChannelsService {
       });
     }
     await this.valkey.del(key);
+    for (const channel of pending.channels) await this.link(user.userId, channel, pending.phone);
+    if (pending.channels.includes('sms')) {
+      await this.sms.send({
+        to: pending.phone,
+        body: smsLinkedText(user.preferredLang),
+        tag: 'sms_linked',
+      });
+    }
+    if (pending.channels.includes('whatsapp')) {
+      await this.whatsapp.sendTemplate({
+        to: pending.phone.slice(1),
+        template: 'ps_test',
+        lang: user.preferredLang,
+        params: ['ParkShield'],
+      });
+    }
+    return { channels: pending.channels };
+  }
+
+  /**
+   * Adds the second phone channel for the number the owner already confirmed on the other one: the code
+   * proved the number, the opt-in for this channel is the request itself (explicit button, US-21).
+   */
+  async addPhoneChannel(user: AuthContext, channel: PhoneChannel): Promise<void> {
+    if (!(await this.available())[channel]) {
+      throw new BadRequestException({ error: 'channel_unavailable' });
+    }
+    const other: PhoneChannel = channel === 'sms' ? 'whatsapp' : 'sms';
+    const row = await this.db
+      .selectFrom('contact_channels')
+      .select('address_enc')
+      .where('user_id', '=', user.userId)
+      .where('type', '=', other)
+      .where('verified_at', 'is not', null)
+      .executeTakeFirst();
+    if (!row?.address_enc) throw new BadRequestException({ error: 'phone_missing' });
+    const phone = this.crypto.decrypt(row.address_enc);
+    await this.link(user.userId, channel, phone);
+    if (channel === 'sms') {
+      await this.sms.send({
+        to: phone,
+        body: smsLinkedText(user.preferredLang),
+        tag: 'sms_linked',
+      });
+    } else {
+      await this.whatsapp.sendTemplate({
+        to: phone.slice(1),
+        template: 'ps_test',
+        lang: user.preferredLang,
+        params: ['ParkShield'],
+      });
+    }
+  }
+
+  private async link(userId: string, channel: PhoneChannel, phone: string): Promise<void> {
     // Keep the channel where the owner's order puts it (US-22).
-    const order = await channelOrder(this.db, this.settings, user.userId);
+    const order = await channelOrder(this.db, this.settings, userId);
     await this.db.transaction().execute(async (trx) => {
       await trx
         .deleteFrom('contact_channels')
-        .where('user_id', '=', user.userId)
+        .where('user_id', '=', userId)
         .where('type', '=', channel)
         .execute();
       await trx
         .insertInto('contact_channels')
         .values({
-          user_id: user.userId,
+          user_id: userId,
           type: channel,
-          address_enc: this.crypto.encrypt(pending.phone),
-          address_bidx: this.crypto.blindIndex(pending.phone),
+          address_enc: this.crypto.encrypt(phone),
+          address_bidx: this.crypto.blindIndex(phone),
           key_version: this.crypto.keyVersion,
           priority: order.indexOf(channel) + 1,
           verified_at: sql`now()`,
@@ -253,23 +336,9 @@ export class ChannelsService {
         .execute();
       await trx
         .insertInto('consents')
-        .values({ user_id: user.userId, purpose: channel, doc_version: CONSENT_VERSION[channel] })
+        .values({ user_id: userId, purpose: channel, doc_version: CONSENT_VERSION[channel] })
         .execute();
     });
-    if (channel === 'whatsapp') {
-      await this.whatsapp.sendTemplate({
-        to: pending.phone.slice(1),
-        template: 'ps_test',
-        lang: user.preferredLang,
-        params: ['ParkShield'],
-      });
-    } else {
-      await this.sms.send({
-        to: pending.phone,
-        body: smsLinkedText(user.preferredLang),
-        tag: 'sms_linked',
-      });
-    }
   }
 
   async unlinkPhone(userId: string, channel: PhoneChannel): Promise<void> {

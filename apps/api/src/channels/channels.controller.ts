@@ -44,6 +44,16 @@ const WhatsAppVerify = z.object({ code: z.string().regex(/^\d{6}$/) });
 // NT-07: same opt-in as WhatsApp; SMS are service messages only, never advertising.
 const SmsStart = WhatsAppStart;
 const SmsVerify = WhatsAppVerify;
+// One number for SMS and WhatsApp: one code, then each chosen channel is linked (NT-07, US-21).
+const PhoneStart = z.object({
+  phone: z.string().min(5).max(30),
+  channels: z
+    .array(z.enum(['sms', 'whatsapp']))
+    .min(1)
+    .max(2),
+  consent: z.literal(true),
+});
+const PhoneAdd = z.object({ channel: z.enum(['sms', 'whatsapp']), consent: z.literal(true) });
 const ChannelOrder = z.object({ order: z.array(z.enum(ORDERABLE)).length(ORDERABLE.length) });
 
 @Controller('v1')
@@ -117,11 +127,12 @@ export class ChannelsController {
 
   @Post('channels/sms')
   @HttpCode(200)
-  startSms(
+  async startSms(
     @CurrentUser() user: AuthContext,
     @Body(new ZodPipe(SmsStart)) body: z.infer<typeof SmsStart>,
   ) {
-    return this.channels.startPhone(user, 'sms', body.phone);
+    const { phone } = await this.channels.startPhone(user, 'sms', body.phone);
+    return { phone };
   }
 
   @Post('channels/sms/verify')
@@ -130,7 +141,35 @@ export class ChannelsController {
     @CurrentUser() user: AuthContext,
     @Body(new ZodPipe(SmsVerify)) body: z.infer<typeof SmsVerify>,
   ) {
-    await this.channels.verifyPhone(user, 'sms', body.code);
+    await this.channels.verifyPhone(user, body.code);
+    return { ok: true };
+  }
+
+  @Post('channels/phone')
+  @HttpCode(200)
+  startPhone(
+    @CurrentUser() user: AuthContext,
+    @Body(new ZodPipe(PhoneStart)) body: z.infer<typeof PhoneStart>,
+  ) {
+    return this.channels.startPhone(user, body.channels, body.phone);
+  }
+
+  @Post('channels/phone/verify')
+  @HttpCode(200)
+  verifyPhone(
+    @CurrentUser() user: AuthContext,
+    @Body(new ZodPipe(SmsVerify)) body: z.infer<typeof SmsVerify>,
+  ) {
+    return this.channels.verifyPhone(user, body.code);
+  }
+
+  @Post('channels/phone/add')
+  @HttpCode(200)
+  async addPhoneChannel(
+    @CurrentUser() user: AuthContext,
+    @Body(new ZodPipe(PhoneAdd)) body: z.infer<typeof PhoneAdd>,
+  ) {
+    await this.channels.addPhoneChannel(user, body.channel);
     return { ok: true };
   }
 

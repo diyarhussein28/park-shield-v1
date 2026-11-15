@@ -380,11 +380,13 @@ function RevokeAndReplace({
   onReissued,
   orderResult,
   freeReplacement,
+  showReplacement,
 }: {
   vehicle: Vehicle;
   onReissued: (v: Vehicle) => void;
   orderResult?: 'paid' | 'canceled';
   freeReplacement: boolean;
+  showReplacement: boolean;
 }) {
   const { t, locale } = useI18n();
   const [reason, setReason] = useState<(typeof REASONS)[number]>('leaked');
@@ -425,26 +427,30 @@ function RevokeAndReplace({
             {t('revoke.button')}
           </Button>
         </Stack>
-        <Stack gap={3}>
-          <h3 className="text-lg font-bold">{t('replacement.title')}</h3>
-          {orderResult === 'paid' && <Notice tone="success">{t('replacement.paid')}</Notice>}
-          {orderResult === 'canceled' && (
-            <Notice tone="warning">{t('replacement.canceled')}</Notice>
-          )}
-          <AddressForm
-            intro={freeReplacement ? t('replacement.freeIntro') : t('replacement.intro', { price })}
-            submitLabel={t('replacement.submit', { price })}
-            onSubmit={async (address) => {
-              const { url } = await api<{ url: string }>(
-                `/v1/vehicles/${vehicle.id}/order-replacement`,
-                {
-                  body: { address },
-                },
-              );
-              window.location.assign(url);
-            }}
-          />
-        </Stack>
+        {showReplacement && (
+          <Stack gap={3}>
+            <h3 className="text-lg font-bold">{t('replacement.title')}</h3>
+            {orderResult === 'paid' && <Notice tone="success">{t('replacement.paid')}</Notice>}
+            {orderResult === 'canceled' && (
+              <Notice tone="warning">{t('replacement.canceled')}</Notice>
+            )}
+            <AddressForm
+              intro={
+                freeReplacement ? t('replacement.freeIntro') : t('replacement.intro', { price })
+              }
+              submitLabel={t('replacement.submit', { price })}
+              onSubmit={async (address) => {
+                const { url } = await api<{ url: string }>(
+                  `/v1/vehicles/${vehicle.id}/order-replacement`,
+                  {
+                    body: { address },
+                  },
+                );
+                window.location.assign(url);
+              }}
+            />
+          </Stack>
+        )}
       </Stack>
     </Section>
   );
@@ -495,8 +501,6 @@ export function VehicleDetail({
       {vehicle.decal && (
         <Designer key={`d-${vehicle.decal.tokenId}`} vehicle={vehicle} onSaved={setVehicle} />
       )}
-      <ModeCard vehicleId={vehicle.id} initial={mode} />
-
       <Section title={t('order.title')} icon="truck">
         {justOrdered && <Notice tone="success">{t('order.submitted')}</Notice>}
         {canOrder ? (
@@ -535,6 +539,8 @@ export function VehicleDetail({
         )}
       </Section>
 
+      <ModeCard vehicleId={vehicle.id} initial={mode} />
+
       <Section title={t('vehicles.details')} icon="car">
         {detailsSaved && <Notice tone="success">{t('vehicles.saved')}</Notice>}
         <VehicleForm
@@ -555,6 +561,8 @@ export function VehicleDetail({
           onReissued={setVehicle}
           orderResult={orderResult}
           freeReplacement={freeReplacements > 0}
+          // The paid replacement only makes sense once the included decal has been ordered.
+          showReplacement={!canOrder}
         />
       )}
 

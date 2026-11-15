@@ -606,3 +606,91 @@ describe('SMS (NT-07)', () => {
     expect(usage.sms).toEqual({ used: 1, limit: 1 });
   });
 });
+
+describe('one mobile number for SMS and WhatsApp (US-21, NT-07)', () => {
+  it('links both channels with one SMS code and sends one confirmation each', async () => {
+    const s = await signIn(h, 'owner@example.de');
+    const start = await h.app.inject({
+      method: 'POST',
+      url: '/v1/channels/phone',
+      headers: s.headers,
+      payload: { phone: '0151 23456789', channels: ['whatsapp', 'sms'], consent: true },
+    });
+    expect(start.json()).toEqual({ phone: '+49 ••• 6789', via: 'sms' });
+    expect(await waInbox()).toHaveLength(0);
+    const otp = (await smsInbox()).find((m) => m.tag === 'sms_otp')!;
+    const code = /(\d{6})/.exec(otp.body)![1]!;
+    const ok = await h.app.inject({
+      method: 'POST',
+      url: '/v1/channels/phone/verify',
+      headers: s.headers,
+      payload: { code },
+    });
+    expect(ok.json()).toEqual({ channels: ['whatsapp', 'sms'] });
+    const rows = await h.db.selectFrom('contact_channels').select('type').execute();
+    expect(rows.map((r) => r.type).sort()).toEqual(['sms', 'whatsapp']);
+    const consents = await h.db.selectFrom('consents').select('purpose').execute();
+    expect(consents.map((c) => c.purpose).sort()).toEqual(['sms', 'whatsapp']);
+    expect((await smsInbox())[0]?.tag).toBe('sms_linked');
+    expect((await waInbox())[0]?.template).toBe('ps_test');
+
+    const overview = (
+      await h.app.inject({ method: 'GET', url: '/v1/channels', headers: s.headers })
+    ).json();
+    expect(overview.available).toEqual({ whatsapp: true, sms: true });
+    const protection = (
+      await h.app.inject({ method: 'GET', url: '/v1/me/protection', headers: s.headers })
+    ).json();
+    expect(protection.steps.channel).toBe(true);
+  });
+
+  it('adds the second channel later without a new code, only for a confirmed number', async () => {
+    const s = await signIn(h, 'owner@example.de');
+    const add = (channel: string) =>
+      h.app.inject({
+        method: 'POST',
+        url: '/v1/channels/phone/add',
+        headers: s.headers,
+        payload: { channel, consent: true },
+      });
+    expect((await add('whatsapp')).json().error).toBe('phone_missing');
+
+    await h.app.inject({
+      method: 'POST',
+      url: '/v1/channels/phone',
+      headers: s.headers,
+      payload: { phone: '0151 23456789', channels: ['sms'], consent: true },
+    });
+    const otp = (await smsInbox()).find((m) => m.tag === 'sms_otp')!;
+    await h.app.inject({
+      method: 'POST',
+      url: '/v1/channels/phone/verify',
+      headers: s.headers,
+      payload: { code: /(\d{6})/.exec(otp.body)![1] },
+    });
+    expect((await add('whatsapp')).statusCode).toBe(200);
+    const wa = await h.db
+      .selectFrom('contact_channels')
+      .select(['verified_at', 'opted_in_at'])
+      .where('type', '=', 'whatsapp')
+      .executeTakeFirstOrThrow();
+    expect(wa.opted_in_at).not.toBeNull();
+    expect((await waInbox())[0]?.template).toBe('ps_test');
+  });
+
+  it('does not offer a switched-off channel', async () => {
+    const s = await signIn(h, 'owner@example.de');
+    await setSetting(h, 'channels.whatsapp.enabled', false);
+    const overview = (
+      await h.app.inject({ method: 'GET', url: '/v1/channels', headers: s.headers })
+    ).json();
+    expect(overview.available).toEqual({ whatsapp: false, sms: true });
+    const start = await h.app.inject({
+      method: 'POST',
+      url: '/v1/channels/phone',
+      headers: s.headers,
+      payload: { phone: '0151 23456789', channels: ['whatsapp'], consent: true },
+    });
+    expect(start.json().error).toBe('channel_unavailable');
+  });
+});

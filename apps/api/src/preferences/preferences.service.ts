@@ -212,7 +212,7 @@ export class PreferencesService {
       SELECT
         (u.email_verified_at IS NOT NULL) AS email,
         (EXISTS (SELECT 1 FROM push_subscriptions p WHERE p.user_id = u.id)
-          OR EXISTS (SELECT 1 FROM contact_channels c WHERE c.user_id = u.id AND c.type = 'whatsapp'
+          OR EXISTS (SELECT 1 FROM contact_channels c WHERE c.user_id = u.id AND c.type IN ('whatsapp', 'sms')
                       AND c.verified_at IS NOT NULL AND c.is_enabled)) AS channel,
         EXISTS (SELECT 1 FROM emergency_contacts e WHERE e.user_id = u.id AND e.consent = 'confirmed') AS contact,
         EXISTS (SELECT 1 FROM qr_tokens t JOIN vehicles v ON v.id = t.vehicle_id

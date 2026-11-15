@@ -2,7 +2,6 @@
 
 import { Button, Card, Container, Heading, Notice, Stack, Text, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { PageShell } from '@/components/site-chrome';
 import { api } from '@/lib/api-client';
@@ -14,7 +13,6 @@ import { useFragmentSecret } from '@/lib/use-browser-value';
  */
 export function ConsumeLink() {
   const { t } = useI18n();
-  const router = useRouter();
   const token = useFragmentSecret('t');
   const [state, setState] = useState<'idle' | 'busy' | 'invalid'>('idle');
 
@@ -23,7 +21,8 @@ export function ConsumeLink() {
     setState('busy');
     try {
       await api('/v1/auth/magic-link/consume', { body: { token } });
-      router.push('/konto');
+      // A full load opens the account at the top (a client push kept the old scroll position).
+      window.location.assign('/konto');
     } catch {
       setState('invalid');
     }

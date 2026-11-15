@@ -1,20 +1,9 @@
 'use client';
 
-import {
-  Button,
-  Card,
-  Checkbox,
-  Field,
-  Heading,
-  Input,
-  Notice,
-  Stack,
-  Text,
-  useI18n,
-} from '@parkshield/ui';
-import { useEffect, useState, type FormEvent } from 'react';
+import { Button, Card, Heading, Notice, Stack, Text, useI18n } from '@parkshield/ui';
+import { useEffect, useState } from 'react';
 import { KontoShell } from '@/components/konto-shell';
-import { api, ApiError, errorText } from '@/lib/api-client';
+import { api, errorText } from '@/lib/api-client';
 import type {
   ChannelsOverview,
   OrderableChannel,
@@ -22,6 +11,7 @@ import type {
   QuietHours,
   Usage,
 } from '@/lib/api-server';
+import { PhoneSetup } from '@/components/phone-setup';
 import { QuietHoursCard } from './quiet-hours';
 import { useBrowserValue } from '@/lib/use-browser-value';
 
@@ -38,13 +28,20 @@ export function NotificationsView({
 }) {
   const { t } = useI18n();
   const [data, setData] = useState(initial);
-  const reload = async () => setData(await api<ChannelsOverview>('/v1/channels'));
+  const [liveUsage, setUsage] = useState(usage);
+  const reload = async () => {
+    const [channels, used] = await Promise.all([
+      api<ChannelsOverview>('/v1/channels'),
+      api<Usage>('/v1/me/usage'),
+    ]);
+    setData(channels);
+    setUsage(used);
+  };
 
   return (
     <KontoShell title={t('channels.title')} intro={t('channels.intro')}>
+      <PhoneSetup overview={data} usage={liveUsage} onChange={reload} />
       <PushCard publicKey={data.push.publicKey} devices={data.push.devices} reload={reload} />
-      <PhoneCard channel="whatsapp" linked={data.whatsapp} reload={reload} usage={usage.whatsapp} />
-      <PhoneCard channel="sms" linked={data.sms} reload={reload} usage={usage.sms} />
       <Card>
         <Stack gap={2}>
           <Heading level={2} className="text-xl">
@@ -294,205 +291,5 @@ function IosGuide() {
         <li>{t('channels.iosStep4')}</li>
       </ol>
     </Notice>
-  );
-}
-
-/** Texts that differ between the two phone channels; the rest of the flow is shared. */
-const PHONE_TEXTS = {
-  whatsapp: {
-    title: 'channels.waTitle',
-    intro: 'channels.waIntro',
-    usage: 'channels.waUsage',
-    consent: 'channels.waConsent',
-    consentRequired: 'channels.waConsentRequired',
-    sendCode: 'channels.waSendCode',
-    linkedNow: 'channels.waLinkedNow',
-    unlink: 'channels.waUnlink',
-    unlinked: 'channels.waUnlinked',
-  },
-  sms: {
-    title: 'channels.smsTitle',
-    intro: 'channels.smsIntro',
-    usage: 'channels.smsUsage',
-    consent: 'channels.smsConsent',
-    consentRequired: 'channels.smsConsentRequired',
-    sendCode: 'channels.smsSendCode',
-    linkedNow: 'channels.smsLinkedNow',
-    unlink: 'channels.smsUnlink',
-    unlinked: 'channels.smsUnlinked',
-  },
-} as const;
-
-/** WhatsApp (US-21) and SMS (NT-07): link a mobile number with a one-time code. */
-function PhoneCard({
-  channel,
-  linked,
-  reload,
-  usage,
-}: {
-  channel: 'whatsapp' | 'sms';
-  linked: ChannelsOverview['whatsapp'];
-  reload: () => Promise<void>;
-  usage: Usage['whatsapp'];
-}) {
-  const { t } = useI18n();
-  const tx = PHONE_TEXTS[channel];
-  const path = `/v1/channels/${channel}`;
-  const [phone, setPhone] = useState('');
-  const [consent, setConsent] = useState(false);
-  const [sentTo, setSentTo] = useState<string | null>(null);
-  const [code, setCode] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<Message>(null);
-  const [phoneError, setPhoneError] = useState<string | null>(null);
-
-  async function start(e: FormEvent) {
-    e.preventDefault();
-    setMessage(null);
-    setPhoneError(null);
-    if (!consent) {
-      setMessage({ tone: 'danger', text: t(tx.consentRequired) });
-      return;
-    }
-    setBusy(true);
-    try {
-      const r = await api<{ phone: string }>(path, {
-        body: { phone, consent: true },
-      });
-      setSentTo(r.phone);
-      setCode('');
-    } catch (err) {
-      if (err instanceof ApiError && (err.body?.error === 'phone_invalid' || err.status === 400)) {
-        setPhoneError(t('channels.waPhoneInvalid'));
-      } else setMessage({ tone: 'danger', text: errorText(err, t) });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function verify(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setMessage(null);
-    try {
-      await api(`${path}/verify`, { body: { code: code.trim() } });
-      setSentTo(null);
-      setPhone('');
-      setConsent(false);
-      await reload();
-      setMessage({ tone: 'success', text: t(tx.linkedNow) });
-    } catch (err) {
-      const body =
-        err instanceof ApiError ? (err.body as { error?: string; attemptsLeft?: number }) : null;
-      if (body?.error === 'code_wrong') {
-        setMessage({
-          tone: 'danger',
-          text: t('channels.waCodeWrong', { left: body.attemptsLeft ?? 0 }),
-        });
-        if (!body.attemptsLeft) setSentTo(null);
-      } else if (body?.error === 'code_expired') {
-        setMessage({ tone: 'danger', text: t('channels.waCodeExpired') });
-        setSentTo(null);
-      } else setMessage({ tone: 'danger', text: errorText(err, t) });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function unlink() {
-    setBusy(true);
-    try {
-      await api(path, { method: 'DELETE' });
-      await reload();
-      setMessage({ tone: 'success', text: t(tx.unlinked) });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    // A named region per phone channel, so the two forms are told apart (screen readers, tests).
-    <section aria-labelledby={`${channel}-title`}>
-      <Card>
-        <Stack gap={3}>
-          <Heading level={2} className="text-xl" id={`${channel}-title`}>
-            {t(tx.title)}
-          </Heading>
-          <Text>{t(tx.intro)}</Text>
-          {linked && usage.limit > 0 && (
-            <Text muted className="text-sm">
-              {t(tx.usage, usage)}
-            </Text>
-          )}
-          {linked ? (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <Text className="font-semibold">
-                {t('channels.waLinked', { phone: linked.phone })}
-              </Text>
-              <Button variant="secondary" onClick={unlink} busy={busy}>
-                {t(tx.unlink)}
-              </Button>
-            </div>
-          ) : sentTo ? (
-            <form onSubmit={verify} className="flex flex-col gap-4">
-              <Notice tone="info">{t('channels.waCodeSent', { phone: sentTo })}</Notice>
-              <Field label={t('channels.waCode')}>
-                {({ id }) => (
-                  <Input
-                    id={id}
-                    required
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    pattern="\d{6}"
-                    maxLength={6}
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                  />
-                )}
-              </Field>
-              <div className="flex flex-wrap gap-3">
-                <Button type="submit" busy={busy}>
-                  {t('channels.waVerify')}
-                </Button>
-                <Button variant="ghost" onClick={() => setSentTo(null)}>
-                  {t('channels.waOtherNumber')}
-                </Button>
-              </div>
-            </form>
-          ) : (
-            <form onSubmit={start} className="flex flex-col gap-4">
-              <Field
-                label={t('channels.waPhone')}
-                hint={t('channels.waPhoneHint')}
-                error={phoneError}
-              >
-                {({ id, describedBy, invalid }) => (
-                  <Input
-                    id={id}
-                    required
-                    type="tel"
-                    autoComplete="tel"
-                    maxLength={30}
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    aria-describedby={describedBy}
-                    aria-invalid={invalid || undefined}
-                  />
-                )}
-              </Field>
-              <Checkbox
-                label={t(tx.consent)}
-                checked={consent}
-                onChange={(e) => setConsent(e.target.checked)}
-              />
-              <Button type="submit" busy={busy} className="w-fit">
-                {t(tx.sendCode)}
-              </Button>
-            </form>
-          )}
-          {message && <Notice tone={message.tone}>{message.text}</Notice>}
-        </Stack>
-      </Card>
-    </section>
   );
 }

@@ -3,12 +3,20 @@
 import { Badge, Notice, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Icon, type IconName } from '@/components/icons';
 import { KontoShell, Section } from '@/components/konto-shell';
 import { api } from '@/lib/api-client';
-import type { Me, Protection, SubscriptionSummary, Vehicle } from '@/lib/api-server';
+import type {
+  ChannelsOverview,
+  Me,
+  Protection,
+  SubscriptionSummary,
+  Vehicle,
+} from '@/lib/api-server';
+import { PhoneSetup } from '@/components/phone-setup';
 import { cx } from '@/lib/cx';
+import { LOCALE_COOKIE } from '@/lib/locale-cookie';
 import { usePendingClaim } from '@/lib/pending-claim';
 import { useAddVehicle, VehicleForm } from './fahrzeuge/vehicles-view';
 import { CheckoutForm, PastDue, SubscriptionInfo } from './parts';
@@ -26,22 +34,34 @@ export function AccountView({
   me: Me;
   subscription: SubscriptionSummary | null;
   vehicles: Vehicle[];
-  channels: { push: number; whatsapp: boolean };
+  channels: ChannelsOverview | null;
   contactCount: number;
   protection: Protection | null;
   checkout?: 'success' | 'canceled';
 }) {
-  const { t, locale } = useI18n();
+  const { t, locale, setLocale } = useI18n();
   const router = useRouter();
-  const shownLocale = useRef(locale);
-  const pending = usePendingClaim();
 
-  // When the person switches language here, e-mails follow (only on an actual switch, not on first render).
+  // A new device has no language cookie yet: use the language stored in the profile.
   useEffect(() => {
-    if (locale === shownLocale.current) return;
-    shownLocale.current = locale;
-    void api('/v1/me', { method: 'PATCH', body: { preferredLang: locale } });
-  }, [locale]);
+    if (!document.cookie.includes(`${LOCALE_COOKIE}=`) && me.preferredLang !== locale) {
+      setLocale(me.preferredLang);
+    }
+    // Only once, on the first render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const pending = usePendingClaim();
+  const [vehicleList, setVehicles] = useState(vehicles);
+  const [channelData, setChannels] = useState(channels);
+  const [score, setScore] = useState(protection);
+  const refresh = async () => {
+    const [c, p] = await Promise.all([
+      api<ChannelsOverview>('/v1/channels'),
+      api<Protection>('/v1/me/protection'),
+    ]);
+    setChannels(c);
+    setScore(p);
+  };
 
   // After Stripe redirects back, the subscription appears once the payment event has been processed.
   useEffect(() => {
@@ -59,6 +79,11 @@ export function AccountView({
       {checkout === 'success' && !subscription && (
         <Notice tone="info">{t('account.checkoutSuccess')}</Notice>
       )}
+      {checkout === 'success' && subscription && (
+        <Notice tone="success" title={t('account.welcomeTitle')}>
+          {t('account.welcomeText')}
+        </Notice>
+      )}
       {checkout === 'canceled' && <Notice tone="warning">{t('account.checkoutCanceled')}</Notice>}
       {pending && (
         <Notice tone="info" title={t('claim.pendingTitle')}>
@@ -74,11 +99,17 @@ export function AccountView({
       {subscription ? (
         <>
           {subscription.status === 'past_due' && <PastDue />}
-          <QrCodes initial={vehicles} />
+          {score && (
+            <SetupGuide
+              protection={score}
+              vehicles={vehicleList}
+              channels={channelData}
+              onVehicleAdded={(v) => setVehicles((list) => [...list, v])}
+              onChannelsChanged={refresh}
+            />
+          )}
+          {vehicleList.length > 0 && <QrCodes vehicles={vehicleList} />}
           <div className="grid gap-6 xl:grid-cols-2">
-            {protection && (
-              <ProtectionCard protection={protection} firstVehicleId={vehicles[0]?.id ?? null} />
-            )}
             <Section title={t('account.subscription')} icon="card">
               <SubscriptionInfo sub={subscription} />
               <Link
@@ -91,7 +122,7 @@ export function AccountView({
             </Section>
           </div>
           <HowScanningWorks />
-          <QuickLinks channels={channels} contactCount={contactCount} />
+          <QuickLinks channels={channelData} contactCount={contactCount} />
         </>
       ) : (
         <>
@@ -105,42 +136,11 @@ export function AccountView({
   );
 }
 
-/** The heart of the portal: every vehicle's QR code, ready to download, or the form that creates it. */
-function QrCodes({ initial }: { initial: Vehicle[] }) {
+/** The heart of the portal: every vehicle's QR code, ready to download. */
+function QrCodes({ vehicles }: { vehicles: Vehicle[] }) {
   const { t } = useI18n();
-  const [vehicles, setVehicles] = useState(initial);
-  const [formKey, setFormKey] = useState(0);
-  const { add, error } = useAddVehicle((v) => {
-    setVehicles((list) => [...list, v]);
-    setFormKey((k) => k + 1);
-  });
-
-  const manage = (
-    <Link
-      href="/konto/fahrzeuge"
-      className="inline-flex min-h-12 items-center gap-2 rounded-xl border-2 border-border-strong px-4 font-semibold hover:border-primary"
-    >
-      {t('vehicles.manage')}
-    </Link>
-  );
-
-  if (vehicles.length === 0) {
-    return (
-      <Section
-        title={t('portal.firstVehicleTitle')}
-        icon="qr"
-        intro={t('portal.firstVehicleText')}
-        aside={manage}
-        className="border-2 border-primary"
-      >
-        <VehicleForm key={formKey} submitLabel={t('portal.createQr')} onSubmit={add} />
-        {error && <Notice tone="warning">{error}</Notice>}
-      </Section>
-    );
-  }
-
   return (
-    <Section title={t('portal.qrTitle')} icon="qr" intro={t('portal.qrIntro')} aside={manage}>
+    <Section title={t('portal.qrTitle')} icon="qr" intro={t('portal.qrIntro')}>
       <ul className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
         {vehicles.map((v) => (
           <li key={v.id}>
@@ -152,49 +152,131 @@ function QrCodes({ initial }: { initial: Vehicle[] }) {
   );
 }
 
-/** OW-14 / US-28: four steps of 25 %, computed by the API from what is actually set up. */
-function ProtectionCard({
+type StepKey = 'vehicle' | 'phone' | 'decal' | 'contact';
+
+/**
+ * OW-14 / US-28 as a guided set-up: the protection score (four steps of 25 %, computed by the API) on
+ * top, then the steps in the order a new owner does them. The first open step is expanded with its
+ * form right here, so nobody has to hunt through the menu. The emergency contact is optional.
+ */
+function SetupGuide({
   protection,
-  firstVehicleId,
+  vehicles,
+  channels,
+  onVehicleAdded,
+  onChannelsChanged,
 }: {
   protection: Protection;
-  firstVehicleId: string | null;
+  vehicles: Vehicle[];
+  channels: ChannelsOverview | null;
+  onVehicleAdded: (v: Vehicle) => void;
+  onChannelsChanged: () => Promise<void>;
 }) {
   const { t } = useI18n();
-  const steps = [
-    { key: 'email', done: protection.steps.email, label: t('protection.stepEmail') },
+  const [formKey, setFormKey] = useState(0);
+  const { add, error } = useAddVehicle((v) => {
+    onVehicleAdded(v);
+    setFormKey((k) => k + 1);
+  });
+  const first = vehicles[0] ?? null;
+  const steps: { key: StepKey; done: boolean; title: string; href?: string; go?: string }[] = [
+    { key: 'vehicle', done: vehicles.length > 0, title: t('setup.vehicleTitle') },
     {
-      key: 'channel',
+      key: 'phone',
       done: protection.steps.channel,
-      label: t('protection.stepChannel'),
+      title: t('protection.stepChannel'),
       href: '/konto/benachrichtigungen',
       go: t('protection.goChannel'),
     },
     {
+      key: 'decal',
+      done: protection.steps.decal,
+      title: t('protection.stepDecal'),
+      href: first ? `/konto/fahrzeuge/${first.id}` : '/konto/fahrzeuge',
+      go: t('protection.goDecal'),
+    },
+    {
       key: 'contact',
       done: protection.steps.contact,
-      label: t('protection.stepContact'),
+      title: t('protection.stepContact'),
       href: '/konto/notfallkontakte',
       go: t('protection.goContact'),
     },
-    {
-      key: 'decal',
-      done: protection.steps.decal,
-      label: t('protection.stepDecal'),
-      href: firstVehicleId ? `/konto/fahrzeuge/${firstVehicleId}` : '/konto/fahrzeuge',
-      go: t('protection.goDecal'),
-    },
   ];
-  const complete = protection.percent === 100;
+  const current = steps.find((s) => !s.done)?.key ?? null;
+  const complete = protection.percent === 100 && vehicles.length > 0;
+  const openCount = steps.filter((s) => !s.done).length;
+
+  const body: Record<StepKey, ReactNode> = {
+    vehicle: (
+      <>
+        <p className="text-muted">{t('setup.vehicleText')}</p>
+        <VehicleForm key={formKey} submitLabel={t('portal.createQr')} onSubmit={add} />
+        {error && <Notice tone="warning">{error}</Notice>}
+      </>
+    ),
+    phone: (
+      <>
+        {channels && (
+          <PhoneSetup overview={channels} onChange={onChannelsChanged} headingLevel={3} embedded />
+        )}
+        <p className="text-sm text-muted">
+          {t('setup.phoneOr')}{' '}
+          <Link href="/konto/benachrichtigungen" className="font-semibold text-primary underline">
+            {t('setup.pushLink')}
+          </Link>
+        </p>
+      </>
+    ),
+    decal: (
+      <>
+        <p className="text-muted">{t('setup.decalText')}</p>
+        <div className="flex flex-wrap gap-2">
+          {first?.decal && (
+            <a
+              href={`/v1/vehicles/${first.id}/decal.pdf`}
+              download
+              className="inline-flex min-h-12 items-center gap-2 rounded-xl border-2 border-border-strong px-4 font-semibold hover:border-primary"
+            >
+              <Icon name="download" className="size-5" />
+              {t('portal.downloadPdf')}
+            </a>
+          )}
+          <Link
+            href={first ? `/konto/fahrzeuge/${first.id}` : '/konto/fahrzeuge'}
+            className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-primary px-4 font-semibold text-primary-fg hover:bg-primary-hover"
+          >
+            {t('setup.decalButton')}
+            <Icon name="arrowRight" className="size-5" />
+          </Link>
+        </div>
+      </>
+    ),
+    contact: (
+      <>
+        <p className="text-muted">{t('setup.contactText')}</p>
+        <Link
+          href="/konto/notfallkontakte"
+          className="inline-flex min-h-12 w-fit items-center gap-2 rounded-xl bg-primary px-4 font-semibold text-primary-fg hover:bg-primary-hover"
+        >
+          {t('protection.goContact')}
+          <Icon name="arrowRight" className="size-5" />
+        </Link>
+      </>
+    ),
+  };
+
   return (
     <Section
       title={t('protection.title')}
       icon="shieldCheck"
+      intro={complete ? t('setup.allDone') : t('setup.intro', { count: openCount })}
       aside={
         <Badge tone={complete ? 'success' : 'warning'}>
           {complete ? t('protection.complete') : t('protection.incomplete')}
         </Badge>
       }
+      className={complete ? undefined : 'border-2 border-primary'}
     >
       <div>
         <p className="mb-2 font-semibold">
@@ -214,35 +296,53 @@ function ProtectionCard({
           />
         </div>
       </div>
-      <ol className="flex flex-col gap-2">
-        {steps.map((s) => (
-          <li key={s.key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-            <span className="flex min-w-0 items-center gap-3">
-              <span
-                aria-hidden="true"
-                className={cx(
-                  'grid size-7 shrink-0 place-items-center rounded-full border-2',
-                  s.done
-                    ? 'border-success-fg bg-success-bg text-success-fg'
-                    : 'border-border-strong text-muted',
-                )}
-              >
-                {s.done && <Icon name="check" className="size-4" />}
-              </span>
-              <span className={cx('min-w-0', s.done && 'text-muted')}>
-                {s.label}
-                <span className="sr-only">
-                  : {s.done ? t('protection.done') : t('protection.todo')}
+      <ol className="flex flex-col gap-3">
+        {steps.map((s, i) => {
+          const open = s.key === current;
+          return (
+            <li
+              key={s.key}
+              aria-current={open ? 'step' : undefined}
+              className={cx(
+                'rounded-2xl border p-4',
+                open ? 'border-primary bg-bg' : 'border-border',
+              )}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                <span className="flex min-w-0 items-center gap-3">
+                  <span
+                    aria-hidden="true"
+                    className={cx(
+                      'grid size-8 shrink-0 place-items-center rounded-full border-2 font-bold',
+                      s.done
+                        ? 'border-success-fg bg-success-bg text-success-fg'
+                        : open
+                          ? 'border-primary bg-primary text-primary-fg'
+                          : 'border-border-strong text-muted',
+                    )}
+                  >
+                    {s.done ? <Icon name="check" className="size-4" /> : i + 1}
+                  </span>
+                  <span className={cx('min-w-0 font-semibold', s.done && 'text-muted')}>
+                    {s.title}
+                    {s.key === 'contact' && !s.done && (
+                      <span className="font-normal text-muted"> ({t('common.optional')})</span>
+                    )}
+                    <span className="sr-only">
+                      : {s.done ? t('protection.done') : t('protection.todo')}
+                    </span>
+                  </span>
                 </span>
-              </span>
-            </span>
-            {!s.done && s.href && (
-              <Link href={s.href} className="ml-10 font-semibold text-primary underline">
-                {s.go}
-              </Link>
-            )}
-          </li>
-        ))}
+                {!s.done && !open && s.href && (
+                  <Link href={s.href} className="ml-11 font-semibold text-primary underline">
+                    {s.go}
+                  </Link>
+                )}
+              </div>
+              {open && <div className="mt-4 flex flex-col gap-4 sm:ml-11">{body[s.key]}</div>}
+            </li>
+          );
+        })}
       </ol>
     </Section>
   );
@@ -304,18 +404,24 @@ function QuickLinks({
   channels,
   contactCount,
 }: {
-  channels: { push: number; whatsapp: boolean };
+  channels: ChannelsOverview | null;
   contactCount: number;
 }) {
   const { t } = useI18n();
   const tiles: { href: string; icon: IconName; title: string; text: string }[] = [
     {
+      href: '/konto/fahrzeuge',
+      icon: 'car',
+      title: t('vehicles.manage'),
+      text: t('portal.vehiclesText'),
+    },
+    {
       href: '/konto/benachrichtigungen',
       icon: 'bell',
       title: t('channels.manage'),
-      text: t('channels.summary', {
-        push: channels.push,
-        whatsapp: channels.whatsapp ? 'yes' : 'no',
+      text: t('channels.summaryPhone', {
+        push: channels?.push.devices.length ?? 0,
+        phone: channels?.sms || channels?.whatsapp ? 'yes' : 'no',
       }),
     },
     {

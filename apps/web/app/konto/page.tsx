@@ -33,10 +33,7 @@ export default async function AccountPage({
       me={me.data}
       subscription={sub.data?.subscription ?? null}
       vehicles={vehicles.data?.vehicles ?? []}
-      channels={{
-        push: channels.data?.push.devices.length ?? 0,
-        whatsapp: Boolean(channels.data?.whatsapp),
-      }}
+      channels={channels.data}
       contactCount={
         contacts.data?.contacts.filter((c) => c.status === 'pending' || c.status === 'confirmed')
           .length ?? 0

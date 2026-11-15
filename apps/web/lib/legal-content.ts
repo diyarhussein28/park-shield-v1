@@ -69,7 +69,7 @@ const de: Record<LegalSlug, LegalDoc> = {
       {
         heading: '3. Kundenkonto und Abo',
         paragraphs: [
-          'Für Ihr Konto verarbeiten wir E-Mail-Adresse, Kanäle, Fahrzeuge (Kennzeichen verschlüsselt) und Warnungen zur Erfüllung des Vertrags (Art. 6 Abs. 1 lit. b DSGVO). Für die Anmeldung setzen wir zwei technisch notwendige Cookies (Sitzung und Schutz vor Cross-Site-Request-Forgery).',
+          'Für Ihr Konto verarbeiten wir E-Mail-Adresse, Kanäle, Fahrzeuge (Kennzeichen verschlüsselt) und Warnungen zur Erfüllung des Vertrags (Art. 6 Abs. 1 lit. b DSGVO). Für die Anmeldung setzen wir zwei technisch notwendige Cookies (Sitzung und Schutz vor Cross-Site-Request-Forgery). Wenn Sie auf der Website die Sprache wechseln, merken wir uns Ihre Wahl in einem Cookie (ps_lang, ein Jahr, ohne personenbezogene Daten, § 25 Abs. 2 TDDDG).',
           'Schalten Sie Push-Benachrichtigungen ein, speichern wir die vom Browser erzeugte Zustelladresse und den Gerätetyp. Die Nachrichten laufen Ende-zu-Ende-verschlüsselt über den Push-Dienst Ihres Browsers (Google, Apple, Mozilla oder Microsoft), der den Inhalt nicht lesen kann. Ein Gerät, das nicht mehr erreichbar ist, entfernen wir automatisch.',
           'WhatsApp und SMS nutzen wir nur mit Ihrer Einwilligung (Art. 6 Abs. 1 lit. a DSGVO). Notfallkontakte und Mitfahrende werden erst nach deren eigener Bestätigung genutzt; ohne Antwort löschen wir die Einladung nach 14 Tagen.',
           'Rechnungen bewahren wir aufgrund gesetzlicher Pflichten auf (Art. 6 Abs. 1 lit. c DSGVO, § 147 AO, § 14b UStG).',
@@ -259,7 +259,7 @@ const en: Record<LegalSlug, LegalDoc> = {
       {
         heading: 'Your account',
         paragraphs: [
-          'We process your e-mail address, channels, vehicles (licence plate encrypted) and alerts to provide the service. Push notifications travel end-to-end encrypted through your browser’s push service; unreachable devices are removed automatically. WhatsApp and SMS only with your consent. Two strictly necessary cookies keep you signed in securely. Unverified sign-ups are deleted after 24 h; deleted data leaves our encrypted backups within 35 days.',
+          'We process your e-mail address, channels, vehicles (licence plate encrypted) and alerts to provide the service. Push notifications travel end-to-end encrypted through your browser’s push service; unreachable devices are removed automatically. WhatsApp and SMS only with your consent. Two strictly necessary cookies keep you signed in securely; if you switch the language, a third one (ps_lang, one year, no personal data) remembers your choice. Unverified sign-ups are deleted after 24 h; deleted data leaves our encrypted backups within 35 days.',
         ],
       },
       {

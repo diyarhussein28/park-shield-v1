@@ -67,7 +67,22 @@ export function LoginForm() {
             </Heading>
             <Text muted>{t('auth.loginIntro')}</Text>
             {state === 'sent' ? (
-              <Notice tone="success">{t('auth.sent')}</Notice>
+              <>
+                <Notice tone="success">
+                  <span className="wrap-anywhere">{t('auth.sent', { email })}</span>
+                </Notice>
+                <Text>{t('auth.sentHelp')}</Text>
+                <Button
+                  variant="ghost"
+                  className="w-fit"
+                  onClick={() => {
+                    setCaptcha(undefined);
+                    setState('idle');
+                  }}
+                >
+                  {t('auth.sentAgain')}
+                </Button>
+              </>
             ) : (
               <form onSubmit={submit} className="flex flex-col gap-4" noValidate={false}>
                 <Field label={t('auth.emailLabel')}>

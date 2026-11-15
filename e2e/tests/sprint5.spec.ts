@@ -214,64 +214,26 @@ test('push devices: list, alert delivery and removal; iPhone guide (US-20)', asy
   await iphone.close();
 });
 
-test('WhatsApp: consent, code, test message, unlink (US-21)', async ({ page, request }) => {
+test('mobile number: one SMS code for SMS and WhatsApp, add and turn off (US-21, NT-07)', async ({
+  page,
+  request,
+}) => {
   test.setTimeout(60_000);
-  const email = uniqueEmail('wa');
+  const email = uniqueEmail('phone');
   await signUp(page, request, email);
   await page.goto('/konto/benachrichtigungen');
-  const card = page.getByRole('region', { name: 'WhatsApp' });
+  await page.waitForLoadState('networkidle');
+  const card = page.getByRole('region', { name: 'Ihre Handynummer' });
   const phone = `0151${String(Date.now()).slice(-8)}`;
   await card.getByLabel('Handynummer').fill(phone);
-  await card.getByRole('button', { name: 'Code per WhatsApp senden' }).click();
-  await expect(card.getByRole('alert').filter({ hasText: /\S/ })).toHaveText(
-    /Bitte bestätigen Sie/,
-  );
-  await card.getByLabel(/per WhatsApp erhalten/).check();
-  await card.getByRole('button', { name: 'Code per WhatsApp senden' }).click();
-  await expect(page.getByText(/Wir haben einen Code an \+49 ••• \d{4} geschickt/)).toBeVisible();
-
-  const to = `49${phone.slice(1)}`;
-  let code = '';
-  await expect
-    .poll(
-      async () => {
-        const { messages } = (await (await request.get(`${API_URL}/v1/dev/whatsapp`)).json()) as {
-          messages: { to: string; template: string; params: string[] }[];
-        };
-        code = messages.find((m) => m.to === to && m.template === 'ps_otp')?.params[0] ?? '';
-        return code;
-      },
-      { timeout: 10_000 },
-    )
-    .toMatch(/^\d{6}$/);
-  await expectAccessible(page);
-  await card.getByLabel('6-stelliger Code').fill(code);
-  await card.getByRole('button', { name: 'Bestätigen' }).click();
-  await expect(
-    page.getByText('WhatsApp ist verbunden. Wir haben Ihnen eine Testnachricht geschickt.'),
-  ).toBeVisible();
-  await expect(page.getByText(`Verbunden: +49 ••• ${phone.slice(-4)}`)).toBeVisible();
-  const { messages } = (await (await request.get(`${API_URL}/v1/dev/whatsapp`)).json()) as {
-    messages: { to: string; template: string }[];
-  };
-  expect(messages.find((m) => m.to === to)?.template).toBe('ps_test');
-
-  await card.getByRole('button', { name: 'WhatsApp trennen' }).click();
-  await expect(page.getByText('WhatsApp ist getrennt.', { exact: false })).toBeVisible();
-  await expect(card.getByLabel('Handynummer')).toBeVisible();
-});
-
-test('SMS: consent, code, confirmation, unlink (NT-07)', async ({ page, request }) => {
-  test.setTimeout(60_000);
-  const email = uniqueEmail('sms');
-  await signUp(page, request, email);
-  await page.goto('/konto/benachrichtigungen');
-  const card = page.getByRole('region', { name: 'SMS' });
-  const phone = `0151${String(Date.now() + 7).slice(-8)}`;
-  await card.getByLabel('Handynummer').fill(phone);
-  await card.getByLabel(/per SMS erhalten/).check();
+  // Nothing is pre-ticked: sending without a channel asks for one.
   await card.getByRole('button', { name: 'Code per SMS senden' }).click();
-  await expect(card.getByText(/Wir haben einen Code an \+49 ••• \d{4} geschickt/)).toBeVisible();
+  await expect(card.getByText('Bitte wählen Sie SMS oder WhatsApp.')).toBeVisible();
+  await card.getByLabel(/^Per SMS/).check();
+  await card.getByRole('button', { name: 'Code per SMS senden' }).click();
+  await expect(
+    card.getByText(/6-stelligen Code per SMS an \+49 ••• \d{4} geschickt/),
+  ).toBeVisible();
 
   const to = `+49${phone.slice(1)}`;
   let code = '';
@@ -288,13 +250,23 @@ test('SMS: consent, code, confirmation, unlink (NT-07)', async ({ page, request 
       { timeout: 10_000 },
     )
     .toMatch(/^\d{6}$/);
+  await expectAccessible(page);
   await card.getByLabel('6-stelliger Code').fill(code);
   await card.getByRole('button', { name: 'Bestätigen' }).click();
-  await expect(card.getByText('SMS ist eingerichtet.', { exact: false })).toBeVisible();
-  await expect(card.getByText(`Verbunden: +49 ••• ${phone.slice(-4)}`)).toBeVisible();
+  await expect(card.getByText('Ihre Handynummer ist bestätigt.', { exact: false })).toBeVisible();
+  await expect(card.getByText(`Ihre Nummer: +49 ••• ${phone.slice(-4)}`)).toBeVisible();
+
+  // WhatsApp for the same number: no second code.
+  await card.getByRole('button', { name: 'Auch per WhatsApp' }).click();
+  await expect(card.getByText('WhatsApp ist eingeschaltet.')).toBeVisible();
+  const wa = (await (await request.get(`${API_URL}/v1/dev/whatsapp`)).json()) as {
+    messages: { to: string; template: string }[];
+  };
+  expect(wa.messages.find((m) => m.to === to.slice(1))?.template).toBe('ps_test');
   await expectAccessible(page);
 
+  await card.getByRole('button', { name: 'WhatsApp abschalten' }).click();
+  await expect(card.getByText('WhatsApp ist abgeschaltet.')).toBeVisible();
   await card.getByRole('button', { name: 'SMS abschalten' }).click();
-  await expect(card.getByText('SMS ist abgeschaltet.', { exact: false })).toBeVisible();
   await expect(card.getByLabel('Handynummer')).toBeVisible();
 });

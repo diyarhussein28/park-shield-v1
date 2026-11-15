@@ -138,6 +138,15 @@ test('revoking a code makes the old decal inactive; replacement is paid (US-13, 
   await expectAccessible(scan);
   await ctx.close();
 
+  // The included decal comes first (free); the paid replacement is offered once it is used.
+  const included = page.locator('form').filter({ hasText: 'Inklusive Aufkleber bestellen' });
+  await included.getByLabel('Name', { exact: true }).fill('Jonas Beispiel');
+  await included.getByLabel('Straße und Hausnummer').fill('Domstraße 1');
+  await included.getByLabel('Postleitzahl').fill('50667');
+  await included.getByLabel('Ort').fill('Köln');
+  await included.getByRole('button', { name: 'Inklusive Aufkleber bestellen' }).click();
+  await expect(page.getByText(/^Bestellt!/)).toBeVisible();
+
   const replacement = page.locator('form').filter({ hasText: 'Ersatzaufkleber bestellen' });
   await replacement.getByLabel('Name', { exact: true }).fill('Jonas Beispiel');
   await replacement.getByLabel('Straße und Hausnummer').fill('Domstraße 1');
