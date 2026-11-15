@@ -56,6 +56,7 @@ import { HealthController } from './health/health.controller';
 import { HealthService } from './health/health.service';
 import { MailService } from './mail/mail.service';
 import { OpsHealthController } from './ops/ops-health.controller';
+import { OpsOverviewController, OverviewService } from './ops/overview.service';
 import { ProvidersModule } from './providers/providers.module';
 import { EntitlementService } from './billing/entitlements.service';
 import { OrdersController } from './orders/orders.controller';
@@ -130,6 +131,7 @@ const opsProviders = [
   AuditStreamService,
   AuditViewService,
   AccessReviewService,
+  OverviewService,
 ];
 
 /** Public API: scanner, owner portal, webhooks. Never registers ops routes (AD-01). */
@@ -198,6 +200,7 @@ export class OpsAppModule {
         OpsPromoController,
         OpsSettingsController,
         OpsAuditController,
+        OpsOverviewController,
       ],
       providers: [
         ...sharedProviders,

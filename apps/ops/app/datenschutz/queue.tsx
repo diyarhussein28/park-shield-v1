@@ -46,12 +46,8 @@ export function DsrQueue({ me, initial }: { me: StaffMe; initial: DsrList | null
   const reload = async () => setList((await opsApi<DsrList>('/ops/v1/dsr')).requests);
 
   return (
-    <OpsShell me={me}>
+    <OpsShell me={me} title={t('opsDsr.title')} intro={t('opsDsr.intro')}>
       <Stack gap={6}>
-        <div>
-          <Heading level={1}>{t('opsDsr.title')}</Heading>
-          <Text muted>{t('opsDsr.intro')}</Text>
-        </div>
         {!initial && <Notice tone="danger">{t('ops.forbidden')}</Notice>}
         {list.length === 0 ? (
           <Text>{t('opsDsr.none')}</Text>

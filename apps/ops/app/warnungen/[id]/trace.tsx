@@ -2,10 +2,10 @@
 
 import type { MessageKey } from '@parkshield/i18n';
 import { Badge, Card, Heading, Stack, Text, useI18n } from '@parkshield/ui';
-import Link from 'next/link';
 import { OpsShell } from '@/components/ops-shell';
 import { fmt } from '@/lib/format';
 import type { StaffMe } from '@/lib/server';
+import { label } from '@/lib/labels';
 
 export interface TraceData {
   alert: {
@@ -43,20 +43,26 @@ export function Trace({ me, data }: { me: StaffMe; data: TraceData }) {
   const a = data.alert;
   const d = (v: string | null) => fmt(v, locale);
   return (
-    <OpsShell me={me}>
+    <OpsShell
+      me={me}
+      back={
+        a.customerId
+          ? { href: `/kunden/${a.customerId}`, label: t('opsTrace.toCustomer') }
+          : undefined
+      }
+      title={
+        <>
+          {t('opsTrace.title')}: {label(t, 'type', a.type)} · „{a.nickname}“
+        </>
+      }
+    >
       <Stack gap={6}>
         <div>
-          {a.customerId && (
-            <Link href={`/kunden/${a.customerId}`} className="text-primary underline">
-              {t('opsTrace.toCustomer')}
-            </Link>
-          )}
-          <Heading level={1} className="mt-2">
-            {t('opsTrace.title')}: {a.type} · „{a.nickname}“
-          </Heading>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Badge>{a.status}</Badge>
-            <Badge tone={a.severity === 'urgent' ? 'warning' : 'info'}>{a.severity}</Badge>
+          <div className="flex flex-wrap gap-2">
+            <Badge>{label(t, 'alert', a.status)}</Badge>
+            <Badge tone={a.severity === 'urgent' ? 'warning' : 'info'}>
+              {label(t, 'severity', a.severity)}
+            </Badge>
             {a.isTest && <Badge tone="info">Test</Badge>}
             {a.hasMessage && <Badge>{t('opsTrace.hasMessage')}</Badge>}
             {a.ownerReply && <Badge tone="success">{a.ownerReply}</Badge>}
@@ -120,10 +126,10 @@ export function Trace({ me, data }: { me: StaffMe; data: TraceData }) {
                 <tbody>
                   {data.deliveries.map((x) => (
                     <tr key={x.id}>
-                      <td className="px-2 py-1">{x.recipient}</td>
-                      <td className="px-2 py-1">{x.channel}</td>
+                      <td className="px-2 py-1">{label(t, 'recipient', x.recipient)}</td>
+                      <td className="px-2 py-1">{label(t, 'channel', x.channel)}</td>
                       <td className="px-2 py-1">{x.provider}</td>
-                      <td className="px-2 py-1">{x.status}</td>
+                      <td className="px-2 py-1">{label(t, 'delivery', x.status)}</td>
                       <td className="px-2 py-1">{x.suppressedReason ?? x.errorCode ?? '–'}</td>
                       <td className="px-2 py-1">{x.attempt}</td>
                       <td className="px-2 py-1">{x.costEur.toFixed(3)} €</td>

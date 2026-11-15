@@ -1,7 +1,9 @@
-import { negotiateLocale, type Locale } from '@parkshield/i18n';
-import { headers } from 'next/headers';
+import type { Locale } from '@parkshield/i18n';
 
-/** Request locale from Accept-Language (SC-02). The portal later prefers the stored profile language. */
+/**
+ * The back office is a German company tool: it always opens in German, whatever the browser asks
+ * for (staff work with German customers, legal terms and ticket texts).
+ */
 export async function requestLocale(): Promise<Locale> {
-  return negotiateLocale((await headers()).get('accept-language'));
+  return 'de';
 }

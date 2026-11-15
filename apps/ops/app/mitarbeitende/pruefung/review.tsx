@@ -6,14 +6,11 @@ import {
   Card,
   Checkbox,
   Field,
-  Heading,
   Notice,
   Stack,
-  Text,
   Textarea,
   useI18n,
 } from '@parkshield/ui';
-import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { OpsShell } from '@/components/ops-shell';
 import { opsApi } from '@/lib/api';
@@ -78,17 +75,13 @@ export function AccessReview({ me, initial }: { me: StaffMe; initial: ReviewData
   }
 
   return (
-    <OpsShell me={me}>
+    <OpsShell
+      me={me}
+      back={{ href: '/mitarbeitende', label: t('opsAccess.back') }}
+      title={t('opsAccess.title')}
+      intro={t('opsAccess.intro', { days: data.inactiveDays })}
+    >
       <Stack gap={6}>
-        <div>
-          <Link href="/mitarbeitende" className="text-primary underline">
-            {t('opsAccess.back')}
-          </Link>
-          <Heading level={1} className="mt-2">
-            {t('opsAccess.title')}
-          </Heading>
-          <Text muted>{t('opsAccess.intro', { days: data.inactiveDays })}</Text>
-        </div>
         <Notice tone={data.due ? 'warning' : 'info'}>
           {data.last
             ? t('opsAccess.lastReview', {

@@ -13,7 +13,6 @@ import {
   Textarea,
   useI18n,
 } from '@parkshield/ui';
-import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { OpsShell } from '@/components/ops-shell';
 import { opsApi } from '@/lib/api';
@@ -132,15 +131,13 @@ export function RefundTool({
   }
 
   return (
-    <OpsShell me={me}>
+    <OpsShell
+      me={me}
+      back={{ href: `/kunden/${customer.id}`, label: t('opsRefund.back') }}
+      title={t('opsRefund.title')}
+    >
       <Stack gap={6}>
         <div>
-          <Link href={`/kunden/${customer.id}`} className="text-primary underline">
-            {t('opsRefund.back')}
-          </Link>
-          <Heading level={1} className="mt-2">
-            {t('opsRefund.title')}
-          </Heading>
           <Text muted>
             {customer.email} ·{' '}
             {subscription

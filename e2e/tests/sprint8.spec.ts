@@ -189,14 +189,20 @@ test('ops: invitation, passkey set-up, permissions and sign-in again (US-34)', a
   await expectAccessible(page);
   await page.getByRole('button', { name: 'Passkey einrichten' }).click();
   await expect(page).toHaveURL(`${OPS_URL}/`, { timeout: 20_000 });
-  await expect(page.getByRole('heading', { level: 1, name: 'Anna Admin' })).toBeVisible({
+  await expect(page.getByRole('heading', { level: 1, name: 'Willkommen, Anna' })).toBeVisible({
     timeout: 20_000,
   });
-  await expect(page.getByRole('list', { name: 'Rollen' })).toHaveText('superadmin');
-  await expect(page.getByRole('list', { name: 'Berechtigungen' })).toContainText('staff.manage');
+  await expect(page.getByRole('list', { name: 'Rollen' })).toHaveText('Superadmin');
+  await page.getByText('Einzelne Berechtigungen anzeigen').click();
+  await expect(page.getByRole('list', { name: 'Berechtigungen' })).toContainText(
+    'Mitarbeitende und Rollen verwalten',
+  );
   await expectAccessible(page);
 
-  await page.getByRole('link', { name: 'Mitarbeitende' }).click();
+  await page
+    .getByRole('navigation', { name: 'Hauptnavigation' })
+    .getByRole('link', { name: 'Mitarbeitende' })
+    .click();
   await expect(page.getByRole('heading', { level: 1, name: 'Mitarbeitende' })).toBeVisible();
   const me = page
     .getByRole('list', { name: 'Mitarbeitende' })
@@ -218,7 +224,7 @@ test('ops: invitation, passkey set-up, permissions and sign-in again (US-34)', a
   await page.waitForLoadState('networkidle'); // a click before hydration does nothing
   await page.getByRole('button', { name: 'Mit Passkey anmelden' }).click();
   // Ceremony plus a full page load: slower than the default 5 s while the whole suite runs in parallel.
-  await expect(page.getByRole('heading', { level: 1, name: 'Anna Admin' })).toBeVisible({
+  await expect(page.getByRole('heading', { level: 1, name: 'Willkommen, Anna' })).toBeVisible({
     timeout: 20_000,
   });
   await ctx.close();

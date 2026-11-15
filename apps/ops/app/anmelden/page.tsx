@@ -1,18 +1,9 @@
 'use client';
 
-import {
-  Button,
-  Card,
-  Container,
-  Heading,
-  LanguageSwitch,
-  Notice,
-  Stack,
-  Text,
-  useI18n,
-} from '@parkshield/ui';
+import { Button, Notice, Text, useI18n } from '@parkshield/ui';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { useSyncExternalStore, useState } from 'react';
+import { AuthFrame } from '@/components/auth-frame';
 import { opsApi } from '@/lib/api';
 
 const noSubscribe = () => () => {};
@@ -46,26 +37,13 @@ export default function SignIn() {
   }
 
   return (
-    <main id="main">
-      <Container className="max-w-md py-16">
-        <Card>
-          <Stack gap={4}>
-            <div className="flex items-center justify-between">
-              <Heading level={1} className="text-2xl">
-                {t('ops.signInTitle')}
-              </Heading>
-              <LanguageSwitch />
-            </div>
-            <Text muted>{t('ops.vpnOnly')}</Text>
-            {timedOut && <Notice tone="info">{t('ops.timedOut')}</Notice>}
-            <Text>{t('ops.signInIntro')}</Text>
-            {error && <Notice tone="danger">{t('ops.signInFailed')}</Notice>}
-            <Button size="lg" busy={busy} onClick={signIn}>
-              {t('ops.signIn')}
-            </Button>
-          </Stack>
-        </Card>
-      </Container>
-    </main>
+    <AuthFrame title={t('ops.signInTitle')}>
+      {timedOut && <Notice tone="info">{t('ops.timedOut')}</Notice>}
+      <Text muted>{t('ops.signInIntro')}</Text>
+      {error && <Notice tone="danger">{t('ops.signInFailed')}</Notice>}
+      <Button size="lg" busy={busy} onClick={signIn}>
+        {t('ops.signIn')}
+      </Button>
+    </AuthFrame>
   );
 }

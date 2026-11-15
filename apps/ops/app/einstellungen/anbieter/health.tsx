@@ -1,9 +1,9 @@
 'use client';
 
 import type { MessageKey } from '@parkshield/i18n';
-import { Badge, Heading, Notice, Stack, Text, useI18n } from '@parkshield/ui';
+import { Badge, Notice, Stack, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
-import { OpsShell } from '@/components/ops-shell';
+import { linkButton, OpsShell } from '@/components/ops-shell';
 import { fmt } from '@/lib/format';
 import type { StaffMe } from '@/lib/server';
 
@@ -23,15 +23,17 @@ const tone = { ok: 'success', warning: 'warning', critical: 'danger', unknown: '
 export function HealthView({ me, data }: { me: StaffMe; data: Health | null }) {
   const { t, locale } = useI18n();
   return (
-    <OpsShell me={me}>
+    <OpsShell
+      me={me}
+      title={t('opsHealth.title')}
+      intro={t('opsHealth.intro')}
+      actions={
+        <Link href="/einstellungen" className={linkButton}>
+          {t('opsHealth.toSettings')}
+        </Link>
+      }
+    >
       <Stack gap={6}>
-        <div>
-          <Heading level={1}>{t('opsHealth.title')}</Heading>
-          <Text muted>{t('opsHealth.intro')}</Text>
-          <Link href="/einstellungen" className="text-primary underline">
-            {t('opsHealth.toSettings')}
-          </Link>
-        </div>
         {!data && <Notice tone="danger">{t('ops.forbidden')}</Notice>}
         {data && (
           <ul className="grid gap-3 md:grid-cols-2" aria-label={t('opsHealth.title')}>

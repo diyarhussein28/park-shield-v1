@@ -10,7 +10,6 @@ import {
   Input,
   Notice,
   Stack,
-  Text,
   useI18n,
 } from '@parkshield/ui';
 import Link from 'next/link';
@@ -74,12 +73,8 @@ export function AuditView({
     }).toString();
 
   return (
-    <OpsShell me={me}>
+    <OpsShell me={me} title={t('opsAudit.title')} intro={t('opsAudit.intro')}>
       <Stack gap={6}>
-        <div>
-          <Heading level={1}>{t('opsAudit.title')}</Heading>
-          <Text muted>{t('opsAudit.intro')}</Text>
-        </div>
         {!data && <Notice tone="danger">{t('ops.forbidden')}</Notice>}
         {data && (
           <Card>

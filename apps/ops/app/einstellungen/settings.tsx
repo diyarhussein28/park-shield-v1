@@ -17,7 +17,7 @@ import {
 } from '@parkshield/ui';
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { OpsShell } from '@/components/ops-shell';
+import { linkButton, OpsShell } from '@/components/ops-shell';
 import { opsApi } from '@/lib/api';
 import { errorCode, fmt } from '@/lib/format';
 import type { StaffMe } from '@/lib/server';
@@ -112,15 +112,17 @@ export function SettingsView({ me, initial }: { me: StaffMe; initial: SettingsDa
   const switches = data.settings.filter((s) => s.killSwitch);
 
   return (
-    <OpsShell me={me}>
+    <OpsShell
+      me={me}
+      title={t('opsSettings.title')}
+      intro={t('opsSettings.intro')}
+      actions={
+        <Link href="/einstellungen/anbieter" className={linkButton}>
+          {t('opsSettings.toHealth')}
+        </Link>
+      }
+    >
       <Stack gap={6}>
-        <div>
-          <Heading level={1}>{t('opsSettings.title')}</Heading>
-          <Text muted>{t('opsSettings.intro')}</Text>
-          <Link href="/einstellungen/anbieter" className="text-primary underline">
-            {t('opsSettings.toHealth')}
-          </Link>
-        </div>
         {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
 
         <Card>

@@ -117,16 +117,14 @@ export function OrderDetail({
   );
 
   return (
-    <OpsShell me={me}>
+    <OpsShell
+      me={me}
+      back={{ href: '/bestellungen', label: t('opsOrders.back') }}
+      title={t('opsOrders.detailTitle', { nickname: o.nickname ?? '–' })}
+    >
       <Stack gap={6}>
         <div>
-          <Link href="/bestellungen" className="text-primary underline">
-            {t('opsOrders.back')}
-          </Link>
-          <Heading level={1} className="mt-2">
-            {t('opsOrders.detailTitle', { nickname: o.nickname ?? '–' })}
-          </Heading>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             <Badge tone={statusTone(o.status)}>
               {t(`opsOrders.status_${o.status}` as MessageKey)}
             </Badge>

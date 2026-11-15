@@ -161,7 +161,7 @@ test('settings: a switch is versioned with its reason; provider status and order
   await admin.goto('/einstellungen');
   await admin.waitForLoadState('networkidle');
   const sms = admin
-    .getByRole('list', { name: 'Kill Switches' })
+    .getByRole('list', { name: 'Notschalter für Kanäle' })
     .getByRole('listitem')
     .filter({ hasText: 'SMS' });
   await expect(sms).toContainText('an');

@@ -97,12 +97,8 @@ export function PartnersView({
   const active = partners.filter((x) => x.active);
 
   return (
-    <OpsShell me={me}>
+    <OpsShell me={me} title={t('opsPartners.title')} intro={t('opsPartners.intro')}>
       <Stack gap={6}>
-        <div>
-          <Heading level={1}>{t('opsPartners.title')}</Heading>
-          <Text muted>{t('opsPartners.intro')}</Text>
-        </div>
         {!p0 && <Notice tone="danger">{t('ops.forbidden')}</Notice>}
         {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
 

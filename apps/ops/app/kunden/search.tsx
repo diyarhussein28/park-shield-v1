@@ -1,23 +1,13 @@
 'use client';
 
-import {
-  Badge,
-  Button,
-  Card,
-  Field,
-  Heading,
-  Input,
-  Notice,
-  Stack,
-  Text,
-  useI18n,
-} from '@parkshield/ui';
+import { Badge, Button, Card, Field, Input, Notice, Stack, Text, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { OpsShell } from '@/components/ops-shell';
 import { opsApi } from '@/lib/api';
 import { fmt } from '@/lib/format';
 import type { StaffMe } from '@/lib/server';
+import { label } from '@/lib/labels';
 
 interface Hit {
   id: string;
@@ -52,12 +42,11 @@ export function CustomerSearch({ me }: { me: StaffMe }) {
   }
 
   return (
-    <OpsShell me={me}>
+    <OpsShell me={me} title={t('opsCustomers.title')} intro={t('ops.areaCustomers')}>
       <Stack gap={6}>
-        <div>
-          <Heading level={1}>{t('opsCustomers.title')}</Heading>
-          <Text muted>{t('opsCustomers.logged')}</Text>
-        </div>
+        <Text muted className="text-sm">
+          {t('opsCustomers.logged')}
+        </Text>
         <form onSubmit={search} className="flex flex-wrap items-end gap-3">
           <div className="w-full sm:w-auto sm:min-w-72 sm:flex-1">
             <Field label={t('opsCustomers.searchLabel')}>
@@ -92,8 +81,12 @@ export function CustomerSearch({ me }: { me: StaffMe }) {
                     </Text>
                   </div>
                   <div className="flex gap-2">
-                    <Badge>{h.status}</Badge>
-                    {h.plan && <Badge tone="info">{`${h.plan} · ${h.subscriptionStatus}`}</Badge>}
+                    <Badge>{label(t, 'user', h.status)}</Badge>
+                    {h.plan && (
+                      <Badge tone="info">
+                        {`${label(t, 'plan', h.plan)} · ${label(t, 'sub', h.subscriptionStatus)}`}
+                      </Badge>
+                    )}
                   </div>
                 </Card>
               </li>

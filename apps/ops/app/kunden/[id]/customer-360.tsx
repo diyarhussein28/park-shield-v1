@@ -1,12 +1,12 @@
 'use client';
 
-import { Badge, Card, Heading, Notice, Stack, Text, useI18n } from '@parkshield/ui';
+import { Badge, Notice, Stack, Text, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
-import { OpsShell } from '@/components/ops-shell';
+import { OpsShell, Section } from '@/components/ops-shell';
 import { RevealRequest } from '@/components/reveal-request';
 import { fmt } from '@/lib/format';
 import type { StaffMe } from '@/lib/server';
+import { label } from '@/lib/labels';
 
 export interface CustomerView {
   customer: {
@@ -86,19 +86,6 @@ export interface CustomerView {
   reports: { id: string; kind: string; reason: string; status: string; createdAt: string }[];
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <Card>
-      <Stack gap={3}>
-        <Heading level={2} className="text-xl">
-          {title}
-        </Heading>
-        {children}
-      </Stack>
-    </Card>
-  );
-}
-
 /** AD-03 Customer 360, masked (AD-05). No "log in as customer". */
 export function Customer360({ me, data }: { me: StaffMe; data: CustomerView }) {
   const { t, locale } = useI18n();
@@ -110,23 +97,24 @@ export function Customer360({ me, data }: { me: StaffMe; data: CustomerView }) {
   const c = data.customer;
 
   return (
-    <OpsShell me={me}>
+    <OpsShell
+      me={me}
+      back={{ href: '/kunden', label: t('opsCustomers.title') }}
+      title={c.email}
+      intro={t('opsCustomers.masked')}
+    >
       <Stack gap={6}>
-        <div>
-          <Heading level={1}>{c.email}</Heading>
-          <Text muted>{t('opsCustomers.masked')}</Text>
-          {c.deletionDueAt && (
-            <Notice tone="warning">
-              {t('opsCustomers.deletionDue')}: {d(c.deletionDueAt)}
-            </Notice>
-          )}
-        </div>
+        {c.deletionDueAt && (
+          <Notice tone="warning">
+            {t('opsCustomers.deletionDue')}: {d(c.deletionDueAt)}
+          </Notice>
+        )}
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Section title={t('opsCustomers.account')}>
             <dl className="grid grid-cols-2 gap-1 text-sm">
               <dt>{t('opsCustomers.status')}</dt>
-              <dd>{c.status}</dd>
+              <dd>{label(t, 'user', c.status)}</dd>
               <dt>{t('opsCustomers.since')}</dt>
               <dd>{d(c.createdAt)}</dd>
               <dt>{t('opsCustomers.lastLogin')}</dt>
@@ -144,7 +132,8 @@ export function Customer360({ me, data }: { me: StaffMe; data: CustomerView }) {
               <ul className="flex flex-col gap-1 text-sm">
                 {data.subscriptions.map((s) => (
                   <li key={s.id}>
-                    <b>{s.plan}</b> · {s.status} · {s.contractNo ?? '–'} · {d(s.periodEnd)}
+                    <b>{label(t, 'plan', s.plan)}</b> · {label(t, 'sub', s.status)} ·{' '}
+                    {s.contractNo ?? '–'} · {d(s.periodEnd)}
                     {s.cancelAtPeriodEnd ? ' · ✕' : ''}
                     {canRefund && (
                       <>
@@ -198,7 +187,7 @@ export function Customer360({ me, data }: { me: StaffMe; data: CustomerView }) {
                               : 'info'
                         }
                       >
-                        {tk.status}
+                        {label(t, 'token', tk.status)}
                       </Badge>
                       <span>
                         {t('opsCustomers.lastScan')}: {d(tk.lastScannedAt)} ·{' '}
@@ -268,8 +257,8 @@ export function Customer360({ me, data }: { me: StaffMe; data: CustomerView }) {
             {data.orders.length === 0 && <li>–</li>}
             {data.orders.map((o) => (
               <li key={o.id}>
-                {d(o.createdAt)} · {o.status} · {(o.totalCents / 100).toFixed(2)} €{' '}
-                {o.replacement ? '· Ersatz' : ''} · {t('opsCustomers.address')}:{' '}
+                {d(o.createdAt)} · {label(t, 'order', o.status)} · {(o.totalCents / 100).toFixed(2)}{' '}
+                € {o.replacement ? '· Ersatz' : ''} · {t('opsCustomers.address')}:{' '}
                 <span className="font-mono">{o.addressMasked ?? '–'}</span>{' '}
                 {o.trackingNumber ? `· ${o.trackingNumber}` : ''}
                 {canOrders && (
@@ -310,7 +299,8 @@ export function Customer360({ me, data }: { me: StaffMe; data: CustomerView }) {
             {data.alerts.length === 0 && <li>–</li>}
             {data.alerts.map((a) => (
               <li key={a.id}>
-                {d(a.createdAt)} · {a.type} · „{a.nickname}“ · {a.status}
+                {d(a.createdAt)} · {label(t, 'type', a.type)} · „{a.nickname}“ ·{' '}
+                {label(t, 'alert', a.status)}
                 {a.ownerReply ? ` · ${a.ownerReply}` : ''} {a.isTest ? '· Test' : ''}{' '}
                 {canTrace && (
                   <Link href={`/warnungen/${a.id}`} className="text-primary underline">
@@ -328,7 +318,7 @@ export function Customer360({ me, data }: { me: StaffMe; data: CustomerView }) {
               {data.requests.length === 0 && <li>–</li>}
               {data.requests.map((r) => (
                 <li key={r.id}>
-                  {r.type} · {r.status} · {d(r.dueAt)}
+                  {label(t, 'dsr', r.type)} · {label(t, 'dsrStatus', r.status)} · {d(r.dueAt)}
                 </li>
               ))}
             </ul>

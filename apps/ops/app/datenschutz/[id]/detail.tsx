@@ -73,16 +73,18 @@ export function DsrDetail({ me, initial }: { me: StaffMe; initial: DsrData }) {
   };
 
   return (
-    <OpsShell me={me}>
+    <OpsShell
+      me={me}
+      back={{ href: '/datenschutz', label: t('opsDsr.back') }}
+      title={
+        <>
+          {t(`opsDsr.type_${r.type}` as MessageKey)} · {r.email ?? t('opsDsr.accountGone')}
+        </>
+      }
+    >
       <Stack gap={6}>
         <div>
-          <Link href="/datenschutz" className="text-primary underline">
-            {t('opsDsr.back')}
-          </Link>
-          <Heading level={1} className="mt-2">
-            {t(`opsDsr.type_${r.type}` as MessageKey)} · {r.email ?? t('opsDsr.accountGone')}
-          </Heading>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             <Badge>{t(`opsDsr.status_${r.status}` as MessageKey)}</Badge>
             <Badge tone={r.daysLeft <= 7 && !closed ? 'warning' : 'info'}>
               {t('opsDsr.due', { date: new Date(r.dueAt) })}

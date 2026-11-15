@@ -1,8 +1,9 @@
 'use client';
 
-import { Button, Card, Container, Heading, Notice, Stack, Text, useI18n } from '@parkshield/ui';
+import { Button, Notice, Text, useI18n } from '@parkshield/ui';
 import { startRegistration } from '@simplewebauthn/browser';
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { AuthFrame } from '@/components/auth-frame';
 import { opsApi } from '@/lib/api';
 
 const noSubscribe = () => () => {};
@@ -51,27 +52,18 @@ export default function Invitation() {
   }
 
   return (
-    <main id="main">
-      <Container className="max-w-md py-16">
-        <Card>
-          <Stack gap={4}>
-            <Heading level={1} className="text-2xl">
-              {t('ops.inviteTitle')}
-            </Heading>
-            {(invalid || token === null) && <Notice tone="danger">{t('ops.inviteInvalid')}</Notice>}
-            {email && !invalid && (
-              <>
-                <Text className="font-semibold">{t('ops.inviteFor', { email })}</Text>
-                <Text>{t('ops.inviteIntro')}</Text>
-                {failed && <Notice tone="danger">{t('ops.signInFailed')}</Notice>}
-                <Button size="lg" busy={busy} onClick={setup}>
-                  {t('ops.inviteSetup')}
-                </Button>
-              </>
-            )}
-          </Stack>
-        </Card>
-      </Container>
-    </main>
+    <AuthFrame title={t('ops.inviteTitle')}>
+      {(invalid || token === null) && <Notice tone="danger">{t('ops.inviteInvalid')}</Notice>}
+      {email && !invalid && (
+        <>
+          <Text className="font-semibold wrap-anywhere">{t('ops.inviteFor', { email })}</Text>
+          <Text muted>{t('ops.inviteIntro')}</Text>
+          {failed && <Notice tone="danger">{t('ops.signInFailed')}</Notice>}
+          <Button size="lg" busy={busy} onClick={setup}>
+            {t('ops.inviteSetup')}
+          </Button>
+        </>
+      )}
+    </AuthFrame>
   );
 }

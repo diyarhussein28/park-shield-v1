@@ -1,10 +1,11 @@
 'use client';
 
-import { Card, Heading, Notice, Stack, Text, useI18n } from '@parkshield/ui';
+import { Card, Notice, Stack, Text, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
 import { OpsShell } from '@/components/ops-shell';
 import { fmt } from '@/lib/format';
 import type { StaffMe } from '@/lib/server';
+import { label } from '@/lib/labels';
 
 export type Summary =
   | { found: false }
@@ -34,9 +35,8 @@ export type Summary =
 export function ZammadSummary({ me, data }: { me: StaffMe; data: Summary | null }) {
   const { t, locale } = useI18n();
   return (
-    <OpsShell me={me}>
+    <OpsShell me={me} title={t('opsZammad.title')}>
       <Stack gap={4}>
-        <Heading level={1}>{t('opsZammad.title')}</Heading>
         {!data && <Notice tone="danger">{t('ops.forbidden')}</Notice>}
         {data && !data.found && <Notice tone="info">{t('opsZammad.notFound')}</Notice>}
         {data?.found && (
@@ -47,7 +47,7 @@ export function ZammadSummary({ me, data }: { me: StaffMe; data: Summary | null 
                 <dt>{t('opsZammad.plan')}</dt>
                 <dd>
                   {data.subscription
-                    ? `${data.subscription.plan} · ${data.subscription.status} · ${fmt(data.subscription.periodEnd, locale)}${data.subscription.cancelAtPeriodEnd ? ' · ✕' : ''}`
+                    ? `${label(t, 'plan', data.subscription.plan)} · ${label(t, 'sub', data.subscription.status)} · ${fmt(data.subscription.periodEnd, locale)}${data.subscription.cancelAtPeriodEnd ? ' · ✕' : ''}`
                     : t('opsCustomers.noSubscription')}
                 </dd>
                 <dt>{t('opsZammad.since')}</dt>

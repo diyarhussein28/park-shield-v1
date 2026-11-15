@@ -1,7 +1,7 @@
 'use client';
 
 import type { MessageKey } from '@parkshield/i18n';
-import { Badge, Heading, Notice, Stack, Text, useI18n } from '@parkshield/ui';
+import { Badge, Notice, Stack, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
 import { OpsShell } from '@/components/ops-shell';
 import { fmt } from '@/lib/format';
@@ -60,12 +60,8 @@ export function OrdersView({
 }) {
   const { t, locale } = useI18n();
   return (
-    <OpsShell me={me}>
+    <OpsShell me={me} title={t('opsOrders.title')} intro={t('opsOrders.intro')}>
       <Stack gap={6}>
-        <div>
-          <Heading level={1}>{t('opsOrders.title')}</Heading>
-          <Text muted>{t('opsOrders.intro')}</Text>
-        </div>
         {!data && <Notice tone="danger">{t('ops.forbidden')}</Notice>}
         <nav aria-label={t('opsOrders.filters')} className="flex flex-wrap gap-2">
           {FILTERS.map((f) => (

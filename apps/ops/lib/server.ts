@@ -23,3 +23,20 @@ export async function opsServer<T>(path: string): Promise<{ status: number; data
     return { status: 503, data: null };
   }
 }
+
+/** GET /ops/v1/overview: counts per area, null where the staff member lacks the permission. */
+export interface Overview {
+  customers: { total: number; activeSubscriptions: number; newLast7Days: number } | null;
+  alerts: {
+    today: number;
+    last7Days: number;
+    urgentLast7Days: number;
+    unanswered7Days: number;
+  } | null;
+  dsr: { open: number; dueSoon: number } | null;
+  abuse: { openReports: number } | null;
+  review: { pending: number } | null;
+  orders: { toProduce: number; inProduction: number } | null;
+  breakGlass: { waitingForApproval: number } | null;
+  providers: { warnings: number; critical: number } | null;
+}

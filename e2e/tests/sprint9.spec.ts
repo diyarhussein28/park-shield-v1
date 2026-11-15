@@ -39,7 +39,7 @@ test('support opens Customer 360 and the trace; break-glass needs a second perso
   // Delivery trace: attempts, never content.
   await support.getByRole('link', { name: 'Zustellverlauf' }).first().click();
   await expect(support.getByText('Freitexte werden hier nie angezeigt.')).toBeVisible();
-  await expect(support.getByRole('table', { name: 'Zustellversuche' })).toContainText('email');
+  await expect(support.getByRole('table', { name: 'Zustellversuche' })).toContainText('E-Mail');
   await expectAccessible(support);
   await support.goto(customerUrl);
   await support.waitForLoadState('networkidle'); // hydrated: the buttons below are interactive

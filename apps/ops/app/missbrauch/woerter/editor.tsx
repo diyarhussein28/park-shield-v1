@@ -9,7 +9,6 @@ import {
   Input,
   Notice,
   Stack,
-  Text,
   Textarea,
   useI18n,
 } from '@parkshield/ui';
@@ -87,12 +86,8 @@ export function WordListsEditor({ me, initial }: { me: StaffMe; initial: Version
   }
 
   return (
-    <OpsShell me={me}>
+    <OpsShell me={me} title={t('opsWords.title')} intro={t('opsWords.intro')}>
       <Stack gap={6}>
-        <div>
-          <Heading level={1}>{t('opsWords.title')}</Heading>
-          <Text muted>{t('opsWords.intro')}</Text>
-        </div>
         {!initial && <Notice tone="danger">{t('ops.forbidden')}</Notice>}
         {message && <Notice tone={message.tone}>{message.text}</Notice>}
         <Card>

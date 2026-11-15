@@ -12,7 +12,6 @@ import {
   Notice,
   Select,
   Stack,
-  Text,
   useI18n,
 } from '@parkshield/ui';
 import { useState, type FormEvent } from 'react';
@@ -114,12 +113,8 @@ export function PromosView({
   }
 
   return (
-    <OpsShell me={me}>
+    <OpsShell me={me} title={t('opsPromo.title')} intro={t('opsPromo.intro')}>
       <Stack gap={6}>
-        <div>
-          <Heading level={1}>{t('opsPromo.title')}</Heading>
-          <Text muted>{t('opsPromo.intro')}</Text>
-        </div>
         {!initial && <Notice tone="danger">{t('ops.forbidden')}</Notice>}
         {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
         <ul className="flex flex-col gap-2" aria-label={t('opsPromo.list')}>

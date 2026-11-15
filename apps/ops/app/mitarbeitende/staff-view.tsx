@@ -15,7 +15,7 @@ import {
 } from '@parkshield/ui';
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { OpsShell } from '@/components/ops-shell';
+import { linkButton, OpsShell } from '@/components/ops-shell';
 import { opsApi, OpsApiError } from '@/lib/api';
 import type { StaffMe } from '@/lib/server';
 
@@ -68,15 +68,17 @@ export function StaffView({ me, list: initial }: { me: StaffMe; list: StaffList 
   const reload = async () => setList(await opsApi<StaffList>('/ops/v1/staff'));
 
   return (
-    <OpsShell me={me}>
+    <OpsShell
+      me={me}
+      title={t('ops.staffTitle')}
+      intro={t('ops.staffIntro')}
+      actions={
+        <Link href="/mitarbeitende/pruefung" className={linkButton}>
+          {t('opsAccess.link')}
+        </Link>
+      }
+    >
       <Stack gap={6}>
-        <div>
-          <Heading level={1}>{t('ops.staffTitle')}</Heading>
-          <Text muted>{t('ops.staffIntro')}</Text>
-          <Link href="/mitarbeitende/pruefung" className="text-primary underline">
-            {t('opsAccess.link')}
-          </Link>
-        </div>
         {!list ? (
           <Notice tone="danger">{t('ops.forbidden')}</Notice>
         ) : (

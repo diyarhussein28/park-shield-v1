@@ -36,12 +36,8 @@ export function BreakGlassView({ me, initial }: { me: StaffMe; initial: BgList }
   const canApprove = me.permissions.includes('pii.decrypt_approve');
 
   return (
-    <OpsShell me={me}>
+    <OpsShell me={me} title={t('opsBg.title')} intro={t('opsBg.intro')}>
       <Stack gap={6}>
-        <div>
-          <Heading level={1}>{t('opsBg.title')}</Heading>
-          <Text muted>{t('opsBg.intro')}</Text>
-        </div>
         {canApprove && (
           <section aria-labelledby="bg-pending">
             <Heading level={2} id="bg-pending" className="mb-3 text-xl">

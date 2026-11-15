@@ -246,3 +246,37 @@ describe('staff sessions and permissions (AD-01, AD-02)', () => {
     ).toBe(401);
   });
 });
+
+describe('dashboard overview', () => {
+  it('shows counts only for the areas the staff member may open, and logs the view', async () => {
+    const support = await staffSession('support-overview@parkshield.de', ['support']);
+    const res = await ops.inject({
+      method: 'GET',
+      url: '/ops/v1/overview',
+      headers: support.headers,
+    });
+    expect(res.statusCode).toBe(200);
+    const o = res.json();
+    expect(o.customers).toMatchObject({
+      total: expect.any(Number),
+      activeSubscriptions: expect.any(Number),
+    });
+    expect(o.alerts).toMatchObject({ today: expect.any(Number), last7Days: expect.any(Number) });
+    // support has neither dsr.process, orders.manage, settings.edit nor pii.decrypt_approve
+    expect(o).toMatchObject({ dsr: null, orders: null, providers: null, breakGlass: null });
+
+    const admin = await staffSession('admin-overview@parkshield.de', ['admin', 'abuse_moderator']);
+    const all = (
+      await ops.inject({ method: 'GET', url: '/ops/v1/overview', headers: admin.headers })
+    ).json();
+    for (const area of ['customers', 'alerts', 'dsr', 'abuse', 'review', 'orders', 'breakGlass']) {
+      expect(all[area], area).not.toBeNull();
+    }
+
+    const logged = await sql<{ n: number }>`
+      SELECT count(*)::int AS n FROM audit_logs
+       WHERE actor_id = ${support.userId} AND action = 'ops.overview_view'`.execute(h.db);
+    expect(logged.rows[0]!.n).toBe(1);
+    expect((await ops.inject({ method: 'GET', url: '/ops/v1/overview' })).statusCode).toBe(401);
+  });
+});

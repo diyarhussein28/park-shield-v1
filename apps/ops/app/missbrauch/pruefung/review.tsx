@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Card, Heading, Notice, Stack, Text, useI18n } from '@parkshield/ui';
+import { Button, Card, Notice, Stack, Text, useI18n } from '@parkshield/ui';
 import { useState } from 'react';
 import { OpsShell } from '@/components/ops-shell';
 import { opsApi } from '@/lib/api';
@@ -24,11 +24,12 @@ export function ReviewQueue({ me, initial }: { me: StaffMe; initial: ReviewData 
   }
 
   return (
-    <OpsShell me={me}>
-      <Stack gap={6}>
-        <div>
-          <Heading level={1}>{t('opsReview.title')}</Heading>
-          <Text muted>{t('opsReview.intro')}</Text>
+    <OpsShell
+      me={me}
+      title={t('opsReview.title')}
+      intro={
+        <>
+          <p>{t('opsReview.intro')}</p>
           {week && (
             <Text className="mt-2 font-semibold">
               {t('opsReview.week', {
@@ -38,7 +39,10 @@ export function ReviewQueue({ me, initial }: { me: StaffMe; initial: ReviewData 
               })}
             </Text>
           )}
-        </div>
+        </>
+      }
+    >
+      <Stack gap={6}>
         {!initial && <Notice tone="danger">{t('ops.forbidden')}</Notice>}
         {initial && items.length === 0 && <Text>{t('opsReview.none')}</Text>}
         <ul className="flex flex-col gap-3" aria-label={t('opsReview.title')}>

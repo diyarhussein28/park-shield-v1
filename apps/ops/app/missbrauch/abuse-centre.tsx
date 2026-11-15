@@ -136,9 +136,8 @@ export function AbuseCentre({
     );
   }
   return (
-    <OpsShell me={me}>
+    <OpsShell me={me} title={t('opsAbuse.title')} intro={t('ops.areaAbuse')}>
       <Stack gap={6}>
-        <Heading level={1}>{t('opsAbuse.title')}</Heading>
         {message && <Notice tone={message.tone}>{message.text}</Notice>}
 
         <Card>
