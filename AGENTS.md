@@ -407,7 +407,13 @@ Also:
       `STAGING_SSH_KEY` to GitHub secrets so the staging deploy job runs.
 - [ ] **S3 bucket with Object Lock** (Hetzner Object Storage, `fsn1`) for the audit log and
       pgBackRest backups — before production.
-- [ ] **Zammad** (support desk) instance, `Support` group, API token.
+- [ ] **Support desk** (decided 16 Nov 2026): the contact form goes to the support mailbox
+      (`SUPPORT_PROVIDER=email`) until shortly before the paid beta. Then **Zammad Cloud Starter**
+      (1 agent, German data centre; hosted, not self-run): during the 30-day trial (it runs on
+      Professional) check that the API and the Customer 360 link field work on Starter, create the
+      `Support` group and an API token, set `SUPPORT_PROVIDER=zammad`, `ZAMMAD_URL`, `ZAMMAD_TOKEN`,
+      sign the AV contract and add Zammad to the Datenschutzerklärung. No ticket system of our own
+      (`docs/00-overview.md`, "What we will not build"; it would need an ADR).
 - [ ] **Better Stack** account + Uptime API token; apply `infra/monitoring`, set
       `HEARTBEAT_URL_WORKER`; set up the on-call rota.
 - [ ] **Real staff accounts and roles** in the ops app.
