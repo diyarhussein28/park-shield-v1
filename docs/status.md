@@ -117,6 +117,7 @@ Relaxed only for testing on the test server. Restore every item before step 5:
   `origin/main` (never your local files), refuses anything that would roll back what is live, lets
   only one person deploy at a time and logs every deploy on the server (`/opt/parkshield/deploys.log`).
   Details in `infra/single/README.md`. Tell the others when you deploy.
+- **Manual test of every feature on the test server:** [`docs/test-guide.md`](test-guide.md).
 - **Secrets:** never in git, chat or messengers. Locally each person has their own `.env`
   (`npm run dev` creates it and every provider falls back to a fake). Provider accounts (Stripe,
   Twilio, Mailjet, Contabo, Strato) invite each person as a team member with their own login.
