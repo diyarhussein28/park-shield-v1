@@ -175,6 +175,7 @@ product works offline. Production refuses to start with fakes (unless `APP_ENV=c
 | E-mail: Brevo (optional)       | `MAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `MAIL_FROM`                                                     | `/dev/postfach` inbox                   |
 | E-mail: SendGrid (optional)    | `MAIL_PROVIDER=sendgrid`, `SENDGRID_API_KEY`, `SENDGRID_REGION` (`global`/`eu`), `MAIL_FROM`            | `/dev/postfach` inbox                   |
 | SMS (Twilio)                   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` (sender ID, number or `MG…`)               | SMS in `/dev/postfach`                  |
+| Scanner phone check (Twilio)   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` (`VA…`, Fraud Guard on)          | code in `/dev/postfach`; prod: off      |
 | WhatsApp (Twilio, default)     | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`, `TWILIO_CONTENT_*` (8)               | messages stored locally                 |
 | WhatsApp (360dialog, optional) | `WHATSAPP_PROVIDER=360dialog`, `D360_API_KEY`, `D360_BASE_URL`, `D360_WEBHOOK_SECRET`                   | messages stored locally                 |
 | Friendly Captcha               | `FRIENDLY_CAPTCHA_SITEKEY`, `FRIENDLY_CAPTCHA_API_KEY`, `NEXT_PUBLIC_FRIENDLY_CAPTCHA_SITEKEY`          | "Sicherheitsprüfung: lokal simuliert"   |
@@ -309,6 +310,17 @@ Single API test file: `cd apps/api && npx vitest run src/scan`. Single E2E file:
   `@RequirePermission(...)` — the guard fails closed. Permissions, not role names, are checked, and
   every ops action (including reads of personal data) writes an audit log entry.
 - **Audit log** is append-only (TRUNCATE is blocked) and streamed to an S3 bucket with Object Lock.
+
+### Abuse protection (Protected Mode, phone check, phone bans)
+
+Module `apps/api/src/abuse/`, spec in `docs/02-architecture.md` §5a, legal questions in
+`LEGAL_REVIEW.md`. `PHONE_PEPPER` (32 random bytes, base64) is required in production and must never
+change (all phone bans would be lost); `npm run dev` and `infra/single/setup-env.sh` generate it.
+Without `TWILIO_VERIFY_SERVICE_SID` production simply offers no phone check (Protected Mode then
+hides content of every sender); it never falls back to a fake. The fake treats German 015x–017x as
+mobile, 032 as VoIP and other +49 numbers as landline. Free text (and later photos) must never reach
+a notification when `alerts.content_hidden` is true. The scanner page must not use cookies, Web
+Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
 
 ## 8. Hard rules (from `docs/README.md`, apply to humans and AI alike)
 

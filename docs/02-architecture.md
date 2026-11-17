@@ -145,14 +145,21 @@ stateDiagram-v2
 - `scanner_ref = HMAC(daily_salt, ip_prefix | user_agent)` identifies the same scanner **across all vehicles for one day**. Used for rate limits, abuse patterns and same-day global blocks. The salt is random, generated each day, held only in Valkey and deleted when the day ends. It is never written to PostgreSQL or backups, so days cannot be linked. Column nulled after 24 h.
 - `block_ref = HMAC(block_key, ip_prefix | user_agent | qr_token_id)` identifies the same scanner **for one vehicle only**. It is stored on the alert for 30 days so an owner's report can block that scanner for that vehicle for 30 days (OW-08). It cannot link a scanner across vehicles. `block_key` lives in the secrets store and rotates every 90 days; checks try the current and the previous key.
 
-**Rate limits (Valkey keys).** Each check is one atomic Lua script: increment, set the TTL on the first hit, and if the result is over the limit, decrement and reject. Rejected requests therefore don't consume quota, and concurrent requests can't overshoot the limit.
+**Rate limits (Valkey keys).** Each check is one atomic Lua script. Scanner alert limits are **sliding windows** (a sorted set of request times per key): expired entries are dropped, every counter is checked, and only if all pass is the request added to all of them, so a rejected request consumes nothing and concurrent requests cannot overshoot. `Retry-After` is the moment the oldest entry leaves the exceeded window. Other limits (sign-in, OTP, forms) use fixed windows (increment, TTL on the first hit, decrement when over). If Valkey does not answer within `abuse.valkey_timeout_ms`, scanner limits fall back to in-process counters (fail open: an outage never stops every alert) and an alarm line is logged. Runtime values: app_settings `ratelimit.<name>`.
 
 | Key | Limit |
 |---|---|
-| `rl:st:{token}:{ref}` | 1 alert / 15 min per scanner per vehicle |
-| `rl:sg:{ref}` | 6 alerts / hour per scanner across all vehicles |
-| `rl:tg:{token}` | 20 alerts / 24 h per vehicle from everyone |
-| `rl:404:{ip24}` | 30 not-found lookups / min per truncated IP |
+| `rls:alert.scanner_vehicle:{token}:{ref}` | 2 alerts / hour per scanner per vehicle |
+| `rls:alert.scanner_vehicle_day:{token}:{ref}` | 3 alerts / 24 h per scanner per vehicle |
+| `rls:alert.scanner_global:{ref}` | 6 alerts / hour per scanner across all vehicles |
+| `rls:alert.vehicle:{token}` | 20 alerts / 24 h per vehicle from everyone |
+| `rls:alert.phone_vehicle[_day]:{token}:{phoneHash}` | same as scanner per vehicle, for a confirmed number |
+| `rl:verify.otp_scanner / otp_phone / otp_country` | 3 / h per scanner, 3 / 24 h per number, 50 / h per country (SMS pumping) |
+| `rl:scan.not_found:{ip24}` | 30 not-found lookups / min per truncated IP |
+
+### 5a. Abuse protection
+
+Order for every alert: captcha → blocks and bans → text filter → limits → create. A blocked or banned sender gets HTTP 403 with "Ihre Nachricht konnte nicht zugestellt werden." (no shadow block). An owner's block (`POST /v1/alerts/:id/report`) blocks the `block_ref` for that vehicle for 30 days, bans a confirmed number for that vehicle for 12 months (`phone_bans`), and counts towards **Protected Mode** (`vehicle_protection`: automatic after 2 blocks in 30 days for 30 days, or manual via `PUT /v1/vehicles/:id/protection`). In Protected Mode every alert is delivered at once, but free text of a sender without a confirmed number is stored with `alerts.content_hidden = true`, never decrypted for notifications, and shown only through `GET /v1/alerts/:id/hidden-content`. The optional confirmation (`POST /v1/scan/:code/verify/start|check`) uses Twilio Lookup (mobile only, allowed countries) and Twilio Verify; the result is a 30-minute signed token kept in page memory, and only `HMAC-SHA256(PHONE_PEPPER, E.164)` is stored. Numbers banned by owners of 3 vehicles within 90 days become a review candidate in ops (`/ops/v1/abuse/phone-candidates`); only staff confirm a global ban. Legal questions: `LEGAL_REVIEW.md`.
 
 ## 6. Repository layout
 
