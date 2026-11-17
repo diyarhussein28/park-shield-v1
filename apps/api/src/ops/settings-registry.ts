@@ -71,6 +71,15 @@ export const SETTINGS: Record<string, Def> = {
   'abuse.phone_ban_vehicles': { group: 'abuse', schema: int(2, 50), default: 3 },
   'abuse.phone_ban_window_days': { group: 'abuse', schema: int(7, 365), default: 90 },
   'abuse.valkey_timeout_ms': { group: 'abuse', schema: int(50, 5000), default: 300 },
+  // Phase 2 alert photos (ALERT_PHOTOS_ENABLED): which plans may receive photos, and what a photo
+  // abuse report does. The per-vehicle scanner block is capped at 30 days (OW-08).
+  'photos.plans': {
+    group: 'limits',
+    schema: z.array(z.enum(['plus', 'premium', 'business'])).max(3),
+    default: ['premium'],
+  },
+  'photos.abuse_block_days': { group: 'abuse', schema: int(1, 30), default: 30 },
+  'photos.abuse_upload_block_hours': { group: 'abuse', schema: int(1, 720), default: 24 },
 
   'refunds.withdrawal_days': { group: 'refunds', schema: int(14, 30), default: 14 },
   // The decal is an accessory, not custom-made: no § 312g deduction. TODO [LEGAL REVIEW]

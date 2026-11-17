@@ -412,6 +412,35 @@ const de = {
     trustDomain: 'Echte Seite: pkshd.de',
     trustPayment: 'ParkShield verlangt nie eine Zahlung',
     protectToo: 'Auch schützen? park-shield.de',
+    // Phase 2 alert photos (only shown while ALERT_PHOTOS_ENABLED and the owner's plan allow it).
+    photoTitle: 'Fotos (freiwillig)',
+    photoHint:
+      'Bis zu 2 Fotos, z. B. von der zugeparkten Ausfahrt oder dem Schaden. Erst Foto machen, dann oben das Problem antippen.',
+    photoAdd: 'Foto hinzufügen',
+    // TODO [LEGAL REVIEW] camera notice and privacy link (LEGAL_REVIEW.md §5)
+    photoNotice:
+      'Bitte fotografieren Sie nur das betroffene Fahrzeug – keine Personen oder fremden Kennzeichen.',
+    // TODO [LEGAL REVIEW]
+    photoPrivacy: 'Datenschutzhinweise',
+    photoOk: 'Verstanden',
+    photoCancel: 'Abbrechen',
+    photoCamera: 'Kamera',
+    photoCameraSr:
+      'Kameravorschau. Richten Sie die Kamera auf das Fahrzeug und tippen Sie auf „Foto aufnehmen“.',
+    photoShutter: 'Foto aufnehmen',
+    photoClose: 'Kamera schließen',
+    photoAlt: 'Foto {n}',
+    photoRetake: 'Neu aufnehmen',
+    photoDelete: 'Löschen',
+    photoCount: '{count} von 2 Fotos ausgewählt',
+    photoUploading: 'Fotos werden hochgeladen … {percent} %',
+    photoFailed:
+      'Die Fotos konnten nicht hochgeladen werden. Ihre Warnung wurde noch nicht gesendet.',
+    photoWithout: 'Warnung ohne Fotos senden',
+    photoDropped:
+      'Die Fotos konnten nicht angehängt werden. Ihre Warnung wurde ohne Fotos gesendet.',
+    photoPartly: 'Ein Foto konnte nicht angehängt werden. Ihre Warnung wurde gesendet.',
+    photoError: 'Dieses Bild konnte nicht verwendet werden. Bitte versuchen Sie es noch einmal.',
   },
   channels: {
     title: 'Benachrichtigungen',
@@ -525,6 +554,9 @@ const de = {
       '{channel, select, webpush {Push} email {E-Mail} whatsapp {WhatsApp} sms {SMS} other {{channel}}}',
   },
   history: {
+    photos:
+      '{count, plural, one {Ein Foto} other {# Fotos}} angehängt (wird nach 30 Tagen gelöscht)',
+    photosView: 'Fotos ansehen',
     title: 'Verlauf',
     intro: 'Alle Warnungen der letzten 90 Tage. Freitexte löschen wir nach 7 Tagen.',
     manage: 'Verlauf ansehen',
@@ -746,6 +778,29 @@ const de = {
     weekly: 'Wöchentlich',
     off: 'Nie',
     saved: 'Gespeichert.',
+  },
+  alertView: {
+    title: 'Fotos zur Warnung',
+    date: '{date, date, long}',
+    photos: 'Fotos',
+    photoAlt: 'Foto {n} der Person, die gewarnt hat',
+    download: 'Foto {n} herunterladen',
+    hidden:
+      'Nachricht von nicht bestätigtem Absender{count, plural, =0 {} one { mit einem Foto} other { mit # Fotos}}. Sie sehen den Inhalt erst, wenn Sie ihn öffnen.',
+    reveal: 'Anzeigen',
+    goneRetention: 'Die Fotos zu diesem Alarm wurden nach 30 Tagen automatisch gelöscht.',
+    goneAbuse: 'Die Fotos zu diesem Alarm wurden nach einer Missbrauchsmeldung gelöscht.',
+    invalid:
+      'Dieser Link ist ungültig oder abgelaufen. Fotos zu einer Warnung werden nach 30 Tagen automatisch gelöscht.',
+    abuseTitle: 'Missbrauch melden',
+    abuseButton: 'Missbrauch melden',
+    abuseConfirm:
+      'Die Fotos und die Nachricht werden sofort gelöscht, und der Absender kann Ihr Fahrzeug nicht mehr benachrichtigen. Fortfahren?',
+    abuseSend: 'Fotos löschen und Absender sperren',
+    abuseCancel: 'Abbrechen',
+    reportDone:
+      'Danke. Die Fotos wurden gelöscht und der Absender wurde für dieses Fahrzeug gesperrt.',
+    alreadyReported: 'Sie haben diese Warnung bereits als Missbrauch gemeldet.',
   },
   reply: {
     title: 'Antworten',
@@ -1844,6 +1899,9 @@ const de = {
     k_abuse_phone_ban_vehicles: 'Globale Sperre prüfen ab gesperrten Fahrzeugen',
     k_abuse_phone_ban_window_days: 'Globale Sperre: Fahrzeuge gezählt in den letzten (Tagen)',
     k_abuse_valkey_timeout_ms: 'Rate-Limits: Valkey-Wartezeit vor Notbetrieb (ms)',
+    k_photos_plans: 'Fotos bei Warnungen: Tarife (plus, premium, business; mit Komma)',
+    k_photos_abuse_block_days: 'Foto-Missbrauch: Absender für das Fahrzeug sperren (Tage, max. 30)',
+    k_photos_abuse_upload_block_hours: 'Foto-Missbrauch: keine Fotos für das Fahrzeug (Stunden)',
     k_moderation_sample_rate: 'Stichprobe blockierter Nachrichten (0 bis 1)',
     k_refunds_withdrawal_days: 'Widerrufsfrist (Tage)',
     k_refunds_custom_decal_cost_cents: 'Wert des gedruckten Aufklebers (Cent)',

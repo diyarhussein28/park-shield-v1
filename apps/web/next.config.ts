@@ -34,6 +34,17 @@ const config: NextConfig = {
       process.env.SITE_NOINDEX === '1' ? [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] : [];
     return [
       { source: '/:path*', headers: [...securityHeaders, ...robots] },
+      // Phase 2 alert photos: the scanner page (and only it) may open the rear camera. A later rule
+      // overrides the same header key of an earlier one.
+      {
+        source: '/s/:path*',
+        headers: [
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(self), microphone=(), geolocation=(), interest-cohort=()',
+          },
+        ],
+      },
       // Browsers must pick up a new service worker at once (it only shows push notifications).
       { source: '/sw.js', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
     ];

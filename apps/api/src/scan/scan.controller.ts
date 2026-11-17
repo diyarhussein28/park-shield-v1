@@ -22,6 +22,7 @@ import { scannerIpPrefix, truncateIp } from '../core/ip';
 import { RateLimitService } from '../core/rate-limit.service';
 import { ZodPipe } from '../core/zod.pipe';
 import { CAPTCHA, type Captcha } from '../providers/ports';
+import { readAlertMultipart } from '../alert-media/multipart';
 import { ScanService } from './scan.service';
 import { captchaSolution } from '../providers/captcha';
 
@@ -88,15 +89,17 @@ export class ScanController {
     return this.scan.pageData(token ?? (await this.resolve(code, req)));
   }
 
+  /**
+   * JSON, or multipart/form-data with the same JSON in the field `alert` plus up to two `photos`
+   * (Phase 2, ALERT_PHOTOS_ENABLED). The captcha is verified before any photo is decoded.
+   */
   @Post('scan/:code/alerts')
-  async create(
-    @Param('code') code: string,
-    @Body(new ZodPipe(CreateAlert)) body: z.infer<typeof CreateAlert>,
-    @Req() req: FastifyRequest,
-  ) {
+  async create(@Param('code') code: string, @Req() req: FastifyRequest) {
+    const raw = req.isMultipart() ? await readAlertMultipart(req) : { body: req.body, photos: [] };
+    const body: z.infer<typeof CreateAlert> = new ZodPipe(CreateAlert).transform(raw.body);
     if (!(await this.captcha.verify(body.captcha))) throw new BadRequestException(CAPTCHA_FAILED);
     const token = await this.resolve(code, req);
-    return this.scan.createAlert(token, body, context(req));
+    return this.scan.createAlert(token, body, context(req), raw.photos);
   }
 
   /** Abuse protection §4: Lookup (mobile only) and an SMS code, only while Protected Mode is on. */

@@ -91,6 +91,10 @@ export const envSchema = z.object({
   TWILIO_CONTENT_PS_TEST_EN: z.string().default(''),
   TWILIO_CONTENT_PS_OTP_DE: z.string().default(''),
   TWILIO_CONTENT_PS_OTP_EN: z.string().default(''),
+  // Alert with photos: same body and quick replies as ps_alert plus a URL button to /v/{{6}}. Only
+  // required in production while ALERT_PHOTOS_ENABLED is on.
+  TWILIO_CONTENT_PS_ALERT_PHOTOS_DE: z.string().default(''),
+  TWILIO_CONTENT_PS_ALERT_PHOTOS_EN: z.string().default(''),
   D360_API_KEY: z.string().default(''),
   D360_BASE_URL: z.url().default('https://waba-v2.360dialog.io'),
   D360_WEBHOOK_SECRET: z.string().default(''),
@@ -116,6 +120,15 @@ export const envSchema = z.object({
   ZAMMAD_GROUP: z.string().default('Support'),
   // US-45: Better Stack heartbeat (infra/monitoring output worker_heartbeat_url); empty: no heartbeat.
   HEARTBEAT_URL_WORKER: z.string().default(''),
+  // Phase 2: optional photos with alerts. Off by default; which plans get it is the setting photos.plans.
+  ALERT_PHOTOS_ENABLED: z
+    .enum(['true', 'false', '1', '0', ''])
+    .default('false')
+    .transform((v) => v === 'true' || v === '1'),
+  // Encrypted alert photos, outside any web root and never served statically. Excluded from backups
+  // (crypto-shredding: deleting the wrapped key in PostgreSQL makes every copy unreadable).
+  // Empty: .local/alert-media in development, /var/lib/parkshield/alert-media in production.
+  ALERT_MEDIA_DIR: z.string().default(''),
 });
 
 /** Providers without keys fall back to local fakes, which are never allowed in production. */
@@ -163,6 +176,13 @@ function findRepoRoot(start: string): string | undefined {
 
 export const repoRoot = (): string => findRepoRoot(process.cwd()) ?? process.cwd();
 
+/** Where encrypted alert photos live (ALERT_MEDIA_DIR, see the schema above). */
+export const alertMediaDir = (env: Pick<Env, 'ALERT_MEDIA_DIR' | 'NODE_ENV'>): string =>
+  env.ALERT_MEDIA_DIR ||
+  (env.NODE_ENV === 'production'
+    ? '/var/lib/parkshield/alert-media'
+    : join(repoRoot(), '.local', 'alert-media'));
+
 /** Loads the repo-root .env in local dev (production injects real environment variables) and validates. */
 export function loadEnv(overrides: Partial<Record<keyof Env, string>> = {}): Env {
   const root = findRepoRoot(process.cwd());
@@ -180,6 +200,7 @@ export function loadEnv(overrides: Partial<Record<keyof Env, string>> = {}): Env
   if (realProduction && parsed.data.WHATSAPP_PROVIDER === 'twilio') {
     const missing = Object.entries(parsed.data)
       .filter(([k, v]) => k.startsWith('TWILIO_CONTENT_') && !v)
+      .filter(([k]) => parsed.data.ALERT_PHOTOS_ENABLED || !k.includes('_PS_ALERT_PHOTOS_'))
       .map(([k]) => k);
     if (missing.length) throw new Error(`Missing Twilio template SIDs: ${missing.join(', ')}`);
   }

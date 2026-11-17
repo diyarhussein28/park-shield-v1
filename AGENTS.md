@@ -301,6 +301,13 @@ Single API test file: `cd apps/api && npx vitest run src/scan`. Single E2E file:
   (`apps/api/src/core/crypto.ts`, key versions `DATA_KEY_V<n>`); lookups use HMAC blind indexes
   (`*_bidx`). Tokens and links are stored as SHA-256 hashes only. Reply tokens are HMAC-derived
   from `SESSION_SECRET`, not stored.
+- **Alert photos (Phase 2, `ALERT_PHOTOS_ENABLED`, off by default).** `apps/api/src/alert-media/`:
+  up to 2 photos per alert (multipart on `POST /v1/scan/:code/alerts`), magic bytes + sharp re-encode
+  without metadata, one AES-256-GCM key per file wrapped with the data key, files in `ALERT_MEDIA_DIR`
+  (outside web roots, **never backed up**). One view link `/v/<token>` (HMAC token, only its hash
+  stored) in every channel, never an attachment. Deleted after 30 days by the retention job (key, file,
+  row) or at once by „Missbrauch melden“. Plans: setting `photos.plans`. Open items: LEGAL_REVIEW.md §5
+  and, for the multi-host Ansible topology, a storage the worker can reach.
 - **Scanner page `/s/[code]`** is a Next.js **route handler returning plain HTML + inline vanilla
   JS** (`apps/web/lib/scanner/*`), not React, to meet the 1.5 s / 90 KB budget on bad mobile
   networks. Keep it that way.

@@ -7,6 +7,8 @@ import { SCANNER_CSS } from './styles';
 export interface ScanPageData {
   /** Protected Mode is on and a phone check is available (abuse protection §4). */
   offerVerification?: boolean;
+  /** Phase 2: "Foto hinzufügen" (ALERT_PHOTOS_ENABLED and the owner's plan). */
+  photos?: boolean;
   nickname: string;
   color: string | null;
   testMode: boolean;
@@ -34,7 +36,8 @@ export function scannerCsp(withCaptcha: boolean): string {
     "default-src 'none'",
     `script-src ${JS_HASH}${withCaptcha ? ` ${GLUE_HASH} 'self'` : ''}`,
     `style-src ${CSS_HASH}`,
-    "img-src 'self' data:",
+    // blob: for the photo thumbnails (Phase 2); the camera stream itself is not a fetched resource.
+    "img-src 'self' data: blob:",
     `connect-src 'self'${withCaptcha ? ` ${frcHosts()}` : ''}`,
     ...(withCaptcha ? [`frame-src ${frcHosts()}`, 'worker-src blob:'] : []),
     "base-uri 'none'",
@@ -95,6 +98,35 @@ export function renderRateLimited(locale: Locale): string {
  * Abuse protection §4: optional phone check while the vehicle is in Protected Mode. Never says that the
  * owner blocked anyone. The confirmation lives in page memory only (no cookie, no storage).
  */
+/**
+ * Phase 2 alert photos. The notice must be confirmed before the camera opens (TODO [LEGAL REVIEW]: the
+ * notice and the privacy link target, LEGAL_REVIEW.md §5).
+ */
+function photoBox(label: (k: keyof Strings) => string): string {
+  return `<section id="ph" aria-labelledby="ph-h">
+<h2 id="ph-h" ${label('photoTitle')}</h2>
+<p class="hint" ${label('photoHint')}</p>
+<ul id="ph-list" class="thumbs"></ul>
+<button type="button" id="ph-add" class="secondary" ${label('photoAdd')}</button>
+<div id="ph-notice" class="note info" role="group" aria-labelledby="ph-nt" hidden>
+<p id="ph-nt" ${label('photoNotice')}</p>
+<p><a href="https://park-shield.de/datenschutz#warnfotos" target="_blank" rel="noopener noreferrer" ${label('photoPrivacy')}</a></p>
+<button type="button" id="ph-ok" class="primary" ${label('photoOk')}</button>
+<button type="button" id="ph-cancel" class="secondary" ${label('photoCancel')}</button>
+</div>
+<div id="ph-cam" role="dialog" aria-modal="true" aria-labelledby="ph-ch" aria-describedby="ph-cd" hidden>
+<h3 id="ph-ch" ${label('photoCamera')}</h3>
+<p id="ph-cd" class="sr" ${label('photoCameraSr')}</p>
+<video id="ph-video" playsinline muted aria-hidden="true"></video>
+<button type="button" id="ph-shot" class="primary" ${label('photoShutter')}</button>
+<button type="button" id="ph-close" class="secondary" ${label('photoClose')}</button>
+</div>
+<input type="file" id="ph-file" accept="image/*" capture="environment" hidden tabindex="-1" aria-hidden="true">
+<p id="ph-status" class="hint" role="status" aria-live="polite"></p>
+<button type="button" id="ph-without" class="secondary" hidden ${label('photoWithout')}</button>
+</section>`;
+}
+
 function verifyBox(label: (k: keyof Strings) => string): string {
   return `<div id="verify" class="note info">
 <p ${label('verifyPrompt')}</p>
@@ -160,6 +192,7 @@ ${data.offerVerification ? verifyBox(label) : ''}
 <button type="submit" id="send" class="primary" ${label('sendCustom')}</button>
 <button type="button" id="back" class="secondary" ${label('back')}</button>
 </form>
+${data.photos ? photoBox(label) : ''}
 <p id="busy" class="note info" role="status" hidden ${label('sending')}</p>
 <p id="error" class="note err" role="alert" hidden></p>
 <section id="status" hidden tabindex="-1" aria-labelledby="sh">

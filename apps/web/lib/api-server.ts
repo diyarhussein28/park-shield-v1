@@ -116,6 +116,8 @@ export interface HistoryAlert {
   /** Protected Mode: free text of an unconfirmed sender, shown only on request. */
   hiddenContent: boolean;
   verifiedSender: boolean;
+  /** Phase 2: photos that still exist and the alert's view page (valid 30 days). */
+  photos?: { count: number; viewPath: string | null };
 }
 
 export interface VehicleProtection {

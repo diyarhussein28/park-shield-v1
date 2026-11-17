@@ -13,8 +13,16 @@ services:
     ports: ["127.0.0.1:4000:4000"]
     restart: unless-stopped
     read_only: true
+    # Encrypted alert photos (Phase 2). Excluded from backups on purpose (crypto-shredding).
+    volumes: ["alert-media:/var/lib/parkshield/alert-media"]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/v1/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 3
+
+# TODO before ALERT_PHOTOS_ENABLED in this topology: the worker (retention job) runs on another host and
+# cannot reach this volume. Photos are still unreadable after 30 days (keys deleted in PostgreSQL), but the
+# files stay until a shared store (S3 adapter) or a co-located job removes them. See infra/single/README.md.
+volumes:
+  alert-media:

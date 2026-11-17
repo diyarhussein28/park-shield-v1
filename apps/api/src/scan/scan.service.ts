@@ -20,6 +20,7 @@ import { contractState, scannerDecision } from '../legal/rules';
 import { PhoneBansService } from '../abuse/phone-bans.service';
 import { ProtectionService } from '../abuse/protection.service';
 import { NOT_DELIVERABLE, ScannerVerificationService } from '../abuse/verification.service';
+import { AlertMediaService, type PhotoOutcome } from '../alert-media/alert-media.service';
 import { ScannerRefService } from './scanner-ref.service';
 
 import { normalizeCode } from '../vehicles/tokens.service';
@@ -53,6 +54,7 @@ export class ScanService {
     @Inject(ProtectionService) private readonly protection: ProtectionService,
     @Inject(PhoneBansService) private readonly phoneBans: PhoneBansService,
     @Inject(ScannerVerificationService) private readonly verification: ScannerVerificationService,
+    @Inject(AlertMediaService) private readonly media: AlertMediaService,
   ) {}
 
   /** The pseudonymous references of this request (server side only, never stored on the device). */
@@ -139,7 +141,7 @@ export class ScanService {
 
   /** Scanner page data (02-architecture §3 step 1). Never contains the owner's name, plate or number. */
   async pageData(token: NonNullable<Awaited<ReturnType<ScanService['lookup']>>>) {
-    const [types, mode, , protection] = await Promise.all([
+    const [types, mode, , protection, photos] = await Promise.all([
       this.db
         .selectFrom('alert_types')
         .select(['code', 'severity', 'label_de', 'label_en'])
@@ -162,8 +164,11 @@ export class ScanService {
         .where('id', '=', token.tokenId)
         .execute(),
       this.protection.isActive(token.vehicleId),
+      // Phase 2: the "Foto hinzufügen" button (feature flag and the owner's plan).
+      this.media.available(token.ownerId),
     ]);
     return {
+      photos,
       // Abuse protection §4: only the optional phone prompt; nothing says that someone was blocked.
       offerVerification: protection && this.verification.available,
       nickname: token.nickname,
@@ -184,7 +189,8 @@ export class ScanService {
     token: NonNullable<Awaited<ReturnType<ScanService['lookup']>>>,
     input: { type: AlertTypeCode; message?: string; lang: 'de' | 'en'; verification?: string },
     ctx: ScanContext,
-  ): Promise<{ alertId: string; statusToken: string }> {
+    photos: Buffer[] = [],
+  ): Promise<{ alertId: string; statusToken: string; photos?: PhotoOutcome }> {
     const type = await this.db
       .selectFrom('alert_types')
       .select(['code', 'severity', 'escalates'])
@@ -287,40 +293,61 @@ export class ScanService {
       escalates: type.escalates,
       isTest,
     });
-    const alertId = await this.db.transaction().execute(async (trx) => {
-      const alert = await trx
-        .insertInto('alerts')
-        .values({
-          ...common,
-          status: 'dispatched',
-          moderation: message ? 'passed' : 'not_required',
-          status_view_hash: sha256(statusToken),
-          dispatched_at: sql`now()`,
-          escalate_at: escalateAt,
-          verified_phone_hash: verifiedHash,
-          content_hidden: contentHidden,
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow();
-      if (isTest) {
-        // US-12: the optional test alarm. It proves delivery; the decal worked before it already.
-        await trx
-          .updateTable('qr_tokens')
-          .set({
-            test_window_until: null,
-            last_test_at: sql`now()`,
-            activated_at: sql`coalesce(activated_at, now())`,
-          })
-          .where('id', '=', token.tokenId)
-          .execute();
-      }
-      await trx
-        .insertInto('outbox_events')
-        .values({ topic: DISPATCH_TOPIC, payload: JSON.stringify({ alertId: alert.id }) })
-        .execute();
-      return alert.id;
+    // Phase 2: photos are checked, re-encoded, encrypted and written only now, after every check above.
+    // A photo problem drops the photo, never the alert.
+    const prepared = await this.media.prepare({
+      ownerId: token.ownerId,
+      vehicleId: token.vehicleId,
+      isTest,
+      photos,
     });
-    return { alertId, statusToken };
+    const create = () =>
+      this.db.transaction().execute(async (trx) => {
+        const alert = await trx
+          .insertInto('alerts')
+          .values({
+            ...common,
+            status: 'dispatched',
+            moderation: message ? 'passed' : 'not_required',
+            status_view_hash: sha256(statusToken),
+            dispatched_at: sql`now()`,
+            escalate_at: escalateAt,
+            verified_phone_hash: verifiedHash,
+            content_hidden: contentHidden,
+          })
+          .returning('id')
+          .executeTakeFirstOrThrow();
+        if (isTest) {
+          // US-12: the optional test alarm. It proves delivery; the decal worked before it already.
+          await trx
+            .updateTable('qr_tokens')
+            .set({
+              test_window_until: null,
+              last_test_at: sql`now()`,
+              activated_at: sql`coalesce(activated_at, now())`,
+            })
+            .where('id', '=', token.tokenId)
+            .execute();
+        }
+        await this.media.attach(trx, alert.id, prepared.items);
+        await trx
+          .insertInto('outbox_events')
+          .values({ topic: DISPATCH_TOPIC, payload: JSON.stringify({ alertId: alert.id }) })
+          .execute();
+        return alert.id;
+      });
+    let alertId: string;
+    try {
+      alertId = await create();
+    } catch (err) {
+      await this.media.discard(prepared.items);
+      throw err;
+    }
+    return {
+      alertId,
+      statusToken,
+      ...(photos.length ? { photos: prepared.outcome } : {}),
+    };
   }
 
   private async isBlocked(

@@ -22,7 +22,8 @@ import { AckService, OWNER_REPLIES, type ReplyLinks } from './ack.service';
 import { FairUseService } from './fair-use.service';
 import { channelOrder, type OrderableChannel } from './channel-order';
 import { pushText, REPLY_LABELS, REPLY_SENT, type PushKind } from './push-texts';
-import { smsText } from './sms-texts';
+import { smsPhotoText, smsText } from './sms-texts';
+import { ViewTokenService } from '../alert-media/view-token.service';
 
 /** NT-06: a subscription is removed after HTTP 404/410 or this many consecutive failures. */
 export const PUSH_MAX_FAILURES = 5;
@@ -40,6 +41,11 @@ interface Message {
   links: ReplyLinks;
   /** false for reminders: they are sent again on purpose, so earlier deliveries do not count. */
   dedupe: boolean;
+  /**
+   * Phase 2: the one view link of an alert with photos (`/v/<token>`). Every channel carries this link
+   * only; no photo is ever attached or embedded.
+   */
+  viewUrl?: string;
 }
 
 /** Order for the NT-09 reminder: fastest first, regardless of cost. */
@@ -69,6 +75,7 @@ export class DispatchService {
     @Inject(AckService) private readonly ack: AckService,
     @Inject(PreferencesService) private readonly preferences: PreferencesService,
     @Inject(FairUseService) private readonly fairUse: FairUseService,
+    @Inject(ViewTokenService) private readonly viewTokens: ViewTokenService,
   ) {}
 
   private load(alertId: string) {
@@ -94,6 +101,16 @@ export class DispatchService {
         'u.preferred_lang',
         't.label_de',
         't.label_en',
+        (eb) =>
+          eb
+            .exists(
+              eb
+                .selectFrom('alert_media as m')
+                .select('m.id')
+                .whereRef('m.alert_id', '=', 'a.id')
+                .where('m.deleted_at', 'is', null),
+            )
+            .as('hasPhotos'),
       ])
       .where('a.id', '=', alertId)
       .executeTakeFirst();
@@ -138,6 +155,7 @@ export class DispatchService {
       token,
       links: this.ack.links(token),
       dedupe: true,
+      ...(alert.hasPhotos ? { viewUrl: this.viewTokens.urlFor(alert.id) } : {}),
     };
     const everywhere = alert.severity === 'urgent' || alert.is_test;
     const order = await channelOrder(this.db, this.settings, alert.userId);
@@ -324,15 +342,35 @@ export class DispatchService {
       test: 'alert_test',
       followup: 'alert_followup',
     } as const;
+    const values = (({ hidden: _hidden, ...v }) => v)(this.alertValues(alert));
     try {
-      await this.mail.send({
-        to: alert.email,
-        template: template[msg.kind],
-        locale: alert.preferred_lang,
-        values: (({ hidden: _hidden, ...v }) => v)(this.alertValues(alert)),
-        actionUrl: `${this.env.WEB_BASE_URL}/konto`,
-        replies: this.replyButtons(alert, msg.links),
-      });
+      // Phase 2: with photos the main button opens the view page ("Fotos ansehen"); no attachment and
+      // no embedded image. "Missbrauch melden" is a plain link to the same page.
+      await this.mail.send(
+        msg.viewUrl
+          ? {
+              to: alert.email,
+              template: 'alert_received_photos',
+              locale: alert.preferred_lang,
+              values,
+              actionUrl: msg.viewUrl,
+              replies: this.replyButtons(alert, msg.links),
+              links: [
+                {
+                  label: alert.preferred_lang === 'en' ? 'Report abuse' : 'Missbrauch melden',
+                  url: `${msg.viewUrl}?melden=1`,
+                },
+              ],
+            }
+          : {
+              to: alert.email,
+              template: template[msg.kind],
+              locale: alert.preferred_lang,
+              values,
+              actionUrl: `${this.env.WEB_BASE_URL}/konto`,
+              replies: this.replyButtons(alert, msg.links),
+            },
+      );
     } catch (err) {
       await this.finish(delivery.id, { ok: false, error: String(err) });
       throw err;
@@ -371,7 +409,7 @@ export class DispatchService {
     const payload = JSON.stringify({
       ...text,
       lang: alert.preferred_lang,
-      url: msg.links.page,
+      url: msg.viewUrl ?? msg.links.page,
       tag: `alert-${alert.id}`,
       // The service worker posts the reply directly when an action button is tapped (OW-16).
       token: msg.token,
@@ -504,14 +542,20 @@ export class DispatchService {
     });
     const values = this.alertValues(alert);
     const template = { alert: 'ps_alert', test: 'ps_test', followup: 'ps_followup' } as const;
+    // Phase 2: an approved template with a URL button to /v/{{token}}. No mediaUrl: photos stay on our
+    // server. Without that template (not approved yet) the alert goes out as before.
+    const withPhotos =
+      Boolean(msg.viewUrl) && this.whatsapp.supports('ps_alert_photos', alert.preferred_lang);
     try {
       const { messageId } = await this.whatsapp.sendTemplate({
         to: this.crypto.decrypt(channel.address_enc).replace(/^\+/, ''),
-        template: template[msg.kind],
+        template: withPhotos ? 'ps_alert_photos' : template[msg.kind],
         lang: alert.preferred_lang,
-        params: msg.kind === 'test' ? [values.nickname] : [values.type, values.nickname],
+        params:
+          msg.kind === 'test' && !withPhotos ? [values.nickname] : [values.type, values.nickname],
         // Quick-reply buttons in template order: Ich komme · In ca. 30 Min · Bin nicht in der Nähe.
         buttons: OWNER_REPLIES.map((r) => `ack:${msg.token}:${r}`),
+        ...(withPhotos ? { urlButton: msg.viewUrl!.split('/v/')[1]! } : {}),
       });
       await this.finish(delivery.id, { ok: true, messageId });
       return 'sent';
@@ -569,14 +613,17 @@ export class DispatchService {
     try {
       const { messageId } = await this.sms.send({
         to: this.crypto.decrypt(channel.address_enc),
-        body: smsText(
-          alert.preferred_lang,
-          msg.kind,
-          values.type,
-          values.nickname,
-          msg.links.page,
-          values.hidden,
-        ),
+        // Phase 2: with photos one GSM-7 segment with the view link (the page also has the replies).
+        body: msg.viewUrl
+          ? smsPhotoText(alert.preferred_lang, values.type, values.nickname, msg.viewUrl)
+          : smsText(
+              alert.preferred_lang,
+              msg.kind,
+              values.type,
+              values.nickname,
+              msg.links.page,
+              values.hidden,
+            ),
         tag: `sms_${msg.kind}`,
       });
       await this.finish(delivery.id, { ok: true, messageId });

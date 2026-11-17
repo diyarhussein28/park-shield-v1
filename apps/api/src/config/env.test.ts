@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { isTestEnvironment, loadEnv } from './env';
 
+/** 32 bytes, base64: required in real production since the abuse protection (phone hashes). */
+const PHONE_PEPPER = Buffer.alloc(32, 7).toString('base64');
+
 describe('test helpers are limited to dev, unit tests and CI', () => {
   it.each([
     ['development', 'local', true],
@@ -26,6 +29,7 @@ describe('test helpers are limited to dev, unit tests and CI', () => {
       loadEnv({
         NODE_ENV: 'production',
         APP_ENV: 'production',
+        PHONE_PEPPER,
         MAIL_PROVIDER: 'brevo',
         BREVO_API_KEY: 'k',
         FRIENDLY_CAPTCHA_API_KEY: 'k',
@@ -48,6 +52,7 @@ describe('test helpers are limited to dev, unit tests and CI', () => {
     const prod = {
       NODE_ENV: 'production',
       APP_ENV: 'production',
+      PHONE_PEPPER,
       FRIENDLY_CAPTCHA_API_KEY: 'k',
       FRIENDLY_CAPTCHA_SITEKEY: 's',
       STRIPE_SECRET_KEY: 'k',
@@ -71,6 +76,38 @@ describe('test helpers are limited to dev, unit tests and CI', () => {
       loadEnv({ ...prod, MAIL_PROVIDER: 'sendgrid', SENDGRID_API_KEY: 'SG', TWILIO_SMS_FROM: 'X' })
         .MAIL_PROVIDER,
     ).toBe('sendgrid');
+  });
+
+  it('needs the photo template SIDs only while ALERT_PHOTOS_ENABLED is on', () => {
+    const sids = Object.fromEntries(
+      ['ALERT', 'FOLLOWUP', 'TEST', 'OTP'].flatMap((t) =>
+        ['DE', 'EN'].map((l) => [`TWILIO_CONTENT_PS_${t}_${l}`, 'HX1']),
+      ),
+    );
+    const prod = {
+      NODE_ENV: 'production',
+      APP_ENV: 'production',
+      PHONE_PEPPER,
+      MAIL_PROVIDER: 'brevo',
+      BREVO_API_KEY: 'k',
+      FRIENDLY_CAPTCHA_API_KEY: 'k',
+      FRIENDLY_CAPTCHA_SITEKEY: 's',
+      FRIENDLY_CAPTCHA_ENDPOINT: 'eu',
+      STRIPE_SECRET_KEY: 'k',
+      WHATSAPP_PROVIDER: 'twilio',
+      TWILIO_ACCOUNT_SID: 'AC1',
+      TWILIO_AUTH_TOKEN: 't',
+      TWILIO_WHATSAPP_FROM: '+4915100000000',
+      TWILIO_SMS_FROM: 'ParkShield',
+      PRINT_PARTNER: 'p',
+      AUDIT_BUCKET: 'b',
+      ZAMMAD_TOKEN: 't',
+      ...sids,
+    } as const;
+    expect(loadEnv(prod).ALERT_PHOTOS_ENABLED).toBe(false);
+    expect(() => loadEnv({ ...prod, ALERT_PHOTOS_ENABLED: 'true' })).toThrow(
+      /TWILIO_CONTENT_PS_ALERT_PHOTOS_DE/,
+    );
   });
 
   it('uses Twilio for WhatsApp by default and needs every template SID in real production', () => {
@@ -102,6 +139,7 @@ describe('test helpers are limited to dev, unit tests and CI', () => {
     const env = loadEnv({
       NODE_ENV: 'production',
       APP_ENV: 'production',
+      PHONE_PEPPER,
       FRIENDLY_CAPTCHA_API_KEY: 'k',
       FRIENDLY_CAPTCHA_SITEKEY: 's',
       FRIENDLY_CAPTCHA_ENDPOINT: 'eu',

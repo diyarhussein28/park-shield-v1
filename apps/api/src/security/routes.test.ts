@@ -69,6 +69,10 @@ const PUBLIC: Record<string, Control> = {
   'POST /v1/scan/:code/report-fake': { kind: 'rate', limits: ['report.fake_ip'], captcha: true },
   'POST /v1/alerts/:id/waiting': { kind: 'token', what: 'status token from the scan, 256 bit' },
   'GET /v1/alerts/:id/status': { kind: 'token', what: 'status token from the scan, 256 bit' },
+  // Phase 2 alert photos: the owner's view link (HMAC token, 256 bit) plus a limit per network.
+  'GET /v1/alerts/view/:token': { kind: 'rate', limits: ['alert_view.ip'] },
+  'GET /v1/alerts/media/:mediaId': { kind: 'rate', limits: ['alert_view.ip'] },
+  'POST /v1/alerts/view/:token/report-abuse': { kind: 'rate', limits: ['alert_view.ip'] },
   'POST /v1/ack/preview': { kind: 'token', what: 'HMAC reply token' },
   'POST /v1/ack': { kind: 'token', what: 'HMAC reply token' },
   'POST /v1/emergency-contact-invitations/view': { kind: 'token', what: 'consent token, 256 bit' },

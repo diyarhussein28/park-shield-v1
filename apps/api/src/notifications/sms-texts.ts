@@ -69,3 +69,80 @@ export function smsOtpText(lang: 'de' | 'en', code: string, webBaseUrl: string) 
 }
 
 export const smsLinkedText = (lang: 'de' | 'en') => texts[lang].linked();
+
+// --- Phase 2: alerts with photos, one SMS segment ------------------------------------------------
+
+/** One GSM-7 segment. Longer texts are split and billed per segment (and some carriers mangle them). */
+export const SMS_SEGMENT_MAX = 160;
+
+/** The GSM 03.38 basic character set, without the escape table (^{}[]~|€\ cost two characters). */
+const GSM7_BASIC =
+  '@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà';
+const GSM7 = new Set(GSM7_BASIC);
+const UMLAUTS: Record<string, string> = {
+  ä: 'ae',
+  ö: 'oe',
+  ü: 'ue',
+  ß: 'ss',
+  Ä: 'Ae',
+  Ö: 'Oe',
+  Ü: 'Ue',
+};
+
+/**
+ * Plain GSM-7 text: umlauts transliterated (ä→ae …, safer on every handset and carrier), typographic
+ * quotes and dashes mapped, line breaks to spaces, everything else outside the basic set removed.
+ */
+export function toGsm7(s: string): string {
+  return [
+    ...s
+      .replace(/[äöüßÄÖÜ]/g, (c) => UMLAUTS[c]!)
+      .replace(/[“”„«»]/g, '"')
+      .replace(/[‘’‚]/g, "'")
+      .replace(/[–—]/g, '-')
+      .replace(/[\r\n\t]+/g, ' '),
+  ]
+    .filter((c) => GSM7.has(c))
+    .join('')
+    .replace(/ {2,}/g, ' ')
+    .trim();
+}
+
+export const isGsm7 = (s: string) => [...s].every((c) => GSM7.has(c));
+
+const PHOTO_TEXTS = {
+  de: { lead: 'ParkShield', link: 'Fotos & Antwort' },
+  en: { lead: 'ParkShield', link: 'Photos & reply' },
+} as const;
+
+/**
+ * SMS for an alert with photos: `ParkShield: <type> (<nickname>). Fotos & Antwort: <host>/v/<token>`.
+ * Hard limit one segment: GSM-7 only and at most 160 characters including the link. The nickname is
+ * dropped first and the type shortened if needed; if even "ParkShield: Fotos & Antwort: <link>" does not
+ * fit (a much longer domain), it throws, so a template that cannot work fails in tests, not at runtime.
+ */
+export function smsPhotoText(
+  lang: 'de' | 'en',
+  type: string,
+  nickname: string,
+  viewUrl: string,
+): string {
+  const t = PHOTO_TEXTS[lang];
+  // "https://" costs 8 characters; phones link a bare domain with a path just as well.
+  const link = toGsm7(viewUrl.replace(/^https:\/\//, ''));
+  const tail = ` ${t.link}: ${link}`;
+  const cleanType = toGsm7(type).slice(0, 60);
+  const cleanNick = toGsm7(nickname).slice(0, 40);
+  const candidates = [
+    cleanNick ? `${t.lead}: ${cleanType} (${cleanNick}).${tail}` : null,
+    `${t.lead}: ${cleanType}.${tail}`,
+  ].filter((c): c is string => c !== null);
+  for (const c of candidates) if (c.length <= SMS_SEGMENT_MAX) return c;
+  const room = SMS_SEGMENT_MAX - `${t.lead}: .${tail}`.length;
+  if (room >= 8) return `${t.lead}: ${cleanType.slice(0, room).trimEnd()}.${tail}`;
+  const minimal = `${t.lead}:${tail}`;
+  if (minimal.length > SMS_SEGMENT_MAX) {
+    throw new Error(`photo SMS does not fit one segment (${minimal.length} characters)`);
+  }
+  return minimal;
+}

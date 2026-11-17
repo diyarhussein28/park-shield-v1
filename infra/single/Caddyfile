@@ -55,7 +55,8 @@
 	handle @scanner_api {
 		reverse_proxy 127.0.0.1:4000
 	}
-	@scanner_web path /s/* /antwort /antwort/* /_next/*
+	# /v/*: the owner's photo view link from a notification (Phase 2), token-protected like /antwort.
+	@scanner_web path /s/* /antwort /antwort/* /v/* /_next/*
 	handle @scanner_web {
 		reverse_proxy 127.0.0.1:3000
 	}

@@ -50,6 +50,14 @@ import { fakeProviders, isTestEnvironment, type Env } from './config/env';
 import { CoreModule } from './core/core.module';
 import { GeoService } from './core/geo.service';
 import { createHttpApp } from './core/http';
+import fastifyMultipart from '@fastify/multipart';
+import {
+  AlertViewController,
+  PortalAlertMediaController,
+} from './alert-media/alert-media.controller';
+import { AlertMediaService } from './alert-media/alert-media.service';
+import { MULTIPART_OPTIONS } from './alert-media/multipart';
+import { ViewTokenService } from './alert-media/view-token.service';
 import { RateLimitService } from './core/rate-limit.service';
 import { SettingsService } from './core/settings.service';
 import { DevController } from './dev/dev.controller';
@@ -106,6 +114,8 @@ import { WorkerBootstrap } from './worker/worker.bootstrap';
 
 const sharedProviders = [HealthService, RateLimitService, SettingsService, MailService, GeoService];
 const domainProviders = [
+  ViewTokenService,
+  AlertMediaService,
   BillingService,
   EntitlementService,
   TokensService,
@@ -183,6 +193,8 @@ export class PublicAppModule {
         EmergencyContactsController,
         EmergencyContactInvitationsController,
         HistoryController,
+        AlertViewController,
+        PortalAlertMediaController,
         PrivacyController,
         ClaimController,
         SupportController,
@@ -260,8 +272,12 @@ export class WorkerModule {
   }
 }
 
-export const buildPublicApp = (env: Env, logger: Logger) =>
-  createHttpApp(PublicAppModule.forRoot(env, logger), logger);
+export async function buildPublicApp(env: Env, logger: Logger) {
+  const app = await createHttpApp(PublicAppModule.forRoot(env, logger), logger);
+  // Scanner alerts with photos (Phase 2): memory storage, at most 2 files of 500 KB each.
+  await app.register(fastifyMultipart as never, MULTIPART_OPTIONS);
+  return app;
+}
 
 export const buildOpsApp = (env: Env, logger: Logger) =>
   createHttpApp(OpsAppModule.forRoot(env, logger), logger);

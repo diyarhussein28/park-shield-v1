@@ -13,6 +13,7 @@ export class MailService {
     values?: MailValues;
     actionUrl?: string;
     replies?: { label: string; url: string }[];
+    links?: { label: string; url: string }[];
   }): Promise<void> {
     const rendered = renderMail(
       input.template,
@@ -20,6 +21,7 @@ export class MailService {
       input.values ?? {},
       input.actionUrl,
       input.replies,
+      input.links,
     );
     await this.mailer.send({ to: input.to, tag: input.template, ...rendered });
   }

@@ -17,6 +17,7 @@ import { ESCALATE_TOPIC, EscalationService } from '../notifications/escalation.s
 import { OrdersService, PRINT_TOPIC } from '../orders/orders.service';
 import { RemindersService } from '../preferences/reminders.service';
 import { DISPATCH_TOPIC, FOLLOWUP_TOPIC } from '../scan/scan.service';
+import { AlertMediaService } from '../alert-media/alert-media.service';
 import { OutboxService } from './outbox.service';
 import { SchedulerService } from './scheduler.service';
 
@@ -42,6 +43,7 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
     @Inject(RenewalsService) private readonly renewals: RenewalsService,
     @Inject(DB) private readonly db: Db,
     @Inject(ENV) private readonly env: Env,
+    @Inject(AlertMediaService) private readonly media: AlertMediaService,
   ) {}
 
   onApplicationBootstrap() {
@@ -73,13 +75,15 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
       quiet: true,
       run: () => this.reminders.runAll(),
     });
-    // US-33: the retention schedule (docs 04 §retention), all rules in one SQL function.
+    // US-33: the retention schedule (docs 04 §retention): the rules in one SQL function, plus the
+    // alert photo rule (30 days: key, file, row), which needs the file system and so lives in code.
     this.scheduler.every({
       name: 'retention',
       everyMs: HOUR,
       run: async () => {
         await sql`SELECT run_retention()`.execute(this.db);
-        return 'ok';
+        // Counts only: no tokens, no owner or alert ids in the log.
+        return { photos: await this.media.purgeExpired() };
       },
     });
     // US-37: one reminder to the privacy team 7 days before a request's 30-day deadline.

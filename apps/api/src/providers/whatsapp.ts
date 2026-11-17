@@ -10,6 +10,11 @@ export const DEV_WHATSAPP_KEY = 'dev:whatsapp';
  * the OTP template uses the authentication category with a copy-code button.
  */
 export class Dialog360Sender implements WhatsAppSender {
+  /** 360dialog sends by template name; approval is checked when ALERT_PHOTOS_ENABLED is switched on. */
+  supports(): boolean {
+    return true;
+  }
+
   constructor(
     private readonly apiKey: string,
     private readonly baseUrl: string,
@@ -21,6 +26,7 @@ export class Dialog360Sender implements WhatsAppSender {
     lang: 'de' | 'en';
     params: string[];
     buttons?: string[];
+    urlButton?: string;
   }): Promise<{ messageId: string }> {
     const components: unknown[] = [
       { type: 'body', parameters: input.params.map((text) => ({ type: 'text', text })) },
@@ -31,6 +37,15 @@ export class Dialog360Sender implements WhatsAppSender {
         parameters: [{ type: 'payload', payload }],
       })),
     ];
+    if (input.template === 'ps_alert_photos' && input.urlButton) {
+      // The URL button follows the three quick replies (docs/whatsapp-templates.md).
+      components.push({
+        type: 'button',
+        sub_type: 'url',
+        index: String(input.buttons?.length ?? 3),
+        parameters: [{ type: 'text', text: input.urlButton }],
+      });
+    }
     if (input.template === 'ps_otp') {
       components.push({
         type: 'button',
@@ -65,12 +80,17 @@ export class DevWhatsAppSender implements WhatsAppSender {
     private readonly logger: Logger,
   ) {}
 
+  supports(): boolean {
+    return true;
+  }
+
   async sendTemplate(input: {
     to: string;
     template: WhatsAppTemplate;
     lang: 'de' | 'en';
     params: string[];
     buttons?: string[];
+    urlButton?: string;
   }): Promise<{ messageId: string }> {
     const messageId = `wamid.dev.${randomToken(12)}`;
     await this.valkey
@@ -88,6 +108,10 @@ export class DevWhatsAppSender implements WhatsAppSender {
 
 /** WHATSAPP_PROVIDER=off: the channel is not offered, so nothing should ever reach this. */
 export class DisabledWhatsAppSender implements WhatsAppSender {
+  supports(): boolean {
+    return false;
+  }
+
   async sendTemplate(): Promise<{ messageId: string }> {
     throw new Error('WhatsApp is switched off (WHATSAPP_PROVIDER=off)');
   }

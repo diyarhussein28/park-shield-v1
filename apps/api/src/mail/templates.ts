@@ -130,6 +130,16 @@ const templates = {
       ],
       action: 'Zum Konto',
     },
+    // Phase 2: alert with photos. Only the link to the view page, never an attachment or embedded image.
+    alert_received_photos: {
+      subject: '{type}: „{nickname}“ (mit Fotos)',
+      lines: [
+        'Jemand hat gerade Ihren ParkShield-Aufkleber an „{nickname}“ gescannt: {type}. Die Person hat Fotos angehängt.',
+        '{hasMessage, select, yes {Nachricht: „{message}“} hidden {Nachricht von nicht bestätigtem Absender – ansehen in ParkShield} other {}}',
+        'Antworten Sie mit einem Tipp, dann sieht die Person Ihre Antwort:',
+      ],
+      action: 'Fotos ansehen',
+    },
     alert_test: {
       subject: 'Test erfolgreich: „{nickname}“',
       lines: [
@@ -448,6 +458,15 @@ const templates = {
       ],
       action: 'Open my account',
     },
+    alert_received_photos: {
+      subject: '{type}: “{nickname}” (with photos)',
+      lines: [
+        'Someone just scanned your ParkShield decal on “{nickname}”: {type}. They attached photos.',
+        '{hasMessage, select, yes {Message: “{message}”} hidden {Message from an unconfirmed sender – view it in ParkShield} other {}}',
+        'Reply with one tap and they see your answer:',
+      ],
+      action: 'View photos',
+    },
     alert_test: {
       subject: 'Test successful: “{nickname}”',
       lines: [
@@ -672,6 +691,8 @@ export function renderMail(
   actionUrl?: string,
   /** Quick replies (NT-02): rendered as buttons above the main action, each a link to the reply page. */
   replies: { label: string; url: string }[] = [],
+  /** Small text links below the main action (e.g. "Missbrauch melden"). */
+  links: { label: string; url: string }[] = [],
 ): { subject: string; text: string; html: string } {
   const src: TemplateSource = templates[locale][template];
   const fmt = (s: string) =>
@@ -686,6 +707,7 @@ export function renderMail(
     ...lines,
     ...replies.map((r) => `${r.label}: ${r.url}`),
     ...(action ? ['', `${action.label}: ${action.url}`] : []),
+    ...links.map((l) => `${l.label}: ${l.url}`),
     '',
     '— ParkShield',
   ].join('\n\n');
@@ -693,6 +715,7 @@ export function renderMail(
 ${lines.map((l) => `<p>${escapeHtml(l).replace(/\n/g, '<br>')}</p>`).join('\n')}
 ${replies.length ? `<p>${replies.map((r, i) => button(r, i === 0)).join('')}</p>` : ''}
 ${action ? `<p>${button(action, replies.length === 0)}</p>` : ''}
+${links.length ? `<p style="font-size:14px">${links.map((l) => `<a href="${escapeHtml(l.url)}" style="color:#475569">${escapeHtml(l.label)}</a>`).join(' · ')}</p>` : ''}
 <p style="color:#475569">— ParkShield</p></body></html>`;
   return { subject, text, html };
 }

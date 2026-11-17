@@ -65,6 +65,23 @@ function AlertCard({ alert: a, onReported }: { alert: HistoryAlert; onReported: 
   const [result, setResult] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
   const [hidden, setHidden] = useState<{ message: string | null } | null>(null);
   const [showing, setShowing] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoCount, setPhotoCount] = useState(a.photos?.count ?? 0);
+
+  /** Phase 2: "Missbrauch melden" for an alert with photos deletes them at once (alert photos §5). */
+  async function reportPhotos() {
+    setPhotoBusy(true);
+    try {
+      await api(`/v1/portal/alerts/${a.id}/report-abuse`, { method: 'POST' });
+      setPhotoCount(0);
+      setResult({ tone: 'success', text: t('alertView.reportDone') });
+      onReported();
+    } catch (err) {
+      setResult({ tone: 'danger', text: errorText(err, t) });
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   /** Protected Mode: the owner opens hidden content explicitly ("Anzeigen"). */
   async function show() {
@@ -140,6 +157,19 @@ function AlertCard({ alert: a, onReported }: { alert: HistoryAlert; onReported: 
               </Button>
             </div>
           ))}
+        {photoCount > 0 && (
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3">
+            <Text className="text-sm">{t('history.photos', { count: photoCount })}</Text>
+            {a.photos?.viewPath && (
+              <Link href={a.photos.viewPath} className="text-primary underline">
+                {t('history.photosView')}
+              </Link>
+            )}
+            <Button variant="danger" busy={photoBusy} onClick={reportPhotos} className="w-fit">
+              {t('alertView.abuseSend')}
+            </Button>
+          </div>
+        )}
         {a.deliveries.length > 0 && (
           <Text muted className="text-sm">
             {t('history.channels')}:{' '}

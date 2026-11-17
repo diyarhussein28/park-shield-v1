@@ -63,6 +63,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ code
       'cache-control': 'no-store',
       'content-security-policy': scannerCsp(Boolean(SITEKEY)),
       'referrer-policy': 'no-referrer',
+      // Phase 2: the optional photo capture uses the rear camera on this page only.
+      'permissions-policy': 'camera=(self), microphone=(), geolocation=(), interest-cohort=()',
       'x-robots-tag': 'noindex, nofollow',
       'content-language': locale,
     },

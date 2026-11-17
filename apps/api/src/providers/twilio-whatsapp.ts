@@ -10,7 +10,7 @@ export const TWILIO_WEBHOOK_PATH = '/v1/webhooks/twilio/whatsapp';
 /** The approved template per language (TWILIO_CONTENT_<TEMPLATE>_<LANG>). */
 export function contentSidsFromEnv(env: Env): ContentSids {
   const sids: ContentSids = {};
-  for (const t of ['ps_alert', 'ps_followup', 'ps_test', 'ps_otp'] as const) {
+  for (const t of ['ps_alert', 'ps_followup', 'ps_test', 'ps_otp', 'ps_alert_photos'] as const) {
     for (const l of ['de', 'en'] as const) {
       const v = env[`TWILIO_CONTENT_${t.toUpperCase()}_${l.toUpperCase()}` as keyof Env];
       if (typeof v === 'string' && v) sids[`${t}:${l}`] = v;
@@ -69,12 +69,17 @@ export class TwilioWhatsAppSender implements WhatsAppSender {
     private readonly fetchImpl: typeof fetch = fetch,
   ) {}
 
+  supports(template: WhatsAppTemplate, lang: Lang): boolean {
+    return Boolean(this.contentSids[`${template}:${lang}`]);
+  }
+
   async sendTemplate(input: {
     to: string;
     template: WhatsAppTemplate;
     lang: Lang;
     params: string[];
     buttons?: string[];
+    urlButton?: string;
   }): Promise<{ messageId: string }> {
     const contentSid = this.contentSids[`${input.template}:${input.lang}`];
     if (!contentSid) {
@@ -85,6 +90,8 @@ export class TwilioWhatsAppSender implements WhatsAppSender {
       // Three quick-reply ids; messages without reply links (the test after linking) get inert ones.
       for (let i = 0; i < 3; i++) values.push(input.buttons?.[i] ?? `noop:${i}`);
     }
+    // ps_alert_photos: the URL button's dynamic suffix comes after the quick replies ({{6}}).
+    if (input.template === 'ps_alert_photos') values.push(input.urlButton ?? '');
     const variables = Object.fromEntries(values.map((v, i) => [String(i + 1), v]));
     const form = new URLSearchParams({
       To: `whatsapp:+${input.to.replace(/^\+/, '')}`,

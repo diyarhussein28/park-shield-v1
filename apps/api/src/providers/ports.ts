@@ -48,7 +48,13 @@ export interface PushSender {
   ): Promise<{ statusCode: number }>;
 }
 
-export type WhatsAppTemplate = 'ps_otp' | 'ps_alert' | 'ps_test' | 'ps_followup';
+export type WhatsAppTemplate =
+  | 'ps_otp'
+  | 'ps_alert'
+  | 'ps_test'
+  | 'ps_followup'
+  /** Phase 2: ps_alert plus a URL button https://<domain>/v/{{token}} (docs/whatsapp-templates.md). */
+  | 'ps_alert_photos';
 
 /** WhatsApp Business utility/authentication templates via Twilio or 360dialog (WHATSAPP_PROVIDER). */
 export interface WhatsAppSender {
@@ -60,7 +66,11 @@ export interface WhatsAppSender {
     params: string[];
     /** Quick-reply button payloads, in template button order (NT-02). */
     buttons?: string[];
+    /** Dynamic suffix of the template's URL button (ps_alert_photos: the view token). */
+    urlButton?: string;
   }): Promise<{ messageId: string }>;
+  /** Whether this template can be sent in this language (Twilio: a content SID is configured). */
+  supports(template: WhatsAppTemplate, lang: 'de' | 'en'): boolean;
 }
 
 /** Plain-text SMS through Twilio (NT-07). SMS has no buttons: replies go through the link in the text. */

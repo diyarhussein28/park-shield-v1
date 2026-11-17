@@ -76,6 +76,7 @@ The co-driver needs their own account (no subscription) and must explicitly acce
 | Alerts and delivery records | 90 days | `run_retention` (cascading delete) |
 | Scanner photos (Phase 2) | 30 days unless saved by the owner | Object Storage lifecycle policy |
 | Parking location (Phase 2) | 24 h after session end | `run_retention` |
+| Alert photos and their view link (Phase 2) | 30 days after the alert, at once after an abuse report | hourly retention job (`AlertMediaService.purgeExpired`: key, file, row); never in backups |
 | Shipping address | 90 days after delivery | `run_retention` (invoices kept in accounting) |
 | Unaccepted invitations | 14 days | `run_retention` |
 | Sign-ups that never verified their e-mail | 24 h | `run_retention` |

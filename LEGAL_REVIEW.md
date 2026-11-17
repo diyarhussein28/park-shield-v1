@@ -109,3 +109,80 @@ over a silent ("shadow") block so that a person in real danger looks for other h
   harasser cannot be identified reliably; this is why it hides only content and never blocks.
 - Notifications (push, WhatsApp, SMS, e-mail) carry no free text of an unconfirmed sender, only
   "Nachricht von nicht bestätigtem Absender – ansehen in ParkShield".
+
+## 5. Alert photos (Phase 2, behind `ALERT_PHOTOS_ENABLED`)
+
+Code: `apps/api/src/alert-media/`, scanner page `apps/web/lib/scanner/`, view page `apps/web/app/v/`,
+migration `db/migrations/20261128000000_alert_photos.sql`. Off by default; which plans get it is the
+setting `photos.plans` (default Premium). **Go-live blocker:** everything in this section, and the
+privacy-notice anchor `/datenschutz#warnfotos` that the scanner page links to (it does not exist yet).
+
+### What the feature does (facts for the review)
+
+- A scanner may attach up to 2 photos to an alert. Before the camera opens they must tap „Verstanden“
+  on the camera notice below. Live camera (`getUserMedia`) is the preferred path; if it is unavailable
+  or refused, the normal file picker opens (`capture="environment"` is only a hint, so a stored photo
+  can be chosen; a browser cannot prove a photo is live).
+- Phone side: re-encoded via canvas to JPEG ≤ 1600 px, < 300 KB (drops EXIF on the device). Server
+  side: magic bytes (JPEG/WebP only), decoded and re-encoded with sharp without any metadata (EXIF,
+  GPS, XMP, IPTC, ICC removed; covered by a test with a GPS-tagged image).
+- Stored on our own server (Germany), outside every web root, each file encrypted with its own
+  AES-256-GCM key; the key is stored wrapped with the application key in PostgreSQL. Files are not in
+  any backup. Deleting the key makes every copy unreadable (crypto-shredding).
+- The owner gets **one link** (`/v/<token>`, 256-bit token, only its hash stored) in every channel. No
+  photo is sent to Twilio, Meta, the e-mail provider or a push service; they only carry the link.
+- Deleted automatically **30 days** after the alert (file, key, link), or **at once** when the owner
+  taps „Missbrauch melden“ (view page, portal history, e-mail link). The report also deletes the alert
+  text, blocks the sender for this vehicle (30 days, `photos.abuse_block_days`), stops photo uploads to
+  this vehicle for 24 h (`photos.abuse_upload_block_hours`) and creates a review entry in ops. The
+  report itself stores no photo and no free text.
+- In Protected Mode (§4.6) photos of an unconfirmed sender are shown only after „Anzeigen“.
+
+### Camera notice (scanner page, `packages/i18n` `scanner.photoNotice`)
+
+> „Bitte fotografieren Sie nur das betroffene Fahrzeug – keine Personen oder fremden Kennzeichen.“
+
+Plus the link „Datenschutzhinweise“ → `https://park-shield.de/datenschutz#warnfotos`.
+**Question:** is this notice sufficient as information at the time of collection (Art. 13 DSGVO) for the
+scanner, or does the scanner page need the short privacy text inline?
+
+### Privacy notice section „Fotos bei Warnungen“ — DRAFT, to be written by the lawyer
+
+Points the section has to cover (no wording proposed here on purpose):
+
+- **Controller and purpose:** documenting the reported problem for the vehicle owner (e.g. blocked
+  exit, damage) so they can react; abuse prevention.
+- **Legal basis:** to be decided. Candidates: Art. 6(1)(f) (legitimate interest of the owner and of
+  the scanner) for scanner data and for third parties who may appear in a photo; Art. 6(1)(b) towards
+  the owner (paid feature). **Question:** which basis for bystanders and other number plates that end
+  up in a photo despite the notice?
+- **Categories:** image content (vehicle, surroundings, possibly people or plates), time of the alert;
+  no metadata (removed), no location.
+- **Recipients:** only the vehicle owner (via the view link) and ParkShield staff in the abuse review
+  (staff do not see photos; a report deletes them). Hosting: our own server in Germany. No transfer of
+  the images to Twilio, Meta or the e-mail provider.
+- **Retention:** 30 days, earlier on an abuse report; not in backups.
+- **Rights:** how a scanner (no account) can exercise access/erasure — they cannot be identified by us.
+  **Question:** is pointing to the abuse/erasure path of the owner and a contact address enough?
+
+### DPIA (Datenschutz-Folgenabschätzung, Art. 35 DSGVO)
+
+**Open — needs a decision before go-live.** Arguments for a DPIA: images of public space taken by
+strangers that may show uninvolved people or plates; new technology use on a consumer platform;
+possibly systematic in aggregate. Arguments against: no automated processing of the images, no
+recognition, short retention, single recipient. Also check the DSK „Muss-Liste“. Recommendation for
+the engineering side: do the DPIA (or a documented threshold assessment) anyway; the facts above are its
+input.
+
+### Twilio and Meta (WhatsApp, SMS)
+
+- WhatsApp and SMS carry only the alert type, the vehicle nickname and the link, never a photo
+  (`mediaUrl` is not used; template `ps_alert_photos` in `docs/whatsapp-templates.md`, TODO
+  [LEGAL REVIEW] on its text).
+- **Twilio:** DPA with Twilio Ireland Limited; transfers to the US under the EU-US Data Privacy
+  Framework and SCCs. **To do:** confirm the DPA covers WhatsApp and SMS content incl. the view link,
+  and Twilio's message-body retention.
+- **Meta (WhatsApp Business Platform):** Meta processes message content and metadata as Twilio's
+  sub-processor / for its own purposes per the WhatsApp Business terms; third-country transfer to the
+  US. **Question:** is the link itself (which grants access to the photos for 30 days) acceptable in a
+  message processed by Meta, or should WhatsApp show only „Fotos im Konto ansehen“ without the token?

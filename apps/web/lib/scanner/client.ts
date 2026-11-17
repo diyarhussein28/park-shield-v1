@@ -20,6 +20,7 @@ function applyLang() {
   document.querySelectorAll('.type').forEach((el) => { el.textContent = el.dataset[lang]; });
   document.querySelectorAll('.lang').forEach((el) => el.setAttribute('aria-pressed', String(el.dataset.lang === lang)));
   if (d.backAt) $('backat').textContent = t('backAt', { time: time(d.backAt) });
+  if ($('ph')) phRender();
   counter();
   if (last) render(last);
 }
@@ -79,22 +80,67 @@ function guide(country, show) {
   g.sos.forEach((n, i) => { if (i) e.appendChild(document.createTextNode(' / ')); e.appendChild(tel(n)); });
 }
 
-async function send(type, message) {
+// Phase 2 alert photos: one multipart request with upload progress (XHR; fetch cannot report it).
+function upload(url, form) {
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open('POST', url);
+    x.withCredentials = false;
+    x.timeout = 60000;
+    x.upload.onprogress = (e) => { if (e.lengthComputable) phStatus(t('photoUploading', { percent: Math.round((e.loaded / e.total) * 100) })); };
+    x.onload = () => { let b = {}; try { b = JSON.parse(x.responseText); } catch (e) {} resolve({ status: x.status, body: b }); };
+    x.onerror = () => reject(new Error('network'));
+    x.ontimeout = () => reject(new Error('timeout'));
+    x.send(form);
+  });
+}
+
+async function send(type, message, withoutPhotos) {
   if (busy) return;
   error('');
+  $('ph-without') && ($('ph-without').hidden = true);
   setBusy(true);
+  const url = '/v1/scan/' + encodeURIComponent(d.code) + '/alerts';
+  const usePhotos = !withoutPhotos && photos.length > 0;
   try {
-    const res = await fetch('/v1/scan/' + encodeURIComponent(d.code) + '/alerts', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      credentials: 'omit',
-      body: JSON.stringify({ type, message, lang, captcha: await captcha(), verification: verification || undefined }),
-    });
-    const body = await res.json().catch(() => ({}));
+    const alert = { type, message, lang, captcha: await captcha(), verification: verification || undefined };
+    let res;
+    if (usePhotos) {
+      const form = new FormData();
+      form.append('alert', JSON.stringify(alert));
+      photos.forEach((p, i) => form.append('photos', p.blob, 'foto-' + (i + 1) + '.jpg'));
+      try {
+        res = await upload(url, form);
+      } catch (e) {
+        res = null;
+      }
+      // A photo problem never blocks the alert: offer to send it without photos.
+      if (!res || res.status === 413 || res.status === 0) {
+        phStatus('');
+        error(t('photoFailed'));
+        $('ph-without').hidden = false;
+        $('ph-without').onclick = () => send(type, message, true);
+        return;
+      }
+    } else {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'omit',
+        body: JSON.stringify(alert),
+      });
+      res = { status: r.status, body: await r.json().catch(() => ({})) };
+    }
+    const body = res.body;
     if (res.status === 201) {
       current = { id: body.alertId, token: body.statusToken };
       remember(current);
+      const ph = body.photos;
+      const note = ph && ph.rejected ? (ph.stored ? t('photoPartly') : t('photoDropped')) : '';
+      phClear();
+      phStatus(note);
       showStatus();
+      if (note) error(note);
       return;
     }
     if (body.error === 'message_blocked') error(t('errorBlocked'));
@@ -106,7 +152,120 @@ async function send(type, message) {
     error(t('errorGeneric'));
   } finally {
     setBusy(false);
+    if (usePhotos) phStatus(photos.length ? t('photoCount', { count: photos.length }) : '');
   }
+}
+
+// --- Phase 2: optional photos (max. 2), live camera first ------------------------------------------
+// The live camera (getUserMedia) is the preferred path, NOT a guarantee: the browser cannot prove a
+// photo is live. The fallback's capture="environment" is only a hint, and virtual cameras exist. The
+// server treats every upload as untrusted (magic bytes, decode, re-encode, no metadata).
+const photos = [];
+let retake = -1, stream = null, noticeOk = false;
+const MAXP = 2, MAX_SIDE = 1600, TARGET = 300 * 1024, HARD = 500 * 1024;
+function phStatus(text) { const s = $('ph-status'); if (s) s.textContent = text || ''; }
+function phClear() { photos.splice(0).forEach((p) => URL.revokeObjectURL(p.url)); phRender(); }
+function phRender() {
+  const list = $('ph-list');
+  if (!list) return;
+  list.textContent = '';
+  photos.forEach((p, i) => {
+    const li = document.createElement('li');
+    const img = document.createElement('img');
+    img.src = p.url; img.alt = t('photoAlt', { n: i + 1 });
+    const again = document.createElement('button');
+    again.type = 'button'; again.className = 'secondary'; again.textContent = t('photoRetake');
+    again.setAttribute('aria-label', t('photoRetake') + ' – ' + img.alt);
+    again.addEventListener('click', () => phAdd(i));
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'secondary'; del.textContent = t('photoDelete');
+    del.setAttribute('aria-label', t('photoDelete') + ' – ' + img.alt);
+    del.addEventListener('click', () => { URL.revokeObjectURL(photos[i].url); photos.splice(i, 1); phRender(); $('ph-add').focus(); });
+    li.append(img, again, del);
+    list.appendChild(li);
+  });
+  $('ph-add').disabled = photos.length >= MAXP;
+  phStatus(photos.length ? t('photoCount', { count: photos.length }) : '');
+}
+function phAdd(i) {
+  retake = i;
+  if (noticeOk) { openCamera(); return; }
+  $('ph-notice').hidden = false;
+  $('ph-ok').focus();
+}
+function stopCamera() {
+  if (stream) stream.getTracks().forEach((tr) => tr.stop());
+  stream = null;
+  const v = $('ph-video'); if (v) v.srcObject = null;
+  if ($('ph-cam')) $('ph-cam').hidden = true;
+}
+function fallback() { const f = $('ph-file'); f.value = ''; f.click(); }
+async function openCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { fallback(); return; }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+  } catch (e) {
+    stream = null; fallback(); return; // permission denied, no camera, old browser
+  }
+  const v = $('ph-video');
+  v.srcObject = stream;
+  $('ph-cam').hidden = false;
+  try { await v.play(); } catch (e) {}
+  $('ph-shot').focus();
+}
+function draw(src, w, h) {
+  const k = Math.min(1, MAX_SIDE / Math.max(w, h));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+  return c;
+}
+// Re-encoding through a canvas also drops EXIF (GPS, device) on the phone already.
+async function compress(c) {
+  let blob = null;
+  for (let q = 0.8; q >= 0.5 - 1e-9; q -= 0.1) {
+    blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', q));
+    if (blob && blob.size < TARGET) break;
+  }
+  return blob && blob.size <= HARD ? blob : null;
+}
+function keep(blob) {
+  if (!blob) { phStatus(t('photoError')); return; }
+  const p = { blob, url: URL.createObjectURL(blob) };
+  if (retake >= 0 && photos[retake]) { URL.revokeObjectURL(photos[retake].url); photos[retake] = p; }
+  else if (photos.length < MAXP) photos.push(p);
+  retake = -1;
+  phRender();
+  $('ph-add').disabled ? $('ph-list').querySelector('button').focus() : $('ph-add').focus();
+}
+if ($('ph')) {
+  $('ph-add').addEventListener('click', () => phAdd(-1));
+  $('ph-ok').addEventListener('click', () => { noticeOk = true; $('ph-notice').hidden = true; openCamera(); });
+  $('ph-cancel').addEventListener('click', () => { $('ph-notice').hidden = true; $('ph-add').focus(); });
+  $('ph-shot').addEventListener('click', async () => {
+    const v = $('ph-video');
+    if (!v.videoWidth) return;
+    const c = draw(v, v.videoWidth, v.videoHeight);
+    stopCamera();
+    keep(await compress(c));
+  });
+  $('ph-close').addEventListener('click', () => { stopCamera(); $('ph-add').focus(); });
+  $('ph-cam').addEventListener('keydown', (e) => { if (e.key === 'Escape') { stopCamera(); $('ph-add').focus(); } });
+  $('ph-file').addEventListener('change', async () => {
+    const f = $('ph-file').files[0];
+    if (!f) return;
+    try {
+      const bmp = await createImageBitmap(f, { imageOrientation: 'from-image' });
+      const c = draw(bmp, bmp.width, bmp.height);
+      bmp.close && bmp.close();
+      keep(await compress(c));
+    } catch (e) {
+      phStatus(t('photoError'));
+    }
+  });
+  // Never leave the camera running in the background.
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stopCamera(); });
+  window.addEventListener('pagehide', stopCamera);
 }
 
 document.querySelectorAll('.type').forEach((b) => b.addEventListener('click', () => {
@@ -119,6 +278,7 @@ $('back').addEventListener('click', () => { $('custom').hidden = true; $('pick')
 $('another').addEventListener('click', () => {
   remember(null); current = null; last = null; clearTimeout(timer);
   $('status').hidden = true; $('custom').hidden = true; $('pick').hidden = false; $('msg').value = ''; counter();
+  if ($('ph')) { phClear(); $('ph').hidden = false; }
   $('pick').querySelector('.type').focus();
 });
 
@@ -218,6 +378,7 @@ async function poll() {
 
 function showStatus() {
   $('pick').hidden = true; $('custom').hidden = true; $('status').hidden = false;
+  if ($('ph')) { stopCamera(); $('ph').hidden = true; }
   render(last || { status: 'dispatched' });
   $('status').focus();
   clearTimeout(timer);

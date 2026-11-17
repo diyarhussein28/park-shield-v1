@@ -20,6 +20,11 @@ language, so eight in total; each gets a Content SID (`HX…`) that goes into `.
 | `ps_test`     | Quick reply                  | English  | `TWILIO_CONTENT_PS_TEST_EN`       |
 | `ps_otp`      | Authentication (WhatsApp)    | German   | `TWILIO_CONTENT_PS_OTP_DE`        |
 | `ps_otp`      | Authentication (WhatsApp)    | English  | `TWILIO_CONTENT_PS_OTP_EN`        |
+| `ps_alert_photos` | Card (quick replies + URL) | German  | `TWILIO_CONTENT_PS_ALERT_PHOTOS_DE` |
+| `ps_alert_photos` | Card (quick replies + URL) | English | `TWILIO_CONTENT_PS_ALERT_PHOTOS_EN` |
+
+`ps_alert_photos` (Phase 2) is needed only once `ALERT_PHOTOS_ENABLED` is on; until it is approved,
+alerts with photos go out as `ps_alert` (the photos are then reachable by e-mail, SMS, push and portal).
 
 Name each template like `ps_alert_de`, set the category as below and submit it for **WhatsApp
 approval**.
@@ -32,6 +37,11 @@ so enter the IDs as the variables that follow the body variables:
 | -------------------------- | ---------------------- | ----------- | ----------- | ----------- |
 | `ps_alert`, `ps_followup`  | `{{1}}` problem, `{{2}}` nickname | `{{3}}` | `{{4}}` | `{{5}}` |
 | `ps_test`                  | `{{1}}` nickname       | `{{2}}`     | `{{3}}`     | `{{4}}`     |
+| `ps_alert_photos`          | `{{1}}` problem, `{{2}}` nickname | `{{3}}` | `{{4}}` | `{{5}}` |
+
+`ps_alert_photos` has a fourth button, a **URL button** "Fotos ansehen" / "View photos" with the URL
+`https://park-shield.de/v/{{6}}` (dynamic suffix = the 43-character view token, sample
+`AbC123dEf456gHi789jKl012mNo345pQr678sTu901v`). The code sends it after the three button IDs.
 
 Sample values for the ID variables: `ack:sample:coming`, `ack:sample:in_30_min`,
 `ack:sample:not_nearby`.
@@ -81,6 +91,27 @@ Footer (optional, both languages): `Ihre Nummer bleibt geheim.` / `Your number s
 
 Samples: `{{1}}` = `Fahrzeug versperrt Ausfahrt` / `Vehicle is blocking an exit`, `{{2}}` =
 `Der Blaue` / `The blue one`.
+
+## `ps_alert_photos` (Utility, Phase 2)
+
+Same body variables and quick replies as `ps_alert`, plus the URL button above. **Never** a media
+header or `mediaUrl`: photos stay on our server and are only shown on the view page. TODO [LEGAL REVIEW]
+
+**German body**
+
+```text
+ParkShield-Warnung: {{1}} bei Ihrem Fahrzeug „{{2}}“.
+
+Die Person hat Fotos angehängt. Sie sehen sie über „Fotos ansehen“ (30 Tage lang). Bitte tippen Sie unten auf eine Antwort.
+```
+
+**English body**
+
+```text
+ParkShield alert: {{1}} at your vehicle "{{2}}".
+
+The person attached photos. Open them with "View photos" (for 30 days). Please tap one of the answers below.
+```
 
 ## `ps_followup` (Utility)
 

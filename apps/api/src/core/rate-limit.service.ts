@@ -81,6 +81,10 @@ export const RATE_LIMITS = {
   // tokens are unguessable; a shared NAT (office, campus) still has plenty of room.
   'auth.ip': { max: 60, windowSeconds: 600 },
   'ops_auth.ip': { max: 30, windowSeconds: 600 },
+  // Phase 2 alert photos: uploads per vehicle (an alert with photos counts once), and the owner's
+  // view page with its photos and the "Missbrauch melden" button, per network.
+  'photos.vehicle': { max: 6, windowSeconds: 3600 },
+  'alert_view.ip': { max: 120, windowSeconds: 600 },
 } as const;
 export type RateLimitName = keyof typeof RATE_LIMITS;
 

@@ -125,3 +125,12 @@ docker compose exec -T postgres pg_restore -U parkshield -h 127.0.0.1 -d <databa
 ```
 
 Log: `/var/log/parkshield-backup.log`. Run one now: `/opt/parkshield/src/infra/single/backup.sh`.
+
+### Alert photos are not backed up (Phase 2)
+
+Photos sent with alerts (`ALERT_PHOTOS_ENABLED`) live encrypted in the Docker volume `alert-media`
+(`/var/lib/parkshield/alert-media` in the api and worker containers). `backup.sh` dumps PostgreSQL only
+and must **never** include this volume: photos are deleted after 30 days or at once after an abuse
+report, and a backup copy would outlive that. Each file has its own key, stored wrapped in PostgreSQL;
+a database backup therefore contains keys but no files, and a deleted key makes any stray copy of a file
+unreadable (crypto-shredding). After a restore from backup, photos of the last days are simply gone.

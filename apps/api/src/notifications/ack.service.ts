@@ -92,6 +92,25 @@ export class AckService {
     return token;
   }
 
+  /**
+   * The reply token that is armed right now, or null (not sent yet, already answered). Used by the photo
+   * view page (/v/…), whose own token already proves it came from the owner's notification.
+   */
+  async openToken(alertId: string): Promise<string | null> {
+    const a = await this.db
+      .selectFrom('alerts')
+      .select(['ack_token_hash', 'ack_token_expires_at', 'expires_at'])
+      .where('id', '=', alertId)
+      .executeTakeFirst();
+    if (!a?.ack_token_hash) return null;
+    if ((a.ack_token_expires_at ?? a.expires_at) < new Date()) return null;
+    for (const gen of ['f', 'a'] as const) {
+      const token = this.derive(alertId, gen);
+      if (sha256(token).equals(a.ack_token_hash)) return token;
+    }
+    return null;
+  }
+
   /** Fresh reply buttons (the reminder after "Ich warte noch"). The previous link stops working. */
   async renew(alertId: string, expiresAt: Date): Promise<string> {
     const token = this.derive(alertId, 'f');

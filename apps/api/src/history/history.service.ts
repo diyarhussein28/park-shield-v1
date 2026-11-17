@@ -8,6 +8,7 @@ import { FairUseService } from '../notifications/fair-use.service';
 import { PreferencesService } from '../preferences/preferences.service';
 import { PhoneBansService } from '../abuse/phone-bans.service';
 import { ProtectionService } from '../abuse/protection.service';
+import { ViewTokenService } from '../alert-media/view-token.service';
 
 export const REPORT_REASONS = ['harassment', 'spam', 'false_alarm', 'other'] as const;
 export type ReportReason = (typeof REPORT_REASONS)[number];
@@ -29,6 +30,7 @@ export class HistoryService {
     @Inject(FairUseService) private readonly fairUse: FairUseService,
     @Inject(ProtectionService) private readonly protection: ProtectionService,
     @Inject(PhoneBansService) private readonly phoneBans: PhoneBansService,
+    @Inject(ViewTokenService) private readonly viewTokens: ViewTokenService,
   ) {}
 
   async list(userId: string) {
@@ -66,7 +68,7 @@ export class HistoryService {
     if (!alerts.length) return { alerts: [] };
 
     const ids = alerts.map((a) => a.id);
-    const [deliveries, reports] = await Promise.all([
+    const [deliveries, reports, media, links] = await Promise.all([
       this.db
         .selectFrom('alert_deliveries')
         .select(['alert_id', 'channel', 'status', 'suppressed_reason', 'error_code', 'queued_at'])
@@ -80,7 +82,23 @@ export class HistoryService {
         .where('alert_id', 'in', ids)
         .where('reported_by', '=', userId)
         .execute(),
+      // Phase 2: photos that still exist, and whether the alert's view link is still valid.
+      this.db
+        .selectFrom('alert_media')
+        .select(['alert_id', (eb) => eb.fn.countAll<string>().as('n')])
+        .where('alert_id', 'in', ids)
+        .where('deleted_at', 'is', null)
+        .groupBy('alert_id')
+        .execute(),
+      this.db
+        .selectFrom('alert_view_tokens')
+        .select('alert_id')
+        .where('alert_id', 'in', ids)
+        .where('expires_at', '>', sql<Date>`now()`)
+        .execute(),
     ]);
+    const photoCount = new Map(media.map((m) => [m.alert_id, Number(m.n)]));
+    const linked = new Set(links.map((l) => l.alert_id));
     const reported = new Set(reports.map((r) => r.alert_id));
     const monthAgo = Date.now() - BLOCK_DAYS * 86_400_000;
 
@@ -117,6 +135,10 @@ export class HistoryService {
             reason: d.suppressed_reason ?? d.error_code,
           })),
           reported: reported.has(a.id),
+          photos: {
+            count: photoCount.get(a.id) ?? 0,
+            viewPath: linked.has(a.id) ? `/v/${this.viewTokens.tokenFor(a.id)}` : null,
+          },
           // OW-08: a report on an alert older than 30 days goes to the abuse centre only, unless the
           // sender had confirmed a number (12-month phone ban, abuse protection §5).
           canBlock:

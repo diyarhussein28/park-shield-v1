@@ -47,7 +47,8 @@ services:
     image: parkshield-api:local
     command: ['node', '--enable-source-maps', 'dist/main.js']
     # Local stand-ins (print outbox, audit files) write here while those providers have no keys.
-    volumes: ['./data:/data']
+    # alert-media: encrypted alert photos (Phase 2), NOT part of any backup (README "Backups").
+    volumes: ['./data:/data', 'alert-media:/var/lib/parkshield/alert-media']
     healthcheck:
       test:
         - CMD
@@ -62,7 +63,8 @@ services:
     <<: *app
     image: parkshield-api:local
     command: ['node', '--enable-source-maps', 'dist/worker.js']
-    volumes: ['./data:/data']
+    # The worker's hourly retention job deletes expired photo files, so it shares the volume.
+    volumes: ['./data:/data', 'alert-media:/var/lib/parkshield/alert-media']
 
   web:
     <<: *app
@@ -114,6 +116,7 @@ services:
     command: ['npx', 'dbmate', '--migrations-dir', '../../db/migrations', '--no-dump-schema', 'up']
 
 volumes:
+  alert-media:
   pgdata:
   valkey-data:
   caddy-data:

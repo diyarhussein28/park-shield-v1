@@ -97,7 +97,9 @@ export async function addConfirmedContact(
   return row.id;
 }
 
-export async function createHarness(): Promise<Harness> {
+export async function createHarness(
+  overrides: Partial<Record<keyof Env, string>> = {},
+): Promise<Harness> {
   const env = loadEnv({
     STRIPE_SECRET_KEY: '',
     MAIL_PROVIDER: 'brevo',
@@ -117,6 +119,7 @@ export async function createHarness(): Promise<Harness> {
     AUDIT_BUCKET: '',
     AUDIT_BUCKET_DIR: AUDIT_DIR,
     ZAMMAD_TOKEN: '',
+    ...overrides,
   });
   const app = await buildPublicApp(env, createLogger(env));
   await app.init();

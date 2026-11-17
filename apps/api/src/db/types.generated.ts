@@ -110,6 +110,7 @@ export interface AbuseReports {
   qr_token_id: string | null;
   reason: string;
   reported_by: string | null;
+  source: string | null;
   status: Generated<AbuseStatus>;
 }
 
@@ -131,6 +132,22 @@ export interface AlertDeliveries {
   sent_at: Timestamp | null;
   status: Generated<DeliveryStatus>;
   suppressed_reason: string | null;
+}
+
+export interface AlertMedia {
+  alert_id: string;
+  created_at: Generated<Timestamp>;
+  deleted_at: Timestamp | null;
+  deleted_reason: string | null;
+  expires_at: Timestamp;
+  height: number;
+  id: Generated<string>;
+  mime_type: Generated<string>;
+  position: number;
+  size_bytes: number;
+  storage_key: string | null;
+  width: number;
+  wrapped_key: Buffer | null;
 }
 
 export interface AlertMessages {
@@ -182,6 +199,13 @@ export interface AlertTypes {
   label_en: string;
   severity: AlertSeverity;
   sort_order: number;
+}
+
+export interface AlertViewTokens {
+  alert_id: string;
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  token_hash: Buffer;
 }
 
 export interface AppSettings {
@@ -800,6 +824,11 @@ export interface VehicleModes {
   vehicle_id: string;
 }
 
+export interface VehiclePhotoUploadBlocks {
+  until: Timestamp;
+  vehicle_id: string;
+}
+
 export interface VehicleProtection {
   active: boolean;
   active_until: Timestamp | null;
@@ -865,8 +894,10 @@ export interface WithdrawalRequests {
 export interface DB {
   abuse_reports: AbuseReports;
   alert_deliveries: AlertDeliveries;
+  alert_media: AlertMedia;
   alert_messages: AlertMessages;
   alert_types: AlertTypes;
+  alert_view_tokens: AlertViewTokens;
   alerts: Alerts;
   app_settings: AppSettings;
   audit_logs: AuditLogs;
@@ -925,6 +956,7 @@ export interface DB {
   users: Users;
   vehicle_members: VehicleMembers;
   vehicle_modes: VehicleModes;
+  vehicle_photo_upload_blocks: VehiclePhotoUploadBlocks;
   vehicle_protection: VehicleProtection;
   vehicle_transfers: VehicleTransfers;
   vehicles: Vehicles;
