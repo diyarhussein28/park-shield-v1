@@ -16,7 +16,7 @@ ops app and no ops API yet. Do not put real customer data on it before productio
 | File                | Where it runs | What it does                                                           |
 | ------------------- | ------------- | ---------------------------------------------------------------------- |
 | `bootstrap.sh`      | server, once  | Docker, Compose, swap, unattended upgrades, SSH keys only              |
-| `deploy.sh`         | your computer | rsync the working tree, build images on the server, migrate, restart   |
+| `deploy.sh`         | your computer | ship `origin/main`, build images on the server, migrate, restart       |
 | `setup-env.sh`      | server, once  | writes `.env` (Compose/Caddy) and `server.env` (apps) with new secrets |
 | `install-backup.sh` | server, once  | backup encryption key + nightly cron (03:15)                           |
 | `backup.sh`         | server, cron  | encrypted pg_dump to Object Storage, restore check, 30-day retention   |
@@ -55,6 +55,21 @@ ops app and no ops API yet. Do not put real customer data on it before productio
 
 Later deploys: step 7 only. After editing `server.env` on the server:
 `docker compose up -d --force-recreate api worker web`.
+
+### Deploying as a team
+
+`deploy.sh` is safe to run from several laptops:
+
+- It deploys **exactly the commit `origin/main` points to** (`git archive`), never your working
+  tree: push first, then deploy. Uncommitted or unpushed changes are reported and left out.
+- It **refuses to roll back**: if the server runs a commit that is not part of `origin/main`
+  (for example after `main` was force-pushed), it stops. To undo a bad deploy, `git revert` it on
+  `main`, push and deploy again (no flag needed). `ALLOW_ROLLBACK=1` overrides the check and is
+  only for a deliberately rewritten `main`.
+- **One deploy at a time:** a lock (`/opt/parkshield/deploy.lock`) shows who is deploying. A crashed
+  deploy can leave it behind; the error message says how to remove it.
+- **History:** `ssh root@<ip> tail /opt/parkshield/deploys.log` (time, person, commit, subject);
+  the running commit is in `/opt/parkshield/src/DEPLOYED_COMMIT`.
 
 ## Twilio
 

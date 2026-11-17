@@ -113,9 +113,10 @@ Relaxed only for testing on the test server. Restore every item before step 5:
 
 - **Before you start:** `git pull`. Push small commits to `main`; pull again before pushing.
   Agree who works on which area so two people do not edit the same files at once.
-- **Deploy only from an up-to-date, committed `main`.** `deploy.sh` copies your local working tree
-  to the server and deletes what is not in it, so deploying from an old or dirty checkout silently
-  rolls back someone else's work. Tell the others before you deploy.
+- **Deploying:** push to `main`, then `infra/single/deploy.sh root@<server>`. It ships exactly
+  `origin/main` (never your local files), refuses anything that would roll back what is live, lets
+  only one person deploy at a time and logs every deploy on the server (`/opt/parkshield/deploys.log`).
+  Details in `infra/single/README.md`. Tell the others when you deploy.
 - **Secrets:** never in git, chat or messengers. Locally each person has their own `.env`
   (`npm run dev` creates it and every provider falls back to a fake). Provider accounts (Stripe,
   Twilio, Mailjet, Contabo, Strato) invite each person as a team member with their own login.
