@@ -229,6 +229,12 @@ const Words = z.object({
   note: z.string().trim().min(3).max(200),
 });
 
+const PhoneBan = z.object({
+  hash: z.string().regex(/^[0-9a-f]{64}$/),
+  reason: z.string().trim().min(3).max(40),
+});
+const PhoneHash = z.object({ hash: z.string().regex(/^[0-9a-f]{64}$/) });
+
 /** US-38: abuse centre, block review and word lists. */
 @Controller('ops/v1/abuse')
 export class OpsAbuseController {
@@ -282,6 +288,42 @@ export class OpsAbuseController {
     @Body(new ZodPipe(Unblock)) body: z.infer<typeof Unblock>,
   ) {
     await this.abuse.unblock(me, body.ref, body.tokenId);
+    return { ok: true };
+  }
+
+  /** Abuse protection §5: global-ban candidates (hash prefixes and counts only). */
+  @Get('phone-candidates')
+  @RequirePermission('abuse.moderate')
+  phoneCandidates(@CurrentStaff() me: StaffContext) {
+    return this.abuse.phoneCandidates(me);
+  }
+
+  @Post('phone-candidates/dismiss')
+  @HttpCode(200)
+  @RequirePermission('abuse.moderate')
+  async dismissPhone(
+    @CurrentStaff() me: StaffContext,
+    @Body(new ZodPipe(PhoneHash)) body: z.infer<typeof PhoneHash>,
+  ) {
+    await this.abuse.dismissPhoneCandidate(me, body.hash);
+    return { ok: true };
+  }
+
+  @Post('phone-bans')
+  @HttpCode(201)
+  @RequirePermission('abuse.moderate')
+  banPhone(
+    @CurrentStaff() me: StaffContext,
+    @Body(new ZodPipe(PhoneBan)) body: z.infer<typeof PhoneBan>,
+  ) {
+    return this.abuse.banPhoneGlobally(me, body.hash, body.reason);
+  }
+
+  @Delete('phone-bans/:id')
+  @HttpCode(200)
+  @RequirePermission('abuse.moderate')
+  async liftPhoneBan(@CurrentStaff() me: StaffContext, @Param('id', ParseUUIDPipe) id: string) {
+    await this.abuse.liftPhoneBan(me, id);
     return { ok: true };
   }
 

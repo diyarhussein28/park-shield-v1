@@ -5,6 +5,8 @@ import { FRC_GLUE_JS, SCANNER_JS } from './client';
 import { SCANNER_CSS } from './styles';
 
 export interface ScanPageData {
+  /** Protected Mode is on and a phone check is available (abuse protection §4). */
+  offerVerification?: boolean;
   nickname: string;
   color: string | null;
   testMode: boolean;
@@ -89,6 +91,30 @@ export function renderRateLimited(locale: Locale): string {
   );
 }
 
+/**
+ * Abuse protection §4: optional phone check while the vehicle is in Protected Mode. Never says that the
+ * owner blocked anyone. The confirmation lives in page memory only (no cookie, no storage).
+ */
+function verifyBox(label: (k: keyof Strings) => string): string {
+  return `<div id="verify" class="note info">
+<p ${label('verifyPrompt')}</p>
+<button type="button" id="v-open" class="linkbtn" aria-expanded="false" aria-controls="v-form" ${label('verifyOpen')}</button>
+<form id="v-form" hidden>
+<label for="v-phone" ${label('verifyPhone')}</label>
+<input id="v-phone" type="tel" inputmode="tel" autocomplete="off" maxlength="30">
+<button type="submit" id="v-send" class="secondary" ${label('verifySend')}</button>
+<div id="v-step2" hidden>
+<label for="v-code" ${label('verifyCode')}</label>
+<input id="v-code" inputmode="numeric" autocomplete="one-time-code" maxlength="10">
+<button type="button" id="v-check" class="secondary" ${label('verifyCheck')}</button>
+</div>
+<p class="hint" ${label('verifyPrivacy')}</p>
+<p id="v-err" class="note err" role="alert" hidden></p>
+</form>
+<p id="v-done" class="note ok" role="status" tabindex="-1" hidden ${label('verifyDone')}</p>
+</div>`;
+}
+
 export function renderScanner(
   locale: Locale,
   code: string,
@@ -124,6 +150,7 @@ ${data.testMode ? `<p class="note info" role="status" ${label('testBanner')}</p>
 <p class="muted" ${label('intro')}</p>
 <div class="vehicle"><span class="sr" ${label('vehicle')}</span><b>„${esc(data.nickname)}“</b>${data.color ? `<span class="muted">${esc(data.color)}</span>` : ''}</div>
 ${data.backAt ? '<p class="note info" id="backat"></p>' : ''}
+${data.offerVerification ? verifyBox(label) : ''}
 <div class="types">${types}</div>
 </section>
 <form id="custom" hidden>

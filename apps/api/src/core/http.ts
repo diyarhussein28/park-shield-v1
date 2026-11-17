@@ -36,6 +36,15 @@ export async function createHttpApp(
         reply.header('content-security-policy', "default-src 'none'; frame-ancestors 'none'");
       // Account data must never sit in a shared or browser cache.
       if (!reply.hasHeader('cache-control')) reply.header('cache-control', 'no-store');
+      // Every rate limit answers with Retry-After (RFC 9110 §10.2.3), taken from the error body.
+      if (
+        reply.statusCode === 429 &&
+        typeof payload === 'string' &&
+        !reply.hasHeader('retry-after')
+      ) {
+        const m = /"retryAfterSeconds":(\d+)/.exec(payload);
+        if (m) reply.header('retry-after', m[1]);
+      }
       return payload;
     });
   // Encrypted Web Push bodies (aes128gcm) for the local push receiver in DevController.

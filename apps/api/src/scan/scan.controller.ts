@@ -17,7 +17,8 @@ import { ALERT_TYPE_CODES, CUSTOM_MESSAGE_MAX } from '@parkshield/shared';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { SkipCsrf } from '../auth/guards';
-import { truncateIp } from '../core/ip';
+import { ScannerVerificationService } from '../abuse/verification.service';
+import { scannerIpPrefix, truncateIp } from '../core/ip';
 import { RateLimitService } from '../core/rate-limit.service';
 import { ZodPipe } from '../core/zod.pipe';
 import { CAPTCHA, type Captcha } from '../providers/ports';
@@ -33,6 +34,30 @@ const CreateAlert = z.object({
   message: z.string().max(CUSTOM_MESSAGE_MAX).optional(),
   lang: z.enum(['de', 'en']).default('de'),
   captcha: captchaSolution,
+  /** Signed token from verify/check, kept in page memory only (abuse protection §4). */
+  verification: z.string().max(400).optional(),
+});
+const VerifyStart = z.object({
+  phone: z.string().min(3).max(30),
+  lang: z.enum(['de', 'en']).default('de'),
+  captcha: captchaSolution,
+});
+const VerifyCheck = z.object({
+  phone: z.string().min(3).max(30),
+  code: z.string().regex(/^\d{4,10}$/),
+});
+
+/** Captcha first, before any limit is counted or any file is processed (abuse protection §1). */
+const CAPTCHA_FAILED = {
+  error: 'captcha_failed',
+  message: 'Die Sicherheitsprüfung hat nicht geklappt. Bitte versuchen Sie es erneut.',
+} as const;
+
+const context = (req: FastifyRequest) => ({
+  ipPrefix: truncateIp(req.ip),
+  refPrefix: scannerIpPrefix(req.ip),
+  userAgent: String(req.headers['user-agent'] ?? ''),
+  ip: req.ip,
 });
 
 /** Scanner endpoints: no account, no cookies, no session (SC-01–SC-07). */
@@ -43,6 +68,7 @@ export class ScanController {
     @Inject(ScanService) private readonly scan: ScanService,
     @Inject(RateLimitService) private readonly limits: RateLimitService,
     @Inject(CAPTCHA) private readonly captcha: Captcha,
+    @Inject(ScannerVerificationService) private readonly verification: ScannerVerificationService,
   ) {}
 
   /** Unknown, revoked and unpaid codes all answer the same; misses are limited per truncated IP. */
@@ -68,14 +94,35 @@ export class ScanController {
     @Body(new ZodPipe(CreateAlert)) body: z.infer<typeof CreateAlert>,
     @Req() req: FastifyRequest,
   ) {
-    if (!(await this.captcha.verify(body.captcha)))
-      throw new BadRequestException({ error: 'captcha_failed' });
+    if (!(await this.captcha.verify(body.captcha))) throw new BadRequestException(CAPTCHA_FAILED);
     const token = await this.resolve(code, req);
-    return this.scan.createAlert(token, body, {
-      ipPrefix: truncateIp(req.ip),
-      userAgent: String(req.headers['user-agent'] ?? ''),
-      ip: req.ip,
-    });
+    return this.scan.createAlert(token, body, context(req));
+  }
+
+  /** Abuse protection §4: Lookup (mobile only) and an SMS code, only while Protected Mode is on. */
+  @Post('scan/:code/verify/start')
+  @HttpCode(202)
+  async verifyStart(
+    @Param('code') code: string,
+    @Body(new ZodPipe(VerifyStart)) body: z.infer<typeof VerifyStart>,
+    @Req() req: FastifyRequest,
+  ) {
+    if (!(await this.captcha.verify(body.captcha))) throw new BadRequestException(CAPTCHA_FAILED);
+    const token = await this.resolve(code, req);
+    const refs = await this.scan.scannerRefs(token, context(req));
+    await this.verification.start(token, body.phone, body.lang, refs.scannerRef);
+    return { ok: true };
+  }
+
+  @Post('scan/:code/verify/check')
+  @HttpCode(200)
+  async verifyCheck(
+    @Param('code') code: string,
+    @Body(new ZodPipe(VerifyCheck)) body: z.infer<typeof VerifyCheck>,
+    @Req() req: FastifyRequest,
+  ) {
+    const token = await this.resolve(code, req);
+    return this.verification.check(token, body.phone, body.code);
   }
 
   @Post('scan/:code/report-fake')
@@ -85,14 +132,9 @@ export class ScanController {
     @Body(new ZodPipe(ReportFake)) body: z.infer<typeof ReportFake>,
     @Req() req: FastifyRequest,
   ) {
-    if (!(await this.captcha.verify(body.captcha))) {
-      throw new BadRequestException({ error: 'captcha_failed' });
-    }
+    if (!(await this.captcha.verify(body.captcha))) throw new BadRequestException(CAPTCHA_FAILED);
     const token = await this.resolve(code, req);
-    await this.scan.reportFake(token, body.note, {
-      ipPrefix: truncateIp(req.ip),
-      userAgent: String(req.headers['user-agent'] ?? ''),
-    });
+    await this.scan.reportFake(token, body.note, context(req));
     return { ok: true };
   }
 

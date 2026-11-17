@@ -261,10 +261,15 @@ function SettingRow({
     isBool
       ? flag
       : Array.isArray(s.default)
-        ? text
-            .split(',')
-            .map((x) => Number(x.trim()))
-            .filter((n) => !Number.isNaN(n))
+        ? typeof s.default[0] === 'string'
+          ? text
+              .split(',')
+              .map((x) => x.trim().toUpperCase())
+              .filter(Boolean)
+          : text
+              .split(',')
+              .map((x) => Number(x.trim()))
+              .filter((n) => !Number.isNaN(n))
         : isNum
           ? Number(text.replace(',', '.'))
           : text.trim();

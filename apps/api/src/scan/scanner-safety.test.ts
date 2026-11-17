@@ -69,14 +69,21 @@ const waiting = (id: string, token: string) =>
   });
 
 describe('the three scanner limits (US-17)', () => {
-  it('allows one alert per scanner and vehicle per 15 minutes and says how long to wait', async () => {
+  it('allows two alerts per scanner and vehicle per hour and says how long to wait', async () => {
     const { code } = await vehicle('a@example.de');
     expect((await send(code)).statusCode).toBe(201);
-    const second = await send(code, { type: 'blocking' });
-    expect(second.statusCode).toBe(429);
-    expect(second.json()).toMatchObject({ error: 'rate_limited', limit: 'alert.scanner_vehicle' });
-    expect(second.json().retryAfterSeconds).toBeGreaterThan(800);
-    expect(second.json().retryAfterSeconds).toBeLessThanOrEqual(900);
+    expect((await send(code, { type: 'lights_on' })).statusCode).toBe(201);
+    const third = await send(code, { type: 'blocking' });
+    expect(third.statusCode).toBe(429);
+    expect(third.json()).toMatchObject({
+      error: 'rate_limited',
+      limit: 'alert.scanner_vehicle',
+      message:
+        'Sie haben das Limit für Benachrichtigungen überschritten. Bitte versuchen Sie es später erneut.',
+    });
+    expect(third.json().retryAfterSeconds).toBeGreaterThan(3500);
+    expect(third.json().retryAfterSeconds).toBeLessThanOrEqual(3600);
+    expect(third.headers['retry-after']).toBe(String(third.json().retryAfterSeconds));
     // Someone else (another network) can still alert the same car.
     expect((await send(code, {}, '198.51.100.20')).statusCode).toBe(201);
   });
@@ -93,9 +100,9 @@ describe('the three scanner limits (US-17)', () => {
     expect(third.json().limit).toBe('alert.scanner_global');
     // The rejected attempt did not count against vehicle C: another scanner's alert there is fine,
     // and C's own per-vehicle counter is still at zero.
-    const keys = await h.valkey.keys('rl:alert.vehicle:*');
-    const counts = await Promise.all(keys.map((k) => h.valkey.get(k)));
-    expect(counts.map(Number).sort()).toEqual([1, 1]);
+    const keys = await h.valkey.keys('rls:alert.vehicle:*');
+    const counts = await Promise.all(keys.map((k) => h.valkey.zcard(k)));
+    expect(counts.sort()).toEqual([1, 1]);
   });
 
   it('limits alerts per vehicle from everyone', async () => {

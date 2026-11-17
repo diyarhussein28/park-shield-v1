@@ -420,13 +420,9 @@ describe('abuse centre (US-38, AD-08/09/10)', () => {
     expect(
       (await post(mod, '/ops/v1/abuse/blocks', { ref: scanner.ref, reason: 'pattern' })).statusCode,
     ).toBe(409);
-    const silent = (await scan(d.code, { type: 'lights_on' }, '203.0.113.66')).json();
-    const row = await h.db
-      .selectFrom('alerts')
-      .select('status')
-      .where('id', '=', silent.alertId)
-      .executeTakeFirstOrThrow();
-    expect(row.status).toBe('blocked');
+    const refused = await scan(d.code, { type: 'lights_on' }, '203.0.113.66');
+    expect(refused.statusCode).toBe(403);
+    expect(refused.json().error).toBe('not_deliverable');
     expect((await get(mod, '/ops/v1/abuse/blocks')).json().blocks[0]).toMatchObject({
       scope: 'global',
       reason: 'pattern',

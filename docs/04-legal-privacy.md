@@ -28,6 +28,9 @@
 - *New:* per-vehicle `block_ref`, used only so an owner's abuse report can block that scanner for that one vehicle for 30 days. It cannot link a scanner across vehicles and is deleted after 30 days.
 - *New:* scanner country (two-letter code) derived from IP only to show the right emergency numbers; deleted after 24 h. No city, no coordinates.
 - The owner sees nothing about the scanner except time, alert type and text (if written).
+- *New (abuse protection):* `scanner_ref` and `block_ref` use /64 for IPv6 (instead of /48), so phones on one mobile network are not lumped together. Rate limits keep the coarser /48 where only the network matters.
+- *New:* Protected Mode per vehicle (automatic after 2 owner blocks in 30 days, or switched on by the owner). While it is on, a scanner may confirm a **mobile** number by SMS code (Twilio Lookup + Verify). Only `HMAC-SHA256(phone_pepper, E.164)` is stored with the alert, never the number. Without a confirmation the free text is kept but only shown to the owner behind "Anzeigen"; notifications carry a neutral hint instead. Optional for the scanner; the alert itself always goes out. Details and open questions: [`../LEGAL_REVIEW.md`](../LEGAL_REVIEW.md).
+- *New:* a blocked scanner sees only "Ihre Nachricht konnte nicht zugestellt werden." (no shadow block, so someone in real danger looks for other help).
 
 ## 3. Consent-based third parties
 
@@ -49,6 +52,7 @@ The co-driver needs their own account (no subscription) and must explicitly acce
 | Providing the service to the owner | E-mail, channels, vehicle, alerts | Art. 6(1)(b) — contract |
 | Receiving a scanner alert | Alert type, free text, scanner country | Art. 6(1)(f) — legitimate interest |
 | Abuse protection | `scanner_ref`, `block_ref`, truncated IP | Art. 6(1)(f) |
+| Optional phone confirmation in Protected Mode, phone bans | Phone number (to Twilio only), phone hash | Art. 6(1)(f) — TODO [LEGAL REVIEW] |
 | WhatsApp and SMS | Phone number | Art. 6(1)(a) — consent (opt-in) |
 | Emergency contact and co-driver | Name and channel | Art. 6(1)(a), from the person themselves |
 | Billing and invoice retention | Name, address, invoices | Art. 6(1)(c) — §147 AO / §257 HGB |
@@ -62,6 +66,11 @@ The co-driver needs their own account (no subscription) and must explicitly acce
 |---|---|---|
 | `scanner_ref` and scanner country | 24 h | `run_retention()` hourly; Valkey keys expire via TTL |
 | `block_ref` (per vehicle) and scanner blocks | 30 days | `run_retention` |
+| `verified_phone_hash` on an alert | with the alert (90 days) | `run_retention` (cascading delete) |
+| Phone bans (per vehicle by the owner, global after staff review) | until `expires_at` (12 months) | `run_retention` |
+| Staff decisions on global-ban candidates | 13 months | `run_retention` |
+| Protected Mode (automatic) | until `active_until` (30 days, extended by new blocks) | `run_retention` |
+| OTP data at Twilio Verify | per Twilio DPA | Twilio (see `LEGAL_REVIEW.md`) |
 | Free text, chat, blocked messages | 7 days | `run_retention` |
 | Moderation review records (no text) | 30 days | `run_retention` |
 | Alerts and delivery records | 90 days | `run_retention` (cascading delete) |
@@ -92,6 +101,7 @@ The co-driver needs their own account (no subscription) and must explicitly acce
 | Print partner (e.g. Flyeralarm, WIRmachenDRUCK, local printer) | Printing and shipping | Germany | Address deletion request via e-mail/SFTP with confirmation. AVV (receives shipping address) |
 | Sentry | Error tracking | EU (Frankfurt) | Usually not applicable (PII scrubbing); recorded as `not_applicable` with reason |
 | Friendly Captcha | Captcha | Germany | No personal data linked to the user |
+| Twilio | Lookup + Verify: optional scanner phone confirmation in Protected Mode (number, SMS code) | Twilio Ireland Limited, Dublin (US transfer under EU-US DPF and SCCs) | ParkShield stores no number; deletion requests for Verify logs via Twilio privacy portal. TODO [LEGAL REVIEW] |
 | Twilio | SMS (NT-07, opt-in with a one-time code) | Twilio Ireland Limited, Dublin (US transfer under EU-US DPF and SCCs) | Same Twilio deletion request as WhatsApp. Masked calls stay Phase 2. |
 | SendGrid (optional) | Transactional e-mail when `MAIL_PROVIDER=sendgrid` | Twilio Ireland Limited / SendGrid (US transfer under DPF and SCCs; EU data residency with `SENDGRID_REGION=eu`) | Erasure step `sendgrid` (manual): remove the address from all suppression lists; activity log expires on its own. Click and open tracking are switched off in code. |
 | Mistral | Support assistant (Phase 2) | France | No personal data in requests |

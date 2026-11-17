@@ -40,6 +40,24 @@ export const REPLY_LABELS = {
 
 export const REPLY_SENT = { de: 'Antwort gesendet', en: 'Reply sent' } as const;
 
-export function pushText(lang: 'de' | 'en', kind: PushKind, type: string, nickname: string) {
-  return texts[lang][kind](type, nickname);
+/**
+ * Abuse protection §4: in Protected Mode a notification never carries the free text (or photos) of an
+ * unconfirmed sender, only this hint. Shared by push, SMS (GSM-7 safe) and the e-mail template.
+ */
+export const HIDDEN_CONTENT_HINT = {
+  de: 'Nachricht von nicht bestätigtem Absender – ansehen in ParkShield',
+  en: 'Message from an unconfirmed sender – view it in ParkShield',
+} as const;
+
+export function pushText(
+  lang: 'de' | 'en',
+  kind: PushKind,
+  type: string,
+  nickname: string,
+  hiddenContent = false,
+) {
+  const t = texts[lang][kind](type, nickname);
+  return hiddenContent && kind === 'alert'
+    ? { ...t, body: `${t.body} ${HIDDEN_CONTENT_HINT[lang]}.` }
+    : t;
 }

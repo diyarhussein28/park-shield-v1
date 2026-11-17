@@ -17,9 +17,10 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Icon } from '@/components/icons';
 import { KontoShell, Section } from '@/components/konto-shell';
 import { api, ApiError, errorText } from '@/lib/api-client';
-import type { OrderSummary, Vehicle, VehicleMode } from '@/lib/api-server';
+import type { OrderSummary, Vehicle, VehicleMode, VehicleProtection } from '@/lib/api-server';
 import { VehicleForm } from '../vehicles-view';
 import { ModeCard } from './mode-card';
+import { ProtectionCard } from './protection-card';
 
 const CUSTOM = '__custom__';
 
@@ -462,9 +463,11 @@ export function VehicleDetail({
   includedAvailable,
   orderResult,
   mode,
+  protection,
   freeReplacements = 0,
 }: {
   mode: VehicleMode | null;
+  protection: VehicleProtection;
   freeReplacements?: number;
   vehicle: Vehicle;
   orders: OrderSummary[];
@@ -540,6 +543,8 @@ export function VehicleDetail({
       </Section>
 
       <ModeCard vehicleId={vehicle.id} initial={mode} />
+
+      <ProtectionCard vehicleId={vehicle.id} initial={protection} />
 
       <Section title={t('vehicles.details')} icon="car">
         {detailsSaved && <Notice tone="success">{t('vehicles.saved')}</Notice>}

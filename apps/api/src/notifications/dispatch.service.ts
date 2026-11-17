@@ -83,6 +83,7 @@ export class DispatchService {
         'a.is_test',
         'a.severity',
         'a.custom_message_enc',
+        'a.content_hidden',
         'a.expires_at',
         'a.followup_sent_at',
         'a.scanner_waiting_at',
@@ -277,13 +278,20 @@ export class DispatchService {
       .execute();
   }
 
+  /**
+   * Template values. In Protected Mode (content_hidden) the free text of an unconfirmed sender is not
+   * even decrypted here, so no channel can carry it; templates show a hint instead (abuse protection §4).
+   */
   private alertValues(alert: AlertRow) {
-    const message = alert.custom_message_enc ? this.crypto.decrypt(alert.custom_message_enc) : '';
+    const hidden = alert.content_hidden && alert.custom_message_enc !== null;
+    const message =
+      alert.custom_message_enc && !hidden ? this.crypto.decrypt(alert.custom_message_enc) : '';
     return {
       nickname: alert.nickname,
       type: alert.preferred_lang === 'en' ? alert.label_en : alert.label_de,
-      hasMessage: message ? 'yes' : 'no',
+      hasMessage: hidden ? 'hidden' : message ? 'yes' : 'no',
       message,
+      hidden,
     };
   }
 
@@ -321,7 +329,7 @@ export class DispatchService {
         to: alert.email,
         template: template[msg.kind],
         locale: alert.preferred_lang,
-        values: this.alertValues(alert),
+        values: (({ hidden: _hidden, ...v }) => v)(this.alertValues(alert)),
         actionUrl: `${this.env.WEB_BASE_URL}/konto`,
         replies: this.replyButtons(alert, msg.links),
       });
@@ -352,7 +360,13 @@ export class DispatchService {
     }
     const values = this.alertValues(alert);
     const pushKind: PushKind = msg.kind;
-    const text = pushText(alert.preferred_lang, pushKind, values.type, values.nickname);
+    const text = pushText(
+      alert.preferred_lang,
+      pushKind,
+      values.type,
+      values.nickname,
+      values.hidden,
+    );
     const labels = REPLY_LABELS[alert.preferred_lang];
     const payload = JSON.stringify({
       ...text,
@@ -555,7 +569,14 @@ export class DispatchService {
     try {
       const { messageId } = await this.sms.send({
         to: this.crypto.decrypt(channel.address_enc),
-        body: smsText(alert.preferred_lang, msg.kind, values.type, values.nickname, msg.links.page),
+        body: smsText(
+          alert.preferred_lang,
+          msg.kind,
+          values.type,
+          values.nickname,
+          msg.links.page,
+          values.hidden,
+        ),
         tag: `sms_${msg.kind}`,
       });
       await this.finish(delivery.id, { ok: true, messageId });

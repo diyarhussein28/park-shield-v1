@@ -50,9 +50,22 @@ const PUBLIC: Record<string, Control> = {
   'GET /v1/scan/:code': { kind: 'rate', limits: ['scan.not_found'] },
   'POST /v1/scan/:code/alerts': {
     kind: 'rate',
-    limits: ['alert.scanner_vehicle', 'alert.scanner_global', 'alert.vehicle'],
+    limits: [
+      'alert.scanner_vehicle',
+      'alert.scanner_vehicle_day',
+      'alert.scanner_global',
+      'alert.vehicle',
+      'alert.phone_vehicle',
+      'alert.phone_vehicle_day',
+    ],
     captcha: true,
   },
+  'POST /v1/scan/:code/verify/start': {
+    kind: 'rate',
+    limits: ['verify.otp_scanner', 'verify.otp_phone', 'verify.otp_country'],
+    captcha: true,
+  },
+  'POST /v1/scan/:code/verify/check': { kind: 'rate', limits: ['verify.check_phone'] },
   'POST /v1/scan/:code/report-fake': { kind: 'rate', limits: ['report.fake_ip'], captcha: true },
   'POST /v1/alerts/:id/waiting': { kind: 'token', what: 'status token from the scan, 256 bit' },
   'GET /v1/alerts/:id/status': { kind: 'token', what: 'status token from the scan, 256 bit' },

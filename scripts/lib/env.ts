@@ -14,6 +14,7 @@ const generated: Record<string, () => string> = {
   BLOCK_KEY_CURRENT: () => randomBytes(32).toString('base64'),
   BLOCK_KEY_PREVIOUS: () => randomBytes(32).toString('base64'),
   SESSION_SECRET: () => randomBytes(32).toString('base64'),
+  PHONE_PEPPER: () => randomBytes(32).toString('base64'),
 };
 
 /** Creates .env from .env.example on first run and fills locally generated secrets. Never overwrites a value. */

@@ -23,6 +23,9 @@ export const envSchema = z.object({
   BLOCK_KEY_CURRENT: key32,
   BLOCK_KEY_PREVIOUS: key32,
   SESSION_SECRET: key32,
+  // Long-lived pepper for phone hashes of verified scanners (abuse protection, phone bans). Required in
+  // production; locally an empty value falls back to a key derived from BIDX_KEY.
+  PHONE_PEPPER: z.union([z.literal(''), key32]).default(''),
   APP_ENV: z.string().default('local'),
   STRIPE_SECRET_KEY: z.string().default(''),
   STRIPE_WEBHOOK_SECRET: z.string().default(''),
@@ -74,6 +77,9 @@ export const envSchema = z.object({
    * number in E.164 form, or a Messaging Service SID (MG…). Uses the same Twilio account.
    */
   TWILIO_SMS_FROM: z.string().default(''),
+  // Twilio Verify service (VA…) for the optional phone check of scanners in Protected Mode. Empty: the
+  // check is faked locally and switched off in production (Protected Mode then hides for everyone).
+  TWILIO_VERIFY_SERVICE_SID: z.string().default(''),
   /** Public https origin Twilio calls (status callbacks, button replies); empty: WEB_BASE_URL. */
   TWILIO_WEBHOOK_BASE_URL: z.string().default(''),
   // Content SIDs (HX…) of the approved templates, one per template and language.
@@ -176,6 +182,9 @@ export function loadEnv(overrides: Partial<Record<keyof Env, string>> = {}): Env
       .filter(([k, v]) => k.startsWith('TWILIO_CONTENT_') && !v)
       .map(([k]) => k);
     if (missing.length) throw new Error(`Missing Twilio template SIDs: ${missing.join(', ')}`);
+  }
+  if (realProduction && !parsed.data.PHONE_PEPPER) {
+    throw new Error('PHONE_PEPPER is required in production (32 random bytes, base64)');
   }
   if (realProduction && parsed.data.FRIENDLY_CAPTCHA_ENDPOINT !== 'eu') {
     throw new Error('FRIENDLY_CAPTCHA_ENDPOINT must be "eu" in production (data stays in the EU)');

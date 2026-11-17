@@ -40,14 +40,22 @@ const clean = (s: string) =>
     .trim()
     .slice(0, 40);
 
+const HIDDEN = {
+  de: 'Nachricht von nicht bestaetigtem Absender - ansehen in ParkShield.',
+  en: 'Message from an unconfirmed sender - view it in ParkShield.',
+} as const;
+
 export function smsText(
   lang: 'de' | 'en',
   kind: Kind,
   type: string,
   nickname: string,
   url: string,
+  hiddenContent = false,
 ) {
-  return texts[lang][kind](clean(type), clean(nickname), url);
+  const text = texts[lang][kind](clean(type), clean(nickname), url);
+  // Abuse protection §4: never the free text of an unconfirmed sender, only that there is one.
+  return hiddenContent && kind === 'alert' ? `${text} ${HIDDEN[lang]}` : text;
 }
 
 /**

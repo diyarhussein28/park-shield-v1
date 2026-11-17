@@ -6,6 +6,8 @@ import { SettingsService } from '../core/settings.service';
 import { CRYPTO, DB } from '../core/tokens';
 import { FairUseService } from '../notifications/fair-use.service';
 import { PreferencesService } from '../preferences/preferences.service';
+import { PhoneBansService } from '../abuse/phone-bans.service';
+import { ProtectionService } from '../abuse/protection.service';
 
 export const REPORT_REASONS = ['harassment', 'spam', 'false_alarm', 'other'] as const;
 export type ReportReason = (typeof REPORT_REASONS)[number];
@@ -25,6 +27,8 @@ export class HistoryService {
     @Inject(SettingsService) private readonly settings: SettingsService,
     @Inject(PreferencesService) private readonly preferences: PreferencesService,
     @Inject(FairUseService) private readonly fairUse: FairUseService,
+    @Inject(ProtectionService) private readonly protection: ProtectionService,
+    @Inject(PhoneBansService) private readonly phoneBans: PhoneBansService,
   ) {}
 
   async list(userId: string) {
@@ -45,6 +49,8 @@ export class HistoryService {
         'a.expires_at',
         'a.created_at',
         'a.block_ref',
+        'a.content_hidden',
+        sql<boolean>`a.verified_phone_hash IS NOT NULL`.as('verified'),
         'v.id as vehicleId',
         'v.nickname',
         't.label_de',
@@ -97,7 +103,13 @@ export class HistoryService {
           escalatedAt: a.escalated_at,
           createdAt: a.created_at,
           // Free text is kept 7 days only (SC-04); after that the history shows the type alone.
-          message: a.custom_message_enc ? this.crypto.decrypt(a.custom_message_enc) : null,
+          // Protected Mode: text of an unconfirmed sender only through hiddenContent ("Anzeigen").
+          message:
+            a.custom_message_enc && !a.content_hidden
+              ? this.crypto.decrypt(a.custom_message_enc)
+              : null,
+          hiddenContent: a.content_hidden && a.custom_message_enc !== null,
+          verifiedSender: a.verified,
           muted: muted?.suppressed_reason ?? null,
           deliveries: own.map((d) => ({
             channel: d.channel,
@@ -105,25 +117,40 @@ export class HistoryService {
             reason: d.suppressed_reason ?? d.error_code,
           })),
           reported: reported.has(a.id),
-          // OW-08: a report on an alert older than 30 days goes to the abuse centre only.
-          canBlock: !a.is_test && a.block_ref !== null && a.created_at.getTime() > monthAgo,
+          // OW-08: a report on an alert older than 30 days goes to the abuse centre only, unless the
+          // sender had confirmed a number (12-month phone ban, abuse protection §5).
+          canBlock:
+            !a.is_test &&
+            ((a.block_ref !== null && a.created_at.getTime() > monthAgo) || a.verified),
         };
       }),
     };
   }
 
-  /** OW-08: blocks this scanner for this vehicle for 30 days and sends the report to the abuse centre. */
+  /**
+   * "Absender blockieren" (OW-08, abuse protection §3): blocks this scanner for this vehicle for 30
+   * days, bans a confirmed number for this vehicle for 12 months, sends the report to the abuse centre
+   * and counts towards automatic Protected Mode. The owner never sees any scanner identifier.
+   */
   async report(userId: string, alertId: string, reason: ReportReason, note: string | undefined) {
     const a = await this.db
       .selectFrom('alerts as a')
       .innerJoin('vehicles as v', 'v.id', 'a.vehicle_id')
-      .select(['a.id', 'a.is_test', 'a.block_ref', 'a.qr_token_id', 'a.created_at'])
+      .select([
+        'a.id',
+        'a.is_test',
+        'a.block_ref',
+        'a.qr_token_id',
+        'a.created_at',
+        'a.vehicle_id',
+        'a.verified_phone_hash',
+      ])
       .where('a.id', '=', alertId)
       .where('v.owner_user_id', '=', userId)
       .where('a.status', '<>', 'blocked')
       .executeTakeFirst();
     if (!a || a.is_test) throw new NotFoundException();
-    const blocked = await this.db.transaction().execute(async (trx) => {
+    return this.db.transaction().execute(async (trx) => {
       const existing = await trx
         .selectFrom('abuse_reports')
         .select('id')
@@ -143,20 +170,42 @@ export class HistoryService {
         })
         .execute();
       const recent = a.created_at.getTime() > Date.now() - BLOCK_DAYS * 86_400_000;
-      if (!a.block_ref || !recent) return false;
-      // The block_ref is per vehicle: it cannot block this person anywhere else (02-architecture §5).
-      await trx
-        .insertInto('scanner_blocks')
-        .values({
-          ref: a.block_ref,
-          qr_token_id: a.qr_token_id,
-          reason: 'owner_report',
-          expires_at: sql`now() + make_interval(days => ${BLOCK_DAYS})`,
-        })
-        .execute();
-      return true;
+      let blocked = false;
+      if (a.block_ref && recent) {
+        // The block_ref is per vehicle: it cannot block this person anywhere else (02-architecture §5).
+        await trx
+          .insertInto('scanner_blocks')
+          .values({
+            ref: a.block_ref,
+            qr_token_id: a.qr_token_id,
+            reason: 'owner_report',
+            expires_at: sql`now() + make_interval(days => ${BLOCK_DAYS})`,
+          })
+          .execute();
+        blocked = true;
+      }
+      const phoneBanned = Boolean(a.verified_phone_hash);
+      if (a.verified_phone_hash) {
+        await this.phoneBans.banForVehicle(trx, a.verified_phone_hash, a.vehicle_id);
+      }
+      const protectedMode = await this.protection.afterReport(trx, a.vehicle_id);
+      return { reported: true, blocked: blocked || phoneBanned, phoneBanned, protectedMode };
     });
-    return { reported: true, blocked };
+  }
+
+  /** "Anzeigen": the hidden free text of an unconfirmed sender, on the owner's explicit request. */
+  async hiddenContent(userId: string, alertId: string) {
+    const a = await this.db
+      .selectFrom('alerts as a')
+      .innerJoin('vehicles as v', 'v.id', 'a.vehicle_id')
+      .select(['a.custom_message_enc'])
+      .where('a.id', '=', alertId)
+      .where('v.owner_user_id', '=', userId)
+      .where('a.content_hidden', '=', true)
+      .where('a.status', '<>', 'blocked')
+      .executeTakeFirst();
+    if (!a) throw new NotFoundException();
+    return { message: a.custom_message_enc ? this.crypto.decrypt(a.custom_message_enc) : null };
   }
 
   /** SP-05: the latest attempts with reasons, plus what is set up right now. */

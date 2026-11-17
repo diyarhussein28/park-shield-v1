@@ -102,7 +102,7 @@ describe('alert history (US-31, OW-08)', () => {
     const { s, code } = await owner();
     const a = (await send(code, '198.51.100.1')).json();
     const r = await report(s, a.alertId, { reason: 'harassment', note: 'Jede Nacht' });
-    expect(r.json()).toEqual({ reported: true, blocked: true });
+    expect(r.json()).toMatchObject({ reported: true, blocked: true, phoneBanned: false });
     expect((await report(s, a.alertId)).statusCode).toBe(409);
     const ab = await h.db.selectFrom('abuse_reports').selectAll().executeTakeFirstOrThrow();
     expect(ab).toMatchObject({
@@ -115,16 +115,10 @@ describe('alert history (US-31, OW-08)', () => {
     const block = await h.db.selectFrom('scanner_blocks').selectAll().executeTakeFirstOrThrow();
     expect(block.expires_at.getTime() - Date.now()).toBeGreaterThan(29.9 * 86_400_000);
 
-    // Same person again (after the per-scanner limit): silently dropped, the owner is not disturbed.
-    await h.valkey.flushdb();
+    // Same person again: the neutral refusal, the owner is not disturbed (abuse protection §3).
     const again = await send(code, '198.51.100.1');
-    expect(again.statusCode).toBe(201);
-    const row = await h.db
-      .selectFrom('alerts')
-      .select('status')
-      .where('id', '=', again.json().alertId)
-      .executeTakeFirstOrThrow();
-    expect(row.status).toBe('blocked');
+    expect(again.statusCode).toBe(403);
+    expect(again.json().error).toBe('not_deliverable');
     // Somebody else still gets through.
     const stranger = await send(code, '203.0.113.50');
     const ok = await h.db
@@ -140,7 +134,7 @@ describe('alert history (US-31, OW-08)', () => {
     const a = (await send(code, '198.51.100.1')).json();
     await sql`UPDATE alerts SET created_at = now() - interval '31 days'`.execute(h.db);
     expect((await history(s))[0].canBlock).toBe(false);
-    expect((await report(s, a.alertId)).json()).toEqual({ reported: true, blocked: false });
+    expect((await report(s, a.alertId)).json()).toMatchObject({ reported: true, blocked: false });
     expect(await h.db.selectFrom('scanner_blocks').selectAll().execute()).toHaveLength(0);
 
     await h.app.inject({

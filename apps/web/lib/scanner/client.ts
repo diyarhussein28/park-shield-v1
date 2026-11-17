@@ -1,6 +1,8 @@
 // Vanilla client for the scanner page (no framework: the page must load in < 1.5 s on 4G, JS < 90 KB).
 // Data arrives in <script type="application/json" id="d">; this script is identical for every request so
-// its CSP hash is static. Nothing is stored except the status token in sessionStorage (§25 TDDDG).
+// its CSP hash is static. Nothing is read from or stored on the device (§25 TDDDG): no cookies, no Web
+// Storage, no IndexedDB. The status token of the own alert lives in memory and in the URL fragment
+// (never sent to a server), so a reload keeps the status; a phone confirmation lives in memory only.
 export const SCANNER_JS = `(() => {
 'use strict';
 const d = JSON.parse(document.getElementById('d').textContent);
@@ -8,8 +10,9 @@ const $ = (id) => document.getElementById(id);
 let lang = d.lang;
 const t = (k, v) => (d.strings[lang][k] || k).replace(/\\{(\\w+)\\}/g, (_, n) => (v && v[n] != null ? v[n] : ''));
 const time = (iso) => new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-const KEY = 'ps:alert:' + d.code;
-let current = null, timer = null, last = null, busy = false;
+let current = null, timer = null, last = null, busy = false, verification = null;
+const FRAG = /^#a=([0-9a-f-]{36})\\.([A-Za-z0-9_-]{20,})$/;
+function remember(c) { history.replaceState(null, '', c ? '#a=' + c.id + '.' + c.token : location.pathname); }
 
 function applyLang() {
   document.documentElement.lang = lang;
@@ -42,7 +45,7 @@ function captcha() {
 }
 const minutes = (body) => Math.max(1, Math.ceil((body.retryAfterSeconds || 60) / 60));
 // US-17: say which limit was hit, never just "error".
-const RATE = { 'alert.scanner_vehicle': 'rateVehicle', 'alert.scanner_global': 'rateScanner', 'alert.vehicle': 'rateDaily' };
+const RATE = { 'alert.scanner_vehicle': 'rateVehicle', 'alert.scanner_vehicle_day': 'rateVehicle', 'alert.phone_vehicle': 'rateVehicle', 'alert.phone_vehicle_day': 'rateVehicle', 'alert.scanner_global': 'rateScanner', 'alert.vehicle': 'rateDaily' };
 
 // SC-13 / US-18: who helps when the driver does not come. Office names stay in the local language.
 const GUIDE = {
@@ -85,16 +88,17 @@ async function send(type, message) {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       credentials: 'omit',
-      body: JSON.stringify({ type, message, lang, captcha: await captcha() }),
+      body: JSON.stringify({ type, message, lang, captcha: await captcha(), verification: verification || undefined }),
     });
     const body = await res.json().catch(() => ({}));
     if (res.status === 201) {
       current = { id: body.alertId, token: body.statusToken };
-      sessionStorage.setItem(KEY, JSON.stringify(current));
+      remember(current);
       showStatus();
       return;
     }
     if (body.error === 'message_blocked') error(t('errorBlocked'));
+    else if (body.error === 'not_deliverable') error(t('notDeliverable'));
     else if (res.status === 429) error(t(RATE[body.limit] || 'errorRate', { minutes: minutes(body) }));
     else if (body.error === 'captcha_failed') error(t('errorCaptcha'));
     else error(t('errorGeneric'));
@@ -113,7 +117,7 @@ $('msg').addEventListener('input', counter);
 $('custom').addEventListener('submit', (e) => { e.preventDefault(); const v = $('msg').value.trim(); if (v) send('custom', v); });
 $('back').addEventListener('click', () => { $('custom').hidden = true; $('pick').hidden = false; error(''); });
 $('another').addEventListener('click', () => {
-  sessionStorage.removeItem(KEY); current = null; last = null; clearTimeout(timer);
+  remember(null); current = null; last = null; clearTimeout(timer);
   $('status').hidden = true; $('custom').hidden = true; $('pick').hidden = false; $('msg').value = ''; counter();
   $('pick').querySelector('.type').focus();
 });
@@ -200,7 +204,7 @@ async function poll() {
   if (!current) return;
   try {
     const res = await fetch('/v1/alerts/' + current.id + '/status', { headers: { 'x-status-token': current.token }, credentials: 'omit' });
-    if (res.status === 404) { sessionStorage.removeItem(KEY); return; }
+    if (res.status === 404) { remember(null); return; }
     const s = await res.json();
     $('offline').hidden = true;
     render(s);
@@ -220,7 +224,48 @@ function showStatus() {
   poll();
 }
 
-try { current = JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch (e) { current = null; }
+// Abuse protection §4: optional phone check (number -> SMS code -> confirmed), Protected Mode only.
+if ($('verify')) {
+  const vErr = (k) => { const e = $('v-err'); e.textContent = k ? t(k) : ''; e.hidden = !k; };
+  const V_ERR = { phone_not_mobile: 'verifyErrMobile', phone_country: 'verifyErrCountry', phone_invalid: 'verifyErrInvalid', code_invalid: 'verifyErrCode', not_deliverable: 'notDeliverable', captcha_failed: 'errorCaptcha' };
+  const post = (path, payload) => fetch('/v1/scan/' + encodeURIComponent(d.code) + '/verify/' + path, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'omit', body: JSON.stringify(payload),
+  });
+  const fail = async (res) => {
+    const b = await res.json().catch(() => ({}));
+    if (res.status === 429) { const e = $('v-err'); e.textContent = t('errorRate', { minutes: minutes(b) }); e.hidden = false; }
+    else vErr(V_ERR[b.error] || 'errorGeneric');
+  };
+  $('v-open').addEventListener('click', () => {
+    const f = $('v-form'); f.hidden = !f.hidden;
+    $('v-open').setAttribute('aria-expanded', String(!f.hidden));
+    if (!f.hidden) $('v-phone').focus();
+  });
+  $('v-form').addEventListener('submit', async (e) => {
+    e.preventDefault(); vErr(null);
+    const phone = $('v-phone').value.trim(); if (!phone) return;
+    $('v-send').disabled = true;
+    try {
+      const res = await post('start', { phone, lang, captcha: await captcha() });
+      if (res.status === 202) { $('v-step2').hidden = false; $('v-code').focus(); } else await fail(res);
+    } catch (err) { vErr('errorGeneric'); } finally { $('v-send').disabled = false; }
+  });
+  $('v-check').addEventListener('click', async () => {
+    vErr(null);
+    const code = $('v-code').value.replace(/\\D/g, ''); if (!code) return;
+    $('v-check').disabled = true;
+    try {
+      const res = await post('check', { phone: $('v-phone').value.trim(), code });
+      if (res.status === 200) {
+        verification = (await res.json()).verification;
+        $('v-form').hidden = true; $('v-open').hidden = true; $('v-done').hidden = false; $('v-done').focus();
+      } else await fail(res);
+    } catch (err) { vErr('errorGeneric'); } finally { $('v-check').disabled = false; }
+  });
+}
+
+const frag = FRAG.exec(location.hash);
+current = frag ? { id: frag[1], token: frag[2] } : null;
 applyLang();
 if (current) showStatus();
 })();`;

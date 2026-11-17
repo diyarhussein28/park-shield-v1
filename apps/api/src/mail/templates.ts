@@ -125,7 +125,7 @@ const templates = {
       subject: '{type}: „{nickname}“',
       lines: [
         'Jemand hat gerade Ihren ParkShield-Aufkleber an „{nickname}“ gescannt: {type}.',
-        '{hasMessage, select, yes {Nachricht: „{message}“} other {}}',
+        '{hasMessage, select, yes {Nachricht: „{message}“} hidden {Nachricht von nicht bestätigtem Absender – ansehen in ParkShield} other {}}',
         'Die Person sieht, dass Ihre Warnung angekommen ist. Antworten Sie mit einem Tipp, dann sieht sie auch Ihre Antwort:',
       ],
       action: 'Zum Konto',
@@ -443,7 +443,7 @@ const templates = {
       subject: '{type}: “{nickname}”',
       lines: [
         'Someone just scanned your ParkShield decal on “{nickname}”: {type}.',
-        '{hasMessage, select, yes {Message: “{message}”} other {}}',
+        '{hasMessage, select, yes {Message: “{message}”} hidden {Message from an unconfirmed sender – view it in ParkShield} other {}}',
         'They can see that your alert has arrived. Reply with one tap and they see your answer too:',
       ],
       action: 'Open my account',

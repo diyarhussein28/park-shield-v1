@@ -149,6 +149,7 @@ export interface Alerts {
   acknowledged_at: Timestamp | null;
   alert_type: string;
   block_ref: Buffer | null;
+  content_hidden: Generated<boolean>;
   created_at: Generated<Timestamp>;
   custom_message_enc: Buffer | null;
   dispatched_at: Timestamp | null;
@@ -170,6 +171,7 @@ export interface Alerts {
   status: Generated<AlertStatus>;
   status_view_hash: Buffer;
   vehicle_id: string;
+  verified_phone_hash: Buffer | null;
 }
 
 export interface AlertTypes {
@@ -530,6 +532,24 @@ export interface Permissions {
   description: string;
 }
 
+export interface PhoneBanReviews {
+  decided_at: Generated<Timestamp>;
+  decision: string;
+  phone_hash: Buffer;
+  staff_id: string | null;
+}
+
+export interface PhoneBans {
+  created_at: Generated<Timestamp>;
+  created_by: string;
+  expires_at: Timestamp;
+  id: Generated<string>;
+  phone_hash: Buffer;
+  reason: string;
+  staff_id: string | null;
+  vehicle_id: string | null;
+}
+
 export interface Plans {
   availability: Generated<PlanAvailability>;
   code: PlanCode;
@@ -780,6 +800,14 @@ export interface VehicleModes {
   vehicle_id: string;
 }
 
+export interface VehicleProtection {
+  active: boolean;
+  active_until: Timestamp | null;
+  source: string;
+  updated_at: Generated<Timestamp>;
+  vehicle_id: string;
+}
+
 export interface Vehicles {
   color: string | null;
   created_at: Generated<Timestamp>;
@@ -873,6 +901,8 @@ export interface DB {
   parking_sessions: ParkingSessions;
   partners: Partners;
   permissions: Permissions;
+  phone_ban_reviews: PhoneBanReviews;
+  phone_bans: PhoneBans;
   plans: Plans;
   promo_codes: PromoCodes;
   promo_redemptions: PromoRedemptions;
@@ -895,6 +925,7 @@ export interface DB {
   users: Users;
   vehicle_members: VehicleMembers;
   vehicle_modes: VehicleModes;
+  vehicle_protection: VehicleProtection;
   vehicle_transfers: VehicleTransfers;
   vehicles: Vehicles;
   webauthn_credentials: WebauthnCredentials;

@@ -15,7 +15,7 @@ import { MailService } from '../mail/mail.service';
 import { VehiclesService } from '../vehicles/vehicles.service';
 import { StaffService, type StaffContext } from './staff.service';
 
-/** A scanner ref is shown and sent back as hex; only a prefix is ever displayed. */
+/** A scanner ref or phone hash is shown and sent back as hex; only a prefix is ever displayed. */
 const REF_HEX = /^[0-9a-f]{64}$/;
 
 /**
@@ -268,6 +268,132 @@ export class AbuseService {
       actionUrl: `${this.env.WEB_BASE_URL}/konto/fahrzeuge/${t.vehicleId}`,
     });
     await this.staff.audit(by.userId, 'abuse.revoke_on_behalf', 'qr_tokens', tokenId, { reason });
+  }
+
+  // --- Abuse protection §5: global phone bans, only after review --------------------------------
+
+  /**
+   * Numbers that owners of N different vehicles banned within the window. Staff see only a hash prefix
+   * and counts, never a number (there is none to show). Candidates already decided stay hidden until a
+   * newer owner ban arrives.
+   */
+  async phoneCandidates(by: StaffContext) {
+    const vehicles = Number(await this.settings.get('abuse.phone_ban_vehicles', 3));
+    const days = Number(await this.settings.get('abuse.phone_ban_window_days', 90));
+    const rows = await sql<{ phone_hash: Buffer; vehicles: number; last_at: Date }>`
+      SELECT b.phone_hash, count(DISTINCT b.vehicle_id)::int AS vehicles, max(b.created_at) AS last_at
+        FROM phone_bans b
+       WHERE b.created_by = 'owner' AND b.created_at > now() - make_interval(days => ${days})
+       GROUP BY b.phone_hash
+      HAVING count(DISTINCT b.vehicle_id) >= ${vehicles}
+         AND NOT EXISTS (SELECT 1 FROM phone_bans g WHERE g.phone_hash = b.phone_hash
+                            AND g.vehicle_id IS NULL AND g.expires_at > now())
+         AND NOT EXISTS (SELECT 1 FROM phone_ban_reviews r WHERE r.phone_hash = b.phone_hash
+                            AND r.decided_at >= max(b.created_at))
+       ORDER BY vehicles DESC, last_at DESC LIMIT 100`.execute(this.db);
+    const bans = await this.db
+      .selectFrom('phone_bans')
+      .select(['id', 'phone_hash', 'reason', 'expires_at', 'created_at'])
+      .where('vehicle_id', 'is', null)
+      .where('expires_at', '>', sql<Date>`now()`)
+      .orderBy('created_at', 'desc')
+      .limit(100)
+      .execute();
+    await this.staff.auditRead(by.userId, 'abuse.phone_candidates_view', 'phone_bans', null, {
+      candidates: rows.rows.length,
+    });
+    const hex = (b: Buffer) => b.toString('hex');
+    return {
+      thresholds: { vehicles, days },
+      candidates: rows.rows.map((r) => ({
+        hash: hex(r.phone_hash),
+        hashShort: hex(r.phone_hash).slice(0, 8),
+        vehicles: r.vehicles,
+        lastAt: r.last_at,
+      })),
+      globalBans: bans.map((b) => ({
+        id: b.id,
+        hashShort: hex(b.phone_hash).slice(0, 8),
+        reason: b.reason,
+        expiresAt: b.expires_at,
+        createdAt: b.created_at,
+      })),
+    };
+  }
+
+  /** Confirms a global ban (12 months): this number can no longer confirm or alert anywhere. */
+  async banPhoneGlobally(by: StaffContext, hashHex: string, reason: string) {
+    if (!REF_HEX.test(hashHex)) throw new BadRequestException({ error: 'hash_invalid' });
+    const hash = Buffer.from(hashHex, 'hex');
+    const months = Number(await this.settings.get('abuse.phone_ban_months', 12));
+    const ban = await this.db.transaction().execute(async (trx) => {
+      const active = await trx
+        .selectFrom('phone_bans')
+        .select('id')
+        .where('phone_hash', '=', hash)
+        .where('vehicle_id', 'is', null)
+        .where('expires_at', '>', sql<Date>`now()`)
+        .executeTakeFirst();
+      if (active) throw new ConflictException({ error: 'already_banned' });
+      const row = await trx
+        .insertInto('phone_bans')
+        .values({
+          phone_hash: hash,
+          vehicle_id: null,
+          reason: reason.slice(0, 40),
+          created_by: 'admin',
+          staff_id: by.userId,
+          expires_at: sql`now() + make_interval(months => ${months})`,
+        })
+        .returning(['id', 'expires_at'])
+        .executeTakeFirstOrThrow();
+      await trx
+        .insertInto('phone_ban_reviews')
+        .values({ phone_hash: hash, decision: 'banned', staff_id: by.userId })
+        .onConflict((oc) =>
+          oc.column('phone_hash').doUpdateSet({
+            decision: 'banned',
+            staff_id: by.userId,
+            decided_at: sql`now()`,
+          }),
+        )
+        .execute();
+      return row;
+    });
+    await this.staff.audit(by.userId, 'abuse.phone_ban_global', 'phone_bans', ban.id, {
+      hash: hashHex.slice(0, 8),
+      reason,
+    });
+    return { id: ban.id, expiresAt: ban.expires_at };
+  }
+
+  async dismissPhoneCandidate(by: StaffContext, hashHex: string) {
+    if (!REF_HEX.test(hashHex)) throw new BadRequestException({ error: 'hash_invalid' });
+    const hash = Buffer.from(hashHex, 'hex');
+    await this.db
+      .insertInto('phone_ban_reviews')
+      .values({ phone_hash: hash, decision: 'dismissed', staff_id: by.userId })
+      .onConflict((oc) =>
+        oc.column('phone_hash').doUpdateSet({
+          decision: 'dismissed',
+          staff_id: by.userId,
+          decided_at: sql`now()`,
+        }),
+      )
+      .execute();
+    await this.staff.audit(by.userId, 'abuse.phone_candidate_dismiss', 'phone_bans', null, {
+      hash: hashHex.slice(0, 8),
+    });
+  }
+
+  async liftPhoneBan(by: StaffContext, id: string) {
+    const r = await this.db
+      .deleteFrom('phone_bans')
+      .where('id', '=', id)
+      .where('vehicle_id', 'is', null)
+      .executeTakeFirst();
+    if (!Number(r.numDeletedRows)) throw new NotFoundException();
+    await this.staff.audit(by.userId, 'abuse.phone_ban_lift', 'phone_bans', id);
   }
 
   // --- AD-09 review sample ---------------------------------------------------------------------

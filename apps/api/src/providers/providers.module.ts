@@ -27,6 +27,12 @@ import { Dialog360Sender, DevWhatsAppSender, DisabledWhatsAppSender } from './wh
 import { contentSidsFromEnv, twilioWebhookUrl, TwilioWhatsAppSender } from './twilio-whatsapp';
 import { StripePayments } from './stripe-payments';
 import { DevSmsSender, TwilioSmsSender, twilioSmsWebhookUrl } from './twilio-sms';
+import {
+  DevPhoneVerifier,
+  DisabledPhoneVerifier,
+  PHONE_VERIFIER,
+  TwilioPhoneVerifier,
+} from './phone-verify';
 
 @Global()
 @Module({})
@@ -126,6 +132,22 @@ export class ProvidersModule {
                 ),
         },
         {
+          // Abuse protection §4: real Twilio Verify when configured; otherwise a local fake in test
+          // environments and "not available" in production (never a fake there).
+          provide: PHONE_VERIFIER,
+          inject: [VALKEY, LOGGER],
+          useFactory: (valkey: Redis, logger: Logger) =>
+            env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_VERIFY_SERVICE_SID
+              ? new TwilioPhoneVerifier(
+                  env.TWILIO_ACCOUNT_SID,
+                  env.TWILIO_AUTH_TOKEN,
+                  env.TWILIO_VERIFY_SERVICE_SID,
+                )
+              : isTestEnvironment(env)
+                ? new DevPhoneVerifier(valkey, logger)
+                : new DisabledPhoneVerifier(),
+        },
+        {
           provide: AUDIT_BUCKET,
           useFactory: () =>
             fakes.auditBucket
@@ -151,7 +173,18 @@ export class ProvidersModule {
                 : new ZammadDesk(env.ZAMMAD_URL, env.ZAMMAD_TOKEN, env.ZAMMAD_GROUP),
         },
       ],
-      exports: [MAILER, CAPTCHA, PAYMENTS, PRINT, PUSH, WHATSAPP, SMS, AUDIT_BUCKET, SUPPORT_DESK],
+      exports: [
+        MAILER,
+        CAPTCHA,
+        PAYMENTS,
+        PRINT,
+        PUSH,
+        WHATSAPP,
+        SMS,
+        PHONE_VERIFIER,
+        AUDIT_BUCKET,
+        SUPPORT_DESK,
+      ],
     };
   }
 }

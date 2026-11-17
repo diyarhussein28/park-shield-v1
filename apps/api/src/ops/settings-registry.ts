@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEFAULT_VERIFY_COUNTRIES } from '../abuse/phone';
 
 export type SettingGroup =
   | 'channels'
@@ -53,6 +54,23 @@ export const SETTINGS: Record<string, Def> = {
   'abuse.scanner_vehicles_per_day': { group: 'abuse', schema: int(1, 100), default: 3 },
   'abuse.scanner_reports_per_day': { group: 'abuse', schema: int(1, 100), default: 2 },
   'moderation.sample_rate': { group: 'abuse', schema: z.number().min(0).max(1), default: 0.1 },
+  // Abuse protection (Protected Mode, phone check, phone bans). Defaults match the code.
+  'abuse.protected_mode_reports': { group: 'abuse', schema: int(1, 20), default: 2 },
+  'abuse.protected_mode_window_days': { group: 'abuse', schema: int(1, 90), default: 30 },
+  'abuse.protected_mode_days': { group: 'abuse', schema: int(1, 90), default: 30 },
+  'abuse.verification_minutes': { group: 'abuse', schema: int(5, 30), default: 30 },
+  'abuse.verify_countries': {
+    group: 'abuse',
+    schema: z
+      .array(z.string().regex(/^[A-Z]{2}$/))
+      .min(1)
+      .max(60),
+    default: DEFAULT_VERIFY_COUNTRIES,
+  },
+  'abuse.phone_ban_months': { group: 'abuse', schema: int(1, 12), default: 12 },
+  'abuse.phone_ban_vehicles': { group: 'abuse', schema: int(2, 50), default: 3 },
+  'abuse.phone_ban_window_days': { group: 'abuse', schema: int(7, 365), default: 90 },
+  'abuse.valkey_timeout_ms': { group: 'abuse', schema: int(50, 5000), default: 300 },
 
   'refunds.withdrawal_days': { group: 'refunds', schema: int(14, 30), default: 14 },
   // The decal is an accessory, not custom-made: no § 312g deduction. TODO [LEGAL REVIEW]

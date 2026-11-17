@@ -113,6 +113,15 @@ export interface HistoryAlert {
   deliveries: { channel: string; status: string; reason: string | null }[];
   reported: boolean;
   canBlock: boolean;
+  /** Protected Mode: free text of an unconfirmed sender, shown only on request. */
+  hiddenContent: boolean;
+  verifiedSender: boolean;
+}
+
+export interface VehicleProtection {
+  active: boolean;
+  source: 'auto' | 'manual' | null;
+  activeUntil: string | null;
 }
 
 export interface DeliveryHelp {

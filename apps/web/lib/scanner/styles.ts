@@ -31,6 +31,7 @@ p{margin:0 0 12px}.muted{color:var(--muted)}
 a.primary{display:flex;align-items:center;justify-content:center;text-decoration:none;border-radius:14px}
 .secondary{min-height:48px;width:100%;padding:0 16px;font-weight:600;background:transparent;color:var(--primary);text-decoration:underline}
 label{display:block;font-weight:700;margin:12px 0 6px}
+input{display:block;width:100%;min-height:48px;padding:0 12px;font:inherit;color:var(--fg);background:var(--bg);border:2px solid var(--strong);border-radius:14px}
 textarea{display:block;width:100%;min-height:120px;padding:12px;font:inherit;color:var(--fg);background:var(--bg);border:2px solid var(--strong);border-radius:14px}
 .hint{font-size:15px;color:var(--muted);margin:6px 0 12px}
 .steps{list-style:none;padding:0;margin:0 0 16px;display:grid;gap:8px}

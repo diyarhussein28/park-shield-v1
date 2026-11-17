@@ -1,7 +1,9 @@
+import { randomBytes } from 'node:crypto';
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { Redis } from 'ioredis';
+import type { Logger } from 'pino';
 import { SettingsService } from './settings.service';
-import { VALKEY } from './tokens';
+import { LOGGER, VALKEY } from './tokens';
 
 // One atomic step: increment, start the window on the first hit, and undo the increment when over the
 // limit, so rejected requests never consume quota and concurrent requests cannot overshoot (02-arch §5).
@@ -17,30 +19,45 @@ end
 return {1, tonumber(ARGV[1]) - n}
 `;
 
-// Several limits at once: check every counter first, and only if all pass, count the request on all
-// of them. A request rejected by one limit therefore consumes none of the others (02-architecture §5).
-const MULTI_SCRIPT = `
+// Sliding window over several limits (abuse protection §2): each key is a sorted set of request times.
+// Expired entries are dropped, every counter is checked, and only if all pass is the request added to
+// all of them. Retry-After is the moment the oldest entry of the exceeded window leaves it.
+// ARGV: now (ms), member, then max and window (ms) per key.
+const SLIDING_SCRIPT = `
+local now = tonumber(ARGV[1])
 for i = 1, #KEYS do
-  local n = tonumber(redis.call('GET', KEYS[i]) or '0')
-  if n >= tonumber(ARGV[i * 2 - 1]) then
-    local ttl = redis.call('TTL', KEYS[i])
-    if ttl < 0 then ttl = tonumber(ARGV[i * 2]) end
-    return {0, i, ttl}
+  local max = tonumber(ARGV[1 + i * 2])
+  local win = tonumber(ARGV[2 + i * 2])
+  redis.call('ZREMRANGEBYSCORE', KEYS[i], '-inf', now - win)
+  if redis.call('ZCARD', KEYS[i]) >= max then
+    local oldest = redis.call('ZRANGE', KEYS[i], 0, 0, 'WITHSCORES')
+    local retry = win
+    if oldest[2] then retry = tonumber(oldest[2]) + win - now end
+    return {0, i, math.max(1, math.ceil(retry / 1000))}
   end
 end
 for i = 1, #KEYS do
-  local n = redis.call('INCR', KEYS[i])
-  if n == 1 then redis.call('EXPIRE', KEYS[i], ARGV[i * 2]) end
+  redis.call('ZADD', KEYS[i], now, ARGV[2])
+  redis.call('PEXPIRE', KEYS[i], tonumber(ARGV[2 + i * 2]))
 end
 return {1, 0, 0}
 `;
 
 /** Named limits with their defaults. Runtime values come from app_settings key `ratelimit.<name>`. */
 export const RATE_LIMITS = {
-  // US-17: the three scanner limits (02-architecture §5)
-  'alert.scanner_vehicle': { max: 1, windowSeconds: 900 },
+  // US-17 / abuse protection §2: scanner limits, sliding windows (02-architecture §5)
+  'alert.scanner_vehicle': { max: 2, windowSeconds: 3600 },
+  'alert.scanner_vehicle_day': { max: 3, windowSeconds: 86_400 },
   'alert.scanner_global': { max: 6, windowSeconds: 3600 },
   'alert.vehicle': { max: 20, windowSeconds: 86_400 },
+  // A sender who confirmed a phone number: the same limits per number and vehicle.
+  'alert.phone_vehicle': { max: 2, windowSeconds: 3600 },
+  'alert.phone_vehicle_day': { max: 3, windowSeconds: 86_400 },
+  // Scanner phone check (Protected Mode): every code is an SMS that costs money (SMS pumping).
+  'verify.otp_scanner': { max: 3, windowSeconds: 3600 },
+  'verify.otp_phone': { max: 3, windowSeconds: 86_400 },
+  'verify.otp_country': { max: 50, windowSeconds: 3600 },
+  'verify.check_phone': { max: 5, windowSeconds: 900 },
   'report.fake_ip': { max: 5, windowSeconds: 3600 },
   'whatsapp.otp_user': { max: 3, windowSeconds: 3600 },
   'whatsapp.otp_phone': { max: 5, windowSeconds: 86_400 },
@@ -73,23 +90,83 @@ export interface RateLimitResult {
   retryAfterSeconds: number;
 }
 
+/** German default texts of the scanner limits (abuse protection §2); the scanner page localises. */
+export const LIMIT_MESSAGES = {
+  scanner:
+    'Sie haben das Limit für Benachrichtigungen überschritten. Bitte versuchen Sie es später erneut.',
+  vehicle:
+    'Der Fahrzeughalter wurde bereits mehrfach benachrichtigt. Bitte versuchen Sie es später erneut.',
+} as const;
+
 export class RateLimitedException extends HttpException {
   constructor(
     public readonly retryAfterSeconds: number,
     limit?: RateLimitName,
   ) {
+    const message = limit?.startsWith('alert.')
+      ? limit === 'alert.vehicle'
+        ? LIMIT_MESSAGES.vehicle
+        : LIMIT_MESSAGES.scanner
+      : undefined;
     super(
-      { error: 'rate_limited', retryAfterSeconds, ...(limit ? { limit } : {}) },
+      {
+        error: 'rate_limited',
+        retryAfterSeconds,
+        ...(limit ? { limit } : {}),
+        ...(message ? { message } : {}),
+      },
       HttpStatus.TOO_MANY_REQUESTS,
     );
   }
 }
 
+/**
+ * Stand-in while Valkey does not answer: a small sliding window per process. It is deliberately
+ * generous (each API process counts alone) and only exists so that an outage never blocks every alert.
+ */
+class LocalWindows {
+  private readonly hits = new Map<string, number[]>();
+  constructor(private readonly maxKeys = 20_000) {}
+
+  check(limits: { key: string; max: number; windowMs: number }[], now: number) {
+    for (const [i, l] of limits.entries()) {
+      const list = (this.hits.get(l.key) ?? []).filter((t) => t > now - l.windowMs);
+      this.hits.set(l.key, list);
+      if (list.length >= l.max) {
+        return { ok: false, index: i, retry: Math.ceil((list[0]! + l.windowMs - now) / 1000) };
+      }
+    }
+    for (const l of limits) this.hits.get(l.key)!.push(now);
+    // Forget the oldest keys first; losing a counter only makes the fallback more lenient.
+    while (this.hits.size > this.maxKeys) this.hits.delete(this.hits.keys().next().value!);
+    return { ok: true, index: -1, retry: 0 };
+  }
+}
+
+const withTimeout = <T>(p: Promise<T>, ms: number) =>
+  new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('valkey timeout')), ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e: unknown) => {
+        clearTimeout(t);
+        reject(e instanceof Error ? e : new Error(String(e)));
+      },
+    );
+  });
+
 @Injectable()
 export class RateLimitService {
+  private readonly local = new LocalWindows();
+  private alarmAt = 0;
+
   constructor(
     @Inject(VALKEY) private readonly valkey: Redis,
     @Inject(SettingsService) private readonly settings: SettingsService,
+    @Inject(LOGGER) private readonly logger: Logger,
   ) {}
 
   async hit(key: string, max: number, windowSeconds: number): Promise<RateLimitResult> {
@@ -109,19 +186,54 @@ export class RateLimitService {
     if (!r.allowed) throw new RateLimitedException(r.retryAfterSeconds, name);
   }
 
-  /** All-or-nothing check of several named limits (US-17). */
+  /**
+   * Scanner limits (US-17, abuse protection §2): all-or-nothing sliding windows in one Lua call. If
+   * Valkey does not answer in time, the request is counted by the in-process fallback instead (fail
+   * open: an outage must never stop every alert) and an alarm is logged.
+   */
   async enforceAll(limits: { name: RateLimitName; subject: string }[]): Promise<void> {
     const values = await Promise.all(
       limits.map((l) => this.settings.get(`ratelimit.${l.name}`, RATE_LIMITS[l.name])),
     );
-    const keys = limits.map((l) => `rl:${l.name}:${l.subject}`);
-    const args = values.flatMap((v) => [v.max, v.windowSeconds]);
-    const [ok, index, ttl] = (await this.valkey.eval(
-      MULTI_SCRIPT,
-      keys.length,
-      ...keys,
-      ...args,
-    )) as [number, number, number];
-    if (ok !== 1) throw new RateLimitedException(ttl, limits[index - 1]!.name);
+    const timeoutMs = Number(await this.settings.get('abuse.valkey_timeout_ms', 300));
+    const keys = limits.map((l) => `rls:${l.name}:${l.subject}`);
+    const now = Date.now();
+    let result: [number, number, number];
+    try {
+      result = (await withTimeout(
+        this.valkey.eval(
+          SLIDING_SCRIPT,
+          keys.length,
+          ...keys,
+          now,
+          `${now}:${randomBytes(6).toString('hex')}`,
+          ...values.flatMap((v) => [v.max, v.windowSeconds * 1000]),
+        ),
+        timeoutMs,
+      )) as [number, number, number];
+    } catch (err) {
+      this.alarm(err);
+      const r = this.local.check(
+        keys.map((key, i) => ({
+          key,
+          max: values[i]!.max,
+          windowMs: values[i]!.windowSeconds * 1000,
+        })),
+        now,
+      );
+      result = r.ok ? [1, 0, 0] : [0, r.index + 1, r.retry];
+    }
+    const [ok, index, retry] = result;
+    if (ok !== 1) throw new RateLimitedException(retry, limits[index - 1]!.name);
+  }
+
+  /** Monitoring: one error line per minute while Valkey is unreachable (log alert in Better Stack). */
+  private alarm(err: unknown) {
+    if (Date.now() - this.alarmAt < 60_000) return;
+    this.alarmAt = Date.now();
+    this.logger.error(
+      { alarm: 'ratelimit_valkey_unavailable', err: String(err) },
+      'rate limits fall back to in-process counters',
+    );
   }
 }

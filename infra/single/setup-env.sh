@@ -69,6 +69,7 @@ BIDX_KEY=$(key32)
 BLOCK_KEY_CURRENT=$(key32)
 BLOCK_KEY_PREVIOUS=$(key32)
 SESSION_SECRET=$(key32)
+PHONE_PEPPER=$(key32)
 VAPID_PUBLIC_KEY=${vapid_public}
 VAPID_PRIVATE_KEY=${vapid_private}
 VAPID_SUBJECT=mailto:hallo@park-shield.de

@@ -1,4 +1,9 @@
-import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import type { AlertStatus, AlertTypeCode } from '@parkshield/shared';
 import { sql } from 'kysely';
 import type { Db } from '../core/core.module';
@@ -12,6 +17,9 @@ import { filterText } from '../moderation/text-filter';
 import { WordListsService } from '../moderation/word-lists.service';
 import { EscalationService } from '../notifications/escalation.service';
 import { contractState, scannerDecision } from '../legal/rules';
+import { PhoneBansService } from '../abuse/phone-bans.service';
+import { ProtectionService } from '../abuse/protection.service';
+import { NOT_DELIVERABLE, ScannerVerificationService } from '../abuse/verification.service';
 import { ScannerRefService } from './scanner-ref.service';
 
 import { normalizeCode } from '../vehicles/tokens.service';
@@ -22,7 +30,10 @@ export const DISPATCH_TOPIC = 'alert.dispatch';
 export const FOLLOWUP_TOPIC = 'alert.followup';
 
 export interface ScanContext {
+  /** /24 or /48, for limits on the network (report.fake_ip). */
   ipPrefix: string;
+  /** /24 or /64, input of the pseudonymous scanner references (abuse protection §0). */
+  refPrefix?: string;
   userAgent: string;
   /** Full address, used once for the country lookup and never stored. */
   ip?: string;
@@ -39,7 +50,15 @@ export class ScanService {
     @Inject(GeoService) private readonly geo: GeoService,
     @Inject(EscalationService) private readonly escalation: EscalationService,
     @Inject(WordListsService) private readonly wordLists: WordListsService,
+    @Inject(ProtectionService) private readonly protection: ProtectionService,
+    @Inject(PhoneBansService) private readonly phoneBans: PhoneBansService,
+    @Inject(ScannerVerificationService) private readonly verification: ScannerVerificationService,
   ) {}
+
+  /** The pseudonymous references of this request (server side only, never stored on the device). */
+  scannerRefs(token: { tokenId: string }, ctx: ScanContext) {
+    return this.refs.compute(ctx.refPrefix ?? ctx.ipPrefix, ctx.userAgent, token.tokenId);
+  }
 
   /**
    * SC-07: what a scan shows is decided by rules.scannerDecision from the tag state and the owner's
@@ -120,7 +139,7 @@ export class ScanService {
 
   /** Scanner page data (02-architecture §3 step 1). Never contains the owner's name, plate or number. */
   async pageData(token: NonNullable<Awaited<ReturnType<ScanService['lookup']>>>) {
-    const [types, mode] = await Promise.all([
+    const [types, mode, , protection] = await Promise.all([
       this.db
         .selectFrom('alert_types')
         .select(['code', 'severity', 'label_de', 'label_en'])
@@ -142,8 +161,11 @@ export class ScanService {
         .set({ last_scanned_at: sql`now()` })
         .where('id', '=', token.tokenId)
         .execute(),
+      this.protection.isActive(token.vehicleId),
     ]);
     return {
+      // Abuse protection §4: only the optional phone prompt; nothing says that someone was blocked.
+      offerVerification: protection && this.verification.available,
       nickname: token.nickname,
       color: token.color,
       testMode: token.test_window_until !== null && token.test_window_until > new Date(),
@@ -160,7 +182,7 @@ export class ScanService {
   /** US-14/US-15: creates the alert and queues its dispatch in the same transaction (outbox). */
   async createAlert(
     token: NonNullable<Awaited<ReturnType<ScanService['lookup']>>>,
-    input: { type: AlertTypeCode; message?: string; lang: 'de' | 'en' },
+    input: { type: AlertTypeCode; message?: string; lang: 'de' | 'en'; verification?: string },
     ctx: ScanContext,
   ): Promise<{ alertId: string; statusToken: string }> {
     const type = await this.db
@@ -174,8 +196,21 @@ export class ScanService {
     if (type.code === 'custom' && !message)
       throw new UnprocessableEntityException({ error: 'message_required' });
 
-    const refs = await this.refs.compute(ctx.ipPrefix, ctx.userAgent, token.tokenId);
+    const refs = await this.scannerRefs(token, ctx);
     const isTest = token.test_window_until !== null && token.test_window_until > new Date();
+    // An expired or foreign verification simply counts as unconfirmed: the alert still goes out.
+    const verifiedHash = this.verification.verifiedHash(input.verification, token.tokenId);
+
+    // Abuse protection §3: blocks and bans come before the limits. The sender learns only that the
+    // message could not be delivered (no shadow block: in real danger they must look for other help).
+    if (
+      !isTest &&
+      ((await this.isBlocked(token.tokenId, refs)) ||
+        (verifiedHash && (await this.phoneBans.isBanned(verifiedHash, token.vehicleId))))
+    ) {
+      throw new ForbiddenException(NOT_DELIVERABLE);
+    }
+
     const common = {
       qr_token_id: token.tokenId,
       vehicle_id: token.vehicleId,
@@ -220,38 +255,50 @@ export class ScanService {
       }
     }
 
-    // US-17: per scanner per vehicle, per scanner across vehicles, per vehicle from everyone.
-    // Checked after the text filter so a rejected message does not cost the scanner their attempt.
+    // US-17 / abuse protection §2: per scanner per vehicle (hour and day), per scanner across vehicles,
+    // per vehicle from everyone, and per confirmed number per vehicle. Checked after the text filter so
+    // a rejected message does not cost the scanner their attempt.
     if (!isTest) {
       const ref = refs.scannerRef.toString('hex');
+      const phone = verifiedHash?.toString('hex');
       await this.limits.enforceAll([
         { name: 'alert.scanner_vehicle', subject: `${token.tokenId}:${ref}` },
+        { name: 'alert.scanner_vehicle_day', subject: `${token.tokenId}:${ref}` },
         { name: 'alert.scanner_global', subject: ref },
         { name: 'alert.vehicle', subject: token.tokenId },
+        ...(phone
+          ? ([
+              { name: 'alert.phone_vehicle', subject: `${token.tokenId}:${phone}` },
+              { name: 'alert.phone_vehicle_day', subject: `${token.tokenId}:${phone}` },
+            ] as const)
+          : []),
       ]);
     }
 
+    // Abuse protection §4: in Protected Mode the type goes out at once on every channel; the content
+    // of an unconfirmed sender is stored but only shown behind "Anzeigen" in the portal.
+    const contentHidden =
+      !isTest && !verifiedHash && (await this.protection.isActive(token.vehicleId));
     const statusToken = randomToken();
-    const blockedScanner = !isTest && (await this.isBlocked(token.tokenId, refs));
     // 02-architecture §3 step 3: set only for escalating types with a confirmed emergency contact.
-    const escalateAt = blockedScanner
-      ? null
-      : await this.escalation.initialEscalateAt({
-          ownerId: token.ownerId,
-          vehicleId: token.vehicleId,
-          escalates: type.escalates,
-          isTest,
-        });
+    const escalateAt = await this.escalation.initialEscalateAt({
+      ownerId: token.ownerId,
+      vehicleId: token.vehicleId,
+      escalates: type.escalates,
+      isTest,
+    });
     const alertId = await this.db.transaction().execute(async (trx) => {
       const alert = await trx
         .insertInto('alerts')
         .values({
           ...common,
-          status: blockedScanner ? 'blocked' : 'dispatched',
+          status: 'dispatched',
           moderation: message ? 'passed' : 'not_required',
           status_view_hash: sha256(statusToken),
-          dispatched_at: blockedScanner ? null : sql`now()`,
+          dispatched_at: sql`now()`,
           escalate_at: escalateAt,
+          verified_phone_hash: verifiedHash,
+          content_hidden: contentHidden,
         })
         .returning('id')
         .executeTakeFirstOrThrow();
@@ -267,12 +314,10 @@ export class ScanService {
           .where('id', '=', token.tokenId)
           .execute();
       }
-      if (!blockedScanner) {
-        await trx
-          .insertInto('outbox_events')
-          .values({ topic: DISPATCH_TOPIC, payload: JSON.stringify({ alertId: alert.id }) })
-          .execute();
-      }
+      await trx
+        .insertInto('outbox_events')
+        .values({ topic: DISPATCH_TOPIC, payload: JSON.stringify({ alertId: alert.id }) })
+        .execute();
       return alert.id;
     });
     return { alertId, statusToken };

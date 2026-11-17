@@ -1,17 +1,30 @@
 import { requireStaff } from '@/lib/page';
 import { opsServer } from '@/lib/server';
-import { AbuseCentre, type Blocks, type Patterns, type Reports } from './abuse-centre';
+import {
+  AbuseCentre,
+  type Blocks,
+  type Patterns,
+  type PhoneCandidates,
+  type Reports,
+} from './abuse-centre';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AbusePage() {
   const me = await requireStaff();
-  const [patterns, reports, blocks] = await Promise.all([
+  const [patterns, reports, blocks, phones] = await Promise.all([
     opsServer<Patterns>('/ops/v1/abuse/patterns'),
     opsServer<Reports>('/ops/v1/abuse/reports?status=open'),
     opsServer<Blocks>('/ops/v1/abuse/blocks'),
+    opsServer<PhoneCandidates>('/ops/v1/abuse/phone-candidates'),
   ]);
   return (
-    <AbuseCentre me={me} patterns={patterns.data} reports={reports.data} blocks={blocks.data} />
+    <AbuseCentre
+      me={me}
+      patterns={patterns.data}
+      reports={reports.data}
+      blocks={blocks.data}
+      phones={phones.data}
+    />
   );
 }

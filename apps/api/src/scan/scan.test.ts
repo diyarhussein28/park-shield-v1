@@ -250,7 +250,7 @@ describe('sending an alert (US-14, US-15, US-16)', () => {
     }
   });
 
-  it('silently drops alerts from a blocked scanner without telling them', async () => {
+  it('answers a blocked scanner with the neutral 403 and stores nothing', async () => {
     const { code, v } = await vehicleWithCode();
     const first = await send(code, { type: 'lights_on' });
     const { block_ref } = await h.db
@@ -267,15 +267,15 @@ describe('sending an alert (US-14, US-15, US-16)', () => {
       })
       .execute();
     await h.db.deleteFrom('outbox_events').execute();
-    // The per-vehicle scanner limit (1 per 15 min) is not what this test is about.
-    const keys = await h.valkey.keys('rl:*');
-    if (keys.length) await h.valkey.del(...keys);
     const res = await send(code, { type: 'lights_on' });
-    expect(res.statusCode).toBe(201);
+    // Abuse protection §3: never a hint at the owner or a block, and no shadow alert either.
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toEqual({
+      error: 'not_deliverable',
+      message: 'Ihre Nachricht konnte nicht zugestellt werden.',
+    });
     expect(await h.db.selectFrom('outbox_events').selectAll().execute()).toHaveLength(0);
-    expect((await status(res.json().alertId, res.json().statusToken)).json().status).toBe(
-      'dispatched',
-    );
+    expect(await h.db.selectFrom('alerts').selectAll().execute()).toHaveLength(1);
     expect(first.statusCode).toBe(201);
   });
 

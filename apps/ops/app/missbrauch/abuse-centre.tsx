@@ -73,6 +73,13 @@ export interface Blocks {
   }[];
 }
 
+/** Abuse protection §5: hash prefixes and counts only; there is no phone number to show. */
+export interface PhoneCandidates {
+  thresholds: { vehicles: number; days: number };
+  candidates: { hash: string; hashShort: string; vehicles: number; lastAt: string }[];
+  globalBans: { id: string; hashShort: string; reason: string; expiresAt: string }[];
+}
+
 function Group({ title, empty, children }: { title: string; empty: boolean; children: ReactNode }) {
   const { t } = useI18n();
   return (
@@ -95,11 +102,13 @@ export function AbuseCentre({
   patterns,
   reports,
   blocks,
+  phones,
 }: {
   me: StaffMe;
   patterns: Patterns | null;
   reports: Reports | null;
   blocks: Blocks | null;
+  phones: PhoneCandidates | null;
 }) {
   const { t, locale } = useI18n();
   const router = useRouter();
@@ -299,8 +308,100 @@ export function AbuseCentre({
             )}
           </Stack>
         </Card>
+
+        {phones && (
+          <Card>
+            <Stack gap={3}>
+              <Heading level={2} className="text-xl">
+                {t('opsAbuse.phoneTitle')}
+              </Heading>
+              <Text muted>
+                {t('opsAbuse.phoneIntro', {
+                  vehicles: phones.thresholds.vehicles,
+                  days: phones.thresholds.days,
+                })}
+              </Text>
+              <Group title={t('opsAbuse.phoneCandidates')} empty={!phones.candidates.length}>
+                {phones.candidates.map((c) => (
+                  <PhoneCandidate
+                    key={c.hash}
+                    candidate={c}
+                    onBan={(reason) =>
+                      run(
+                        () =>
+                          opsApi('/ops/v1/abuse/phone-bans', { body: { hash: c.hash, reason } }),
+                        t('opsAbuse.phoneBanned'),
+                      )
+                    }
+                    onDismiss={() =>
+                      run(() =>
+                        opsApi('/ops/v1/abuse/phone-candidates/dismiss', {
+                          body: { hash: c.hash },
+                        }),
+                      )
+                    }
+                  />
+                ))}
+              </Group>
+              <Group title={t('opsAbuse.phoneBans')} empty={!phones.globalBans.length}>
+                {phones.globalBans.map((b) => (
+                  <li key={b.id} className="flex flex-wrap items-center gap-3">
+                    {t('opsAbuse.phone', { ref: b.hashShort })} · {b.reason} ·{' '}
+                    {t('opsAbuse.until', { date: new Date(b.expiresAt) })}
+                    <Button
+                      variant="ghost"
+                      onClick={() =>
+                        run(() => opsApi(`/ops/v1/abuse/phone-bans/${b.id}`, { method: 'DELETE' }))
+                      }
+                    >
+                      {t('opsAbuse.unblock')}
+                    </Button>
+                  </li>
+                ))}
+              </Group>
+            </Stack>
+          </Card>
+        )}
       </Stack>
     </OpsShell>
+  );
+}
+
+function PhoneCandidate({
+  candidate: c,
+  onBan,
+  onDismiss,
+}: {
+  candidate: PhoneCandidates['candidates'][number];
+  onBan: (reason: string) => void;
+  onDismiss: () => void;
+}) {
+  const { t } = useI18n();
+  const [reason, setReason] = useState('');
+  return (
+    <li className="flex flex-wrap items-end gap-3 rounded-xl border border-border p-3">
+      <span className="self-center">
+        {t('opsAbuse.phone', { ref: c.hashShort })} · {t('opsAbuse.vehicles', { n: c.vehicles })}
+      </span>
+      <Field label={t('opsAbuse.phoneReason')}>
+        {({ id }) => (
+          <Input
+            id={id}
+            value={reason}
+            maxLength={40}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        )}
+      </Field>
+      <Button variant="danger" disabled={reason.trim().length < 3} onClick={() => onBan(reason)}>
+        {t('opsAbuse.phoneBan')}
+        <span className="sr-only"> ({c.hashShort})</span>
+      </Button>
+      <Button variant="ghost" onClick={onDismiss}>
+        {t('opsAbuse.dismiss')}
+        <span className="sr-only"> ({c.hashShort})</span>
+      </Button>
+    </li>
   );
 }
 

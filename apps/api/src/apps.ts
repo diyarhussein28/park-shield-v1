@@ -96,6 +96,9 @@ import { RemindersService } from './preferences/reminders.service';
 import { ScanController } from './scan/scan.controller';
 import { ScanService } from './scan/scan.service';
 import { ScannerRefService } from './scan/scanner-ref.service';
+import { PhoneBansService } from './abuse/phone-bans.service';
+import { ProtectionService } from './abuse/protection.service';
+import { ScannerVerificationService } from './abuse/verification.service';
 import { WaitlistController } from './waitlist/waitlist.controller';
 import { OutboxService } from './worker/outbox.service';
 import { SchedulerService } from './worker/scheduler.service';
@@ -115,6 +118,9 @@ const domainProviders = [
   VehiclesService,
   OrdersService,
   ScannerRefService,
+  ProtectionService,
+  PhoneBansService,
+  ScannerVerificationService,
   ScanService,
   DispatchService,
   ChannelsService,

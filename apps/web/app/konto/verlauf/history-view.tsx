@@ -63,21 +63,40 @@ function AlertCard({ alert: a, onReported }: { alert: HistoryAlert; onReported: 
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
+  const [hidden, setHidden] = useState<{ message: string | null } | null>(null);
+  const [showing, setShowing] = useState(false);
+
+  /** Protected Mode: the owner opens hidden content explicitly ("Anzeigen"). */
+  async function show() {
+    setShowing(true);
+    try {
+      setHidden(await api<{ message: string | null }>(`/v1/alerts/${a.id}/hidden-content`));
+    } catch (err) {
+      setResult({ tone: 'danger', text: errorText(err, t) });
+    } finally {
+      setShowing(false);
+    }
+  }
   const statusKey = `history.status_${a.status}` as MessageKey;
 
   async function report(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      const r = await api<{ blocked: boolean }>(`/v1/alerts/${a.id}/report`, {
-        body: { reason, note: note.trim() || undefined },
-      });
-      setResult({
-        tone: 'success',
-        text: r.blocked
-          ? t('history.reportedBlocked', { nickname: a.vehicle.nickname })
-          : t('history.reportedOnly'),
-      });
+      const r = await api<{ blocked: boolean; phoneBanned: boolean; protectedMode: boolean }>(
+        `/v1/alerts/${a.id}/report`,
+        { body: { reason, note: note.trim() || undefined } },
+      );
+      const nickname = a.vehicle.nickname;
+      const lines = [
+        r.phoneBanned
+          ? t('history.reportedPhone', { nickname })
+          : r.blocked
+            ? t('history.reportedBlocked', { nickname })
+            : t('history.reportedOnly'),
+      ];
+      if (r.protectedMode) lines.push(t('history.protectedOn', { nickname }));
+      setResult({ tone: 'success', text: lines.join(' ') });
       setOpen(false);
       onReported();
     } catch (err) {
@@ -96,6 +115,7 @@ function AlertCard({ alert: a, onReported }: { alert: HistoryAlert; onReported: 
           </Heading>
           {a.isTest && <Badge tone="info">{t('history.test')}</Badge>}
           {a.severity === 'urgent' && !a.isTest && <Badge tone="warning">!</Badge>}
+          {a.verifiedSender && <Badge tone="info">{t('history.verifiedSender')}</Badge>}
         </div>
         <Text muted className="text-sm">
           {t('history.at', { date: new Date(a.createdAt) })}
@@ -107,6 +127,19 @@ function AlertCard({ alert: a, onReported }: { alert: HistoryAlert; onReported: 
           )}
         </p>
         {a.message && <Text>{t('history.message', { message: a.message })}</Text>}
+        {a.hiddenContent &&
+          (hidden?.message ? (
+            <Text>{t('history.message', { message: hidden.message })}</Text>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3">
+              <Text muted className="text-sm">
+                {t('history.hiddenHint')}
+              </Text>
+              <Button variant="secondary" busy={showing} onClick={show} className="w-fit">
+                {t('history.hiddenShow')}
+              </Button>
+            </div>
+          ))}
         {a.deliveries.length > 0 && (
           <Text muted className="text-sm">
             {t('history.channels')}:{' '}
