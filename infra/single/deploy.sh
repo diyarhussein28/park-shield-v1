@@ -64,9 +64,9 @@ echo "Deploying ${commit:0:7} \"$subject\" as $who"
 tree="$(mktemp -d)"
 trap 'rm -rf "$tree"; ssh "$target" "rm -rf $lock" || true' EXIT
 git archive "$commit" | tar -x -C "$tree"
-printf '%s\n' "$commit" > "$tree/DEPLOYED_COMMIT"
 
-rsync -az --delete \
+# DEPLOYED_COMMIT is written on the server only after a successful start (end of the script).
+rsync -az --delete --exclude /DEPLOYED_COMMIT \
   --exclude /infra/single/.env --exclude /infra/single/server.env --exclude /infra/single/data \
   "$tree/" "$target:$remote/"
 
@@ -93,6 +93,7 @@ docker compose run --rm -T migrate </dev/null
 docker compose up -d --remove-orphans
 docker image prune -f >/dev/null
 docker compose ps
+printf '%s\n' "$2" > /opt/parkshield/src/DEPLOYED_COMMIT
 printf '%s\t%s\t%s\t%s\n' "$(date -Is)" "$1" "$2" "$3" >> /opt/parkshield/deploys.log
 EOF
 echo "Deployed ${commit:0:7}. History: ssh $target tail /opt/parkshield/deploys.log"
