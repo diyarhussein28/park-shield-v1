@@ -4,6 +4,9 @@ Read this first. It explains what ParkShield is, how the code is organised, how 
 build it, the rules the code must follow, the traps we already fell into, and what is left to do.
 Product specs live in [`docs/`](docs/README.md); this file is the practical map.
 
+**The current go-live state, decisions, test-only relaxations and team rules are in
+[`docs/status.md`](docs/status.md).** Read it too, and update it when you finish a step.
+
 _Last updated: 10 November 2026 (after the Phase 1 MVP, the US-45 hardening and the website redesign)._
 
 ---
