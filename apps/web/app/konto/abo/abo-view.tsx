@@ -52,6 +52,20 @@ export function AboView({
 
       <Passkeys initial={me.passkeys} />
 
+      {subscription?.withdrawalOpenUntil && (
+        <Section title={t('withdraw.portalTitle')} icon="close">
+          <Text>
+            {t('withdraw.portalText', { date: new Date(subscription.withdrawalOpenUntil) })}
+          </Text>
+          <Link
+            href="/widerrufen"
+            className="inline-flex min-h-12 w-fit items-center rounded-xl border-2 border-fg px-4 font-semibold"
+          >
+            {t('common.footer.withdrawContract')}
+          </Link>
+        </Section>
+      )}
+
       {subscription && !subscription.cancelAtPeriodEnd && (
         <Section title={t('account.cancelTitle')} icon="close">
           <Text>{t('account.cancelText')}</Text>

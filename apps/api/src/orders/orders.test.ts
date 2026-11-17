@@ -121,7 +121,7 @@ describe('included decal order (US-11)', () => {
     ).toBe('%PDF-');
     expect(
       (await h.db.selectFrom('qr_tokens').select('status').executeTakeFirstOrThrow()).status,
-    ).toBe('printed');
+    ).toBe('assigned'); // shipping state lives on the order, the tag stays assigned
 
     await h.app.get(OrdersService).submitToPrinter(id); // replayed job: no second submission
     expect(files.length).toBe((await readdir(PRINT_DIR)).length);
@@ -136,7 +136,7 @@ describe('included decal order (US-11)', () => {
     expect(mail?.text).toContain('00340434161234567890');
     expect(
       (await h.db.selectFrom('qr_tokens').select('status').executeTakeFirstOrThrow()).status,
-    ).toBe('shipped');
+    ).toBe('assigned');
 
     await h.app.inject({ method: 'POST', url: `/v1/dev/print/${id}/deliver` });
     const list = (
@@ -164,7 +164,7 @@ describe('included decal order (US-11)', () => {
       method: 'POST',
       url: '/v1/billing/checkout',
       headers: s.headers,
-      payload: { plan: 'plus', immediateStart: true },
+      payload: { plan: 'plus', immediateStart: true, immediateStartVersion: 1, termsVersion: 1 },
     });
     const sessionId = new URL(again.json().url).searchParams.get('session')!;
     await h.app.inject({

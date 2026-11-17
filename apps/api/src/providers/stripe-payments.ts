@@ -37,6 +37,7 @@ export class StripePayments implements Payments {
     secretKey: string,
     private readonly webhookSecret: string,
     private readonly prices: Record<PaidPlan, string>,
+    private readonly monthlyPrices: Record<PaidPlan, string> = { plus: '', premium: '' },
     client?: Stripe,
   ) {
     this.stripe = client ?? new Stripe(secretKey);
@@ -249,6 +250,45 @@ export class StripePayments implements Payments {
     return { periodEnd: period(sub as unknown as Record<string, unknown>).end };
   }
 
+  async resume(subscriptionId: string): Promise<void> {
+    await this.stripe.subscriptions.update(subscriptionId, {
+      cancel_at_period_end: false,
+      cancel_at: null,
+    } as Stripe.SubscriptionUpdateParams);
+  }
+
+  async scheduleMonthly(subscriptionId: string, plan: PaidPlan): Promise<void> {
+    const monthly = this.monthlyPrices[plan];
+    if (!monthly) throw new Error(`No monthly Stripe price configured for plan ${plan}`);
+    const sub = await this.stripe.subscriptions.retrieve(subscriptionId);
+    // A schedule from the subscription keeps the current phase; the next phase bills monthly and is
+    // then released, so the subscription simply continues month by month.
+    const existing = sub.schedule;
+    const schedule = existing
+      ? await this.stripe.subscriptionSchedules.retrieve(
+          typeof existing === 'string' ? existing : existing.id,
+        )
+      : await this.stripe.subscriptionSchedules.create({ from_subscription: subscriptionId });
+    const current = schedule.phases[0];
+    if (!current) throw new Error('subscription schedule without a phase');
+    if (schedule.phases.some((p) => p.items.some((i) => priceId(i.price) === monthly))) return;
+    await this.stripe.subscriptionSchedules.update(schedule.id, {
+      end_behavior: 'release',
+      phases: [
+        {
+          items: current.items.map((i) => ({ price: priceId(i.price), quantity: i.quantity ?? 1 })),
+          start_date: current.start_date,
+          end_date: current.end_date,
+          proration_behavior: 'none',
+        },
+        {
+          items: [{ price: monthly, quantity: 1 }],
+          duration: { interval: 'month', interval_count: 1 },
+        },
+      ],
+    } as Stripe.SubscriptionScheduleUpdateParams);
+  }
+
   async listInvoices(customerId: string): Promise<Invoice[]> {
     const list = await this.stripe.invoices.list({ customer: customerId, limit: 24 });
     return list.data.map((i) => ({
@@ -304,6 +344,15 @@ export class StripePayments implements Payments {
       if (!id) return { kind: 'ignored', eventId: event.id, type: event.type };
       return { ...(await this.currentState(id)), eventId: event.id };
     }
+    if (event.type === 'charge.refunded') {
+      const pi = obj.payment_intent;
+      return {
+        kind: 'charge_refunded',
+        eventId: event.id,
+        paymentIntentId: typeof pi === 'string' ? pi : ((pi as { id?: string } | null)?.id ?? null),
+        amountRefundedCents: Number(obj.amount_refunded ?? 0),
+      };
+    }
     if (event.type === 'invoice.payment_failed') {
       const subscriptionId = invoiceSubscription(obj);
       if (subscriptionId) {
@@ -334,8 +383,20 @@ export class StripePayments implements Payments {
       periodStart: p.start,
       periodEnd: p.end,
       cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end) || Boolean(sub.cancel_at),
+      interval: subInterval(sub),
     };
   }
+}
+
+const priceId = (p: string | { id: string } | null | undefined): string =>
+  typeof p === 'string' ? p : (p?.id ?? '');
+
+function subInterval(sub: Record<string, unknown>): 'year' | 'month' | undefined {
+  const item = (
+    sub.items as { data?: { price?: { recurring?: { interval?: string } } }[] } | undefined
+  )?.data?.[0];
+  const i = item?.price?.recurring?.interval;
+  return i === 'year' || i === 'month' ? i : undefined;
 }
 
 function invoiceSubscription(invoice: Record<string, unknown>): string | undefined {

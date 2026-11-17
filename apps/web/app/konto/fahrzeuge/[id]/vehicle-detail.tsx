@@ -308,7 +308,7 @@ function QrHero({ vehicle }: { vehicle: Vehicle }) {
       icon="qr"
       className="border-2 border-primary"
       aside={
-        <Badge tone={decal.status === 'active' ? 'success' : 'info'}>
+        <Badge tone={decal.status === 'assigned' ? 'success' : 'info'}>
           {t('vehicles.decalStatus', {
             hint: decal.codeHint,
             status: t(`vehicles.status_${decal.status}` as MessageKey),

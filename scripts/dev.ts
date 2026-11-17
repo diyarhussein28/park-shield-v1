@@ -21,7 +21,12 @@ const run = (cmd: string, env: NodeJS.ProcessEnv = process.env) => {
 run('npm run db:migrate');
 run('npm run db:migrate', { ...process.env, DATABASE_URL: process.env.TEST_DATABASE_URL });
 
-const apps = spawn('npx turbo run dev --env-mode=loose', {
+// Extra arguments go to turbo, e.g. `npm run dev -- --filter=!@parkshield/ops` while port 3001 is taken.
+const extra = process.argv
+  .slice(2)
+  .map((a) => `'${a.replace(/'/g, `'\\''`)}'`)
+  .join(' ');
+const apps = spawn(`npx turbo run dev --env-mode=loose ${extra}`, {
   cwd: ROOT,
   stdio: 'inherit',
   shell: true,

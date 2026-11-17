@@ -13,7 +13,7 @@ import {
 } from '@parkshield/ui';
 import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/browser';
 import Link from 'next/link';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Section } from '@/components/konto-shell';
 import { api, errorText } from '@/lib/api-client';
 import type { CreditNote, InvoiceSummary, Me, SubscriptionSummary } from '@/lib/api-server';
@@ -69,8 +69,20 @@ export function PastDue() {
   );
 }
 
+interface CheckoutTexts {
+  immediateStart: { version: number; text: string };
+  terms: { version: number; text: string };
+  renewalRule: string;
+}
+
+/**
+ * § 312j BGB checkout: summary with price, term and the renewal rule from the server's configuration,
+ * the immediate-start declaration exactly as stored (versioned, its hash is recorded with the order),
+ * and the button „Zahlungspflichtig bestellen“, disabled until the declaration is ticked.
+ * After an ended subscription it first asks whether the old sticker is still on the car.
+ */
 export function CheckoutForm() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const pending = usePendingClaim();
   const [typed, setPromo] = useState<string | null>(null);
   // A partner decal brings its promo code along (AD-07); the person may still change it.
@@ -78,24 +90,52 @@ export function CheckoutForm() {
   const [immediate, setImmediate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showRequired, setShowRequired] = useState(false);
+  const [texts, setTexts] = useState<CheckoutTexts | null | 'error'>(null);
+  const [resubscribe, setResubscribe] = useState(false);
+  const [sticker, setSticker] = useState<'keep' | 'replace' | null>(null);
+  const [stickerMissing, setStickerMissing] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    void Promise.all([
+      api<CheckoutTexts>(`/v1/legal/checkout-texts?locale=${locale}`, { method: 'GET' }),
+      api<{ hadSubscription?: boolean }>('/v1/billing/subscription', { method: 'GET' }).catch(
+        () => ({ hadSubscription: false }),
+      ),
+    ])
+      .then(([tx, sub]) => {
+        if (!live) return;
+        setTexts(tx);
+        setResubscribe(Boolean(sub.hadSubscription));
+      })
+      .catch(() => live && setTexts('error'));
+    return () => {
+      live = false;
+    };
+  }, [locale]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!immediate) {
-      setShowRequired(true);
+    if (!immediate || !texts || texts === 'error') return;
+    if (resubscribe && !sticker) {
+      setStickerMissing(true);
       return;
     }
     setBusy(true);
     setError(null);
+    const body = {
+      plan: 'plus',
+      immediateStart: true,
+      immediateStartVersion: texts.immediateStart.version,
+      termsVersion: texts.terms.version,
+      ...(promo.trim() ? { promoCode: promo.trim() } : {}),
+    };
     try {
-      const { url } = await api<{ url: string }>('/v1/billing/checkout', {
-        body: {
-          plan: 'plus',
-          immediateStart: true,
-          ...(promo.trim() ? { promoCode: promo.trim() } : {}),
-        },
-      });
+      const { url } = resubscribe
+        ? await api<{ url: string }>('/v1/portal/subscriptions/renew', {
+            body: { ...body, stickerStillAttached: sticker === 'keep' },
+          })
+        : await api<{ url: string }>('/v1/billing/checkout', { body });
       window.location.assign(url);
     } catch (err) {
       setError(errorText(err, t));
@@ -103,10 +143,48 @@ export function CheckoutForm() {
     }
   }
 
+  if (texts === null) return <Text muted>{t('checkout.textsLoading')}</Text>;
+  if (texts === 'error') return <Notice tone="danger">{t('checkout.textsMissing')}</Notice>;
+
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
       <Text muted>{t('account.noSubscription')}</Text>
-      <p className="text-2xl font-bold">{t('checkout.priceLine')}</p>
+      <section aria-labelledby="checkout-summary" className="flex flex-col gap-1">
+        <h3 id="checkout-summary" className="font-semibold">
+          {t('checkout.summaryTitle')}
+        </h3>
+        <p className="text-2xl font-bold">{t('checkout.priceLine')}</p>
+        <Text>{t('checkout.summaryTerm')}</Text>
+        <Text>
+          <span className="font-semibold">{t('checkout.summaryRenewal')}:</span> {texts.renewalRule}
+        </Text>
+      </section>
+      {resubscribe && (
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-1 font-semibold">{t('checkout.stickerQuestion')}</legend>
+          {(['keep', 'replace'] as const).map((v) => (
+            <label key={v} className="flex min-h-11 items-center gap-3">
+              <input
+                type="radio"
+                name="sticker"
+                className="size-5"
+                checked={sticker === v}
+                onChange={() => {
+                  setSticker(v);
+                  setStickerMissing(false);
+                }}
+              />
+              {v === 'keep' ? t('checkout.stickerYes') : t('checkout.stickerNo')}
+            </label>
+          ))}
+          {sticker === 'replace' && <Text muted>{t('checkout.stickerNoHint')}</Text>}
+          {stickerMissing && (
+            <p className="font-semibold text-danger-text" role="alert">
+              {t('checkout.stickerRequired')}
+            </p>
+          )}
+        </fieldset>
+      )}
       <Field label={t('checkout.promoLabel')} optionalLabel={t('common.optional')}>
         {({ id }) => (
           <Input
@@ -119,17 +197,15 @@ export function CheckoutForm() {
           />
         )}
       </Field>
+      {/* TODO [LEGAL REVIEW: mandatory immediate-start consent] text comes from legal_texts */}
       <Checkbox
-        label={t('checkout.immediateStart')}
+        label={texts.immediateStart.text}
         checked={immediate}
-        onChange={(e) => {
-          setImmediate(e.target.checked);
-          setShowRequired(false);
-        }}
-        aria-describedby={showRequired ? 'immediate-required' : undefined}
+        onChange={(e) => setImmediate(e.target.checked)}
+        aria-describedby={immediate ? undefined : 'immediate-required'}
       />
-      {showRequired && (
-        <p id="immediate-required" className="font-semibold text-danger-text" role="alert">
+      {!immediate && (
+        <p id="immediate-required" className="text-sm text-muted">
           {t('checkout.immediateRequired')}
         </p>
       )}
@@ -138,7 +214,7 @@ export function CheckoutForm() {
         <Link className="underline" href="/widerruf">
           {t('checkout.withdrawalLink')}
         </Link>
-        . {t('checkout.termsNotice')}{' '}
+        . {texts.terms.text}{' '}
         <Link className="underline" href="/agb">
           {t('common.footer.terms')}
         </Link>{' '}
@@ -148,7 +224,7 @@ export function CheckoutForm() {
         </Link>
       </Text>
       {error && <Notice tone="danger">{error}</Notice>}
-      <Button type="submit" size="lg" busy={busy} className="sm:w-fit">
+      <Button type="submit" size="lg" busy={busy} disabled={!immediate} className="sm:w-fit">
         {t('checkout.pay')}
       </Button>
     </form>

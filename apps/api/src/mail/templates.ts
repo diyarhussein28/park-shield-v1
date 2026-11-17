@@ -26,30 +26,68 @@ const templates = {
         'Waren Sie das nicht? Melden Sie sich an und entfernen Sie unbekannte Geräte, oder antworten Sie auf diese E-Mail.',
       ],
     },
-    subscription_started: {
-      subject: 'Willkommen bei ParkShield {plan}',
+    // § 312f BGB: contract confirmation on a durable medium. TODO [LEGAL REVIEW]
+    contract_confirmation: {
+      subject: 'Ihre Vertragsbestätigung für ParkShield {plan} ({contractNo})',
       lines: [
-        'Vielen Dank! Ihr Abo {plan} ist aktiv bis zum {periodEnd, date, long}.',
-        'Ihre Vertragsnummer: {contractNo}. Sie brauchen sie, wenn Sie ohne Anmeldung kündigen möchten.',
-        'Sie haben verlangt, dass die Leistung sofort beginnt. Bei einem Widerruf innerhalb von 14 Tagen zahlen Sie Wertersatz für die bis dahin erbrachte Leistung.',
-        'Ihre Rechnung finden Sie in Ihrem Konto.',
+        'Vielen Dank! Hiermit bestätigen wir Ihren Vertrag.',
+        'Vertragsnummer: {contractNo} · Tarif: ParkShield {plan} · Preis: {price} für die ersten 12 Monate, inklusive 19 % Umsatzsteuer · Vertragsbeginn: {startedAt, date, long} · erste Laufzeit bis {periodEnd, date, long}.',
+        'Laufzeit und Verlängerung: {renewalRule}',
+        'Ihre Erklärung vom {consentAt, date, long} um {consentAt, time, short} Uhr: „{consentText}“',
+        'Kündigen können Sie jederzeit über „Verträge hier kündigen“ unten auf jeder Seite, widerrufen innerhalb der Widerrufsfrist über „Vertrag widerrufen“. Ihre Rechnung finden Sie in Ihrem Konto.',
+        'Nachfolgend die bei Vertragsschluss gültigen Allgemeinen Geschäftsbedingungen und die Widerrufsbelehrung (Fassung {docVersion}):',
+        '{agbText}',
+        '{widerrufText}',
       ],
       action: 'Zum Konto',
     },
+    // § 312k BGB. TODO [LEGAL REVIEW]
     cancel_received: {
-      subject: 'Ihre Kündigung ist eingegangen',
+      subject: 'Bestätigung Ihrer Kündigung ({contractNo})',
       lines: [
-        'Wir haben Ihre Kündigung am {receivedAt, date, long} um {receivedAt, time, short} erhalten.',
-        'Vertragsnummer: {contractNo}. Ihr Abo endet zum {endsAt, date, long}. Bis dahin bleibt Ihr Schutz aktiv.',
-        'Sie müssen nichts weiter tun.',
+        'Wir haben Ihre Kündigung am {receivedAt, date, long} um {receivedAt, time, short} Uhr erhalten.',
+        'Inhalt Ihrer Kündigung: {kind, select, extraordinary {außerordentliche Kündigung} other {ordentliche Kündigung}} des Vertrags {contractNo}.',
+        '{requestedLine}',
+        '{reasonLine}',
+        'Ihr Vertrag endet am {endsAt, date, long}. Bis dahin bleibt Ihr Schutz voll aktiv; danach werden keine Beträge mehr abgebucht.',
+        'Sie haben nicht gekündigt oder möchten es sich anders überlegen? Mit dem Link unten nehmen Sie die Kündigung bis zum Vertragsende mit einem Klick zurück.',
+      ],
+      action: 'Kündigung zurücknehmen',
+    },
+    cancel_needs_review: {
+      subject: 'Ihre Kündigung bei ParkShield ist eingegangen',
+      lines: [
+        'Wir haben Ihre Kündigung am {receivedAt, date, long} um {receivedAt, time, short} Uhr erhalten.',
+        'Wir konnten sie noch keinem Vertrag zuordnen und prüfen sie jetzt von Hand. Sobald wir den Vertrag gefunden haben, bestätigen wir Ihnen das Vertragsende. Die Kündigung gilt als zu dem Zeitpunkt zugegangen, zu dem wir sie erhalten haben.',
       ],
     },
-    cancel_not_found: {
-      subject: 'Ihre Kündigung bei ParkShield',
+    cancel_revoked: {
+      subject: 'Ihre Kündigung wurde zurückgenommen',
       lines: [
-        'Wir haben am {receivedAt, date, long} um {receivedAt, time, short} eine Kündigung für diese E-Mail-Adresse erhalten.',
-        'Zur angegebenen Vertragsnummer haben wir keinen aktiven Vertrag gefunden. Bitte prüfen Sie die Vertragsnummer in Ihrer Willkommens-E-Mail oder antworten Sie auf diese E-Mail.',
+        'Sie haben Ihre Kündigung des Vertrags {contractNo} zurückgenommen. Ihr Vertrag läuft unverändert weiter.',
+        'Wenn Sie das nicht waren, können Sie jederzeit erneut über „Verträge hier kündigen“ kündigen.',
       ],
+      action: 'Zum Konto',
+    },
+    // § 356a BGB: receipt only, it does not confirm that the withdrawal is valid. TODO [LEGAL REVIEW]
+    withdrawal_received: {
+      subject: 'Eingangsbestätigung Ihres Widerrufs',
+      lines: [
+        'Wir haben Ihren Widerruf am {receivedAt, date, long} um {receivedAt, time, short} Uhr erhalten.',
+        'Inhalt Ihres Widerrufs: Name: {name} · Vertrag: {contractRef} · E-Mail für diese Bestätigung: {receiptEmail}.',
+        'Wir bearbeiten Ihren Widerruf und informieren Sie über die Erstattung.',
+      ],
+    },
+    // TODO [LEGAL REVIEW]
+    renewal_reminder: {
+      subject: 'Ihr ParkShield-Vertrag verlängert sich am {renewsAt, date, long}',
+      lines: [
+        'Ihr Vertrag {contractNo} verlängert sich am {renewsAt, date, long}, wenn Sie nicht vorher kündigen.',
+        'Danach kostet er {price} {interval, select, month {pro Monat} other {pro Jahr}}, inklusive 19 % Umsatzsteuer.',
+        '{renewalRule}',
+        'Kündigen können Sie jederzeit ohne Anmeldung über den Link unten.',
+      ],
+      action: 'Verträge hier kündigen',
     },
     waitlist_confirm: {
       subject: 'Bitte bestätigen Sie Ihre Anmeldung zur Business-Warteliste',
@@ -310,30 +348,64 @@ const templates = {
         'Not you? Sign in and remove unknown devices, or reply to this e-mail.',
       ],
     },
-    subscription_started: {
-      subject: 'Welcome to ParkShield {plan}',
+    contract_confirmation: {
+      subject: 'Your contract confirmation for ParkShield {plan} ({contractNo})',
       lines: [
-        'Thank you! Your {plan} subscription is active until {periodEnd, date, long}.',
-        'Your contract number: {contractNo}. You need it to cancel without signing in.',
-        'You asked for the service to start immediately. If you withdraw within 14 days, you pay for the service provided until then.',
-        'Your invoice is available in your account.',
+        'Thank you! This confirms your contract.',
+        'Contract number: {contractNo} · Plan: ParkShield {plan} · Price: {price} for the first 12 months, including 19% VAT · Start: {startedAt, date, long} · first term until {periodEnd, date, long}.',
+        'Term and renewal: {renewalRule}',
+        'Your declaration of {consentAt, date, long} at {consentAt, time, short}: “{consentText}”',
+        'You can cancel at any time via “Cancel contract here” at the bottom of every page, and withdraw within the withdrawal period via “Withdraw from contract”. Your invoice is in your account.',
+        'Below are the terms and the withdrawal policy as they applied when the contract was concluded (version {docVersion}). The German version is binding.',
+        '{agbText}',
+        '{widerrufText}',
       ],
       action: 'Open my account',
     },
     cancel_received: {
-      subject: 'We have received your cancellation',
+      subject: 'Confirmation of your cancellation ({contractNo})',
       lines: [
         'We received your cancellation on {receivedAt, date, long} at {receivedAt, time, short}.',
-        'Contract number: {contractNo}. Your subscription ends on {endsAt, date, long}. Your protection stays active until then.',
-        'There is nothing else you need to do.',
+        'Content of your cancellation: {kind, select, extraordinary {extraordinary cancellation} other {ordinary cancellation}} of contract {contractNo}.',
+        '{requestedLine}',
+        '{reasonLine}',
+        'Your contract ends on {endsAt, date, long}. Your protection stays fully active until then; nothing is charged afterwards.',
+        'You did not cancel, or changed your mind? The link below takes the cancellation back with one click until the end date.',
+      ],
+      action: 'Take back the cancellation',
+    },
+    cancel_needs_review: {
+      subject: 'We have received your ParkShield cancellation',
+      lines: [
+        'We received your cancellation on {receivedAt, date, long} at {receivedAt, time, short}.',
+        'We could not match it to a contract yet and are checking it by hand. Once we have found the contract we confirm the end date. The cancellation counts as received at the time we received it.',
       ],
     },
-    cancel_not_found: {
-      subject: 'Your ParkShield cancellation',
+    cancel_revoked: {
+      subject: 'Your cancellation was taken back',
       lines: [
-        'We received a cancellation for this e-mail address on {receivedAt, date, long} at {receivedAt, time, short}.',
-        'We could not find an active contract with the contract number you entered. Please check the number in your welcome e-mail or reply to this e-mail.',
+        'You took back the cancellation of contract {contractNo}. Your contract continues unchanged.',
+        'If this was not you, you can cancel again at any time via “Cancel contract here”.',
       ],
+      action: 'Open my account',
+    },
+    withdrawal_received: {
+      subject: 'Receipt of your withdrawal',
+      lines: [
+        'We received your withdrawal on {receivedAt, date, long} at {receivedAt, time, short}.',
+        'Content of your withdrawal: name: {name} · contract: {contractRef} · e-mail for this receipt: {receiptEmail}.',
+        'We are processing your withdrawal and will inform you about the refund.',
+      ],
+    },
+    renewal_reminder: {
+      subject: 'Your ParkShield contract renews on {renewsAt, date, long}',
+      lines: [
+        'Your contract {contractNo} renews on {renewsAt, date, long} unless you cancel before.',
+        'It then costs {price} {interval, select, month {per month} other {per year}}, including 19% VAT.',
+        '{renewalRule}',
+        'You can cancel at any time without signing in via the link below.',
+      ],
+      action: 'Cancel contract here',
     },
     waitlist_confirm: {
       subject: 'Please confirm your ParkShield Business waitlist sign-up',
@@ -618,7 +690,7 @@ export function renderMail(
     '— ParkShield',
   ].join('\n\n');
   const html = `<!doctype html><html lang="${locale}"><body style="font-family:system-ui,Segoe UI,Arial,sans-serif;font-size:16px;line-height:1.5;color:#0f172a">
-${lines.map((l) => `<p>${escapeHtml(l)}</p>`).join('\n')}
+${lines.map((l) => `<p>${escapeHtml(l).replace(/\n/g, '<br>')}</p>`).join('\n')}
 ${replies.length ? `<p>${replies.map((r, i) => button(r, i === 0)).join('')}</p>` : ''}
 ${action ? `<p>${button(action, replies.length === 0)}</p>` : ''}
 <p style="color:#475569">— ParkShield</p></body></html>`;

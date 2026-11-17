@@ -445,8 +445,8 @@ describe('reminders and summaries (US-29, US-30)', () => {
     await h.db
       .updateTable('qr_tokens')
       .set({
-        status: 'active',
         activated_at: sql`now() - interval '12 months'`,
+        assigned_at: sql`now() - interval '12 months'`,
         last_scanned_at: null,
       })
       .execute();

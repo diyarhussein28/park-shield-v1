@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
 import type { FakePayments } from '../providers/fake-payments';
 import { PAYMENTS } from '../providers/ports';
+import { WithdrawalsService } from '../legal/withdrawals.service';
 import { BillingService } from './billing.service';
 import {
   createHarness,
@@ -65,21 +66,36 @@ describe('annual checkout (US-06)', () => {
 
   it('does not sell Premium before Phase 2', async () => {
     const s = await signIn(h, 'aylin@example.de');
-    const res = await checkout(s, { plan: 'premium', immediateStart: true });
+    const res = await checkout(s, {
+      plan: 'premium',
+      immediateStart: true,
+      immediateStartVersion: 1,
+      termsVersion: 1,
+    });
     expect(res.json()).toMatchObject({ error: 'plan_unavailable' });
   });
 
   it('gives no access before payment, then activates with a contract number and welcome mail', async () => {
     const s = await signIn(h, 'jonas@example.de');
-    await checkout(s, { plan: 'plus', immediateStart: true });
+    await checkout(s, {
+      plan: 'plus',
+      immediateStart: true,
+      immediateStartVersion: 1,
+      termsVersion: 1,
+    });
     const before = await h.app.inject({
       method: 'GET',
       url: '/v1/billing/subscription',
       headers: { cookie: s.cookie },
     });
-    expect(before.json()).toEqual({ subscription: null });
+    expect(before.json()).toEqual({ subscription: null, hadSubscription: false });
 
-    const res = await checkout(s, { plan: 'plus', immediateStart: true });
+    const res = await checkout(s, {
+      plan: 'plus',
+      immediateStart: true,
+      immediateStartVersion: 1,
+      termsVersion: 1,
+    });
     const sessionId = new URL(res.json().url).searchParams.get('session')!;
     const amount = await h.app.inject({
       method: 'GET',
@@ -108,16 +124,50 @@ describe('annual checkout (US-06)', () => {
       .select('withdrawal_waiver_at')
       .executeTakeFirstOrThrow();
     expect(row.withdrawal_waiver_at).toBeInstanceOf(Date);
-    const welcome = await lastMail(h, 'subscription_started');
+    const welcome = await lastMail(h, 'contract_confirmation');
     expect(welcome?.text).toContain(sub.contractNo);
     expect(welcome?.text).toContain('Wertersatz');
+    // § 312f BGB: terms, withdrawal policy and the declaration with its time are in the e-mail.
+    expect(welcome?.text).toContain('Allgemeine Geschäftsbedingungen');
+    expect(welcome?.text).toContain('Widerrufsbelehrung');
+    expect(welcome?.text).toContain('Ich verlange ausdrücklich');
+    const consents = await h.db
+      .selectFrom('consent_records')
+      .select(['type', 'text_version', 'source'])
+      .orderBy('type')
+      .execute();
+    expect([...new Set(consents.map((c) => c.type))]).toEqual([
+      'agb',
+      'immediate_start',
+      'privacy_notice',
+    ]);
+    const link = await h.db
+      .selectFrom('subscriptions')
+      .select(['immediate_start_consent_id', 'renewal_mode'])
+      .executeTakeFirstOrThrow();
+    expect(link.immediate_start_consent_id).not.toBeNull();
+    expect(link.renewal_mode).toBe('monthly_after_first_term');
 
-    expect((await checkout(s, { plan: 'plus', immediateStart: true })).statusCode).toBe(409);
+    expect(
+      (
+        await checkout(s, {
+          plan: 'plus',
+          immediateStart: true,
+          immediateStartVersion: 1,
+          termsVersion: 1,
+        })
+      ).statusCode,
+    ).toBe(409);
   });
 
   it('applies billing events exactly once', async () => {
     const s = await signIn(h, 'twice@example.de');
-    const res = await checkout(s, { plan: 'plus', immediateStart: true });
+    const res = await checkout(s, {
+      plan: 'plus',
+      immediateStart: true,
+      immediateStartVersion: 1,
+      termsVersion: 1,
+    });
     const sessionId = new URL(res.json().url).searchParams.get('session')!;
     await h.app.inject({
       method: 'POST',
@@ -131,7 +181,7 @@ describe('annual checkout (US-06)', () => {
     });
     expect(again.statusCode).toBe(404);
     expect(await h.db.selectFrom('subscriptions').selectAll().execute()).toHaveLength(1);
-    expect((await mailbox(h)).filter((m) => m.tag === 'subscription_started')).toHaveLength(1);
+    expect((await mailbox(h)).filter((m) => m.tag === 'contract_confirmation')).toHaveLength(1);
   });
 
   it('accepts a valid promo code and rejects unknown or exhausted ones', async () => {
@@ -144,11 +194,25 @@ describe('annual checkout (US-06)', () => {
       .execute();
     const s = await signIn(h, 'promo@example.de');
     expect(
-      (await checkout(s, { plan: 'plus', immediateStart: true, promoCode: 'NOPE' })).json(),
+      (
+        await checkout(s, {
+          plan: 'plus',
+          immediateStart: true,
+          immediateStartVersion: 1,
+          termsVersion: 1,
+          promoCode: 'NOPE',
+        })
+      ).json(),
     ).toMatchObject({
       error: 'promo_invalid',
     });
-    const res = await checkout(s, { plan: 'plus', immediateStart: true, promoCode: 'gruender50' });
+    const res = await checkout(s, {
+      plan: 'plus',
+      immediateStart: true,
+      immediateStartVersion: 1,
+      termsVersion: 1,
+      promoCode: 'gruender50',
+    });
     const sessionId = new URL(res.json().url).searchParams.get('session')!;
     expect(
       (await h.app.inject({ method: 'GET', url: `/v1/dev/payments/sessions/${sessionId}` })).json()
@@ -169,7 +233,15 @@ describe('annual checkout (US-06)', () => {
     await subscribe('first@example.de', 'VOLL');
     const late = await signIn(h, 'second@example.de');
     expect(
-      (await checkout(late, { plan: 'plus', immediateStart: true, promoCode: 'VOLL' })).statusCode,
+      (
+        await checkout(late, {
+          plan: 'plus',
+          immediateStart: true,
+          immediateStartVersion: 1,
+          termsVersion: 1,
+          promoCode: 'VOLL',
+        })
+      ).statusCode,
     ).toBe(400);
   });
 
@@ -189,13 +261,14 @@ describe('annual checkout (US-06)', () => {
 });
 
 describe('cancellation (US-07, §312k BGB)', () => {
+  const portalCancel = (s: Session, payload: Record<string, unknown> = {}) =>
+    h.app.inject({ method: 'POST', url: '/v1/portal/cancellations', headers: s.headers, payload });
+  const publicCancel = (payload: Record<string, unknown>) =>
+    h.app.inject({ method: 'POST', url: '/v1/legal/cancellations', payload });
+
   it('cancels to the end of the period from the account and confirms by e-mail', async () => {
     const s = await subscribe('cancel@example.de');
-    const res = await h.app.inject({
-      method: 'POST',
-      url: '/v1/billing/cancel',
-      headers: s.headers,
-    });
+    const res = await portalCancel(s);
     expect(res.statusCode).toBe(200);
     const sub = (
       await h.app.inject({
@@ -204,42 +277,59 @@ describe('cancellation (US-07, §312k BGB)', () => {
         headers: { cookie: s.cookie },
       })
     ).json().subscription;
+    // The service stays fully active until the end date.
     expect(sub).toMatchObject({ status: 'active', cancelAtPeriodEnd: true });
+    expect(new Date(res.json().endsAt).getTime()).toBe(new Date(sub.currentPeriodEnd).getTime());
     const mail = await lastMail(h, 'cancel_received');
     expect(mail?.to).toBe('cancel@example.de');
     expect(mail?.text).toContain(sub.contractNo);
+    expect(mail?.text).toContain('Kündigung zurücknehmen');
+    const req = await h.db
+      .selectFrom('cancellation_requests')
+      .select(['status', 'channel', 'computed_end_date'])
+      .executeTakeFirstOrThrow();
+    expect(req).toMatchObject({ status: 'scheduled', channel: 'portal' });
   });
 
-  it('works without login by e-mail + contract number, with the same answer either way', async () => {
-    await subscribe('nologin@example.de');
+  it('works without login by e-mail + contract number or plate, same answer, no captcha', async () => {
+    const s = await subscribe('nologin@example.de');
+    await h.app.inject({
+      method: 'POST',
+      url: '/v1/vehicles',
+      headers: s.headers,
+      payload: { nickname: 'Der Blaue', plate: 'K-AB 1234' },
+    });
     const { contract_no } = await h.db
       .selectFrom('subscriptions')
       .select('contract_no')
       .executeTakeFirstOrThrow();
 
-    const wrong = await h.app.inject({
-      method: 'POST',
-      url: '/v1/billing/cancel-request',
-      payload: {
-        email: 'nologin@example.de',
-        contractNo: 'PS-WRONG000',
-        captcha: DEV_CAPTCHA_SOLUTION,
-      },
-    });
-    const right = await h.app.inject({
-      method: 'POST',
-      url: '/v1/billing/cancel-request',
-      payload: {
-        email: 'NoLogin@Example.de',
-        contractNo: contract_no!.toLowerCase(),
-        captcha: DEV_CAPTCHA_SOLUTION,
-      },
+    const wrong = await publicCancel({
+      name: 'Nora Login',
+      email: 'nologin@example.de',
+      contractNo: 'PS-WRONG000',
     });
     expect(wrong.statusCode).toBe(200);
-    expect(right.statusCode).toBe(200);
-    expect(Object.keys(wrong.json())).toEqual(Object.keys(right.json()));
+    expect((await lastMail(h, 'cancel_needs_review'))?.to).toBe('nologin@example.de');
+    expect(
+      await h.db
+        .selectFrom('cancellation_requests')
+        .select('status')
+        .where('status', '=', 'needs_review')
+        .execute(),
+    ).toHaveLength(1);
 
-    expect((await lastMail(h, 'cancel_not_found'))?.to).toBe('nologin@example.de');
+    const byPlate = await publicCancel({
+      name: 'Nora Login',
+      email: 'NoLogin@Example.de',
+      plate: 'kab1234',
+      confirmationEmail: 'other@example.de',
+    });
+    expect(byPlate.statusCode).toBe(200);
+    expect(Object.keys(wrong.json())).toEqual(Object.keys(byPlate.json()));
+    // Confirmation to the given address and to the account address.
+    const sent = (await mailbox(h)).filter((m) => m.tag === 'cancel_received').map((m) => m.to);
+    expect(sent.sort()).toEqual(['nologin@example.de', 'other@example.de']);
     expect((await lastMail(h, 'cancel_received'))?.text).toContain(contract_no!);
     const sub = await h.db
       .selectFrom('subscriptions')
@@ -248,13 +338,39 @@ describe('cancellation (US-07, §312k BGB)', () => {
     expect(sub.cancel_at_period_end).toBe(true);
   });
 
-  it('queues extraordinary cancellations with their reason for support', async () => {
+  it('a later requested date and the one-click revoke link', async () => {
+    const s = await subscribe('later@example.de');
+    const end = (
+      await h.db.selectFrom('subscriptions').select('current_period_end').executeTakeFirstOrThrow()
+    ).current_period_end!;
+    const wanted = new Date(end.getTime() + 40 * 86_400_000).toISOString().slice(0, 10);
+    const res = await portalCancel(s, { effective: 'date', date: wanted });
+    // Monthly after the first term: the first monthly boundary on or after the requested date.
+    expect(new Date(res.json().endsAt).getTime()).toBeGreaterThanOrEqual(
+      new Date(`${wanted}T00:00:00Z`).getTime(),
+    );
+    const token = /token=([A-Za-z0-9_-]+)/.exec((await lastMail(h, 'cancel_received'))!.text)![1]!;
+    const revoke = (t: string) =>
+      h.app.inject({
+        method: 'POST',
+        url: '/v1/legal/cancellations/revoke',
+        payload: { token: t },
+      });
+    expect((await revoke(token)).statusCode).toBe(200);
+    expect((await revoke(token)).statusCode).toBe(404);
+    const sub = await h.db
+      .selectFrom('subscriptions')
+      .select('cancel_at_period_end')
+      .executeTakeFirstOrThrow();
+    expect(sub.cancel_at_period_end).toBe(false);
+    expect((await lastMail(h, 'cancel_revoked'))?.to).toBe('later@example.de');
+  });
+
+  it('queues extraordinary cancellations with their reason for review', async () => {
     const s = await subscribe('extra@example.de');
-    const res = await h.app.inject({
-      method: 'POST',
-      url: '/v1/billing/cancel',
-      headers: s.headers,
-      payload: { kind: 'extraordinary', reason: 'Auto verkauft, Umzug ins Ausland' },
+    const res = await portalCancel(s, {
+      type: 'extraordinary',
+      reason: 'Auto verkauft, Umzug ins Ausland',
     });
     expect(res.statusCode).toBe(200);
     const events = await h.db
@@ -266,13 +382,87 @@ describe('cancellation (US-07, §312k BGB)', () => {
     expect(events[0]!.payload).toMatchObject({ reason: 'Auto verkauft, Umzug ins Ausland' });
   });
 
-  it('needs a captcha for cancellation without login', async () => {
+  it('needs a contract number or a plate', async () => {
+    const res = await publicCancel({ name: 'X Y', email: 'x@example.de' });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+describe('online withdrawal (§ 356a BGB)', () => {
+  it('confirms receipt at once, then refunds minus Wertersatz and revokes the codes', async () => {
+    const s = await subscribe('widerruf@example.de');
+    await h.app.inject({
+      method: 'POST',
+      url: '/v1/vehicles',
+      headers: s.headers,
+      payload: { nickname: 'Der Rote', plate: 'LEV-X 1' },
+    });
+    const { contract_no } = await h.db
+      .selectFrom('subscriptions')
+      .select('contract_no')
+      .executeTakeFirstOrThrow();
     const res = await h.app.inject({
       method: 'POST',
-      url: '/v1/billing/cancel-request',
-      payload: { email: 'x@example.de', contractNo: 'PS-12345678' },
+      url: '/v1/legal/withdrawals',
+      payload: { name: 'Wanda Ruf', contractRef: contract_no!, email: 'widerruf@example.de' },
     });
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(200);
+    const receipt = await lastMail(h, 'withdrawal_received');
+    expect(receipt?.text).toContain('Wir haben Ihren Widerruf am');
+    expect(receipt?.text).toContain(contract_no!);
+
+    const { id } = await h.db
+      .selectFrom('withdrawal_requests')
+      .select('id')
+      .executeTakeFirstOrThrow();
+    await h.app.get(WithdrawalsService).process(id);
+    await h.app.get(WithdrawalsService).process(id); // idempotent
+
+    const sub = await h.db
+      .selectFrom('subscriptions')
+      .select(['status', 'withdrawn_at'])
+      .executeTakeFirstOrThrow();
+    expect(sub.status).toBe('withdrawn');
+    const req = await h.db
+      .selectFrom('withdrawal_requests')
+      .select(['status', 'refund_amount_cents'])
+      .executeTakeFirstOrThrow();
+    expect(req.status).toBe('processed');
+    expect(req.refund_amount_cents).toBeGreaterThan(950); // 10 € minus one day of Wertersatz
+    expect(await h.db.selectFrom('refunds').select('kind').execute()).toEqual([
+      { kind: 'withdrawal' },
+    ]);
+    const tags = await h.db.selectFrom('qr_tokens').select(['status', 'revoke_reason']).execute();
+    expect(tags).toEqual([{ status: 'revoked', revoke_reason: 'withdrawn' }]);
+  });
+
+  it('keeps an unmatched withdrawal for review instead of dropping it', async () => {
+    const res = await h.app.inject({
+      method: 'POST',
+      url: '/v1/legal/withdrawals',
+      payload: { name: 'Unbekannt', contractRef: 'PS-00000000', email: 'who@example.de' },
+    });
+    expect(res.statusCode).toBe(200);
+    const { id } = await h.db
+      .selectFrom('withdrawal_requests')
+      .select('id')
+      .executeTakeFirstOrThrow();
+    await h.app.get(WithdrawalsService).process(id);
+    const req = await h.db
+      .selectFrom('withdrawal_requests')
+      .select(['status', 'review_note'])
+      .executeTakeFirstOrThrow();
+    expect(req).toEqual({ status: 'needs_review', review_note: 'no_contract_found' });
+    expect((await lastMail(h, 'withdrawal_received'))?.to).toBe('who@example.de');
+  });
+
+  it('never asks for a reason', async () => {
+    const res = await h.app.inject({
+      method: 'POST',
+      url: '/v1/legal/withdrawals',
+      payload: { name: 'A B', contractRef: 'x@example.de', email: 'x@example.de', reason: 'x' },
+    });
+    expect(res.statusCode).toBe(200);
   });
 });
 
@@ -318,7 +508,12 @@ describe('back from Checkout without the webhook (US-06)', () => {
   it('confirms the paid session for its owner only, once', async () => {
     const payments = h.app.get<FakePayments>(PAYMENTS);
     const s = await signIn(h, 'return@example.de');
-    const res = await checkout(s, { plan: 'plus', immediateStart: true });
+    const res = await checkout(s, {
+      plan: 'plus',
+      immediateStart: true,
+      immediateStartVersion: 1,
+      termsVersion: 1,
+    });
     const sessionId = new URL(res.json().url).searchParams.get('session')!;
     const session = (await payments.getSession(sessionId))!;
     // The success URL carries the session id instead of Stripe's placeholder.
@@ -354,7 +549,7 @@ describe('back from Checkout without the webhook (US-06)', () => {
     await h.app.get(BillingService).handle({ ...event, eventId: 'evt_late_webhook' });
     const subs = await h.db.selectFrom('subscriptions').select('id').execute();
     expect(subs).toHaveLength(1);
-    expect((await mailbox(h)).filter((m) => m.tag === 'subscription_started')).toHaveLength(1);
+    expect((await mailbox(h)).filter((m) => m.tag === 'contract_confirmation')).toHaveLength(1);
     payments.checkoutCompletion = original;
   });
 });

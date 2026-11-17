@@ -27,6 +27,7 @@ import {
   ORDER_FILTERS,
   type OrderFilter,
 } from './fulfilment.service';
+import { LEGAL_FILTERS, LegalRequestsService, type LegalFilter } from './legal-requests.service';
 import { PromoService } from './promo.service';
 import { ProviderHealthService } from './provider-health.service';
 import { SettingsAdminService } from './settings-admin.service';
@@ -46,6 +47,7 @@ const pdf = (reply: FastifyReply, file: Buffer, name: string) =>
     .send(file);
 
 const Tracking = z.object({ trackingNumber: z.string().trim().min(6).max(64) });
+const Scan = z.object({ scanned: z.string().trim().min(10).max(200) });
 const Note = z.object({ note: z.string().trim().min(3).max(200) });
 const Reprint = z.object({
   reason: z.string().trim().min(3).max(200),
@@ -79,6 +81,19 @@ export class OpsOrdersController {
     @Body(new ZodPipe(Tracking)) body: z.infer<typeof Tracking>,
   ) {
     await this.f.markShipped(me, id, body.trackingNumber);
+    return { ok: true };
+  }
+
+  /** FROM_STOCK: link the scanned pre-printed sticker to the order's vehicle. */
+  @Post(':id/scan')
+  @HttpCode(200)
+  @RequirePermission('orders.manage')
+  async scan(
+    @CurrentStaff() me: StaffContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(Scan)) body: z.infer<typeof Scan>,
+  ) {
+    await this.f.scanStockSticker(me, id, body.scanned);
     return { ok: true };
   }
 
@@ -417,5 +432,52 @@ export class OpsCustomerSummaryController {
   summary(@CurrentStaff() me: StaffContext, @Query('email') email = '') {
     if (!z.email().safeParse(email.trim()).success) return { found: false };
     return this.customers.summary(me, email);
+  }
+}
+
+const AssignWithdrawal = z.object({ contractNo: z.string().trim().min(4).max(12) });
+const Resolve = z.object({ note: z.string().trim().min(3).max(500) });
+
+/** § 356a / § 312k review queue: unmatched or undecided withdrawals and cancellations. */
+@Controller('ops/v1/legal-requests')
+export class OpsLegalRequestsController {
+  constructor(@Inject(LegalRequestsService) private readonly legal: LegalRequestsService) {}
+
+  @Get()
+  @RequirePermission('billing.refund')
+  list(@CurrentStaff() me: StaffContext, @Query('filter') filter = 'review') {
+    const ok = (LEGAL_FILTERS as readonly string[]).includes(filter);
+    return this.legal.list(me, ok ? (filter as LegalFilter) : 'review');
+  }
+
+  @Post('withdrawals/:id/assign')
+  @HttpCode(200)
+  @RequirePermission('billing.refund')
+  async assign(
+    @CurrentStaff() me: StaffContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(AssignWithdrawal)) body: z.infer<typeof AssignWithdrawal>,
+  ) {
+    await this.legal.assignWithdrawal(me, id, body.contractNo);
+    return { ok: true };
+  }
+
+  @Post(':kind/:id/resolve')
+  @HttpCode(200)
+  @RequirePermission('billing.refund')
+  async resolve(
+    @CurrentStaff() me: StaffContext,
+    @Param('kind') kind: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(Resolve)) body: z.infer<typeof Resolve>,
+  ) {
+    if (kind !== 'withdrawals' && kind !== 'cancellations') throw new ForbiddenException();
+    await this.legal.resolve(
+      me,
+      kind === 'withdrawals' ? 'withdrawal' : 'cancellation',
+      id,
+      body.note,
+    );
+    return { ok: true };
   }
 }

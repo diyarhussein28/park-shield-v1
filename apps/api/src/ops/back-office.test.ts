@@ -15,6 +15,7 @@ import {
   lastMail,
   mailbox,
   resetState,
+  setSetting,
   signIn,
   subscribe,
   TEST_WA_WEBHOOK_SECRET,
@@ -22,6 +23,7 @@ import {
   type Session,
 } from '../test/harness';
 import { DispatchService } from '../notifications/dispatch.service';
+import { WithdrawalsService } from '../legal/withdrawals.service';
 import { AuditStreamService } from './audit.service';
 import { ProviderHealthService } from './provider-health.service';
 import { StaffService } from './staff.service';
@@ -282,7 +284,7 @@ describe('US-39 orders, reprints, partners and batches (AD-07)', () => {
     expect(claimed.statusCode).toBe(200);
     expect(claimed.json().decal).toMatchObject({
       codeHint: codes[0]!.slice(-4),
-      status: 'shipped',
+      status: 'assigned',
     });
     expect(
       await h.db
@@ -309,6 +311,111 @@ describe('US-39 orders, reprints, partners and batches (AD-07)', () => {
     });
     const partners = (await get(admin, '/ops/v1/partners')).json().partners;
     expect(partners[0]).toMatchObject({ codes: 3, claimed: 1, redemptions: 1 });
+  });
+});
+
+describe('tag lifecycle and FROM_STOCK fulfilment', () => {
+  it('the packer scan links a stock sticker to the vehicle; the registration code is revoked', async () => {
+    await setSetting(h, 'fulfillment.mode', 'from_stock');
+    const admin = await staffAs(['admin']);
+    const partner = await post(admin, '/ops/v1/partners', { name: 'Lager', kind: 'other' });
+    const lager = await staffAs(['fulfillment']);
+    const batch = await post(lager, '/ops/v1/batches', {
+      partnerId: partner.json().id,
+      quantity: 2,
+    });
+    const codes = (
+      await h.app.inject({ method: 'GET', url: `/v1/dev/batches/${batch.json().id}/codes` })
+    ).json().codes as string[];
+
+    const c = await customer('lager@example.de');
+    // The code works at once after registration: no activation step.
+    expect((await h.app.inject({ method: 'GET', url: `/v1/scan/${c.code}` })).statusCode).toBe(200);
+    const orderId = await includedOrder(c);
+    expect(
+      (await post(lager, `/ops/v1/orders/${orderId}/scan`, { scanned: 'nonsense!!' })).json(),
+    ).toMatchObject({ error: 'code_unreadable' });
+    const ok = await post(lager, `/ops/v1/orders/${orderId}/scan`, {
+      scanned: `https://s.park-shield.de/s/${codes[0]}`,
+    });
+    expect(ok.statusCode).toBe(200);
+
+    expect((await get(lager, `/ops/v1/orders/${orderId}`)).json().order).toMatchObject({
+      status: 'packed',
+    });
+    expect(
+      (await h.app.inject({ method: 'GET', url: `/v1/scan/${codes[0]}` })).json().nickname,
+    ).toBe('Der Blaue');
+    expect((await h.app.inject({ method: 'GET', url: `/v1/scan/${c.code}` })).statusCode).toBe(404);
+    // A stock code is linked once only.
+    expect(
+      (await post(lager, `/ops/v1/orders/${orderId}/scan`, { scanned: codes[0]! })).statusCode,
+    ).toBe(409);
+    const events = await h.db
+      .selectFrom('tag_events')
+      .select(['from_status', 'to_status', 'reason'])
+      .where('reason', 'in', ['stock_scan', 'replaced_by_stock'])
+      .orderBy('reason')
+      .execute();
+    expect(events).toEqual([
+      { from_status: 'assigned', to_status: 'revoked', reason: 'replaced_by_stock' },
+      { from_status: 'in_stock', to_status: 'assigned', reason: 'stock_scan' },
+    ]);
+    await expect(h.db.updateTable('tag_events').set({ reason: 'x' }).execute()).rejects.toThrow(
+      /append-only/,
+    );
+  });
+});
+
+describe('legal review queue (§ 356a, § 312k BGB)', () => {
+  it('lists unmatched requests masked, assigns a withdrawal, needs billing.refund', async () => {
+    const c = await customer('queue@example.de');
+    await h.app.inject({
+      method: 'POST',
+      url: '/v1/legal/withdrawals',
+      payload: { name: 'Q Ueue', contractRef: 'falsch@example.de', email: 'queue@example.de' },
+    });
+    const { id } = await h.db
+      .selectFrom('withdrawal_requests')
+      .select('id')
+      .executeTakeFirstOrThrow();
+    await h.app.get(WithdrawalsService).process(id);
+
+    const support = await staffAs(['support']);
+    expect((await get(support, '/ops/v1/legal-requests')).statusCode).toBe(403);
+    const finance = await staffAs(['finance']);
+    const list = (await get(finance, '/ops/v1/legal-requests')).json();
+    expect(list[0]).toMatchObject({
+      kind: 'withdrawal',
+      status: 'needs_review',
+      email: 'q•••@example.de',
+    });
+
+    const contractNo = (
+      await h.db
+        .selectFrom('subscriptions')
+        .select('contract_no')
+        .where('id', '=', c.sub.id)
+        .executeTakeFirstOrThrow()
+    ).contract_no!;
+    expect(
+      (await post(finance, `/ops/v1/legal-requests/withdrawals/${id}/assign`, { contractNo }))
+        .statusCode,
+    ).toBe(200);
+    const sub = await h.db
+      .selectFrom('subscriptions')
+      .select('status')
+      .where('id', '=', c.sub.id)
+      .executeTakeFirstOrThrow();
+    expect(sub.status).toBe('withdrawn');
+    expect(
+      await h.db
+        .selectFrom('audit_logs')
+        .select('action')
+        .where('action', '=', 'withdrawal.assign')
+        .where('entity_id', '=', id)
+        .execute(),
+    ).toHaveLength(1);
   });
 });
 
@@ -343,7 +450,7 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
       .select('status')
       .where('id', '=', c.sub.id)
       .executeTakeFirstOrThrow();
-    expect(sub.status).toBe('canceled');
+    expect(sub.status).toBe('withdrawn');
     expect((await h.app.inject({ method: 'GET', url: `/v1/scan/${c.code}` })).statusCode).toBe(404);
     const mail = await lastMail(h, 'refund_issued');
     expect(mail?.text).toMatch(/9,97\s€/);
@@ -376,7 +483,7 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     ).toBe(404);
   });
 
-  it('deducts the custom-printed decal and refuses after the withdrawal period', async () => {
+  it('no decal deduction (an accessory, not custom-made) and refuses after the withdrawal period', async () => {
     const c = await customer();
     const orderId = await includedOrder(c);
     await h.db
@@ -388,7 +495,7 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     const q = (
       await post(finance, '/ops/v1/refunds/quote', { kind: 'withdrawal', subscriptionId: c.sub.id })
     ).json();
-    expect(q).toMatchObject({ decalCostCents: 250, refundCents: 747 });
+    expect(q).toMatchObject({ decalCostCents: 0, refundCents: 997 });
 
     await h.db
       .updateTable('subscriptions')
@@ -493,6 +600,8 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     const res = await pub(s, 'POST', '/v1/billing/checkout', {
       plan: 'plus',
       immediateStart: true,
+      immediateStartVersion: 1,
+      termsVersion: 1,
       promoCode: 'PLUS3',
     });
     expect(res.json().error).toBe('promo_invalid');
@@ -532,7 +641,7 @@ describe('US-41 settings, kill switches and provider health (AD-14–16)', () =>
     const c = await customer();
     await h.db
       .updateTable('qr_tokens')
-      .set({ status: 'active' })
+      .set({ last_test_at: new Date() })
       .where('id', '=', c.v.decal.tokenId)
       .execute();
     const scan = await h.app.inject({
@@ -747,7 +856,7 @@ describe('US-43 metrics for Metabase (AD-18)', () => {
     const c = await customer();
     await h.db
       .updateTable('qr_tokens')
-      .set({ status: 'active', last_test_at: new Date() })
+      .set({ last_test_at: new Date() })
       .where('id', '=', c.v.decal.tokenId)
       .execute();
     const run = <T>(q: string) =>

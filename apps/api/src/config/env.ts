@@ -28,6 +28,9 @@ export const envSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().default(''),
   STRIPE_PRICE_PLUS_YEARLY: z.string().default(''),
   STRIPE_PRICE_PREMIUM_YEARLY: z.string().default(''),
+  // Monthly prices for consumers after the first term (renewal.mode_b2c = monthly_after_first_term).
+  STRIPE_PRICE_PLUS_MONTHLY: z.string().default(''),
+  STRIPE_PRICE_PREMIUM_MONTHLY: z.string().default(''),
   // E-mail provider: Mailjet (EU, default; tracking switched off per message), Brevo or SendGrid.
   // Empty key: dev inbox. Brevo always rewrites links and adds an open pixel (only Enterprise can opt out).
   MAIL_PROVIDER: z.preprocess(

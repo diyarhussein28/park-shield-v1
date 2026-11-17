@@ -10,6 +10,7 @@ import { sql } from 'kysely';
 import type { Env } from '../config/env';
 import type { Db } from '../core/core.module';
 import type { FieldCrypto } from '../core/crypto';
+import { sha256 } from '../core/crypto';
 import { CRYPTO, DB, ENV } from '../core/tokens';
 import type { OrderStatus, PartnerKind } from '../db/types.generated';
 import { layoutDecal } from '../decal/layout';
@@ -17,7 +18,8 @@ import { renderPrintBatchPdf } from '../decal/pdf';
 import { MailService } from '../mail/mail.service';
 import { OrdersService, PRINT_TOPIC } from '../orders/orders.service';
 import type { ShippingAddress } from '../providers/ports';
-import { TokensService } from '../vehicles/tokens.service';
+import { TagsService } from '../vehicles/tags.service';
+import { normalizeCode, TokensService } from '../vehicles/tokens.service';
 import { maskAddress, maskEmail } from './mask';
 import { StaffService, type StaffContext } from './staff.service';
 
@@ -40,7 +42,55 @@ export class FulfilmentService {
     @Inject(OrdersService) private readonly orders: OrdersService,
     @Inject(TokensService) private readonly tokens: TokensService,
     @Inject(MailService) private readonly mail: MailService,
+    @Inject(TagsService) private readonly tags: TagsService,
   ) {}
+
+  /**
+   * FROM_STOCK fulfilment: the packer scans a pre-printed sticker (its QR URL or the printed code).
+   * That physical code becomes the vehicle's code; the code the vehicle got at registration was never
+   * printed and is revoked. The order moves to `packed`. Nothing about the code is shown to staff.
+   */
+  async scanStockSticker(by: StaffContext, orderId: string, scanned: string) {
+    const raw = scanned.trim().split('/').filter(Boolean).pop() ?? '';
+    const code = normalizeCode(raw);
+    if (!code) throw new ConflictException({ error: 'code_unreadable' });
+    await this.db.transaction().execute(async (trx) => {
+      const o = await trx
+        .selectFrom('decal_orders as o')
+        .innerJoin('decal_order_items as i', 'i.order_id', 'o.id')
+        .innerJoin('qr_tokens as t', 't.id', 'i.qr_token_id')
+        .select(['o.status', 'i.id as itemId', 't.id as tokenId', 't.vehicle_id as vehicleId'])
+        .where('o.id', '=', orderId)
+        .forUpdate()
+        .executeTakeFirst();
+      if (!o) throw new NotFoundException({ error: 'order_not_found' });
+      if (o.status !== 'paid' && o.status !== 'in_production')
+        throw new ConflictException({ error: 'wrong_status' });
+      if (!o.vehicleId) throw new ConflictException({ error: 'no_vehicle' });
+      const stock = await trx
+        .selectFrom('qr_tokens')
+        .select('id')
+        .where('code_hash', '=', sha256(code))
+        .where('status', '=', 'in_stock')
+        .executeTakeFirst();
+      if (!stock) throw new ConflictException({ error: 'not_in_stock' });
+      await this.tags.transition(trx, stock.id, 'assigned', 'admin', 'stock_scan', o.vehicleId);
+      if (o.tokenId !== stock.id) {
+        await this.tags.transition(trx, o.tokenId, 'revoked', 'admin', 'replaced_by_stock');
+        await trx
+          .updateTable('decal_order_items')
+          .set({ qr_token_id: stock.id })
+          .where('id', '=', o.itemId)
+          .execute();
+      }
+      await trx
+        .updateTable('decal_orders')
+        .set({ status: 'packed' })
+        .where('id', '=', orderId)
+        .execute();
+    });
+    await this.staff.audit(by.userId, 'order.packed_from_stock', 'decal_orders', orderId);
+  }
 
   private orderQuery() {
     return this.db
@@ -81,7 +131,8 @@ export class FulfilmentService {
 
   async listOrders(by: StaffContext, filter: OrderFilter) {
     let q = this.orderQuery();
-    if (filter === 'open') q = q.where('o.status', 'in', ['paid', 'in_production', 'shipped']);
+    if (filter === 'open')
+      q = q.where('o.status', 'in', ['paid', 'in_production', 'packed', 'shipped']);
     if (filter === 'shipped') q = q.where('o.status', 'in', ['shipped', 'delivered']);
     if (filter === 'returned') q = q.where('o.status', '=', 'returned');
     // Waiting too long: paid but not with the printer after a day, or shipped two weeks ago.
@@ -359,7 +410,8 @@ export class FulfilmentService {
           .selectFrom('qr_tokens as t')
           .select((e) => e.fn.countAll<string>().as('n'))
           .whereRef('t.batch_id', '=', 'b.id')
-          .where('t.status', '=', 'active')
+          .where('t.status', '=', 'assigned')
+          .where('t.last_test_at', 'is not', null)
           .as('active'),
       ])
       .orderBy('b.created_at', 'desc')
@@ -441,28 +493,17 @@ export class FulfilmentService {
 
   async advanceBatch(by: StaffContext, batchId: string, to: 'printed' | 'shipped') {
     const from = to === 'printed' ? 'generated' : 'printed';
-    const tokenFrom: ('generated' | 'printed')[] =
-      to === 'printed' ? ['generated'] : ['generated', 'printed'];
-    const ok = await this.db.transaction().execute(async (trx) => {
-      const r = await trx
-        .updateTable('token_batches')
-        .set({
-          status: to,
-          ...(to === 'printed' ? { printed_at: sql`now()` } : { shipped_at: sql`now()` }),
-        })
-        .where('id', '=', batchId)
-        .where('status', '=', from)
-        .executeTakeFirst();
-      if (!Number(r.numUpdatedRows)) return false;
-      await trx
-        .updateTable('qr_tokens')
-        .set({ status: to })
-        .where('batch_id', '=', batchId)
-        .where('vehicle_id', 'is', null)
-        .where('status', 'in', tokenFrom)
-        .execute();
-      return true;
-    });
+    // Production state of the batch only: its codes stay in stock until assigned to a vehicle.
+    const r = await this.db
+      .updateTable('token_batches')
+      .set({
+        status: to,
+        ...(to === 'printed' ? { printed_at: sql`now()` } : { shipped_at: sql`now()` }),
+      })
+      .where('id', '=', batchId)
+      .where('status', '=', from)
+      .executeTakeFirst();
+    const ok = Number(r.numUpdatedRows) > 0;
     if (!ok) throw new ConflictException({ error: 'wrong_status' });
     await this.staff.audit(by.userId, `batch.${to}`, 'token_batches', batchId);
   }
@@ -472,6 +513,7 @@ export const ORDER_STATUSES: OrderStatus[] = [
   'pending_payment',
   'paid',
   'in_production',
+  'packed',
   'shipped',
   'delivered',
   'returned',

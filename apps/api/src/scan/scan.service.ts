@@ -11,6 +11,7 @@ import { CRYPTO, DB } from '../core/tokens';
 import { filterText } from '../moderation/text-filter';
 import { WordListsService } from '../moderation/word-lists.service';
 import { EscalationService } from '../notifications/escalation.service';
+import { contractState, scannerDecision } from '../legal/rules';
 import { ScannerRefService } from './scanner-ref.service';
 
 import { normalizeCode } from '../vehicles/tokens.service';
@@ -41,38 +42,65 @@ export class ScanService {
   ) {}
 
   /**
-   * A decal works while its code is not revoked and its owner has a live subscription (SC-07).
-   * Everything else (unknown, revoked, unpaid) returns null and looks identical to the scanner.
+   * SC-07: what a scan shows is decided by rules.scannerDecision from the tag state and the owner's
+   * subscription. Everything that is not "alert" (unknown, in stock, revoked, ended, unpaid after the
+   * grace period) returns null and looks identical to the scanner.
    */
   async lookup(rawCode: string) {
     const code = normalizeCode(rawCode);
     if (!code) return null;
-    return (
-      (await this.db
-        .selectFrom('qr_tokens as t')
-        .innerJoin('vehicles as v', 'v.id', 't.vehicle_id')
-        .select([
-          't.id as tokenId',
-          't.status',
-          't.test_window_until',
-          'v.id as vehicleId',
-          'v.nickname',
-          'v.color',
-          'v.owner_user_id as ownerId',
-        ])
-        .where('t.code_hash', '=', sha256(code))
-        .where('t.status', '<>', 'revoked')
-        .where((eb) =>
-          eb.exists(
-            eb
-              .selectFrom('subscriptions as s')
-              .select('s.id')
-              .whereRef('s.user_id', '=', 'v.owner_user_id')
-              .where('s.status', 'in', ['active', 'past_due']),
-          ),
-        )
-        .executeTakeFirst()) ?? null
-    );
+    const row = await this.db
+      .selectFrom('qr_tokens as t')
+      .innerJoin('vehicles as v', 'v.id', 't.vehicle_id')
+      .leftJoin(
+        (eb) =>
+          eb
+            .selectFrom('subscriptions')
+            .distinctOn('user_id')
+            .select(['user_id', 'status', 'cancel_at_period_end', 'past_due_since'])
+            .where('status', 'in', ['active', 'past_due'])
+            .orderBy('user_id')
+            .orderBy('created_at', 'desc')
+            .as('s'),
+        (j) => j.onRef('s.user_id', '=', 'v.owner_user_id'),
+      )
+      .select([
+        't.id as tokenId',
+        't.status',
+        't.test_window_until',
+        'v.id as vehicleId',
+        'v.nickname',
+        'v.color',
+        'v.owner_user_id as ownerId',
+        's.status as subStatus',
+        's.cancel_at_period_end as cancelAtPeriodEnd',
+        's.past_due_since as pastDueSince',
+      ])
+      .where('t.code_hash', '=', sha256(code))
+      .executeTakeFirst();
+    if (!row) return null;
+    const page = scannerDecision({
+      tag: row.status,
+      contract: row.subStatus
+        ? contractState({
+            status: row.subStatus,
+            cancel_at_period_end: row.cancelAtPeriodEnd ?? false,
+          })
+        : null,
+      pastDueSince: row.pastDueSince,
+      now: new Date(),
+      pastDueGraceDays: await this.settings.get('scanner.past_due_grace_days', 21),
+    });
+    if (page !== 'alert') return null;
+    return {
+      tokenId: row.tokenId,
+      status: row.status,
+      test_window_until: row.test_window_until,
+      vehicleId: row.vehicleId,
+      nickname: row.nickname,
+      color: row.color,
+      ownerId: row.ownerId,
+    };
   }
 
   /** AD-07: a pre-printed partner decal nobody has set up yet; the scanner page offers the set-up. */
@@ -85,7 +113,7 @@ export class ScanService {
       .where('code_hash', '=', sha256(code))
       .where('vehicle_id', 'is', null)
       .where('batch_id', 'is not', null)
-      .where('status', 'in', ['generated', 'printed', 'shipped'])
+      .where('status', '=', 'in_stock')
       .executeTakeFirst();
     return Boolean(t);
   }
@@ -228,11 +256,10 @@ export class ScanService {
         .returning('id')
         .executeTakeFirstOrThrow();
       if (isTest) {
-        // US-12: the test scan activates the decal and closes the test window.
+        // US-12: the optional test alarm. It proves delivery; the decal worked before it already.
         await trx
           .updateTable('qr_tokens')
           .set({
-            status: 'active',
             test_window_until: null,
             last_test_at: sql`now()`,
             activated_at: sql`coalesce(activated_at, now())`,

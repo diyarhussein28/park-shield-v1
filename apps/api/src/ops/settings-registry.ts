@@ -1,7 +1,15 @@
 import { z } from 'zod';
 
 export type SettingGroup =
-  'channels' | 'escalation' | 'limits' | 'abuse' | 'refunds' | 'health' | 'reminders' | 'general';
+  | 'channels'
+  | 'escalation'
+  | 'limits'
+  | 'abuse'
+  | 'refunds'
+  | 'contracts'
+  | 'health'
+  | 'reminders'
+  | 'general';
 
 interface Def {
   group: SettingGroup;
@@ -47,7 +55,24 @@ export const SETTINGS: Record<string, Def> = {
   'moderation.sample_rate': { group: 'abuse', schema: z.number().min(0).max(1), default: 0.1 },
 
   'refunds.withdrawal_days': { group: 'refunds', schema: int(14, 30), default: 14 },
-  'refunds.custom_decal_cost_cents': { group: 'refunds', schema: int(0, 2000), default: 250 },
+  // The decal is an accessory, not custom-made: no § 312g deduction. TODO [LEGAL REVIEW]
+  'refunds.custom_decal_cost_cents': { group: 'refunds', schema: int(0, 2000), default: 0 },
+  'withdrawal.require_decal_return': { group: 'refunds', schema: bool, default: false },
+
+  // § 309 Nr. 9 BGB: consumers default to monthly terms after the first year. TODO [LEGAL REVIEW]
+  'renewal.mode_b2c': {
+    group: 'contracts',
+    schema: z.enum(['annual', 'monthly_after_first_term']),
+    default: 'monthly_after_first_term',
+  },
+  'renewal.mode_b2b': { group: 'contracts', schema: z.enum(['annual']), default: 'annual' },
+  'renewal.reminder_days': { group: 'contracts', schema: int(7, 90), default: 30 },
+  'scanner.past_due_grace_days': { group: 'contracts', schema: int(0, 60), default: 21 },
+  'fulfillment.mode': {
+    group: 'contracts',
+    schema: z.enum(['on_demand', 'from_stock']),
+    default: 'on_demand',
+  },
 
   'health.whatsapp_failure_pct': { group: 'health', schema: int(1, 100), default: 5 },
   'health.email_failure_pct': { group: 'health', schema: int(1, 100), default: 5 },

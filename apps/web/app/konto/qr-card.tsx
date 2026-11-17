@@ -44,7 +44,7 @@ export function QrCard({
           </p>
         </div>
         {v.decal && (
-          <Badge tone={v.decal.status === 'active' ? 'success' : 'info'} className="w-fit">
+          <Badge tone={v.decal.status === 'assigned' ? 'success' : 'info'} className="w-fit">
             {t('vehicles.decalStatus', {
               hint: v.decal.codeHint,
               status: t(`vehicles.status_${v.decal.status}` as MessageKey),

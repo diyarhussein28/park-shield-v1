@@ -5,6 +5,7 @@ import { EntitlementService } from '../billing/entitlements.service';
 import type { Env } from '../config/env';
 import type { Db } from '../core/core.module';
 import type { FieldCrypto } from '../core/crypto';
+import { SettingsService } from '../core/settings.service';
 import { CRYPTO, DB, ENV } from '../core/tokens';
 import { layoutDecal } from '../decal/layout';
 import { renderPrintPdf } from '../decal/pdf';
@@ -34,6 +35,7 @@ export class OrdersService {
     @Inject(MailService) private readonly mail: MailService,
     @Inject(PRINT) private readonly printer: PrintPartner,
     @Inject(PAYMENTS) private readonly payments: Payments,
+    @Inject(SettingsService) private readonly settings: SettingsService,
   ) {}
 
   /** One decal is included at the first subscription only (OW-04), never again after a later re-subscription. */
@@ -253,8 +255,12 @@ export class OrdersService {
     return row;
   }
 
-  /** Worker: render the CMYK print file and hand the job to the print partner. */
+  /**
+   * Worker: render the CMYK print file and hand the job to the print partner (ON_DEMAND). In
+   * FROM_STOCK mode nothing is printed: the order waits as `paid` until the packer scans a sticker.
+   */
   async submitToPrinter(orderId: string): Promise<void> {
+    if ((await this.settings.get('fulfillment.mode', 'on_demand')) === 'from_stock') return;
     const order = await this.db
       .selectFrom('decal_orders as o')
       .innerJoin('decal_order_items as i', 'i.order_id', 'o.id')
@@ -287,20 +293,13 @@ export class OrdersService {
       pdf: await renderPrintPdf(spec, `ParkShield ${orderId}`),
       address: JSON.parse(this.crypto.decrypt(order.shipping_address_enc)) as ShippingAddress,
     });
-    await this.db.transaction().execute(async (trx) => {
-      await trx
-        .updateTable('decal_orders')
-        .set({ status: 'in_production', print_partner_ref: reference })
-        .where('id', '=', orderId)
-        .where('status', '=', 'paid')
-        .execute();
-      await trx
-        .updateTable('qr_tokens')
-        .set({ status: 'printed' })
-        .where('id', '=', order.tokenId)
-        .where('status', '=', 'generated')
-        .execute();
-    });
+    // Shipping state lives on the order; the tag is already assigned and stays so.
+    await this.db
+      .updateTable('decal_orders')
+      .set({ status: 'in_production', print_partner_ref: reference })
+      .where('id', '=', orderId)
+      .where('status', '=', 'paid')
+      .execute();
   }
 
   /** Print partner callback: shipped with tracking number, e-mailed to the owner (US-11). */
@@ -309,7 +308,7 @@ export class OrdersService {
       .updateTable('decal_orders')
       .set({ status: 'shipped', tracking_number: trackingNumber, shipped_at: sql`now()` })
       .where('id', '=', orderId)
-      .where('status', 'in', ['paid', 'in_production'])
+      .where('status', 'in', ['paid', 'in_production', 'packed'])
       .returning('user_id')
       .executeTakeFirst();
     if (!updated?.user_id) return false;
@@ -317,15 +316,9 @@ export class OrdersService {
       .selectFrom('decal_order_items as i')
       .innerJoin('qr_tokens as t', 't.id', 'i.qr_token_id')
       .innerJoin('vehicles as v', 'v.id', 't.vehicle_id')
-      .select(['t.id as tokenId', 'v.id as vehicleId', 'v.nickname'])
+      .select(['v.id as vehicleId', 'v.nickname'])
       .where('i.order_id', '=', orderId)
       .executeTakeFirstOrThrow();
-    await this.db
-      .updateTable('qr_tokens')
-      .set({ status: 'shipped' })
-      .where('id', '=', item.tokenId)
-      .where('status', 'in', ['generated', 'printed'])
-      .execute();
     const user = await this.db
       .selectFrom('users')
       .select(['email', 'preferred_lang'])

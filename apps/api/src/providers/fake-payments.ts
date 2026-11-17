@@ -153,6 +153,10 @@ export class FakePayments implements Payments {
     return { periodEnd: null };
   }
 
+  async resume(): Promise<void> {}
+
+  async scheduleMonthly(): Promise<void> {}
+
   async listInvoices(customerId: string): Promise<Invoice[]> {
     const rows = await this.valkey.lrange(key('invoices', customerId), 0, 23);
     return rows.map((r) => {

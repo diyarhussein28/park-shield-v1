@@ -65,10 +65,15 @@ export class ProvidersModule {
           useFactory: (valkey: Redis) =>
             fakes.payments
               ? new FakePayments(valkey, env.WEB_BASE_URL)
-              : new StripePayments(env.STRIPE_SECRET_KEY, env.STRIPE_WEBHOOK_SECRET, {
-                  plus: env.STRIPE_PRICE_PLUS_YEARLY,
-                  premium: env.STRIPE_PRICE_PREMIUM_YEARLY,
-                }),
+              : new StripePayments(
+                  env.STRIPE_SECRET_KEY,
+                  env.STRIPE_WEBHOOK_SECRET,
+                  { plus: env.STRIPE_PRICE_PLUS_YEARLY, premium: env.STRIPE_PRICE_PREMIUM_YEARLY },
+                  {
+                    plus: env.STRIPE_PRICE_PLUS_MONTHLY,
+                    premium: env.STRIPE_PRICE_PREMIUM_MONTHLY,
+                  },
+                ),
         },
         {
           provide: PRINT,

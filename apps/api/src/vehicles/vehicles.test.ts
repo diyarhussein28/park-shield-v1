@@ -46,7 +46,7 @@ describe('vehicles (US-09)', () => {
       nickname: 'Der Blaue',
       plate: 'K-AB 1234',
       color: 'Blau',
-      decal: { status: 'generated', template: 'classic', cta: 'Kontaktieren Sie mich' },
+      decal: { status: 'assigned', template: 'classic', cta: 'Kontaktieren Sie mich' },
     });
 
     const row = await h.db.selectFrom('vehicles').selectAll().executeTakeFirstOrThrow();

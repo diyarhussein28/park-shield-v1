@@ -1,7 +1,8 @@
 import { LegalPage } from '@/components/legal-page';
+import { legalContext } from '@/lib/api-server';
 
 export const metadata = { title: 'AGB' };
 
-export default function Page() {
-  return <LegalPage slug="agb" />;
+export default async function Page() {
+  return <LegalPage slug="agb" context={await legalContext()} />;
 }

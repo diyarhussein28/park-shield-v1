@@ -79,6 +79,7 @@ describe('Stripe webhook mapping', () => {
     'sk_test_dummy',
     secret,
     { plus: 'price_p', premium: '' },
+    { plus: 'price_pm', premium: '' },
     client,
   );
   const sign = (event: object) => {
@@ -144,11 +145,11 @@ describe('Stripe webhook mapping', () => {
       kind: 'subscription_updated',
       status: 'canceled',
     });
-    const other = sign({ id: 'evt_5', type: 'charge.refunded', data: { object: {} } });
+    const other = sign({ id: 'evt_5', type: 'customer.created', data: { object: {} } });
     expect(await payments.parseWebhook(other.raw, other.sig)).toEqual({
       kind: 'ignored',
       eventId: 'evt_5',
-      type: 'charge.refunded',
+      type: 'customer.created',
     });
   });
 });

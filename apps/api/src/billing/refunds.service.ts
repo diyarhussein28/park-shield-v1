@@ -8,12 +8,13 @@ import { DB, ENV, LOGGER } from '../core/tokens';
 import type { RefundKind } from '../db/types.generated';
 import { MailService } from '../mail/mail.service';
 import { textPdf } from '../providers/pdf';
+import { computeWithdrawalRefund } from '../legal/rules';
 import { PAYMENTS, type Charge, type Payments } from '../providers/ports';
 
 const DAY = 86_400_000;
 const VAT = 0.19;
 
-/** Issuer block on credit notes (same data as the Impressum, apps/web/lib/legal-content.ts). */
+/** Issuer block on credit notes (same data as the Impressum, packages/shared/src/legal-content.ts). */
 export const ISSUER = [
   'Diyar Hussein Dienstleistungen, Inhaber Diyar Hussein, Monheimer Str. 24, 51371 Leverkusen, Deutschland',
   'Umsatzsteuer-Identifikationsnummer: DE454570643',
@@ -173,12 +174,6 @@ export class RefundsService {
       if (s.status !== 'active' && s.status !== 'past_due')
         throw new ConflictException({ error: 'not_live' });
       const end = s.current_period_end ?? new Date(start.getTime() + 365 * DAY);
-      const periodDays = Math.round((end.getTime() - start.getTime()) / DAY);
-      // §357a Abs. 2 BGB: value of the service provided until the withdrawal, per started day.
-      const daysUsed = s.withdrawal_waiver_at
-        ? Math.max(1, Math.ceil((now.getTime() - start.getTime()) / DAY))
-        : 0;
-      const wertersatz = Math.round((charge.amountCents * daysUsed) / periodDays);
       const printed = await this.db
         .selectFrom('decal_orders')
         .select('id')
@@ -186,15 +181,25 @@ export class RefundsService {
         .where('included_in_plan', '=', true)
         .where('status', 'in', ['in_production', 'shipped', 'delivered', 'returned'])
         .executeTakeFirst();
-      const decal = printed ? await this.settings.get('refunds.custom_decal_cost_cents', 250) : 0;
+      const decal = printed ? await this.settings.get('refunds.custom_decal_cost_cents', 0) : 0;
+      // §357a Abs. 2 BGB: value of the service provided until the withdrawal, per started day.
+      const r = computeWithdrawalRefund({
+        paidCents: charge.amountCents,
+        alreadyRefundedCents: already,
+        periodStart: start,
+        periodEnd: end,
+        withdrawnAt: now,
+        immediateStartConsented: s.withdrawal_waiver_at !== null,
+        deductionCents: decal,
+      });
       return {
         ...base,
         kind: 'withdrawal',
-        daysUsed,
-        periodDays,
-        wertersatzCents: wertersatz,
+        daysUsed: r.daysUsed,
+        periodDays: r.periodDays,
+        wertersatzCents: r.wertersatzCents,
         decalCostCents: decal,
-        refundCents: Math.max(0, left - wertersatz - decal),
+        refundCents: r.refundCents,
         endsSubscriptionNow: true,
       };
     }
@@ -238,11 +243,12 @@ export class RefundsService {
    * Executes the refund at the provider and issues the credit note (Gutschrift). Serialised per
    * contract or order, and recomputed under the lock, so a double click never pays out twice.
    */
-  async execute(staffId: string, input: RefundInput, reason: string) {
+  /** `staffId` null: the system (online withdrawal); `at`: when the withdrawal was received. */
+  async execute(staffId: string | null, input: RefundInput, reason: string, at = new Date()) {
     const targetId = 'orderId' in input ? input.orderId : input.subscriptionId;
     const result = await this.db.transaction().execute(async (trx) => {
       await sql`SELECT pg_advisory_xact_lock(hashtext(${`refund:${targetId}`}))`.execute(trx);
-      const q = await this.quote(input);
+      const q = await this.quote(input, at);
       if (q.refundCents <= 0) throw new ConflictException({ error: 'nothing_to_refund' });
       const { n } = (
         await sql<{ n: string }>`SELECT nextval('credit_note_seq')::text AS n`.execute(trx)
@@ -288,7 +294,10 @@ export class RefundsService {
         await trx
           .updateTable('subscriptions')
           .set({
-            status: 'canceled',
+            status: q.kind === 'withdrawal' ? 'withdrawn' : 'canceled',
+            ...(q.kind === 'withdrawal'
+              ? { withdrawn_at: sql`coalesce(withdrawn_at, now())` }
+              : {}),
             canceled_at: sql`coalesce(canceled_at, now())`,
             cancel_at_period_end: true,
             current_period_end: sql`now()`,

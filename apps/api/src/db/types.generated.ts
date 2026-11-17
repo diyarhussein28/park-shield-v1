@@ -19,7 +19,7 @@ export type ArrayTypeImpl<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S[], I[], U[]>
   : T[];
 
-export type BillingInterval = "year";
+export type BillingInterval = "month" | "year";
 
 export type BreakGlassStatus = "approved" | "expired" | "rejected" | "requested" | "used";
 
@@ -59,7 +59,7 @@ export type ModerationState = "blocked" | "not_required" | "passed" | "review";
 
 export type Numeric = ColumnType<string, number | string, number | string>;
 
-export type OrderStatus = "canceled" | "delivered" | "in_production" | "paid" | "pending_payment" | "refunded" | "returned" | "shipped";
+export type OrderStatus = "canceled" | "delivered" | "in_production" | "packed" | "paid" | "pending_payment" | "refunded" | "returned" | "shipped";
 
 export type OrgRole = "driver" | "manager" | "owner";
 
@@ -81,13 +81,13 @@ export type ReviewDecision = "correct_block" | "false_positive" | "unclear";
 
 export type StepStatus = "done" | "failed" | "not_applicable" | "pending";
 
-export type SubscriptionState = "active" | "canceled" | "expired" | "incomplete" | "past_due";
+export type SubscriptionState = "active" | "canceled" | "expired" | "incomplete" | "past_due" | "withdrawn";
 
 export type SummaryFrequency = "monthly" | "off" | "weekly";
 
-export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+export type TagStatus = "assigned" | "in_stock" | "revoked";
 
-export type TokenStatus = "active" | "generated" | "printed" | "revoked" | "shipped";
+export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
 export type TransferStatus = "accepted" | "canceled" | "expired" | "pending";
 
@@ -238,6 +238,41 @@ export interface BusinessWaitlist {
   industry: string | null;
 }
 
+export interface CancellationRequests {
+  channel: string;
+  computed_end_date: Timestamp | null;
+  confirmation_sent_to: Generated<string[]>;
+  id: Generated<string>;
+  ip_hash: Buffer | null;
+  locale: Generated<UiLang>;
+  reason: string | null;
+  received_at: Generated<Timestamp>;
+  requested_effective_date: Timestamp | null;
+  review_note: string | null;
+  revoke_token_hash: Buffer | null;
+  status: Generated<string>;
+  submitted_contract_ref: string | null;
+  submitted_email: string | null;
+  submitted_name: string | null;
+  subscription_id: string | null;
+  type: string;
+}
+
+export interface ConsentRecords {
+  accepted: boolean;
+  accepted_at: Generated<Timestamp>;
+  id: Generated<string>;
+  ip_hash: Buffer | null;
+  locale: UiLang;
+  source: string;
+  subscription_id: string | null;
+  text_hash: Buffer;
+  text_key: string;
+  text_version: number;
+  type: string;
+  user_id: string | null;
+}
+
 export interface Consents {
   doc_version: string;
   granted_at: Generated<Timestamp>;
@@ -339,6 +374,16 @@ export interface FilterWordLists {
   note: string | null;
   version: Generated<number>;
   words: Json;
+}
+
+export interface LegalTexts {
+  body: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  key: string;
+  locale: UiLang;
+  sha256: Buffer;
+  version: number;
 }
 
 export interface MagicLinkTokens {
@@ -547,6 +592,7 @@ export interface PushSubscriptions {
 
 export interface QrTokens {
   activated_at: Timestamp | null;
+  assigned_at: Timestamp | null;
   batch_id: string | null;
   code_enc: Buffer;
   code_hash: Buffer;
@@ -561,7 +607,7 @@ export interface QrTokens {
   last_test_at: Timestamp | null;
   revoke_reason: string | null;
   revoked_at: Timestamp | null;
-  status: Generated<TokenStatus>;
+  status: Generated<TagStatus>;
   test_window_until: Timestamp | null;
   vehicle_id: string | null;
 }
@@ -642,18 +688,35 @@ export interface Subscriptions {
   created_at: Generated<Timestamp>;
   current_period_end: Timestamp | null;
   current_period_start: Timestamp | null;
+  customer_type: Generated<string>;
   id: Generated<string>;
+  immediate_start_consent_id: string | null;
   interval: Generated<BillingInterval>;
+  monthly_scheduled_at: Timestamp | null;
   organization_id: string | null;
+  past_due_since: Timestamp | null;
   plan: PlanCode;
   price_locked_until: Timestamp | null;
   promo_code_id: string | null;
   quantity: Generated<number>;
+  renewal_mode: Generated<string>;
+  renewal_reminded_for: Timestamp | null;
   status: SubscriptionState;
   stripe_subscription_id: string | null;
   updated_at: Generated<Timestamp>;
   user_id: string | null;
   withdrawal_waiver_at: Timestamp | null;
+  withdrawn_at: Timestamp | null;
+}
+
+export interface TagEvents {
+  actor: string;
+  created_at: Generated<Timestamp>;
+  from_status: TagStatus | null;
+  id: Generated<string>;
+  qr_token_id: string;
+  reason: string;
+  to_status: TagStatus;
 }
 
 export interface TokenBatches {
@@ -755,6 +818,22 @@ export interface WebauthnCredentials {
   user_id: string;
 }
 
+export interface WithdrawalRequests {
+  channel: string;
+  id: Generated<string>;
+  ip_hash: Buffer | null;
+  locale: Generated<UiLang>;
+  processed_at: Timestamp | null;
+  receipt_email: string;
+  received_at: Generated<Timestamp>;
+  refund_amount_cents: number | null;
+  review_note: string | null;
+  status: Generated<string>;
+  submitted_contract_ref: string;
+  submitted_name: string;
+  subscription_id: string | null;
+}
+
 export interface DB {
   abuse_reports: AbuseReports;
   alert_deliveries: AlertDeliveries;
@@ -766,6 +845,8 @@ export interface DB {
   audit_stream_state: AuditStreamState;
   break_glass_requests: BreakGlassRequests;
   business_waitlist: BusinessWaitlist;
+  cancellation_requests: CancellationRequests;
+  consent_records: ConsentRecords;
   consents: Consents;
   contact_channels: ContactChannels;
   data_subject_requests: DataSubjectRequests;
@@ -774,6 +855,7 @@ export interface DB {
   dsr_processor_steps: DsrProcessorSteps;
   emergency_contacts: EmergencyContacts;
   filter_word_lists: FilterWordLists;
+  legal_texts: LegalTexts;
   magic_link_tokens: MagicLinkTokens;
   "metrics.activation_funnel": MetricsActivationFunnel;
   "metrics.churn_monthly": MetricsChurnMonthly;
@@ -807,6 +889,7 @@ export interface DB {
   staff_role_permissions: StaffRolePermissions;
   staff_roles: StaffRoles;
   subscriptions: Subscriptions;
+  tag_events: TagEvents;
   token_batches: TokenBatches;
   usage_counters: UsageCounters;
   users: Users;
@@ -815,4 +898,5 @@ export interface DB {
   vehicle_transfers: VehicleTransfers;
   vehicles: Vehicles;
   webauthn_credentials: WebauthnCredentials;
+  withdrawal_requests: WithdrawalRequests;
 }

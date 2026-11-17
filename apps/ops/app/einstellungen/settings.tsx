@@ -61,6 +61,7 @@ const GROUPS = [
   'limits',
   'abuse',
   'refunds',
+  'contracts',
   'health',
   'reminders',
   'general',

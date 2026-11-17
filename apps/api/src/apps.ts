@@ -23,6 +23,7 @@ import { OpsStaffController } from './ops/ops-staff.controller';
 import {
   OpsAuditController,
   OpsCustomerSummaryController,
+  OpsLegalRequestsController,
   OpsOrdersController,
   OpsPartnersController,
   OpsPromoController,
@@ -62,6 +63,14 @@ import { EntitlementService } from './billing/entitlements.service';
 import { OrdersController } from './orders/orders.controller';
 import { OrdersService } from './orders/orders.service';
 import { TokensService } from './vehicles/tokens.service';
+import { TagsService } from './vehicles/tags.service';
+import { CancellationsService } from './legal/cancellations.service';
+import { ConsentsService } from './legal/consents.service';
+import { LegalController } from './legal/legal.controller';
+import { LegalTextsService } from './legal/legal-texts.service';
+import { WithdrawalsService } from './legal/withdrawals.service';
+import { RenewalsService } from './billing/renewals.service';
+import { LegalRequestsService } from './ops/legal-requests.service';
 import { ClaimController, VehiclesController } from './vehicles/vehicles.controller';
 import { VehiclesService } from './vehicles/vehicles.service';
 import {
@@ -97,6 +106,12 @@ const domainProviders = [
   BillingService,
   EntitlementService,
   TokensService,
+  TagsService,
+  LegalTextsService,
+  ConsentsService,
+  CancellationsService,
+  WithdrawalsService,
+  RenewalsService,
   VehiclesService,
   OrdersService,
   ScannerRefService,
@@ -132,6 +147,7 @@ const opsProviders = [
   AuditViewService,
   AccessReviewService,
   OverviewService,
+  LegalRequestsService,
 ];
 
 /** Public API: scanner, owner portal, webhooks. Never registers ops routes (AD-01). */
@@ -148,6 +164,7 @@ export class PublicAppModule {
         AuthController,
         BillingController,
         StripeWebhookController,
+        LegalController,
         WaitlistController,
         VehiclesController,
         OrdersController,
@@ -201,6 +218,7 @@ export class OpsAppModule {
         OpsSettingsController,
         OpsAuditController,
         OpsOverviewController,
+        OpsLegalRequestsController,
       ],
       providers: [
         ...sharedProviders,

@@ -43,6 +43,21 @@ const values = {
   ended: 'yes',
   days: 90,
   list: 'whatsapp.quality: CRITICAL (RED)',
+  price: '10,00 €',
+  startedAt: new Date('2027-08-03T09:15:00Z'),
+  renewalRule: 'Die erste Laufzeit beträgt 12 Monate.',
+  consentAt: new Date('2027-08-03T09:14:00Z'),
+  consentText: 'Ich verlange ausdrücklich …',
+  docVersion: '2026-11-26',
+  agbText: 'AGB\n§ 1 Leistung',
+  widerrufText: 'Widerrufsbelehrung',
+  kind: 'ordinary',
+  requestedLine: '',
+  reasonLine: '',
+  contractRef: 'PS-7K3Q9X2M',
+  receiptEmail: 'anna@example.de',
+  renewsAt: new Date('2028-08-03T00:00:00Z'),
+  interval: 'month',
 };
 
 describe('mail templates', () => {

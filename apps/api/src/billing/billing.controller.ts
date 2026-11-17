@@ -20,19 +20,23 @@ import { z } from 'zod';
 import { CurrentUser, SessionGuard } from '../auth/guards';
 import type { AuthContext } from '../auth/session.service';
 import type { Db } from '../core/core.module';
-import { truncateIp } from '../core/ip';
-import { DB, LOGGER } from '../core/tokens';
+import { ipHash, truncateIp } from '../core/ip';
+import { DB, ENV, LOGGER } from '../core/tokens';
+import type { Env } from '../config/env';
 import { ZodPipe } from '../core/zod.pipe';
 import { PAYMENTS, type Payments } from '../providers/ports';
 import { BillingService } from './billing.service';
 import { RefundsService } from './refunds.service';
-import { captchaSolution } from '../providers/captcha';
 
 const Checkout = z.object({
   plan: z.enum(['plus', 'premium']),
   promoCode: z.string().trim().min(1).max(40).optional(),
-  // §356(4)/§357a BGB: the customer must expressly request the immediate start (US-06).
+  // §356(4)/§357a BGB: the customer must expressly request the immediate start (US-06), and the
+  // order carries the versions of the texts that were shown (consent_records).
   immediateStart: z.literal(true),
+  immediateStartVersion: z.number().int().positive(),
+  termsVersion: z.number().int().positive(),
+  stickerStillAttached: z.boolean().optional(),
 });
 const ConfirmCheckout = z.object({
   sessionId: z
@@ -40,22 +44,13 @@ const ConfirmCheckout = z.object({
     .regex(/^cs_[A-Za-z0-9_-]{8,200}$/)
     .optional(),
 });
-const CancelKind = z.object({
-  kind: z.enum(['ordinary', 'extraordinary']).default('ordinary'),
-  reason: z.string().trim().max(1000).optional(),
-});
-const CancelWithoutLogin = CancelKind.extend({
-  email: z.email().max(254),
-  contractNo: z.string().trim().min(4).max(12),
-  captcha: captchaSolution,
-  locale: z.enum(['de', 'en']).default('de'),
-});
 
 @Controller('v1')
 export class BillingController {
   constructor(
     @Inject(BillingService) private readonly billing: BillingService,
     @Inject(RefundsService) private readonly refunds: RefundsService,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   @Get('plans')
@@ -66,7 +61,10 @@ export class BillingController {
   @Get('billing/subscription')
   @UseGuards(SessionGuard)
   async subscription(@CurrentUser() user: AuthContext) {
-    return { subscription: await this.billing.summary(user.userId) };
+    return {
+      subscription: await this.billing.summary(user.userId),
+      hadSubscription: await this.billing.hadSubscription(user.userId),
+    };
   }
 
   @Post('billing/checkout')
@@ -75,8 +73,9 @@ export class BillingController {
   checkout(
     @CurrentUser() user: AuthContext,
     @Body(new ZodPipe(Checkout)) body: z.infer<typeof Checkout>,
+    @Req() req: FastifyRequest,
   ) {
-    return this.billing.checkout(user, body);
+    return this.billing.checkout(user, body, ipHash(this.env.SESSION_SECRET, truncateIp(req.ip)));
   }
 
   /** Back from Checkout: start the subscription without waiting for the webhook. */
@@ -132,28 +131,6 @@ export class BillingController {
       .header('content-disposition', `attachment; filename="${number}.pdf"`)
       .header('cache-control', 'no-store')
       .send(file);
-  }
-
-  @Post('billing/cancel')
-  @HttpCode(200)
-  @UseGuards(SessionGuard)
-  async cancel(
-    @CurrentUser() user: AuthContext,
-    @Body(new ZodPipe(CancelKind)) body: z.infer<typeof CancelKind>,
-  ) {
-    const r = await this.billing.cancel(user.userId, body);
-    return { receivedAt: r.receivedAt, endsAt: r.endsAt, contractNo: r.contractNo };
-  }
-
-  /** Same response whether or not a contract matched; the result goes to the e-mail address. */
-  @Post('billing/cancel-request')
-  @HttpCode(200)
-  async cancelWithoutLogin(
-    @Body(new ZodPipe(CancelWithoutLogin)) body: z.infer<typeof CancelWithoutLogin>,
-    @Req() req: FastifyRequest,
-  ) {
-    const r = await this.billing.cancelWithoutLogin({ ...body, ipPrefix: truncateIp(req.ip) });
-    return { receivedAt: r.receivedAt };
   }
 }
 

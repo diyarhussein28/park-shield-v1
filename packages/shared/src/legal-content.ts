@@ -1,8 +1,20 @@
-import type { Locale } from '@parkshield/i18n';
-
 // Drafts derived from docs/04-legal-privacy.md, filled with the data of the registered business
 // (Gewerbe-Ummeldung Leverkusen, USt-IdNr. from the BZSt). The final wording still comes from the
-// IT-law firm. German is the binding version.
+// IT-law firm. German is the binding version. TODO [LEGAL REVIEW]: every text in this file
+// (LEGAL_REVIEW.md). Shared by the website and the API (contract confirmation e-mail, § 312f BGB).
+type Locale = 'de' | 'en';
+
+/** Bump when a text a customer agrees to changes; stored with the contract confirmation. */
+export const LEGAL_DOC_VERSION = '2026-11-26';
+
+/** What the texts depend on at runtime (app_settings), so a switch needs no code change. */
+export interface LegalContext {
+  /** § 309 Nr. 9 BGB: see renewal.mode_b2c. */
+  renewalMode: 'annual' | 'monthly_after_first_term';
+}
+
+export const DEFAULT_LEGAL_CONTEXT: LegalContext = { renewalMode: 'monthly_after_first_term' };
+
 export type LegalSlug =
   'impressum' | 'datenschutz' | 'agb' | 'widerruf' | 'barrierefreiheit' | 'sicherheit';
 const SECURITY = 'contact@park-shield.de';
@@ -19,7 +31,7 @@ const ADDRESS = 'Monheimer Str. 24, 51371 Leverkusen';
 const PHONE = '+49 176 20591765';
 const VAT_ID = 'DE454570643';
 
-const de: Record<LegalSlug, LegalDoc> = {
+const de = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
   impressum: {
     title: 'Impressum',
     sections: [
@@ -114,14 +126,14 @@ const de: Record<LegalSlug, LegalDoc> = {
       {
         heading: '§ 3 Preise und Zahlung',
         paragraphs: [
-          'ParkShield Plus kostet 10 € pro Jahr inklusive 19 % Umsatzsteuer und wird jährlich im Voraus berechnet. Bei der ersten Buchung ist ein Aufkleber inklusive Versand enthalten; weitere Aufkleber sind kostenpflichtig, das PDF zum Selbstausdrucken ist jederzeit kostenlos.',
+          'ParkShield Plus kostet 10 € pro Jahr inklusive 19 % Umsatzsteuer und wird für die erste Laufzeit im Voraus berechnet. Bei der ersten Buchung ist ein Aufkleber inklusive Versand enthalten; weitere Aufkleber sind kostenpflichtig, das PDF zum Selbstausdrucken ist jederzeit kostenlos.',
         ],
       },
       {
         heading: '§ 4 Laufzeit und Kündigung',
         paragraphs: [
-          'Die erste Laufzeit beträgt ein Jahr. Danach verlängert sich der Vertrag auf unbestimmte Zeit und ist jederzeit mit einer Frist von einem Monat kündbar; zu viel gezahlte Beträge erstatten wir anteilig.',
-          'Sie können jederzeit über „Verträge hier kündigen“ kündigen, auch ohne Anmeldung. Wir bestätigen den Eingang sofort per E-Mail. Das Recht zur außerordentlichen Kündigung bleibt unberührt.',
+          renewalRule('de', ctx),
+          'Sie können jederzeit über „Verträge hier kündigen“ kündigen, auch ohne Anmeldung. Wir bestätigen den Eingang sofort per E-Mail und nennen das Vertragsende. Bis dahin bleibt Ihr Schutz aktiv. Das Recht zur außerordentlichen Kündigung bleibt unberührt.',
         ],
       },
       {
@@ -152,6 +164,7 @@ const de: Record<LegalSlug, LegalDoc> = {
         paragraphs: [
           'Sie haben das Recht, binnen vierzehn Tagen ohne Angabe von Gründen diesen Vertrag zu widerrufen. Die Widerrufsfrist beträgt vierzehn Tage ab dem Tag des Vertragsschlusses.',
           `Um Ihr Widerrufsrecht auszuüben, müssen Sie uns (${OPERATOR}, ${ADDRESS}, E-Mail: ${CONTACT}) mittels einer eindeutigen Erklärung (zum Beispiel per E-Mail) über Ihren Entschluss informieren. Sie können dafür das unten stehende Muster-Widerrufsformular verwenden, das jedoch nicht vorgeschrieben ist.`,
+          'Sie können den Widerruf auch online erklären: über die Schaltfläche „Vertrag widerrufen“ unten auf jeder Seite unserer Website (§ 356a BGB). Wir bestätigen den Eingang Ihres Widerrufs unverzüglich per E-Mail.',
           'Zur Wahrung der Widerrufsfrist reicht es aus, dass Sie die Mitteilung vor Ablauf der Widerrufsfrist absenden.',
         ],
       },
@@ -160,7 +173,7 @@ const de: Record<LegalSlug, LegalDoc> = {
         paragraphs: [
           'Wenn Sie diesen Vertrag widerrufen, zahlen wir Ihnen alle Zahlungen, die wir von Ihnen erhalten haben, unverzüglich und spätestens binnen vierzehn Tagen zurück, über dasselbe Zahlungsmittel, das Sie verwendet haben.',
           'Haben Sie verlangt, dass die Leistung während der Widerrufsfrist beginnt, zahlen Sie uns einen angemessenen Betrag, der dem Anteil der bis zum Widerruf erbrachten Leistung im Vergleich zum Gesamtumfang entspricht (Wertersatz).',
-          'Ein nach Ihren Vorgaben individuell gestalteter und bedruckter Aufkleber ist vom Widerruf ausgeschlossen (§ 312g Abs. 2 Nr. 1 BGB); seine Kosten werden nicht erstattet.',
+          'Den Aufkleber müssen Sie nicht zurücksenden. Mit dem Widerruf wird sein Code dauerhaft deaktiviert.',
         ],
       },
       {
@@ -223,9 +236,9 @@ const de: Record<LegalSlug, LegalDoc> = {
       },
     ],
   },
-};
+});
 
-const en: Record<LegalSlug, LegalDoc> = {
+const en = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
   impressum: {
     title: 'Legal notice',
     sections: [
@@ -276,7 +289,9 @@ const en: Record<LegalSlug, LegalDoc> = {
       {
         heading: 'Summary',
         paragraphs: [
-          'ParkShield Plus costs €10 per year including 19% VAT, billed yearly in advance. The first term is one year; afterwards the contract continues indefinitely and can be cancelled at any time with one month’s notice, with a pro-rata refund. Cancel any time via “Cancel contract here”, even without signing in. ParkShield does not replace emergency calls: in danger, call 110 or 112.',
+          'ParkShield Plus costs €10 per year including 19% VAT, billed in advance for the first term.',
+          renewalRule('en', ctx),
+          'Cancel any time via “Cancel contract here”, even without signing in. ParkShield does not replace emergency calls: in danger, call 110 or 112.',
         ],
       },
     ],
@@ -287,7 +302,7 @@ const en: Record<LegalSlug, LegalDoc> = {
       {
         heading: 'Right of withdrawal',
         paragraphs: [
-          `You may withdraw from this contract within fourteen days without giving reasons by sending a clear statement to ${CONTACT}. If you asked for the service to start immediately, you pay a proportionate amount for the service provided until withdrawal. A custom-printed decal cannot be returned.`,
+          `You may withdraw from this contract within fourteen days without giving reasons by sending a clear statement to ${CONTACT}. You can also withdraw online with the “Withdraw from contract” button at the bottom of every page (§ 356a BGB); we confirm receipt by e-mail at once. If you asked for the service to start immediately, you pay a proportionate amount for the service provided until withdrawal. You do not need to send the decal back; its code is switched off for good.`,
         ],
       },
     ],
@@ -336,6 +351,25 @@ const en: Record<LegalSlug, LegalDoc> = {
       },
     ],
   },
-};
+});
 
-export const legalContent: Record<Locale, Record<LegalSlug, LegalDoc>> = { de, en };
+/** The legal page `slug` in `locale`, for the renewal rule that is configured right now. */
+export function legalDoc(
+  locale: Locale,
+  slug: LegalSlug,
+  ctx: LegalContext = DEFAULT_LEGAL_CONTEXT,
+): LegalDoc {
+  return (locale === 'en' ? en : de)(ctx)[slug];
+}
+
+/** Renewal rule in one sentence, as shown at checkout and in e-mails. TODO [LEGAL REVIEW] */
+export function renewalRule(locale: Locale, ctx: LegalContext = DEFAULT_LEGAL_CONTEXT): string {
+  if (locale === 'en') {
+    return ctx.renewalMode === 'annual'
+      ? 'The contract runs for 12 months and renews by another 12 months unless you cancel before the end of the term. A cancellation takes effect at the end of the current 12-month period; there is no refund for the rest of the period.'
+      : 'The first term is 12 months, paid in advance. Afterwards the contract continues month by month at the same price level (one twelfth of the annual price) and can be cancelled at any time to the end of the paid month.';
+  }
+  return ctx.renewalMode === 'annual'
+    ? 'Der Vertrag läuft 12 Monate und verlängert sich um jeweils weitere 12 Monate, wenn Sie nicht vor Ablauf kündigen. Eine Kündigung wirkt zum Ende des laufenden 12-Monats-Zeitraums; für den Rest des Zeitraums gibt es keine Erstattung.'
+    : 'Die erste Laufzeit beträgt 12 Monate und wird im Voraus bezahlt. Danach läuft der Vertrag monatlich zum gleichen Preisniveau weiter (ein Zwölftel des Jahrespreises) und ist jederzeit zum Ende des bezahlten Monats kündbar.';
+}

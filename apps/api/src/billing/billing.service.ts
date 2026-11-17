@@ -12,54 +12,43 @@ import type { AuthContext } from '../auth/session.service';
 import type { Env } from '../config/env';
 import { fakeProviders } from '../config/env';
 import type { Db } from '../core/core.module';
-import { normalizeEmail, randomCrockford, sha256 } from '../core/crypto';
-import { RateLimitService } from '../core/rate-limit.service';
+import { randomCrockford } from '../core/crypto';
 import { SettingsService } from '../core/settings.service';
 import { DB, ENV, LOGGER, VALKEY } from '../core/tokens';
+import { ConsentsService } from '../legal/consents.service';
+import { LegalTextsService } from '../legal/legal-texts.service';
+import { withdrawalOpenUntil } from '../legal/rules';
 import { MailService } from '../mail/mail.service';
 import { OrdersService } from '../orders/orders.service';
-import {
-  CAPTCHA,
-  PAYMENTS,
-  type BillingEvent,
-  type Captcha,
-  type PaidPlan,
-  type Payments,
-} from '../providers/ports';
+import { TagsService } from '../vehicles/tags.service';
+import { TokensService } from '../vehicles/tokens.service';
+import { legalDoc, LEGAL_DOC_VERSION, renewalRule, type LegalSlug } from '@parkshield/shared';
+import { PAYMENTS, type BillingEvent, type PaidPlan, type Payments } from '../providers/ports';
 
 const LIVE = ['active', 'past_due'] as const;
 const PLAN_NAMES: Record<PaidPlan, string> = { plus: 'Plus', premium: 'Premium' };
 
-export interface CancelReceipt {
-  receivedAt: Date;
-  found: boolean;
-  contractNo?: string;
-  endsAt?: Date | null;
+const euro = (cents: number, locale: 'de' | 'en') =>
+  new Intl.NumberFormat(locale === 'de' ? 'de-DE' : 'en-IE', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(cents / 100);
+
+/** A legal page as plain text for the durable-medium contract confirmation (§ 312f BGB). */
+export function legalPlainText(
+  locale: 'de' | 'en',
+  slug: LegalSlug,
+  renewalMode: 'annual' | 'monthly_after_first_term',
+): string {
+  const doc = legalDoc(locale, slug, { renewalMode });
+  return [doc.title, ...doc.sections.flatMap((s) => [s.heading, ...s.paragraphs])].join('\n');
 }
 
-export interface CancelDetails {
-  kind: 'ordinary' | 'extraordinary';
-  reason?: string;
-}
-
-const DAY_MS = 86_400_000;
-
-/**
- * §309 Nr. 9 BGB: in the initial one-year term the subscription ends with the paid year. After it has
- * renewed, the customer may cancel at any time with one month's notice (pro-rata refund via AD-12).
- */
-export function cancellationDate(
-  sub: { created_at: Date; current_period_start: Date | null; current_period_end: Date | null },
-  now = new Date(),
-): Date | null {
-  const end = sub.current_period_end;
-  const renewed =
-    sub.current_period_start !== null &&
-    sub.current_period_start.getTime() - sub.created_at.getTime() > 300 * DAY_MS;
-  if (!renewed) return end;
-  const oneMonth = new Date(now);
-  oneMonth.setUTCMonth(oneMonth.getUTCMonth() + 1);
-  return end && end < oneMonth ? end : oneMonth;
+export interface CheckoutConsents {
+  immediateStartVersion: number;
+  termsVersion: number;
+  /** Re-subscription: is the old sticker still on the car? */
+  stickerStillAttached?: boolean;
 }
 
 @Injectable()
@@ -70,11 +59,13 @@ export class BillingService {
     @Inject(ENV) private readonly env: Env,
     @Inject(LOGGER) private readonly logger: Logger,
     @Inject(PAYMENTS) private readonly payments: Payments,
-    @Inject(CAPTCHA) private readonly captcha: Captcha,
     @Inject(MailService) private readonly mail: MailService,
     @Inject(SettingsService) private readonly settings: SettingsService,
-    @Inject(RateLimitService) private readonly limits: RateLimitService,
     @Inject(OrdersService) private readonly orders: OrdersService,
+    @Inject(ConsentsService) private readonly consents: ConsentsService,
+    @Inject(LegalTextsService) private readonly legalTexts: LegalTextsService,
+    @Inject(TagsService) private readonly tags: TagsService,
+    @Inject(TokensService) private readonly tokens: TokensService,
   ) {}
 
   async plans() {
@@ -113,6 +104,8 @@ export class BillingService {
   async summary(userId: string) {
     const s = await this.liveSubscription(userId);
     if (!s) return null;
+    const days = await this.legalTexts.withdrawalDays();
+    const openUntil = withdrawalOpenUntil(s.created_at, days);
     return {
       plan: s.plan,
       status: s.status,
@@ -120,7 +113,22 @@ export class BillingService {
       currentPeriodEnd: s.current_period_end,
       cancelAtPeriodEnd: s.cancel_at_period_end,
       canceledAt: s.canceled_at,
+      interval: s.interval,
+      renewalMode: s.renewal_mode,
+      // § 356a BGB: the portal shows "Vertrag widerrufen" while the period runs.
+      withdrawalOpenUntil: s.customer_type === 'b2c' && openUntil > new Date() ? openUntil : null,
     };
+  }
+
+  /** Whether the user had a subscription before (re-subscription asks about the old sticker). */
+  async hadSubscription(userId: string): Promise<boolean> {
+    const r = await this.db
+      .selectFrom('subscriptions')
+      .select('id')
+      .where('user_id', '=', userId)
+      .where('status', 'in', ['canceled', 'expired', 'withdrawn'])
+      .executeTakeFirst();
+    return Boolean(r);
   }
 
   private async findPromo(code: string, plan: PaidPlan) {
@@ -168,7 +176,8 @@ export class BillingService {
   /** US-06: annual Stripe Checkout. Feature access starts only once the payment event arrives. */
   async checkout(
     user: AuthContext,
-    input: { plan: PaidPlan; promoCode?: string },
+    input: { plan: PaidPlan; promoCode?: string } & CheckoutConsents,
+    ipHash: Buffer | null = null,
   ): Promise<{ url: string }> {
     if (!(await this.isPurchasable(input.plan)))
       throw new BadRequestException({ error: 'plan_unavailable' });
@@ -208,13 +217,42 @@ export class BillingService {
         .execute();
     }
 
+    // Proof of exactly what was agreed (§ 356 Abs. 4, § 357a BGB): the text versions shown, before
+    // the payment. The subscription links to the immediate-start consent once it exists.
+    const consentAt = new Date();
+    const consentId = await this.consents.record({
+      userId: user.userId,
+      type: 'immediate_start',
+      textKey: 'checkout.immediate_start',
+      textVersion: input.immediateStartVersion,
+      locale: user.preferredLang,
+      accepted: true,
+      ipHash,
+      source: 'checkout',
+    });
+    for (const type of ['agb', 'privacy_notice'] as const) {
+      await this.consents.record({
+        userId: user.userId,
+        type,
+        textKey: 'checkout.terms_ack',
+        textVersion: input.termsVersion,
+        locale: user.preferredLang,
+        accepted: true,
+        ipHash,
+        source: 'checkout',
+      });
+    }
+
     const metadata: Record<string, string> = {
       userId: user.userId,
       plan: input.plan,
-      // The customer ticked "immediate start" (required by the checkout form); recorded for withdrawal law.
-      waiverAt: new Date().toISOString(),
+      waiverAt: consentAt.toISOString(),
+      consentId,
     };
     if (promo) metadata.promoCodeId = promo.id;
+    if (input.stickerStillAttached !== undefined) {
+      metadata.sticker = input.stickerStillAttached ? 'keep' : 'replace';
+    }
 
     return this.payments.createCheckout({
       customerId,
@@ -276,6 +314,13 @@ export class BillingService {
       if (event.kind === 'checkout_completed') await this.onCheckoutCompleted(event);
       if (event.kind === 'subscription_updated') await this.onSubscriptionUpdated(event);
       if (event.kind === 'payment_failed') await this.onPaymentFailed(event);
+      if (event.kind === 'charge_refunded') {
+        // Refunds are issued by us (withdrawal, ops); Stripe's notice only confirms them.
+        this.logger.info(
+          { paymentIntentId: event.paymentIntentId, refundedCents: event.amountRefundedCents },
+          'charge refunded',
+        );
+      }
       if (event.kind === 'payment_completed' && event.metadata.orderId) {
         await this.orders.markPaid(event.metadata.orderId, event.paymentIntentId);
       }
@@ -312,6 +357,8 @@ export class BillingService {
     }
 
     const contractNo = `PS-${randomCrockford(8)}`;
+    // The renewal rule in force when the contract was concluded stays the rule of this contract.
+    const renewalMode = await this.legalTexts.renewalMode('b2c');
     const inserted = await this.db
       .insertInto('subscriptions')
       .values({
@@ -322,6 +369,9 @@ export class BillingService {
         promo_code_id: promoCodeId,
         price_locked_until: priceLockedUntil,
         withdrawal_waiver_at: e.metadata.waiverAt ? new Date(e.metadata.waiverAt) : null,
+        immediate_start_consent_id: e.metadata.consentId ?? null,
+        customer_type: 'b2c',
+        renewal_mode: renewalMode,
         current_period_start: e.periodStart,
         current_period_end: periodEnd,
         contract_no: contractNo,
@@ -330,6 +380,9 @@ export class BillingService {
       .returning('id')
       .executeTakeFirst();
     if (!inserted) return;
+    // Re-subscription (section 4): the old sticker is gone, so its code stops working and the
+    // vehicle gets a new one; the replacement sticker is free.
+    if (e.metadata.sticker === 'replace') await this.replaceStickers(userId);
     if (promoCodeId) {
       await this.db
         .insertInto('promo_redemptions')
@@ -342,131 +395,104 @@ export class BillingService {
       .select(['email', 'preferred_lang'])
       .where('id', '=', userId)
       .executeTakeFirstOrThrow();
+    const locale = user.preferred_lang;
+    const consent = e.metadata.consentId ? await this.consents.get(e.metadata.consentId) : null;
+    const consentText = consent
+      ? await this.legalTexts.version(consent.text_key, consent.locale, consent.text_version)
+      : null;
+    const price = await this.priceFor(plan, promoCodeId ?? undefined);
+    // § 312f BGB: the contract confirmation on a durable medium, with the terms and the withdrawal
+    // policy as they applied at conclusion and the immediate-start declaration with its time.
     await this.mail.send({
       to: user.email,
-      template: 'subscription_started',
-      locale: user.preferred_lang,
-      values: { plan: PLAN_NAMES[plan], periodEnd, contractNo },
+      template: 'contract_confirmation',
+      locale,
+      values: {
+        plan: PLAN_NAMES[plan],
+        contractNo,
+        price: euro(price, locale),
+        startedAt: e.periodStart,
+        periodEnd,
+        renewalRule: renewalRule(locale, { renewalMode }),
+        consentAt: consent?.accepted_at ?? e.periodStart,
+        consentText: consentText?.body ?? '',
+        docVersion: LEGAL_DOC_VERSION,
+        agbText: legalPlainText(locale, 'agb', renewalMode),
+        widerrufText: legalPlainText(locale, 'widerruf', renewalMode),
+      },
       actionUrl: `${this.env.WEB_BASE_URL}/konto`,
     });
   }
 
+  private async replaceStickers(userId: string): Promise<void> {
+    const n = await this.db.transaction().execute(async (trx) => {
+      const vehicles = await trx
+        .selectFrom('qr_tokens as t')
+        .innerJoin('vehicles as v', 'v.id', 't.vehicle_id')
+        .select(['t.id as tokenId', 'v.id as vehicleId', 't.cta_header', 't.design_template_id'])
+        .where('v.owner_user_id', '=', userId)
+        .where('t.status', '=', 'assigned')
+        .execute();
+      for (const v of vehicles) {
+        await this.tags.transition(trx, v.tokenId, 'revoked', 'system', 'replaced');
+        const fresh = await this.tokens.issue(trx, v.vehicleId, null, 'system');
+        await trx
+          .updateTable('qr_tokens')
+          .set({ cta_header: v.cta_header, design_template_id: v.design_template_id })
+          .where('id', '=', fresh.id)
+          .execute();
+      }
+      if (vehicles.length) {
+        await trx
+          .updateTable('users')
+          .set({ free_replacements: sql`free_replacements + ${vehicles.length}` })
+          .where('id', '=', userId)
+          .execute();
+      }
+      return vehicles.length;
+    });
+    this.logger.info({ userId, replaced: n }, 're-subscription: stickers replaced');
+  }
+
+  /**
+   * `customer.subscription.updated/deleted` and `invoice.paid`: the provider's current state wins,
+   * except over a withdrawal, which is final. `canceled` (deleted) is the only thing that ends the
+   * service after a cancellation; submitting one changes nothing until then.
+   */
   private async onSubscriptionUpdated(e: Extract<BillingEvent, { kind: 'subscription_updated' }>) {
     await this.db
       .updateTable('subscriptions')
       .set({
         status: e.status,
         cancel_at_period_end: e.cancelAtPeriodEnd,
+        ...(e.interval ? { interval: e.interval } : {}),
         ...(e.periodStart ? { current_period_start: e.periodStart } : {}),
         ...(e.periodEnd ? { current_period_end: e.periodEnd } : {}),
         ...(e.status === 'canceled' ? { canceled_at: sql`coalesce(canceled_at, now())` } : {}),
+        ...(e.status === 'past_due'
+          ? { past_due_since: sql`coalesce(past_due_since, now())` }
+          : { past_due_since: null }),
       })
       .where('stripe_subscription_id', '=', e.subscriptionId)
+      .where('status', '<>', 'withdrawn')
       .execute();
-  }
-
-  /** US-07: ends the subscription at the end of the paid period; protection stays active until then. */
-  async cancel(
-    userId: string,
-    details: CancelDetails = { kind: 'ordinary' },
-  ): Promise<CancelReceipt> {
-    const sub = await this.liveSubscription(userId);
-    if (!sub) throw new NotFoundException({ error: 'no_subscription' });
-    return this.cancelSubscription(sub.id, details);
-  }
-
-  private async cancelSubscription(
-    subscriptionId: string,
-    details: CancelDetails,
-  ): Promise<CancelReceipt> {
-    const sub = await this.db
-      .selectFrom('subscriptions as s')
-      .innerJoin('users as u', 'u.id', 's.user_id')
-      .select([
-        's.id',
-        's.stripe_subscription_id',
-        's.contract_no',
-        's.created_at',
-        's.current_period_start',
-        's.current_period_end',
-        'u.email',
-        'u.preferred_lang',
-      ])
-      .where('s.id', '=', subscriptionId)
-      .executeTakeFirstOrThrow();
-    const receivedAt = new Date();
-    let endsAt = cancellationDate(sub, receivedAt);
-    const atPeriodEnd = endsAt?.getTime() === sub.current_period_end?.getTime();
-    if (sub.stripe_subscription_id) {
-      const r = await this.payments.cancelAt(
-        sub.stripe_subscription_id,
-        atPeriodEnd ? null : endsAt,
-      );
-      if (atPeriodEnd) endsAt = r.periodEnd ?? endsAt;
-    }
-    await this.db
-      .updateTable('subscriptions')
-      .set({
-        cancel_at_period_end: true,
-        canceled_at: sql`coalesce(canceled_at, now())`,
-        ...(atPeriodEnd ? {} : { current_period_end: endsAt }),
-      })
-      .where('id', '=', sub.id)
-      .execute();
-    if (details.kind === 'extraordinary') {
-      // Extraordinary cancellations need a human decision (refund, immediate end); support picks them up.
+    if (e.status === 'canceled') {
       await this.db
-        .insertInto('outbox_events')
-        .values({
-          topic: 'support.extraordinary_cancellation',
-          payload: JSON.stringify({ subscriptionId: sub.id, reason: details.reason ?? '' }),
-        })
+        .updateTable('cancellation_requests as c')
+        .set({ status: 'completed' })
+        .where('c.status', '=', 'scheduled')
+        .where((eb) =>
+          eb(
+            'c.subscription_id',
+            'in',
+            eb
+              .selectFrom('subscriptions')
+              .select('id')
+              .where('stripe_subscription_id', '=', e.subscriptionId),
+          ),
+        )
         .execute();
     }
-    await this.mail.send({
-      to: sub.email,
-      template: 'cancel_received',
-      locale: sub.preferred_lang,
-      values: { receivedAt, contractNo: sub.contract_no ?? '', endsAt: endsAt ?? receivedAt },
-    });
-    return { receivedAt, found: true, contractNo: sub.contract_no ?? undefined, endsAt };
-  }
-
-  /** §312k BGB: cancellation without signing in, by e-mail address + contract number. */
-  async cancelWithoutLogin(input: {
-    email: string;
-    contractNo: string;
-    captcha?: string;
-    locale: 'de' | 'en';
-    ipPrefix: string;
-    kind: CancelDetails['kind'];
-    reason?: string;
-  }): Promise<CancelReceipt> {
-    if (!(await this.captcha.verify(input.captcha))) {
-      throw new BadRequestException({ error: 'captcha_failed' });
-    }
-    const email = normalizeEmail(input.email);
-    await this.limits.enforce('cancel.ip', input.ipPrefix);
-    await this.limits.enforce('cancel.email', sha256(email).toString('hex'));
-
-    const sub = await this.db
-      .selectFrom('subscriptions as s')
-      .innerJoin('users as u', 'u.id', 's.user_id')
-      .select('s.id')
-      .where('u.email', '=', email)
-      .where('s.contract_no', '=', input.contractNo.trim().toUpperCase())
-      .where('s.status', 'in', LIVE)
-      .executeTakeFirst();
-    if (sub) return this.cancelSubscription(sub.id, { kind: input.kind, reason: input.reason });
-
-    const receivedAt = new Date();
-    await this.mail.send({
-      to: email,
-      template: 'cancel_not_found',
-      locale: input.locale,
-      values: { receivedAt },
-    });
-    return { receivedAt, found: false };
   }
 
   async invoices(userId: string) {
@@ -482,7 +508,7 @@ export class BillingService {
   private async onPaymentFailed(e: Extract<BillingEvent, { kind: 'payment_failed' }>) {
     const sub = await this.db
       .updateTable('subscriptions')
-      .set({ status: 'past_due' })
+      .set({ status: 'past_due', past_due_since: sql`coalesce(past_due_since, now())` })
       .where('stripe_subscription_id', '=', e.subscriptionId)
       .where('status', 'in', LIVE)
       .returning('user_id')
@@ -504,9 +530,10 @@ export class BillingService {
 
   /**
    * Safety net for missed provider events: subscriptions whose paid period ended become `expired`, which
-   * makes their decals inactive (US-08). Cancelled ones after one day, any others after a 21-day grace.
+   * makes their decals inactive (US-08). Cancelled ones after one day, any others after the grace period.
    */
   async expireEnded(): Promise<number> {
+    const grace = await this.settings.get('scanner.past_due_grace_days', 21);
     const r = await this.db
       .updateTable('subscriptions')
       .set({ status: 'expired' })
@@ -517,7 +544,7 @@ export class BillingService {
             eb('cancel_at_period_end', '=', true),
             eb('current_period_end', '<', sql<Date>`now() - interval '1 day'`),
           ]),
-          eb('current_period_end', '<', sql<Date>`now() - interval '21 days'`),
+          eb('current_period_end', '<', sql<Date>`now() - make_interval(days => ${grace})`),
         ]),
       )
       .executeTakeFirst();

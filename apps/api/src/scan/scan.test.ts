@@ -302,7 +302,7 @@ describe('decal test and code replacement (US-12, US-13)', () => {
 
     const { alertId } = (await send(code, { type: 'lights_on' })).json();
     const token = await h.db.selectFrom('qr_tokens').selectAll().executeTakeFirstOrThrow();
-    expect(token).toMatchObject({ status: 'active', test_window_until: null });
+    expect(token).toMatchObject({ status: 'assigned', test_window_until: null });
     expect(token.last_test_at).toBeInstanceOf(Date);
     expect(token.activated_at).toBeInstanceOf(Date);
     await h.app.get(DispatchService).dispatch(alertId);
@@ -347,7 +347,7 @@ describe('decal test and code replacement (US-12, US-13)', () => {
     expect(res.json().decal).toMatchObject({
       template: 'night',
       cta: 'Licht an? Bitte scannen',
-      status: 'generated',
+      status: 'assigned',
     });
     expect(res.json().decal.codeHint).not.toBe(code.slice(-4));
     expect((await h.app.inject({ method: 'GET', url: `/v1/scan/${code}` })).statusCode).toBe(404);

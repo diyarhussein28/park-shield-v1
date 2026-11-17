@@ -141,13 +141,21 @@ export function SiteFooter() {
             <span className="sr-only"> – {t('nav.home')}</span>
           </Link>
           <p className="max-w-xs">{t('common.footer.tagline')}</p>
-          {/* §312k BGB: always visible, also without login. */}
-          <Link
-            href="/kuendigen"
-            className="inline-flex min-h-12 w-fit items-center rounded-full border-2 border-white px-5 font-semibold text-white transition hover:bg-white hover:text-slate-950"
-          >
-            {t('common.footer.cancelContract')}
-          </Link>
+          {/* §312k and §356a BGB: always visible, also without login. */}
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/kuendigen"
+              className="inline-flex min-h-12 w-fit items-center rounded-full border-2 border-white px-5 font-semibold text-white transition hover:bg-white hover:text-slate-950"
+            >
+              {t('common.footer.cancelContract')}
+            </Link>
+            <Link
+              href="/widerrufen"
+              className="inline-flex min-h-12 w-fit items-center rounded-full border-2 border-white px-5 font-semibold text-white transition hover:bg-white hover:text-slate-950"
+            >
+              {t('common.footer.withdrawContract')}
+            </Link>
+          </div>
         </div>
         {columns.map(([title, links]) => (
           <div key={title}>

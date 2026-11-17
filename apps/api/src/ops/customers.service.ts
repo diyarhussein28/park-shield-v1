@@ -391,7 +391,7 @@ export class CustomersService {
             .innerJoin('vehicles as v', 'v.id', 't.vehicle_id')
             .select((e) => e.fn.countAll<string>().as('n'))
             .where('v.owner_user_id', '=', u.id)
-            .where('t.status', '=', 'active')
+            .where('t.status', '=', 'assigned')
             .as('activeDecals'),
           eb
             .selectFrom('push_subscriptions')

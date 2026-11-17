@@ -6,6 +6,7 @@ import type { Db } from '../core/core.module';
 import type { FieldCrypto } from '../core/crypto';
 import { sha256 } from '../core/crypto';
 import { CRYPTO, DB } from '../core/tokens';
+import { TagsService } from './tags.service';
 import { normalizeCode, TokensService } from './tokens.service';
 
 export interface VehicleInput {
@@ -27,6 +28,7 @@ export class VehiclesService {
     @Inject(CRYPTO) private readonly crypto: FieldCrypto,
     @Inject(EntitlementService) private readonly entitlements: EntitlementService,
     @Inject(TokensService) private readonly tokens: TokensService,
+    @Inject(TagsService) private readonly tags: TagsService,
   ) {}
 
   /** Current (newest non-revoked) decal of each vehicle, joined to the vehicle. */
@@ -201,16 +203,7 @@ export class VehiclesService {
   async revokeAndReissue(userId: string, vehicleId: string, reason: string) {
     const { token } = await this.currentToken(userId, vehicleId);
     await this.db.transaction().execute(async (trx) => {
-      await trx
-        .updateTable('qr_tokens')
-        .set({
-          status: 'revoked',
-          revoked_at: sql`now()`,
-          revoke_reason: reason,
-          test_window_until: null,
-        })
-        .where('id', '=', token.id)
-        .execute();
+      await this.tags.transition(trx, token.id, 'revoked', 'owner', reason);
       const fresh = await this.tokens.issue(trx, vehicleId);
       await trx
         .updateTable('qr_tokens')
@@ -244,41 +237,35 @@ export class VehiclesService {
         .select(['t.id', 'p.name as partner', 'c.code as promoCode'])
         .where('t.code_hash', '=', sha256(code))
         .where('t.vehicle_id', 'is', null)
-        .where('t.status', 'in', ['generated', 'printed', 'shipped'])
+        .where('t.status', '=', 'in_stock')
         .executeTakeFirst()) ?? null
     );
   }
 
   /**
-   * The owner sticks a pre-printed decal on this vehicle: it becomes the vehicle's code and the
-   * previous one stops working. Like any decal it is active after the owner's test scan (US-12).
+   * Partner channel only (AD-07): the owner sticks a pre-printed partner decal on this vehicle. It
+   * becomes the vehicle's code at once and the previous one stops working. Regular customers never
+   * do this: their code is assigned when they register the vehicle.
    */
   async claim(userId: string, vehicleId: string, rawCode: string) {
     await this.entitlements.require(userId);
-    const v = await this.get(userId, vehicleId);
+    await this.get(userId, vehicleId);
     const token = await this.claimable(rawCode);
     if (!token) throw new NotFoundException({ error: 'code_not_claimable' });
     await this.db.transaction().execute(async (trx) => {
-      const r = await trx
-        .updateTable('qr_tokens')
-        .set({ vehicle_id: vehicleId, status: 'shipped' })
-        .where('id', '=', token.id)
-        .where('vehicle_id', 'is', null)
-        .executeTakeFirst();
-      if (!Number(r.numUpdatedRows)) throw new ConflictException({ error: 'code_not_claimable' });
-      if (v.decal) {
-        await trx
-          .updateTable('qr_tokens')
-          .set({
-            status: 'revoked',
-            revoked_at: sql`now()`,
-            revoke_reason: 'replaced_by_preprinted',
-            test_window_until: null,
-          })
-          .where('vehicle_id', '=', vehicleId)
-          .where('id', '<>', token.id)
-          .where('status', '<>', 'revoked')
-          .execute();
+      const old = await trx
+        .selectFrom('qr_tokens')
+        .select('id')
+        .where('vehicle_id', '=', vehicleId)
+        .where('status', '=', 'assigned')
+        .execute();
+      try {
+        await this.tags.transition(trx, token.id, 'assigned', 'owner', 'partner_claim', vehicleId);
+      } catch {
+        throw new ConflictException({ error: 'code_not_claimable' });
+      }
+      for (const o of old) {
+        await this.tags.transition(trx, o.id, 'revoked', 'owner', 'replaced_by_preprinted');
       }
     });
     return this.get(userId, vehicleId);

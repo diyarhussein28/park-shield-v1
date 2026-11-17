@@ -26,6 +26,7 @@ const de = {
       accessibility: 'Barrierefreiheit',
       security: 'Sicherheitslücke melden',
       cancelContract: 'Verträge hier kündigen',
+      withdrawContract: 'Vertrag widerrufen',
       tagline:
         'Der QR-Aufkleber, über den man Sie erreicht, ohne Ihre Nummer zu kennen. Server in Deutschland.',
       product: 'Produkt',
@@ -814,10 +815,8 @@ const de = {
       'Wirklich löschen? Der Aufkleber wird sofort ungültig, und die Warnungen dieses Fahrzeugs werden gelöscht.',
     back: 'Zurück zu den Fahrzeugen',
     decalStatus: 'Aufkleber: {status}',
-    status_generated: 'bereit, noch nicht getestet',
-    status_printed: 'im Druck',
-    status_shipped: 'unterwegs',
-    status_active: 'aktiv',
+    status_in_stock: 'auf Lager',
+    status_assigned: 'aktiv',
     status_revoked: 'gesperrt',
   },
   decal: {
@@ -918,6 +917,18 @@ const de = {
       'Es gelten unsere AGB. Wie wir mit Ihren Daten umgehen, steht in der Datenschutzerklärung.',
     pay: 'Zahlungspflichtig bestellen',
     already: 'Sie haben bereits ein aktives Abo.',
+    // TODO [LEGAL REVIEW] summary shown above the order button (§ 312j BGB)
+    summaryTitle: 'Ihre Bestellung',
+    summaryTerm: 'Laufzeit: 12 Monate ab Zahlung',
+    summaryRenewal: 'Verlängerung',
+    textsLoading: 'Bestelltexte werden geladen …',
+    textsMissing: 'Die Bestelltexte konnten nicht geladen werden. Bitte laden Sie die Seite neu.',
+    stickerQuestion: 'Ist Ihr ParkShield-Aufkleber noch an Ihrem Fahrzeug angebracht?',
+    stickerYes: 'Ja, der Aufkleber ist noch dran',
+    stickerNo: 'Nein, oder ein anderes Fahrzeug',
+    stickerNoHint:
+      'Der alte Code wird gesperrt, Ihr Fahrzeug bekommt einen neuen, und der Ersatzaufkleber ist kostenlos.',
+    stickerRequired: 'Bitte beantworten Sie die Frage zum Aufkleber.',
   },
   cancel: {
     title: 'Verträge hier kündigen',
@@ -932,13 +943,50 @@ const de = {
     dateNext: 'Zum nächstmöglichen Zeitpunkt',
     emailLabel: 'E-Mail-Adresse Ihres Kontos',
     contractLabel: 'Vertragsnummer',
-    contractHint: 'Steht in Ihrer Willkommens-E-Mail, zum Beispiel PS-7K3Q9X2M.',
+    contractHint: 'Steht in Ihrer Vertragsbestätigung, zum Beispiel PS-7K3Q9X2M.',
+    nameLabel: 'Ihr Name',
+    identifyBy: 'Vertrag finden über',
+    byContract: 'Vertragsnummer',
+    byPlate: 'Kennzeichen',
+    plateLabel: 'Kennzeichen des geschützten Fahrzeugs',
+    dateOn: 'Zu einem bestimmten Datum',
+    dateValue: 'Gewünschtes Datum',
+    dateHint:
+      'Der Vertrag endet zum Ende des bezahlten Zeitraums, der dieses Datum einschließt, nie früher.',
+    confirmLabel: 'E-Mail-Adresse für die Bestätigung',
+    confirmHint: 'Leer lassen, um die Bestätigung an die oben genannte Adresse zu erhalten.',
+    endsText: 'Ihr Vertrag endet am {date, date, long}. Bis dahin bleibt Ihr Schutz aktiv.',
     submit: 'Jetzt kündigen',
     receivedTitle: 'Ihre Kündigung ist eingegangen',
     receivedText:
       'Eingegangen am {date, date, long} um {date, time, short}. Wir haben Ihnen eine Bestätigung per E-Mail geschickt.',
     receivedSave: 'Sie können diese Seite speichern oder ausdrucken.',
     print: 'Seite drucken',
+    revokeTitle: 'Kündigung zurücknehmen',
+    revokeText:
+      'Möchten Sie Ihre Kündigung zurücknehmen? Ihr Vertrag läuft dann unverändert weiter.',
+    revokeSubmit: 'Kündigung zurücknehmen',
+    revokeDone: 'Ihre Kündigung ist zurückgenommen. Ihr Vertrag {contractNo} läuft weiter.',
+    revokeInvalid:
+      'Dieser Link ist nicht mehr gültig: Die Kündigung wurde schon zurückgenommen oder der Vertrag ist bereits beendet.',
+  },
+  // § 356a BGB. TODO [LEGAL REVIEW]
+  withdraw: {
+    title: 'Vertrag widerrufen',
+    intro:
+      'Hier widerrufen Sie Ihren ParkShield-Vertrag innerhalb der Widerrufsfrist. Eine Begründung ist nicht nötig.',
+    nameLabel: 'Ihr Name',
+    contractLabel: 'Vertragsnummer oder E-Mail-Adresse der Bestellung',
+    contractHint:
+      'Die Vertragsnummer steht in Ihrer Vertragsbestätigung, zum Beispiel PS-7K3Q9X2M.',
+    emailLabel: 'E-Mail-Adresse für die Eingangsbestätigung',
+    submit: 'Widerruf bestätigen',
+    receivedTitle: 'Ihr Widerruf ist eingegangen',
+    receivedText:
+      'Eingegangen am {date, date, long} um {date, time, short}. Wir haben Ihnen eine Eingangsbestätigung per E-Mail geschickt.',
+    portalTitle: 'Widerrufsrecht',
+    portalText:
+      'Sie können diesen Vertrag noch bis zum {date, date, long} ohne Angabe von Gründen widerrufen.',
   },
   business: {
     title: 'ParkShield Business: bald verfügbar',
@@ -1700,6 +1748,7 @@ const de = {
     group_limits: 'Tarife und Fair Use',
     group_abuse: 'Missbrauch und Moderation',
     group_refunds: 'Widerruf und Erstattung',
+    group_contracts: 'Verträge, Verlängerung und Versand',
     group_health: 'Schwellen für Anbieter-Alarme',
     group_reminders: 'Erinnerungen',
     group_general: 'Allgemein',
@@ -1744,6 +1793,12 @@ const de = {
     k_moderation_sample_rate: 'Stichprobe blockierter Nachrichten (0 bis 1)',
     k_refunds_withdrawal_days: 'Widerrufsfrist (Tage)',
     k_refunds_custom_decal_cost_cents: 'Wert des gedruckten Aufklebers (Cent)',
+    k_withdrawal_require_decal_return: 'Aufkleber bei Widerruf zurücksenden',
+    k_renewal_mode_b2c: 'Verlängerung Privatkunden (annual / monthly_after_first_term)',
+    k_renewal_mode_b2b: 'Verlängerung Geschäftskunden (annual)',
+    k_renewal_reminder_days: 'Verlängerungs-Erinnerung (Tage vorher)',
+    k_scanner_past_due_grace_days: 'Aufkleber aktiv trotz offener Zahlung (Tage)',
+    k_fulfillment_mode: 'Versand (on_demand / from_stock)',
     k_health_whatsapp_failure_pct: 'WhatsApp: kritisch ab Fehlerquote (%)',
     k_health_email_failure_pct: 'E-Mail: kritisch ab Fehlerquote (%)',
     k_health_push_failure_pct: 'Push: kritisch ab Fehlerquote (%)',

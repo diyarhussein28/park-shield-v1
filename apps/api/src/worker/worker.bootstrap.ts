@@ -1,6 +1,9 @@
 import { Inject, Injectable, type OnApplicationBootstrap } from '@nestjs/common';
 import { sql } from 'kysely';
 import { BillingService } from '../billing/billing.service';
+import { RenewalsService } from '../billing/renewals.service';
+import { EXTRAORDINARY_TOPIC } from '../legal/cancellations.service';
+import { WITHDRAWAL_TOPIC, WithdrawalsService } from '../legal/withdrawals.service';
 import type { Env } from '../config/env';
 import type { Db } from '../core/core.module';
 import { DB, ENV } from '../core/tokens';
@@ -35,6 +38,8 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
     @Inject(AuditStreamService) private readonly audit: AuditStreamService,
     @Inject(ProviderHealthService) private readonly health: ProviderHealthService,
     @Inject(AccessReviewService) private readonly access: AccessReviewService,
+    @Inject(WithdrawalsService) private readonly withdrawals: WithdrawalsService,
+    @Inject(RenewalsService) private readonly renewals: RenewalsService,
     @Inject(DB) private readonly db: Db,
     @Inject(ENV) private readonly env: Env,
   ) {}
@@ -44,11 +49,22 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
     this.outbox.register(DISPATCH_TOPIC, (p) => this.dispatch.dispatch(String(p.alertId)));
     this.outbox.register(FOLLOWUP_TOPIC, (p) => this.dispatch.followup(String(p.alertId)));
     this.outbox.register(ESCALATE_TOPIC, (p) => this.escalation.run(String(p.alertId)));
+    // § 356a BGB: match, end, refund, revoke codes. Idempotent, so retries are safe.
+    this.outbox.register(WITHDRAWAL_TOPIC, (p) => this.withdrawals.process(String(p.id)));
+    // Extraordinary cancellations wait in the ops review queue (legal requests); nothing else to do.
+    this.outbox.register(EXTRAORDINARY_TOPIC, async () => {});
     this.outbox.start();
     this.scheduler.every({
       name: 'subscriptions.expire',
       everyMs: HOUR,
       run: () => this.billing.expireEnded(),
+    });
+    // Renewal reminders and the monthly switch after the first term (§ 309 Nr. 9 BGB).
+    this.scheduler.every({
+      name: 'renewals',
+      everyMs: HOUR,
+      quiet: true,
+      run: () => this.renewals.runAll(),
     });
     // US-29/US-30: idempotent, so hourly runs simply catch up on whatever is due.
     this.scheduler.every({

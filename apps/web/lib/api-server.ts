@@ -1,5 +1,5 @@
 import 'server-only';
-import type { DecalTemplate } from '@parkshield/shared';
+import { DEFAULT_LEGAL_CONTEXT, type DecalTemplate, type LegalContext } from '@parkshield/shared';
 import { cookies } from 'next/headers';
 
 const API = process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:4000';
@@ -16,6 +16,20 @@ export async function serverApi<T>(path: string): Promise<{ status: number; data
   } catch {
     return { status: 503, data: null };
   }
+}
+
+/**
+ * Runtime legal settings (renewal rule) for the AGB, the withdrawal policy and the checkout. Public and
+ * cached for a few minutes; without the API (website preview) the default rule is shown.
+ */
+export async function legalContext(): Promise<LegalContext> {
+  try {
+    const res = await fetch(`${API}/v1/legal/context`, { next: { revalidate: 300 } });
+    if (res.ok) return (await res.json()) as LegalContext;
+  } catch {
+    // fall through to the default
+  }
+  return DEFAULT_LEGAL_CONTEXT;
 }
 
 export interface PushDevice {
@@ -144,9 +158,14 @@ export interface SubscriptionSummary {
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
   canceledAt: string | null;
+  interval: 'year' | 'month';
+  renewalMode: 'annual' | 'monthly_after_first_term';
+  /** § 356a BGB: set while the contract can still be withdrawn. */
+  withdrawalOpenUntil: string | null;
 }
 
-export type TokenStatus = 'generated' | 'printed' | 'shipped' | 'active' | 'revoked';
+/** Tag lifecycle: assigned codes work as soon as the sticker is on the car. */
+export type TokenStatus = 'in_stock' | 'assigned' | 'revoked';
 
 export interface Vehicle {
   id: string;

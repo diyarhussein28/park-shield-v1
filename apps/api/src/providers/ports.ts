@@ -166,6 +166,8 @@ export type BillingEvent =
       periodStart: Date | null;
       periodEnd: Date | null;
       cancelAtPeriodEnd: boolean;
+      /** Billing interval of the current period, when the provider reports it. */
+      interval?: 'year' | 'month';
     }
   | {
       kind: 'payment_failed';
@@ -179,6 +181,12 @@ export type BillingEvent =
       eventId: string;
       paymentIntentId: string | null;
       metadata: Record<string, string>;
+    }
+  | {
+      kind: 'charge_refunded';
+      eventId: string;
+      paymentIntentId: string | null;
+      amountRefundedCents: number;
     }
   | { kind: 'ignored'; eventId: string; type: string };
 
@@ -227,6 +235,13 @@ export interface Payments {
   createPaymentCheckout(req: PaymentCheckoutRequest): Promise<{ id: string; url: string }>;
   /** Ends the subscription at `at`, or at the end of the current period when `at` is null. */
   cancelAt(subscriptionId: string, at: Date | null): Promise<{ periodEnd: Date | null }>;
+  /** Takes back a scheduled cancellation: the subscription renews again. */
+  resume(subscriptionId: string): Promise<void>;
+  /**
+   * § 309 Nr. 9 BGB: after the current (annual) period the subscription continues month by month at
+   * the monthly price of the same plan. Idempotent.
+   */
+  scheduleMonthly(subscriptionId: string, plan: PaidPlan): Promise<void>;
   listInvoices(customerId: string): Promise<Invoice[]>;
   /** Hosted page where the customer changes the payment method (OW-11). */
   portalUrl(customerId: string, returnUrl: string): Promise<string>;

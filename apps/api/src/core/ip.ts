@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { isIPv4, isIPv6 } from 'node:net';
 
 /** Truncates immediately: /24 for IPv4, /48 for IPv6. Full addresses are never stored (04-legal §2). */
@@ -39,4 +40,17 @@ export function deviceLabel(userAgent: string | undefined): string {
     (/Linux/.test(ua) && 'Linux') ||
     'unknown OS';
   return `${browser} · ${os}`;
+}
+
+/**
+ * Proof of where a legal request came from without storing an address: HMAC of the truncated
+ * address with a salt derived per UTC day from the server secret. The salt itself is never stored,
+ * so after the day nobody can test addresses against the hash.
+ */
+export function ipHash(secretBase64: string, ipPrefix: string, at = new Date()): Buffer {
+  const day = at.toISOString().slice(0, 10);
+  const salt = createHmac('sha256', Buffer.from(secretBase64, 'base64'))
+    .update(`ip-salt:${day}`)
+    .digest();
+  return createHmac('sha256', salt).update(ipPrefix).digest();
 }

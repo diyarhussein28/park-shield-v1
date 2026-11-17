@@ -242,7 +242,13 @@ export async function subscribe(h: Harness, email: string, promoCode?: string): 
     method: 'POST',
     url: '/v1/billing/checkout',
     headers: s.headers,
-    payload: { plan: 'plus', immediateStart: true, ...(promoCode ? { promoCode } : {}) },
+    payload: {
+      plan: 'plus',
+      immediateStart: true,
+      immediateStartVersion: 1,
+      termsVersion: 1,
+      ...(promoCode ? { promoCode } : {}),
+    },
   });
   if (res.statusCode !== 200) throw new Error(`checkout failed: ${res.body}`);
   const sessionId = new URL(res.json().url).searchParams.get('session')!;

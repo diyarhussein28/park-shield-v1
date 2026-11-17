@@ -25,11 +25,12 @@ const PUBLIC: Record<string, Control> = {
   'POST /v1/auth/magic-link/consume': { kind: 'rate', limits: ['auth.ip'] },
   'POST /v1/auth/passkey/login/options': { kind: 'rate', limits: ['auth.ip'] },
   'POST /v1/auth/passkey/login/verify': { kind: 'rate', limits: ['auth.ip'] },
-  'POST /v1/billing/cancel-request': {
-    kind: 'rate',
-    limits: ['cancel.ip', 'cancel.email'],
-    captcha: true,
-  },
+  // § 312k / § 356a BGB: no captcha or login before a cancellation or withdrawal; IP-hash limit only.
+  'POST /v1/legal/cancellations': { kind: 'rate', limits: ['cancel.ip'] },
+  'POST /v1/legal/cancellations/revoke': { kind: 'token', what: 'revoke token, 256 bit' },
+  'POST /v1/legal/withdrawals': { kind: 'rate', limits: ['withdrawal.ip'] },
+  'GET /v1/legal/context': { kind: 'static' },
+  'GET /v1/legal/checkout-texts': { kind: 'static' },
   'POST /v1/webhooks/stripe': { kind: 'signed', what: 'Stripe-Signature (HMAC over the raw body)' },
   'POST /v1/webhooks/whatsapp/:secret': { kind: 'signed', what: 'shared secret in the path' },
   'POST /v1/webhooks/twilio/whatsapp': {

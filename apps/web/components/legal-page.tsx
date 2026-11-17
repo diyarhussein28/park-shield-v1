@@ -1,12 +1,12 @@
 'use client';
 
 import { Container, Heading, Notice, Stack, Text, useI18n } from '@parkshield/ui';
-import { legalContent, type LegalSlug } from '@/lib/legal-content';
+import { legalDoc, type LegalContext, type LegalSlug } from '@parkshield/shared';
 import { PageShell } from './site-chrome';
 
-export function LegalPage({ slug }: { slug: LegalSlug }) {
+export function LegalPage({ slug, context }: { slug: LegalSlug; context?: LegalContext }) {
   const { locale, t } = useI18n();
-  const doc = legalContent[locale][slug];
+  const doc = legalDoc(locale, slug, context);
   return (
     <PageShell>
       <Container className="py-10">

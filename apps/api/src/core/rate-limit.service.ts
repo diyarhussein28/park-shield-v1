@@ -50,6 +50,7 @@ export const RATE_LIMITS = {
   'magic_link.ip': { max: 30, windowSeconds: 3600 },
   'magic_link.email': { max: 5, windowSeconds: 3600 },
   'cancel.ip': { max: 10, windowSeconds: 3600 },
+  'withdrawal.ip': { max: 10, windowSeconds: 3600 },
   'cancel.email': { max: 5, windowSeconds: 3600 },
   'waitlist.ip': { max: 10, windowSeconds: 3600 },
   'waitlist.email': { max: 3, windowSeconds: 86_400 },

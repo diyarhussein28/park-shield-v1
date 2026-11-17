@@ -99,10 +99,10 @@ export class RemindersService {
         FROM qr_tokens t
         JOIN vehicles v ON v.id = t.vehicle_id
         JOIN users u ON u.id = v.owner_user_id
-       WHERE t.status = 'active'
-         AND greatest(t.last_scanned_at, t.last_test_at, t.activated_at) < now() - make_interval(months => ${months})
+       WHERE t.status = 'assigned'
+         AND greatest(t.last_scanned_at, t.last_test_at, t.activated_at, t.assigned_at) < now() - make_interval(months => ${months})
          AND (t.health_reminded_at IS NULL
-              OR t.health_reminded_at < greatest(t.last_scanned_at, t.last_test_at, t.activated_at))
+              OR t.health_reminded_at < greatest(t.last_scanned_at, t.last_test_at, t.activated_at, t.assigned_at))
          AND ${LIVE_SUBSCRIPTION}
        LIMIT ${BATCH}`.execute(this.db);
 
@@ -171,7 +171,7 @@ export class RemindersService {
               AND NOT a.is_test AND a.status <> 'blocked') AS alerts,
           (SELECT count(*)::int FROM vehicles v WHERE v.owner_user_id = ${u.id}) AS vehicles,
           (SELECT count(*)::int FROM qr_tokens t JOIN vehicles v ON v.id = t.vehicle_id
-            WHERE v.owner_user_id = ${u.id} AND t.status = 'active') AS active`.execute(this.db);
+            WHERE v.owner_user_id = ${u.id} AND t.status = 'assigned') AS active`.execute(this.db);
       const s = stats.rows[0] ?? { alerts: 0, vehicles: 0, active: 0 };
       const protection = await this.preferences.protection(u.id);
       try {
