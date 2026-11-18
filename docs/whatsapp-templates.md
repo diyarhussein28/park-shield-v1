@@ -25,6 +25,9 @@ language, so eight in total; each gets a Content SID (`HX…`) that goes into `.
 
 `ps_alert_photos` (Phase 2) is needed only once `ALERT_PHOTOS_ENABLED` is on; until it is approved,
 alerts with photos go out as `ps_alert` (the photos are then reachable by e-mail, SMS, push and portal).
+The URL button's domain is fixed in the template, so the test server uses its own pair,
+`ps_alert_photos_test_de` / `_en` (`https://test.park-shield.de/v/{{6}}`, created 2026-11-18). Before
+photos go live on `park-shield.de`, create and approve the pair with the production URL and replace the SIDs.
 
 Name each template like `ps_alert_de`, set the category as below and submit it for **WhatsApp
 approval**.

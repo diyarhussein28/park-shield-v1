@@ -62,7 +62,7 @@ _Last updated: 2026-11-18._
 | Stripe           | **test mode** keys, yearly price IDs, webhook → `https://test.park-shield.de/v1/webhooks/stripe` (5 events), signed delivery verified |
 | E-mail           | **Mailjet** (`MAIL_PROVIDER=mailjet`), tracking off per message, SPF + DKIM green        |
 | SMS              | Twilio, sender ID `ParkShield`, Trust Hub business profile approved, delivery verified |
-| WhatsApp         | **Twilio** (`WHATSAPP_PROVIDER=twilio`, 2026-11-18): Meta business verified, sender `ParkShield` online, all 8 content templates approved (`ps_test` uses the `ps_test_v2_*` SIDs), sender webhook → `https://test.park-shield.de/v1/webhooks/twilio/whatsapp`. End-to-end test (link number, alert, reply button) still open |
+| WhatsApp         | **Twilio** (`WHATSAPP_PROVIDER=twilio`, 2026-11-18): Meta business verified, sender `ParkShield` online, all 8 content templates approved (`ps_test` uses the `ps_test_v2_*` SIDs), sender webhook → `https://test.park-shield.de/v1/webhooks/twilio/whatsapp`. End-to-end test passed (link number, alert, reply button). Profile: logo, description, park-shield.de, contact e-mail. Photo alerts use `ps_alert_photos_test_*` (URL button to the test domain; submitted 2026-11-18). The chat header shows the number, not the name, until Meta grants an official business account (needs a messaging limit above 250) |
 | Print            | `PRINT_PARTNER=manual`                                                                  |
 | Support          | `SUPPORT_PROVIDER=email` → `contact@park-shield.de`                                      |
 | Friendly Captcha | **fake** — decision pending (EU endpoint needs the Advanced plan)                       |
@@ -104,6 +104,9 @@ Relaxed only for testing on the test server. Restore every item before step 5:
    `app_settings` key `photos.plans` = `["plus","premium"]`. For launch: off until the legal review
    (`LEGAL_REVIEW.md` §5), then Premium only (`DELETE FROM app_settings WHERE key = 'photos.plans';`).
 4. Impressum and legal pages reviewed by the lawyer; then remove `SITE_NOINDEX` on Vercel too.
+5. **WhatsApp photo template** points to `test.park-shield.de`: before photos go live, create
+   `ps_alert_photos_*` with `https://park-shield.de/v/{{6}}`, get it approved and replace
+   `TWILIO_CONTENT_PS_ALERT_PHOTOS_*` in `server.env`.
 
 ## 5. Next steps
 
