@@ -7,7 +7,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildOpsApp, OpsAppModule } from '../apps';
 import { loadEnv, repoRoot } from '../config/env';
 import { createLogger } from '../core/logger';
-import { createHarness, resetState, signIn, type Harness } from '../test/harness';
+import { createHarness, mailbox, resetState, signIn, type Harness } from '../test/harness';
 import { OPS_ACCESS, type OpsAccess } from './access';
 import { StaffService } from './staff.service';
 
@@ -278,5 +278,111 @@ describe('dashboard overview', () => {
        WHERE actor_id = ${support.userId} AND action = 'ops.overview_view'`.execute(h.db);
     expect(logged.rows[0]!.n).toBe(1);
     expect((await ops.inject({ method: 'GET', url: '/ops/v1/overview' })).statusCode).toBe(401);
+  });
+});
+
+describe('customer accounts (list, create, edit, delete)', () => {
+  it('lists every customer masked, and only customer.manage may change accounts', async () => {
+    const support = await staffSession('support-customers@parkshield.de', ['support']);
+    const admin = await staffSession('admin-customers@parkshield.de', ['admin']);
+    const email = `created-${Date.now()}@example.com`;
+
+    // support can read the list but not create
+    const denied = await ops.inject({
+      method: 'POST',
+      url: '/ops/v1/customers',
+      headers: support.headers,
+      payload: { email, language: 'en' },
+    });
+    expect(denied.statusCode).toBe(403);
+
+    const created = await ops.inject({
+      method: 'POST',
+      url: '/ops/v1/customers',
+      headers: admin.headers,
+      payload: { email, language: 'en' },
+    });
+    expect(created.statusCode).toBe(201);
+    const { id } = created.json() as { id: string };
+    const link = (await mailbox(h)).find((m) => m.tag === 'magic_link' && m.to === email);
+    expect(link).toBeDefined();
+    const again = await ops.inject({
+      method: 'POST',
+      url: '/ops/v1/customers',
+      headers: admin.headers,
+      payload: { email },
+    });
+    expect(again.statusCode).toBe(409);
+
+    const list = await ops.inject({
+      method: 'GET',
+      url: '/ops/v1/customers?page=1&filter=active',
+      headers: support.headers,
+    });
+    expect(list.statusCode).toBe(200);
+    const page = list.json() as { customers: { id: string; email: string }[]; total: number };
+    const row = page.customers.find((c) => c.id === id)!;
+    expect(row).toBeDefined();
+    expect(row.email).not.toBe(email); // masked (AD-05)
+    expect(page.total).toBeGreaterThanOrEqual(1);
+
+    // suspend: reason required, then the account is suspended and the change is audited
+    const noReason = await ops.inject({
+      method: 'PATCH',
+      url: `/ops/v1/customers/${id}`,
+      headers: admin.headers,
+      payload: { status: 'suspended' },
+    });
+    expect(noReason.statusCode).toBe(400);
+    const suspended = await ops.inject({
+      method: 'PATCH',
+      url: `/ops/v1/customers/${id}`,
+      headers: admin.headers,
+      payload: { status: 'suspended', freeReplacements: 2, reason: 'Missbrauch gemeldet' },
+    });
+    expect(suspended.json()).toEqual({ changed: true });
+    const u = await h.db
+      .selectFrom('users')
+      .select(['status', 'free_replacements'])
+      .where('id', '=', id)
+      .executeTakeFirstOrThrow();
+    expect(u).toEqual({ status: 'suspended', free_replacements: 2 });
+    const linkWhileSuspended = await ops.inject({
+      method: 'POST',
+      url: `/ops/v1/customers/${id}/sign-in-link`,
+      headers: admin.headers,
+      payload: {},
+    });
+    expect(linkWhileSuspended.statusCode).toBe(409);
+
+    // delete: starts the normal GDPR erasure with the 24 h grace period
+    const del = await ops.inject({
+      method: 'POST',
+      url: `/ops/v1/customers/${id}/delete`,
+      headers: admin.headers,
+      payload: { reason: 'Kunde hat am Telefon die Löschung verlangt, Identität geprüft' },
+    });
+    expect(del.statusCode).toBe(200);
+    const after = await h.db
+      .selectFrom('users')
+      .select(['status', 'deletion_due_at'])
+      .where('id', '=', id)
+      .executeTakeFirstOrThrow();
+    expect(after.status).toBe('pending_deletion');
+    expect(after.deletion_due_at).not.toBeNull();
+    const dsr = await h.db
+      .selectFrom('data_subject_requests')
+      .select(['type', 'status', 'verification_method'])
+      .where('user_id', '=', id)
+      .executeTakeFirstOrThrow();
+    expect(dsr).toEqual({ type: 'erasure', status: 'in_progress', verification_method: 'manual' });
+
+    const actions = await sql<{ action: string }>`
+      SELECT action FROM audit_logs WHERE actor_id = ${admin.userId} ORDER BY created_at`.execute(
+      h.db,
+    );
+    expect(actions.rows.map((r) => r.action)).toEqual(
+      expect.arrayContaining(['customer.create', 'customer.update', 'customer.delete']),
+    );
   });
 });

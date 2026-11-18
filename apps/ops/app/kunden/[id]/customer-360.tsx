@@ -7,6 +7,7 @@ import { RevealRequest } from '@/components/reveal-request';
 import { fmt } from '@/lib/format';
 import type { StaffMe } from '@/lib/server';
 import { label } from '@/lib/labels';
+import { ManageAccount } from './manage';
 
 export interface CustomerView {
   customer: {
@@ -93,6 +94,7 @@ export function Customer360({ me, data }: { me: StaffMe; data: CustomerView }) {
   const canTrace = me.permissions.includes('alerts.read_metadata');
   const canRefund = me.permissions.includes('billing.refund');
   const canOrders = me.permissions.includes('orders.manage');
+  const canManage = me.permissions.includes('customer.manage');
   const d = (v: string | null) => fmt(v, locale);
   const c = data.customer;
 
@@ -153,6 +155,8 @@ export function Customer360({ me, data }: { me: StaffMe; data: CustomerView }) {
             )}
           </Section>
         </div>
+
+        {canManage && <ManageAccount customer={c} />}
 
         <Section title={t('opsCustomers.vehicles')}>
           <ul className="flex flex-col gap-3">

@@ -1,13 +1,36 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { sql } from 'kysely';
+import { SessionService } from '../auth/session.service';
+import type { Env } from '../config/env';
 import type { Db } from '../core/core.module';
-import type { FieldCrypto } from '../core/crypto';
-import { CRYPTO, DB } from '../core/tokens';
+import { normalizeEmail, randomToken, sha256, type FieldCrypto } from '../core/crypto';
+import { CRYPTO, DB, ENV } from '../core/tokens';
+import { MailService } from '../mail/mail.service';
 import { PreferencesService } from '../preferences/preferences.service';
+import { PrivacyService } from '../privacy/privacy.service';
 import { maskAddress, maskEmail, maskPhone, maskPlate } from './mask';
 import { StaffService, type StaffContext } from './staff.service';
 
 const CODE_HINT = /^[0-9A-HJKMNP-TV-Z]{4}$/;
+const PAGE_SIZE = 50;
+/** A sign-in link sent by staff may be opened a few days later: 72 h instead of 15 min. */
+const INVITE_LINK_TTL_MS = 72 * 3600_000;
+
+export const CUSTOMER_FILTERS = ['all', 'active', 'suspended', 'pending_deletion'] as const;
+export type CustomerFilter = (typeof CUSTOMER_FILTERS)[number];
+
+export interface CustomerUpdate {
+  status?: 'active' | 'suspended';
+  language?: 'de' | 'en';
+  freeReplacements?: number;
+  reason: string;
+}
 
 /**
  * Customer 360 and delivery trace (AD-03, AD-04, US-35). Everything is masked (AD-05); the full value of
@@ -21,7 +44,198 @@ export class CustomersService {
     @Inject(CRYPTO) private readonly crypto: FieldCrypto,
     @Inject(StaffService) private readonly staff: StaffService,
     @Inject(PreferencesService) private readonly preferences: PreferencesService,
+    @Inject(ENV) private readonly env: Env,
+    @Inject(MailService) private readonly mail: MailService,
+    @Inject(SessionService) private readonly sessions: SessionService,
+    @Inject(PrivacyService) private readonly privacy: PrivacyService,
   ) {}
+
+  /** All customers, newest first, 50 per page. E-mail addresses are masked (AD-05). */
+  async list(by: StaffContext, input: { page: number; filter: CustomerFilter }) {
+    const page = Math.max(1, Math.floor(input.page) || 1);
+    let base = this.db.selectFrom('users as u').where('u.kind', '=', 'customer');
+    if (input.filter !== 'all') base = base.where('u.status', '=', input.filter);
+    const [rows, total] = await Promise.all([
+      base
+        .select((eb) => [
+          'u.id',
+          'u.email',
+          'u.status',
+          'u.created_at',
+          'u.last_login_at',
+          eb
+            .selectFrom('subscriptions as s')
+            .select('s.plan')
+            .whereRef('s.user_id', '=', 'u.id')
+            .where('s.status', 'in', ['active', 'past_due'])
+            .orderBy('s.created_at', 'desc')
+            .limit(1)
+            .as('plan'),
+          eb
+            .selectFrom('subscriptions as s')
+            .select('s.status')
+            .whereRef('s.user_id', '=', 'u.id')
+            .orderBy('s.created_at', 'desc')
+            .limit(1)
+            .as('subscriptionStatus'),
+          eb
+            .selectFrom('vehicles as v')
+            .select((e) => e.fn.countAll<string>().as('n'))
+            .whereRef('v.owner_user_id', '=', 'u.id')
+            .as('vehicles'),
+        ])
+        .orderBy('u.created_at', 'desc')
+        .limit(PAGE_SIZE)
+        .offset((page - 1) * PAGE_SIZE)
+        .execute(),
+      base.select((e) => e.fn.countAll<string>().as('n')).executeTakeFirstOrThrow(),
+    ]);
+    await this.staff.auditRead(by.userId, 'customer.list', 'users', null, {
+      filter: input.filter,
+      page,
+    });
+    return {
+      customers: rows.map((r) => ({
+        id: r.id,
+        email: maskEmail(r.email),
+        status: r.status,
+        plan: r.plan,
+        subscriptionStatus: r.subscriptionStatus,
+        vehicles: Number(r.vehicles ?? 0),
+        createdAt: r.created_at,
+        lastLoginAt: r.last_login_at,
+      })),
+      total: Number(total.n),
+      page,
+      pageSize: PAGE_SIZE,
+    };
+  }
+
+  /**
+   * Creates a customer account for someone who asked support for help (phone, e-mail) and sends
+   * them a sign-in link. The customer then buys and sets up everything themselves; staff never
+   * sign in as the customer.
+   */
+  async create(by: StaffContext, input: { email: string; language: 'de' | 'en' }) {
+    const email = normalizeEmail(input.email);
+    const created = await this.db
+      .insertInto('users')
+      .values({ email, preferred_lang: input.language })
+      .onConflict((oc) => oc.column('email').doNothing())
+      .returning('id')
+      .executeTakeFirst();
+    if (!created) throw new ConflictException({ error: 'email_exists' });
+    await this.sendSignInLink(created.id, email, input.language);
+    await this.staff.audit(by.userId, 'customer.create', 'users', created.id, {
+      language: input.language,
+    });
+    return { id: created.id };
+  }
+
+  /** A fresh sign-in link for an existing, active customer (e.g. "the link never arrived"). */
+  async resendSignIn(by: StaffContext, userId: string) {
+    const u = await this.customer(userId);
+    if (u.status !== 'active') throw new ConflictException({ error: 'not_active' });
+    await this.sendSignInLink(u.id, u.email, u.preferred_lang);
+    await this.staff.audit(by.userId, 'customer.sign_in_link', 'users', userId);
+  }
+
+  /** Status (suspend / reactivate), language and free replacements. Every change needs a reason. */
+  async update(by: StaffContext, userId: string, input: CustomerUpdate) {
+    const u = await this.customer(userId);
+    if (u.status === 'pending_deletion') throw new ConflictException({ error: 'pending_deletion' });
+    const changes: Record<string, unknown> = {};
+    const set: {
+      status?: 'active' | 'suspended';
+      preferred_lang?: 'de' | 'en';
+      free_replacements?: number;
+    } = {};
+    if (input.status && input.status !== u.status) {
+      set.status = input.status;
+      changes.status = { from: u.status, to: input.status };
+    }
+    if (input.language && input.language !== u.preferred_lang) {
+      set.preferred_lang = input.language;
+      changes.language = { from: u.preferred_lang, to: input.language };
+    }
+    if (input.freeReplacements !== undefined && input.freeReplacements !== u.free_replacements) {
+      set.free_replacements = input.freeReplacements;
+      changes.freeReplacements = { from: u.free_replacements, to: input.freeReplacements };
+    }
+    if (!Object.keys(set).length) return { changed: false };
+    await this.db.updateTable('users').set(set).where('id', '=', userId).execute();
+    // A suspended customer is signed out everywhere and cannot request new sign-in links.
+    if (set.status === 'suspended') await this.sessions.revokeAll(userId);
+    await this.staff.audit(by.userId, 'customer.update', 'users', userId, {
+      changes,
+      reason: input.reason.slice(0, 300),
+    });
+    return { changed: true };
+  }
+
+  /**
+   * Deletes the account through the normal GDPR erasure (US-32): codes stop at once, the customer is
+   * signed out and gets the e-mail with the 24 h cancel link, then the worker erases everything.
+   * Staff confirm in the reason how the customer's identity and wish were checked.
+   */
+  async remove(by: StaffContext, userId: string, reason: string) {
+    const u = await this.customer(userId);
+    if (u.status === 'pending_deletion')
+      throw new ConflictException({ error: 'already_requested' });
+    const steps = await this.privacy.stepsFor(this.db, userId, 'erasure');
+    const dsrId = await this.db.transaction().execute(async (trx) => {
+      const r = await trx
+        .insertInto('data_subject_requests')
+        .values({
+          user_id: userId,
+          email_bidx: this.crypto.blindIndex(u.email.toLowerCase()),
+          type: 'erasure',
+          status: 'awaiting_identity',
+          handled_by: by.userId,
+          note: reason.slice(0, 500),
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+      await this.privacy.insertSteps(trx, r.id, steps);
+      return r.id;
+    });
+    await this.privacy.identityVerified(dsrId, 'manual', reason);
+    await this.staff.audit(by.userId, 'customer.delete', 'users', userId, {
+      dsrId,
+      reason: reason.slice(0, 300),
+    });
+    return { dsrId };
+  }
+
+  private async customer(userId: string) {
+    const u = await this.db
+      .selectFrom('users')
+      .select(['id', 'email', 'status', 'preferred_lang', 'free_replacements'])
+      .where('id', '=', userId)
+      .where('kind', '=', 'customer')
+      .executeTakeFirst();
+    if (!u) throw new NotFoundException();
+    return u;
+  }
+
+  private async sendSignInLink(userId: string, email: string, locale: 'de' | 'en') {
+    const token = randomToken();
+    await this.db
+      .insertInto('magic_link_tokens')
+      .values({
+        user_id: userId,
+        token_hash: sha256(token),
+        expires_at: new Date(Date.now() + INVITE_LINK_TTL_MS),
+      })
+      .execute();
+    // Fragment only: the token never reaches server logs or Referer headers.
+    await this.mail.send({
+      to: email,
+      template: 'magic_link',
+      locale,
+      actionUrl: `${this.env.WEB_BASE_URL}/anmelden/link#t=${token}`,
+    });
+  }
 
   /** By e-mail (or its beginning) or by the last 4 characters of a decal code. */
   async search(by: StaffContext, q: string) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useI18n } from '@parkshield/ui';
+import { LanguageSwitch, useI18n } from '@parkshield/ui';
 import type { ReactNode } from 'react';
 import { Icon, LogoMark } from './icons';
 
@@ -25,6 +25,7 @@ export function AuthFrame({ title, children }: { title: string; children: ReactN
           <Icon name="lock" className="size-4 shrink-0" />
           {t('ops.vpnOnly')}
         </p>
+        <LanguageSwitch className="mt-4 justify-center" />
       </div>
     </main>
   );

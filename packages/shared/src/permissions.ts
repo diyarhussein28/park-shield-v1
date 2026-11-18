@@ -1,6 +1,7 @@
 // Code always checks a permission, never a role name (AD-02). Roles are seeded groupings.
 export const PERMISSIONS = [
   'customer.read_masked',
+  'customer.manage',
   'alerts.read_metadata',
   'pii.decrypt_request',
   'pii.decrypt_approve',

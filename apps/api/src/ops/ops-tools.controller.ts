@@ -7,6 +7,7 @@ import {
   HttpCode,
   Inject,
   Param,
+  Patch,
   ParseIntPipe,
   ParseUUIDPipe,
   Post,
@@ -18,20 +19,84 @@ import { WordListsService } from '../moderation/word-lists.service';
 import { AbuseService } from './abuse.service';
 import { RequirePermission, StaffOnly } from './access';
 import { BreakGlassService, TARGETS, type Target } from './break-glass.service';
-import { CustomersService } from './customers.service';
+import { CUSTOMER_FILTERS, CustomersService, type CustomerFilter } from './customers.service';
 import { DsrService } from './dsr.service';
 import { CurrentStaff } from './staff.guard';
 import type { StaffContext } from './staff.service';
 
-/** US-35: Customer 360 and the delivery trace. */
+const CreateCustomer = z.object({
+  email: z.email().max(254),
+  language: z.enum(['de', 'en']).default('de'),
+});
+const UpdateCustomer = z
+  .object({
+    status: z.enum(['active', 'suspended']).optional(),
+    language: z.enum(['de', 'en']).optional(),
+    freeReplacements: z.number().int().min(0).max(5).optional(),
+    reason: z.string().trim().min(5).max(300),
+  })
+  .refine((v) => v.status ?? v.language ?? v.freeReplacements !== undefined, {
+    message: 'nothing to change',
+  });
+const DeleteCustomer = z.object({ reason: z.string().trim().min(10).max(500) });
+
+/** US-35: Customer 360 and the delivery trace; customer accounts (create, suspend, edit, delete). */
 @Controller('ops/v1')
 export class OpsCustomersController {
   constructor(@Inject(CustomersService) private readonly customers: CustomersService) {}
 
+  /** With `q`: search by e-mail or code hint. Without: the paged list of all customers. */
   @Get('customers')
   @RequirePermission('customer.read_masked')
-  search(@CurrentStaff() me: StaffContext, @Query('q') q = '') {
-    return this.customers.search(me, q);
+  search(
+    @CurrentStaff() me: StaffContext,
+    @Query('q') q = '',
+    @Query('page') page = '1',
+    @Query('filter') filter = 'all',
+  ) {
+    if (q.trim()) return this.customers.search(me, q);
+    const f = (CUSTOMER_FILTERS as readonly string[]).includes(filter)
+      ? (filter as CustomerFilter)
+      : 'all';
+    return this.customers.list(me, { page: Number(page) || 1, filter: f });
+  }
+
+  @Post('customers')
+  @RequirePermission('customer.manage')
+  create(
+    @CurrentStaff() me: StaffContext,
+    @Body(new ZodPipe(CreateCustomer)) body: z.infer<typeof CreateCustomer>,
+  ) {
+    return this.customers.create(me, body);
+  }
+
+  @Patch('customers/:id')
+  @RequirePermission('customer.manage')
+  update(
+    @CurrentStaff() me: StaffContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(UpdateCustomer)) body: z.infer<typeof UpdateCustomer>,
+  ) {
+    return this.customers.update(me, id, body);
+  }
+
+  @Post('customers/:id/sign-in-link')
+  @HttpCode(200)
+  @RequirePermission('customer.manage')
+  async signInLink(@CurrentStaff() me: StaffContext, @Param('id', ParseUUIDPipe) id: string) {
+    await this.customers.resendSignIn(me, id);
+    return { ok: true };
+  }
+
+  @Post('customers/:id/delete')
+  @HttpCode(200)
+  @RequirePermission('customer.manage')
+  remove(
+    @CurrentStaff() me: StaffContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(DeleteCustomer)) body: z.infer<typeof DeleteCustomer>,
+  ) {
+    return this.customers.remove(me, id, body.reason);
   }
 
   @Get('customers/:id')

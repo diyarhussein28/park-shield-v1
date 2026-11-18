@@ -152,7 +152,12 @@ export function AccountView({
         <>
           {confirming !== 'busy' && <GetStarted />}
           {confirming !== 'busy' && (
-            <Section title={t('account.subscription')} icon="card">
+            <Section
+              id="checkout"
+              title={t('account.subscription')}
+              icon="card"
+              className="scroll-mt-6"
+            >
               <CheckoutForm />
             </Section>
           )}
@@ -210,7 +215,7 @@ function SetupGuide({
     {
       key: 'phone',
       done: protection.steps.channel,
-      title: t('protection.stepChannel'),
+      title: t('protection.stepChannel', { whatsapp: channels?.available.whatsapp ? 'yes' : 'no' }),
       href: '/konto/benachrichtigungen',
       go: t('protection.goChannel'),
     },
@@ -374,23 +379,50 @@ function SetupGuide({
   );
 }
 
-function Steps({ steps }: { steps: { icon: IconName; title: string; text: string }[] }) {
+function Steps({
+  steps,
+}: {
+  steps: { icon: IconName; title: string; text: string; href?: string; go?: string }[];
+}) {
   return (
     <ol className="grid gap-4 md:grid-cols-3">
-      {steps.map((s, i) => (
-        <li key={s.title} className="flex gap-3 rounded-2xl bg-secondary/40 p-4">
-          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary font-bold text-primary-fg">
-            {i + 1}
-          </span>
-          <div className="min-w-0">
-            <h3 className="flex items-center gap-2 font-semibold">
-              <Icon name={s.icon} className="size-5 shrink-0 text-primary" />
-              <span className="min-w-0">{s.title}</span>
-            </h3>
-            <p className="mt-1 text-sm text-muted">{s.text}</p>
-          </div>
-        </li>
-      ))}
+      {steps.map((s, i) => {
+        const content = (
+          <>
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary font-bold text-primary-fg">
+              {i + 1}
+            </span>
+            <div className="min-w-0">
+              <h3 className="flex items-center gap-2 font-semibold">
+                <Icon name={s.icon} className="size-5 shrink-0 text-primary" />
+                <span className="min-w-0">{s.title}</span>
+              </h3>
+              <p className="mt-1 text-sm text-muted">{s.text}</p>
+              {s.go && (
+                <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                  {s.go}
+                  <Icon name="arrowRight" className="size-4" />
+                </span>
+              )}
+            </div>
+          </>
+        );
+        return (
+          <li key={s.title} className="flex">
+            {s.href ? (
+              // The whole card is the target: tapping "Choose your plan" jumps to the order form.
+              <a
+                href={s.href}
+                className="flex w-full gap-3 rounded-2xl border-2 border-transparent bg-secondary/40 p-4 hover:border-primary focus-visible:border-primary"
+              >
+                {content}
+              </a>
+            ) : (
+              <div className="flex w-full gap-3 rounded-2xl bg-secondary/40 p-4">{content}</div>
+            )}
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -417,7 +449,13 @@ function GetStarted() {
     <Section title={t('portal.startTitle')} icon="shield" intro={t('portal.startIntro')}>
       <Steps
         steps={[
-          { icon: 'card', title: t('portal.start1Title'), text: t('portal.start1Text') },
+          {
+            icon: 'card',
+            title: t('portal.start1Title'),
+            text: t('portal.start1Text'),
+            href: '#checkout',
+            go: t('portal.start1Go'),
+          },
           { icon: 'qr', title: t('portal.start2Title'), text: t('portal.start2Text') },
           { icon: 'check', title: t('portal.start3Title'), text: t('portal.start3Text') },
         ]}

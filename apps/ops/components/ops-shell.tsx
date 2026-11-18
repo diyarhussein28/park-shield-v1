@@ -1,7 +1,7 @@
 'use client';
 
 import type { MessageKey } from '@parkshield/i18n';
-import { SkipLink, useI18n } from '@parkshield/ui';
+import { LanguageSwitch, SkipLink, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -304,6 +304,7 @@ export function OpsShell({
                 </p>
               </div>
             </div>
+            <LanguageSwitch className="mt-2 px-1" />
             <button
               type="button"
               onClick={logout}

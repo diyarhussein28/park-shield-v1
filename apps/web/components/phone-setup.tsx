@@ -58,7 +58,12 @@ export function PhoneSetup({
     setPhoneError(null);
     const channels = available.filter((c) => chosen[c]);
     if (!channels.length) {
-      setMessage({ tone: 'danger', text: t('channels.phoneChooseOne') });
+      setMessage({
+        tone: 'danger',
+        text: t('channels.phoneChooseOne', {
+          whatsapp: overview.available.whatsapp ? 'yes' : 'no',
+        }),
+      });
       return;
     }
     setBusy(true);

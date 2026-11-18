@@ -39,7 +39,10 @@ export function NotificationsView({
   };
 
   return (
-    <KontoShell title={t('channels.title')} intro={t('channels.intro')}>
+    <KontoShell
+      title={t('channels.title')}
+      intro={t('channels.intro', { whatsapp: data.available.whatsapp ? 'yes' : 'no' })}
+    >
       <PhoneSetup overview={data} usage={liveUsage} onChange={reload} />
       <PushCard publicKey={data.push.publicKey} devices={data.push.devices} reload={reload} />
       <Card>

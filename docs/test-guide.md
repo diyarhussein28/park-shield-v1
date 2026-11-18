@@ -29,7 +29,7 @@ What behaves differently on the test server (expected, not bugs):
 | Captcha                  | simulated („Sicherheitsprüfung: lokal simuliert“)                                  |
 | WhatsApp                 | switched off everywhere (`WHATSAPP_PROVIDER=off`)                                  |
 | Scanner phone check code | fake: the code appears in `/dev/postfach`, not as an SMS                           |
-| Alert photos             | off (`ALERT_PHOTOS_ENABLED`), not testable yet                                     |
+| Alert photos             | on for Plus and Premium (production: Premium only, after the legal review)         |
 | Wait between alerts      | 1 minute per vehicle (production: 15 minutes)                                      |
 | SMS                      | real and limited: Plus 5 per month. Each costs money; do not send dozens.          |
 | Printed decals           | no print partner: orders land as files on the server, staff mark them as shipped   |
@@ -113,6 +113,9 @@ Use the **phone** as the stranger, **not signed in**.
 - [ ] **Schutzmodus (Protected Mode):** switch it on in the account → scanner contents from unknown
       senders are hidden; the scanner may be asked to confirm a mobile number („Handynummer
       bestätigen“, code in `/dev/postfach`). Switch it off again.
+- [ ] **Photo:** on the scanner page add a photo („Foto hinzufügen“, camera or gallery) and send →
+      the owner's notification has a link to view it (`/v/…`); the photo is gone after the alert
+      expires.
 - [ ] Phone with a slow network (DevTools „Slow 4G“): the scanner page is still usable.
 
 ## 8. History

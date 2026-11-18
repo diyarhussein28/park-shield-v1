@@ -100,7 +100,10 @@ Relaxed only for testing on the test server. Restore every item before step 5:
    `api` and `worker`.
 2. **Test stack mode:** `APP_ENV=ci`, `SITE_NOINDEX=1` and Caddy basic auth. Production needs
    `APP_ENV=production`, no basic auth, a real captcha and Stripe **live** keys.
-3. Impressum and legal pages reviewed by the lawyer; then remove `SITE_NOINDEX` on Vercel too.
+3. **Alert photos** are switched on for testing: `ALERT_PHOTOS_ENABLED=true` in `server.env` and
+   `app_settings` key `photos.plans` = `["plus","premium"]`. For launch: off until the legal review
+   (`LEGAL_REVIEW.md` §5), then Premium only (`DELETE FROM app_settings WHERE key = 'photos.plans';`).
+4. Impressum and legal pages reviewed by the lawyer; then remove `SITE_NOINDEX` on Vercel too.
 
 ## 5. Next steps
 
