@@ -99,6 +99,8 @@ export type UserStatus = "active" | "pending_deletion" | "suspended";
 
 export type VehicleModeKind = "sensitive_spot" | "short_stop";
 
+export type WelcomeLetterStatus = "downloaded" | "new" | "sent";
+
 export interface AbuseReports {
   alert_id: string | null;
   created_at: Generated<Timestamp>;
@@ -282,6 +284,15 @@ export interface CancellationRequests {
   submitted_name: string | null;
   subscription_id: string | null;
   type: string;
+}
+
+export interface CompanyProfiles {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  data: Json;
+  logo_png: Buffer | null;
+  signature_png: Buffer | null;
+  version: number;
 }
 
 export interface ConsentRecords {
@@ -787,6 +798,7 @@ export interface UsageCounters {
 export interface Users {
   activation_reminders: Generated<number>;
   created_at: Generated<Timestamp>;
+  customer_no: string | null;
   deletion_due_at: Timestamp | null;
   display_name: string | null;
   email: string;
@@ -875,6 +887,22 @@ export interface WebauthnCredentials {
   user_id: string;
 }
 
+export interface WelcomeLetters {
+  address_missing: Generated<boolean>;
+  company_version: number;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  first_downloaded_at: Timestamp | null;
+  id: Generated<string>;
+  key_version: Generated<number>;
+  plan: PlanCode;
+  sent_at: Timestamp | null;
+  snapshot_enc: Buffer;
+  status: Generated<WelcomeLetterStatus>;
+  user_id: string;
+  version: number;
+}
+
 export interface WithdrawalRequests {
   channel: string;
   id: Generated<string>;
@@ -905,6 +933,7 @@ export interface DB {
   break_glass_requests: BreakGlassRequests;
   business_waitlist: BusinessWaitlist;
   cancellation_requests: CancellationRequests;
+  company_profiles: CompanyProfiles;
   consent_records: ConsentRecords;
   consents: Consents;
   contact_channels: ContactChannels;
@@ -961,5 +990,6 @@ export interface DB {
   vehicle_transfers: VehicleTransfers;
   vehicles: Vehicles;
   webauthn_credentials: WebauthnCredentials;
+  welcome_letters: WelcomeLetters;
   withdrawal_requests: WithdrawalRequests;
 }

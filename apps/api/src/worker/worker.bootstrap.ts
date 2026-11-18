@@ -18,6 +18,8 @@ import { OrdersService, PRINT_TOPIC } from '../orders/orders.service';
 import { RemindersService } from '../preferences/reminders.service';
 import { DISPATCH_TOPIC, FOLLOWUP_TOPIC } from '../scan/scan.service';
 import { AlertMediaService } from '../alert-media/alert-media.service';
+import { WELCOME_LETTER_TOPIC } from '../letters/trigger';
+import { WelcomeLettersService } from '../letters/welcome-letters.service';
 import { OutboxService } from './outbox.service';
 import { SchedulerService } from './scheduler.service';
 
@@ -44,6 +46,7 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
     @Inject(DB) private readonly db: Db,
     @Inject(ENV) private readonly env: Env,
     @Inject(AlertMediaService) private readonly media: AlertMediaService,
+    @Inject(WelcomeLettersService) private readonly letters: WelcomeLettersService,
   ) {}
 
   onApplicationBootstrap() {
@@ -55,6 +58,10 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
     this.outbox.register(WITHDRAWAL_TOPIC, (p) => this.withdrawals.process(String(p.id)));
     // Extraordinary cancellations wait in the ops review queue (legal requests); nothing else to do.
     this.outbox.register(EXTRAORDINARY_TOPIC, async () => {});
+    // Welcome letter once paid and the first vehicle is registered (either order). Idempotent.
+    this.outbox.register(WELCOME_LETTER_TOPIC, async (p) => {
+      await this.letters.check(String(p.userId));
+    });
     this.outbox.start();
     this.scheduler.every({
       name: 'subscriptions.expire',

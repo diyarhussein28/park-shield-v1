@@ -301,6 +301,7 @@ export class CustomersService {
         'email_verified_at',
         'deletion_due_at',
         'free_replacements',
+        'customer_no',
       ])
       .where('id', '=', userId)
       .where('kind', '=', 'customer')
@@ -463,6 +464,7 @@ export class CustomersService {
         emailVerifiedAt: u.email_verified_at,
         deletionDueAt: u.deletion_due_at,
         freeReplacements: u.free_replacements,
+        customerNo: u.customer_no,
       },
       protection,
       subscriptions: subs.map((s) => ({

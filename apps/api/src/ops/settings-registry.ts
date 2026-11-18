@@ -123,6 +123,10 @@ export const SETTINGS: Record<string, Def> = {
   'support.reply_hours_plus': { group: 'general', schema: int(1, 168), default: 48 },
   'staff.inactive_days': { group: 'general', schema: int(30, 365), default: 90 },
   'staff.review_interval_days': { group: 'general', schema: int(30, 180), default: 90 },
+  // Customers download their welcome letter under „Dokumente“ in the portal (off: ops only).
+  'welcome_letter.in_portal': { group: 'general', schema: bool, default: false },
+  // Short URL as text under downloaded QR codes (SVG and PDF).
+  'qr.caption': { group: 'general', schema: bool, default: true },
 };
 
 export const SETTING_KEYS = Object.keys(SETTINGS);

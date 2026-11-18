@@ -2,7 +2,7 @@
 
 import { Button, Card, Checkbox, Heading, Notice, Stack, Text, useI18n } from '@parkshield/ui';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KontoShell } from '@/components/konto-shell';
 import { api, ApiError, downloadPost, errorText } from '@/lib/api-client';
 
@@ -15,6 +15,14 @@ export default function PrivacyPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [deletedAt, setDeletedAt] = useState<Date | null>(null);
+  // Welcome letter under „Dokumente“: only while ops has switched it on (welcome_letter.in_portal).
+  const [letter, setLetter] = useState(false);
+
+  useEffect(() => {
+    api<{ welcomeLetter: boolean }>('/v1/portal/documents')
+      .then((r) => setLetter(r.welcomeLetter))
+      .catch(() => setLetter(false));
+  }, []);
 
   const handle = (err: unknown) => {
     const body =
@@ -76,6 +84,23 @@ export default function PrivacyPage() {
             </Notice>
           )}
           {error && <Notice tone="danger">{error}</Notice>}
+
+          {letter && (
+            <Card>
+              <Stack gap={3}>
+                <Heading level={2} className="text-xl">
+                  {t('privacy.documentsTitle')}
+                </Heading>
+                <Text>{t('privacy.documentsIntro')}</Text>
+                <a
+                  href="/v1/portal/documents/welcome-letter"
+                  className="inline-flex min-h-12 w-fit items-center rounded-xl bg-secondary px-5 font-semibold text-secondary-fg hover:brightness-95"
+                >
+                  {t('privacy.welcomeLetter')}
+                </a>
+              </Stack>
+            </Card>
+          )}
 
           <Card>
             <Stack gap={3}>

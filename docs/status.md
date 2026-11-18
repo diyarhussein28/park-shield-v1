@@ -88,7 +88,14 @@ records. Old SendGrid and Brevo records stay but are unused.
   "will not build" list; it would need an ADR).
 - **Ops app (2026-11-16).** Always German, dashboard with counts per permission
   (`GET /ops/v1/overview`, audited). The owner's staff account holds superadmin + admin +
-  abuse_moderator (all 15 permissions).
+  abuse_moderator (all 15 permissions; since 2026-11-18 admin also has the 2 letter permissions).
+- **Welcome letter (2026-11-18).** Printed letter for every new customer (paid + first vehicle),
+  downloaded in ops and posted. Staff who print letters and QR codes see full name, address,
+  plate and code: new permission `letters.print` (admin, fulfillment; not support), every
+  preview and download audited. Address = decal-order shipping address, else Stripe billing
+  address (stored only in the encrypted letter snapshot). PDF via pdfkit (no Puppeteer/Chromium).
+  Open: lawyer check of letter content and footer (`LEGAL_REVIEW.md` §6); deploy to the test
+  server (migration `20261130000000_welcome_letters`).
 
 ## 4. Undo before go-live
 

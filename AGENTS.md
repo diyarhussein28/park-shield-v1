@@ -76,6 +76,7 @@ credit notes), `channels` (Push, WhatsApp, e-mail set-up), `contacts` (emergency
 `notifications` (dispatch, replies, escalation, follow-ups), `moderation` (text filter, word lists),
 `preferences` (quiet hours, channel order, vehicle modes), `history`, `orders` (decal print orders),
 `privacy` (GDPR export/deletion/requests), `support` (Zammad), `waitlist` (Business), `vehicles`,
+`letters` (welcome letter PDF, decal QR export, company data on letters),
 `ops` (back-office APIs, staff, permissions, audit), `providers` (real + fake adapters for every
 external service), `worker` (outbox and scheduled jobs), `core` (crypto, HTTP hardening, DB pool,
 logger), `security` (route registry and authorisation tests), `dev` (test-only helpers), `test`
@@ -102,8 +103,9 @@ checkout), `/konto/fahrzeuge` (+ `[id]`, QR code with PDF and test at the top),
 `/` dashboard, `/kunden` (Customer 360, refunds), `/warnungen/[id]` (alert trace), `/break-glass`
 (four-eyes access to encrypted data), `/datenschutz` (GDPR queue), `/missbrauch` (abuse centre,
 review queue, word lists), `/bestellungen` (decal orders, reprints, returns), `/partner`,
-`/gutscheine` (promo codes), `/einstellungen` (+ `/anbieter` provider health), `/audit`,
-`/mitarbeitende` (+ `/pruefung` quarterly access review), `/zammad`.
+`/gutscheine` (promo codes), `/einstellungen` (+ `/anbieter` provider health, `/unternehmen`
+company data and texts on letters), `/audit`, `/mitarbeitende` (+ `/pruefung` quarterly access
+review), `/zammad`, `/willkommensbriefe` (welcome letters: filter, batch PDF, mark sent).
 
 ## 4. Running it locally
 
@@ -301,6 +303,18 @@ Single API test file: `cd apps/api && npx vitest run src/scan`. Single E2E file:
   (`apps/api/src/core/crypto.ts`, key versions `DATA_KEY_V<n>`); lookups use HMAC blind indexes
   (`*_bidx`). Tokens and links are stored as SHA-256 hashes only. Reply tokens are HMAC-derived
   from `SESSION_SECRET`, not stored.
+- **Welcome letter and QR export** (`apps/api/src/letters/`). Outbox topic `welcome_letter.check`
+  is queued at checkout and at the first vehicle; the handler creates version 1 once both hold
+  (idempotent, advisory lock). The letter is a frozen snapshot (customer number `users.customer_no`,
+  contract number, plate, plan lines from `landing.<plan>F*`, company data version), encrypted as a
+  whole in `welcome_letters.snapshot_enc`; the PDF (pdfkit, built-in Helvetica, DIN 5008 Form B for
+  a DL window envelope) is rendered on demand and never stored. Address: latest decal-order
+  shipping address, else the Stripe billing address. Company data is versioned in
+  `company_profiles` (ops → Einstellungen → Unternehmen). QR files (SVG/PNG/PDF, ECL Q, ZIP for
+  several vehicles) encode `SCANNER_BASE_URL/s/<code>`. Permission `letters.print` (admin,
+  fulfillment) shows names, addresses, plates and codes — a deliberate, audited exception to the
+  masked back office; `letters.manage` (admin) re-creates letters and edits company data. Setting
+  `welcome_letter.in_portal` (default off) offers the letter under „Dokumente“ on `/konto/daten`.
 - **Alert photos (Phase 2, `ALERT_PHOTOS_ENABLED`, off by default).** `apps/api/src/alert-media/`:
   up to 2 photos per alert (multipart on `POST /v1/scan/:code/alerts`), magic bytes + sharp re-encode
   without metadata, one AES-256-GCM key per file wrapped with the data key, files in `ALERT_MEDIA_DIR`

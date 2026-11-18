@@ -93,6 +93,17 @@ export interface ShippingAddress {
   country: 'DE';
 }
 
+/** A postal address as the payment provider stores it (any country). */
+export interface PostalAddress {
+  name: string;
+  line1: string;
+  line2?: string;
+  postalCode: string;
+  city: string;
+  /** ISO 3166-1 alpha-2. */
+  country: string;
+}
+
 export interface PrintJob {
   orderId: string;
   product: 'uv_vinyl_sticker' | 'a6_dashboard_card' | 'nfc_vinyl_sticker';
@@ -232,6 +243,8 @@ export interface Payments {
   /** Stops new redemptions; existing discounts stay. */
   deleteCoupon(couponId: string): Promise<void>;
   ensureCustomer(input: { email: string; userId: string; locale: 'de' | 'en' }): Promise<string>;
+  /** Name and billing address the customer entered at checkout (required there); null if none. */
+  billingAddress(customerId: string): Promise<PostalAddress | null>;
   /** Account deletion: removes the customer and cancels subscriptions immediately. Idempotent. */
   deleteCustomer(customerId: string): Promise<{ reference: string }>;
   createCheckout(req: CheckoutRequest): Promise<{ id: string; url: string }>;

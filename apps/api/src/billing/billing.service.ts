@@ -24,6 +24,7 @@ import { TagsService } from '../vehicles/tags.service';
 import { TokensService } from '../vehicles/tokens.service';
 import { legalDoc, LEGAL_DOC_VERSION, renewalRule, type LegalSlug } from '@parkshield/shared';
 import { PAYMENTS, type BillingEvent, type PaidPlan, type Payments } from '../providers/ports';
+import { queueWelcomeLetterCheck } from '../letters/trigger';
 
 const LIVE = ['active', 'past_due'] as const;
 const PLAN_NAMES: Record<PaidPlan, string> = { plus: 'Plus', premium: 'Premium' };
@@ -380,6 +381,8 @@ export class BillingService {
       .returning('id')
       .executeTakeFirst();
     if (!inserted) return;
+    // Paid: the welcome letter follows once a vehicle exists (or at once, if one already does).
+    await queueWelcomeLetterCheck(this.db, userId);
     // Re-subscription (section 4): the old sticker is gone, so its code stops working and the
     // vehicle gets a new one; the replacement sticker is free.
     if (e.metadata.sticker === 'replace') await this.replaceStickers(userId);

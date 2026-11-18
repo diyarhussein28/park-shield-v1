@@ -34,3 +34,44 @@ export async function opsApi<T = unknown>(
   if (!res.ok) throw new OpsApiError(res.status, data as OpsApiError['body']);
   return data as T;
 }
+
+/** POST that answers with a file (e.g. a combined PDF): saved through a temporary link. */
+export async function opsDownload(
+  path: string,
+  body: unknown,
+  fallbackName: string,
+): Promise<void> {
+  const token = csrf();
+  const res = await fetch(path, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/json', ...(token ? { 'x-csrf-token': token } : {}) },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401) window.location.assign('/anmelden?abgelaufen=1');
+  if (!res.ok) throw new OpsApiError(res.status, (await res.json().catch(() => null)) as null);
+  const name = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1];
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name ?? fallbackName;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/** multipart/form-data upload with the CSRF header (logo and signature images). */
+export async function opsUpload<T>(path: string, form: FormData): Promise<T> {
+  const token = csrf();
+  const res = await fetch(path, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: token ? { 'x-csrf-token': token } : {},
+    body: form,
+  });
+  const data = (await res.json().catch(() => null)) as T | null;
+  if (res.status === 401) window.location.assign('/anmelden?abgelaufen=1');
+  if (!res.ok) throw new OpsApiError(res.status, data as OpsApiError['body']);
+  return data as T;
+}

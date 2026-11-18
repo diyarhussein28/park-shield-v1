@@ -186,3 +186,18 @@ input.
   sub-processor / for its own purposes per the WhatsApp Business terms; third-country transfer to the
   US. **Question:** is the link itself (which grants access to the photos for 30 days) acceptable in a
   message processed by Meta, or should WhatsApp show only „Fotos im Konto ansehen“ without the token?
+
+## 6. Welcome letter (posted to every new customer)
+
+Code: `apps/api/src/letters/` (texts in `company.ts`, layout in `letter.ts`). Points to check:
+
+- **Business-letter details** (footer, `TODO [LEGAL REVIEW]` in `company.ts`): for an
+  Einzelunternehmen without register entry we print name, address, owner and USt-IdNr.; register
+  court/number, tax number and bank details are switchable in ops → Einstellungen → Unternehmen.
+- **Contract summary** (price, 12-month first term, renewal rule from `renewalRule()`): must match
+  the AGB version the contract was concluded under.
+- **Retention:** the letter snapshot (name, postal address, plate) is deleted with the customer
+  account. Copies of sent business letters may have to be kept 6 years (§ 257 HGB) — decide
+  whether a deleted account must keep its letter.
+- **Address source:** the Stripe billing address entered at checkout is reused for posting the
+  welcome letter. Mention this purpose in the Datenschutzerklärung.

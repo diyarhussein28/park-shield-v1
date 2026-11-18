@@ -14,6 +14,7 @@ import {
   type Harness,
 } from '../test/harness';
 import { DISPATCH_TOPIC } from './scan.service';
+import { WELCOME_LETTER_TOPIC } from '../letters/trigger';
 
 let h: Harness;
 let crypto: FieldCrypto;
@@ -170,7 +171,11 @@ describe('sending an alert (US-14, US-15, US-16)', () => {
     });
     expect(alert.scanner_ref).toHaveLength(32);
     expect(alert.block_ref).toHaveLength(32);
-    const events = await h.db.selectFrom('outbox_events').select(['topic', 'payload']).execute();
+    const events = await h.db
+      .selectFrom('outbox_events')
+      .select(['topic', 'payload'])
+      .where('topic', '<>', WELCOME_LETTER_TOPIC)
+      .execute();
     expect(events).toEqual([{ topic: DISPATCH_TOPIC, payload: { alertId } }]);
 
     expect((await status(alertId, 'wrong-token')).statusCode).toBe(404);
@@ -234,7 +239,13 @@ describe('sending an alert (US-14, US-15, US-16)', () => {
         .select(['status', 'moderation'])
         .executeTakeFirstOrThrow();
       expect(alert).toEqual({ status: 'blocked', moderation: 'blocked' });
-      expect(await h.db.selectFrom('outbox_events').selectAll().execute()).toHaveLength(0);
+      expect(
+        await h.db
+          .selectFrom('outbox_events')
+          .selectAll()
+          .where('topic', '<>', WELCOME_LETTER_TOPIC)
+          .execute(),
+      ).toHaveLength(0);
       const review = await h.db
         .selectFrom('moderation_reviews')
         .select('rule_hit')
@@ -274,7 +285,13 @@ describe('sending an alert (US-14, US-15, US-16)', () => {
       error: 'not_deliverable',
       message: 'Ihre Nachricht konnte nicht zugestellt werden.',
     });
-    expect(await h.db.selectFrom('outbox_events').selectAll().execute()).toHaveLength(0);
+    expect(
+      await h.db
+        .selectFrom('outbox_events')
+        .selectAll()
+        .where('topic', '<>', WELCOME_LETTER_TOPIC)
+        .execute(),
+    ).toHaveLength(0);
     expect(await h.db.selectFrom('alerts').selectAll().execute()).toHaveLength(1);
     expect(first.statusCode).toBe(201);
   });

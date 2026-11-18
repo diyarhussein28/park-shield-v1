@@ -14,6 +14,7 @@ import {
   type Harness,
 } from '../test/harness';
 import { FOLLOWUP_TOPIC } from './scan.service';
+import { WELCOME_LETTER_TOPIC } from '../letters/trigger';
 
 let h: Harness;
 let crypto: FieldCrypto;
@@ -188,7 +189,11 @@ describe('"Ich warte noch" and the owner reminder (US-18, SC-14, NT-09)', () => 
       .executeTakeFirstOrThrow();
     expect(alert.scanner_waiting_at).not.toBeNull();
     expect(alert.escalate_at!.getTime()).toBeLessThanOrEqual(Date.now() + 5 * 60_000 + 2000);
-    const events = await h.db.selectFrom('outbox_events').select(['topic', 'payload']).execute();
+    const events = await h.db
+      .selectFrom('outbox_events')
+      .select(['topic', 'payload'])
+      .where('topic', '<>', WELCOME_LETTER_TOPIC)
+      .execute();
     expect(events.filter((e) => e.topic === FOLLOWUP_TOPIC)).toEqual([
       { topic: FOLLOWUP_TOPIC, payload: { alertId } },
     ]);

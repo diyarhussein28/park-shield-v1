@@ -17,7 +17,8 @@ type Group =
   | 'dsrStatus'
   | 'refund'
   | 'refundStatus'
-  | 'recipient';
+  | 'recipient'
+  | 'letter';
 
 /**
  * German (or English) label for a status or code from the API, so staff never read raw values like

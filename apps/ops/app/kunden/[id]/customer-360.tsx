@@ -7,6 +7,12 @@ import { RevealRequest } from '@/components/reveal-request';
 import { fmt } from '@/lib/format';
 import type { StaffMe } from '@/lib/server';
 import { label } from '@/lib/labels';
+import {
+  LetterHeaderActions,
+  VehicleQrButton,
+  WelcomeLetterSection,
+  type LettersView,
+} from '@/components/welcome-letters';
 import { ManageAccount } from './manage';
 
 export interface CustomerView {
@@ -20,6 +26,7 @@ export interface CustomerView {
     emailVerifiedAt: string | null;
     deletionDueAt: string | null;
     freeReplacements: number;
+    customerNo: string | null;
   };
   protection: { percent: number; steps: Record<string, boolean> };
   subscriptions: {
@@ -88,13 +95,24 @@ export interface CustomerView {
 }
 
 /** AD-03 Customer 360, masked (AD-05). No "log in as customer". */
-export function Customer360({ me, data }: { me: StaffMe; data: CustomerView }) {
+export function Customer360({
+  me,
+  data,
+  letters,
+}: {
+  me: StaffMe;
+  data: CustomerView;
+  /** Only for staff with letters.print. */
+  letters: LettersView | null;
+}) {
   const { t, locale } = useI18n();
   const canRequest = me.permissions.includes('pii.decrypt_request');
   const canTrace = me.permissions.includes('alerts.read_metadata');
   const canRefund = me.permissions.includes('billing.refund');
   const canOrders = me.permissions.includes('orders.manage');
   const canManage = me.permissions.includes('customer.manage');
+  const canRecreate = me.permissions.includes('letters.manage');
+  const qrActive = new Map(letters?.vehicles.map((v) => [v.vehicleId, v.active]) ?? []);
   const d = (v: string | null) => fmt(v, locale);
   const c = data.customer;
 
@@ -104,6 +122,7 @@ export function Customer360({ me, data }: { me: StaffMe; data: CustomerView }) {
       back={{ href: '/kunden', label: t('opsCustomers.title') }}
       title={c.email}
       intro={t('opsCustomers.masked')}
+      actions={letters && <LetterHeaderActions customerId={c.id} data={letters} />}
     >
       <Stack gap={6}>
         {c.deletionDueAt && (
@@ -115,6 +134,8 @@ export function Customer360({ me, data }: { me: StaffMe; data: CustomerView }) {
         <div className="grid gap-4 lg:grid-cols-2">
           <Section title={t('opsCustomers.account')}>
             <dl className="grid grid-cols-2 gap-1 text-sm">
+              <dt>{t('opsLetters.customerNo')}</dt>
+              <dd className="font-mono">{c.customerNo ?? '–'}</dd>
               <dt>{t('opsCustomers.status')}</dt>
               <dd>{label(t, 'user', c.status)}</dd>
               <dt>{t('opsCustomers.since')}</dt>
@@ -156,6 +177,10 @@ export function Customer360({ me, data }: { me: StaffMe; data: CustomerView }) {
           </Section>
         </div>
 
+        {letters && (
+          <WelcomeLetterSection customerId={c.id} data={letters} canManage={canRecreate} />
+        )}
+
         {canManage && <ManageAccount customer={c} />}
 
         <Section title={t('opsCustomers.vehicles')}>
@@ -169,6 +194,15 @@ export function Customer360({ me, data }: { me: StaffMe; data: CustomerView }) {
                   {t('opsCustomers.plate')}:{' '}
                   <span className="font-mono">{v.plateMasked ?? '–'}</span>
                 </p>
+                {letters && (
+                  <div className="mt-2">
+                    <VehicleQrButton
+                      vehicleId={v.id}
+                      nickname={v.nickname}
+                      active={qrActive.get(v.id) ?? false}
+                    />
+                  </div>
+                )}
                 {canRequest && v.plateMasked && (
                   <RevealRequest
                     target="vehicles.plate"

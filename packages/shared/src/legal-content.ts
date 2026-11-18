@@ -24,12 +24,27 @@ export interface LegalDoc {
   sections: { heading: string; paragraphs: string[] }[];
 }
 
-// Company mailbox on the website domain (Strato); Twilio Trust Hub needs the same domain for both.
-const CONTACT = 'contact@park-shield.de';
-const OPERATOR = 'Diyar Hussein Dienstleistungen, Inhaber Diyar Hussein';
-const ADDRESS = 'Monheimer Str. 24, 51371 Leverkusen';
-const PHONE = '+49 176 20591765';
-const VAT_ID = 'DE454570643';
+/** The registered business, as in the Impressum. Default company data on letters (ops can edit). */
+export const COMPANY = {
+  name: 'Diyar Hussein Dienstleistungen',
+  legalForm: 'Einzelunternehmen',
+  owner: 'Diyar Hussein',
+  street: 'Monheimer Str. 24',
+  postalCode: '51371',
+  city: 'Leverkusen',
+  country: 'DE',
+  // Company mailbox on the website domain (Strato); Twilio Trust Hub needs the same domain for both.
+  email: 'contact@park-shield.de',
+  phone: '+49 176 20591765',
+  website: 'park-shield.de',
+  vatId: 'DE454570643',
+} as const;
+
+const CONTACT = COMPANY.email;
+const OPERATOR = `${COMPANY.name}, Inhaber ${COMPANY.owner}`;
+const ADDRESS = `${COMPANY.street}, ${COMPANY.postalCode} ${COMPANY.city}`;
+const PHONE = COMPANY.phone;
+const VAT_ID = COMPANY.vatId;
 
 const de = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
   impressum: {

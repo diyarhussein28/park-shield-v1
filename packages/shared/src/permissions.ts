@@ -16,6 +16,8 @@ export const PERMISSIONS = [
   'settings.edit',
   'audit.read',
   'staff.manage',
+  'letters.print',
+  'letters.manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -39,7 +41,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
   support: ['customer.read_masked', 'alerts.read_metadata', 'pii.decrypt_request'],
   abuse_moderator: ['customer.read_masked', 'abuse.moderate', 'moderation.review'],
   finance: ['customer.read_masked', 'billing.refund', 'promo.manage'],
-  fulfillment: ['orders.manage', 'tokens.manage', 'pii.decrypt_request'],
+  fulfillment: ['orders.manage', 'tokens.manage', 'pii.decrypt_request', 'letters.print'],
   analyst: [],
   admin: ADMIN,
   superadmin: ['staff.manage', 'audit.read', 'pii.decrypt_approve', 'settings.edit'],

@@ -14,6 +14,7 @@ import {
   type Session,
 } from '../test/harness';
 import { OrdersService, PRINT_TOPIC } from './orders.service';
+import { WELCOME_LETTER_TOPIC } from '../letters/trigger';
 
 let h: Harness;
 beforeAll(async () => {
@@ -78,7 +79,11 @@ describe('included decal order (US-11)', () => {
       address,
     );
     expect(row.total_gross_cents).toBe(0);
-    const events = await h.db.selectFrom('outbox_events').select(['topic', 'payload']).execute();
+    const events = await h.db
+      .selectFrom('outbox_events')
+      .select(['topic', 'payload'])
+      .where('topic', '<>', WELCOME_LETTER_TOPIC)
+      .execute();
     expect(events).toEqual([{ topic: PRINT_TOPIC, payload: { orderId: row.id } }]);
     expect((await lastMail(h, 'order_received'))?.to).toBe('jonas@example.de');
 

@@ -103,6 +103,13 @@ export const NAV: NavGroup[] = [
         show: (can) => can('orders.manage'),
       },
       {
+        href: '/willkommensbriefe',
+        label: 'ops.navLetters',
+        about: 'ops.areaLetters',
+        icon: 'text',
+        show: (can) => can('letters.print'),
+      },
+      {
         href: '/partner',
         label: 'ops.navPartners',
         about: 'ops.areaPartners',
@@ -127,6 +134,13 @@ export const NAV: NavGroup[] = [
         about: 'ops.areaSettings',
         icon: 'sliders',
         show: (can) => can('settings.edit'),
+      },
+      {
+        href: '/einstellungen/unternehmen',
+        label: 'ops.navCompany',
+        about: 'ops.areaCompany',
+        icon: 'card',
+        show: (can) => can('letters.manage'),
       },
       {
         href: '/einstellungen/anbieter',

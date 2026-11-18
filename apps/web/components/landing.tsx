@@ -1,7 +1,7 @@
 'use client';
 
 import type { MessageKey } from '@parkshield/i18n';
-import { PLAN_PRICES_CENTS } from '@parkshield/shared';
+import { PLAN_FEATURE_COUNTS, PLAN_PRICES_CENTS } from '@parkshield/shared';
 import { useI18n } from '@parkshield/ui';
 import Image, { type StaticImageData } from 'next/image';
 import Link from 'next/link';
@@ -511,7 +511,7 @@ function Pricing() {
                 <p className="text-muted">{t('landing.plusFor')}</p>
               </div>
               <Price cents={PLAN_PRICES_CENTS.plus} />
-              <FeatureList items={keys('landing.plusF', 6)} />
+              <FeatureList items={keys('landing.plusF', PLAN_FEATURE_COUNTS.plus)} />
               <Link href="/konto" className={cx(btnPrimary, 'mt-auto')}>
                 {t('landing.plusCta')}
                 <Icon name="arrowRight" className="size-5 transition group-hover:translate-x-1" />
@@ -526,7 +526,7 @@ function Pricing() {
               <p className="text-muted">{t('landing.premiumFor')}</p>
             </div>
             <Price cents={PLAN_PRICES_CENTS.premium} />
-            <FeatureList items={keys('landing.premiumF', 5)} />
+            <FeatureList items={keys('landing.premiumF', PLAN_FEATURE_COUNTS.premium)} />
             <span className="mt-auto w-fit rounded-full bg-info-bg px-3 py-1 text-sm font-semibold text-info-fg">
               {t('landing.premiumSoon')}
             </span>

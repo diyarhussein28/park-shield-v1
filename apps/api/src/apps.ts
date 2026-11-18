@@ -108,6 +108,14 @@ import { PhoneBansService } from './abuse/phone-bans.service';
 import { ProtectionService } from './abuse/protection.service';
 import { ScannerVerificationService } from './abuse/verification.service';
 import { WaitlistController } from './waitlist/waitlist.controller';
+import { CompanyService } from './letters/company.service';
+import {
+  COMPANY_IMAGE_MULTIPART,
+  OpsLettersController,
+  PortalDocumentsController,
+} from './letters/letters.controller';
+import { QrExportService } from './letters/qr-export.service';
+import { WelcomeLettersService } from './letters/welcome-letters.service';
 import { OutboxService } from './worker/outbox.service';
 import { SchedulerService } from './worker/scheduler.service';
 import { WorkerBootstrap } from './worker/worker.bootstrap';
@@ -146,6 +154,9 @@ const domainProviders = [
   PrivacyService,
   WordListsService,
   RefundsService,
+  CompanyService,
+  WelcomeLettersService,
+  QrExportService,
 ];
 
 /** Ops back-office services (api-ops; the worker uses some of them for its jobs). */
@@ -198,6 +209,7 @@ export class PublicAppModule {
         PrivacyController,
         ClaimController,
         SupportController,
+        PortalDocumentsController,
         ...(devRoutes ? [DevController] : []),
       ],
       providers: [
@@ -237,6 +249,7 @@ export class OpsAppModule {
         OpsAuditController,
         OpsOverviewController,
         OpsLegalRequestsController,
+        OpsLettersController,
       ],
       providers: [
         ...sharedProviders,
@@ -279,5 +292,9 @@ export async function buildPublicApp(env: Env, logger: Logger) {
   return app;
 }
 
-export const buildOpsApp = (env: Env, logger: Logger) =>
-  createHttpApp(OpsAppModule.forRoot(env, logger), logger);
+export async function buildOpsApp(env: Env, logger: Logger) {
+  const app = await createHttpApp(OpsAppModule.forRoot(env, logger), logger);
+  // Logo and signature upload for letters: one image of at most 512 KB.
+  await app.register(fastifyMultipart as never, COMPANY_IMAGE_MULTIPART);
+  return app;
+}

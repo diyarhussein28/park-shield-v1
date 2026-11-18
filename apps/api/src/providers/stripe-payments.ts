@@ -8,6 +8,7 @@ import type {
   PaidPlan,
   PaymentCheckoutRequest,
   Payments,
+  PostalAddress,
 } from './ports';
 
 type SubStatus = Extract<BillingEvent, { kind: 'subscription_updated' }>['status'];
@@ -142,6 +143,20 @@ export class StripePayments implements Payments {
       metadata: { userId: input.userId },
     });
     return c.id;
+  }
+
+  /** Checkout saves name and billing address on the customer (customer_update: auto). */
+  async billingAddress(customerId: string): Promise<PostalAddress | null> {
+    const c = await this.stripe.customers.retrieve(customerId);
+    if (c.deleted || !c.address?.line1 || !c.address.postal_code || !c.address.city) return null;
+    return {
+      name: c.name ?? '',
+      line1: c.address.line1,
+      ...(c.address.line2 ? { line2: c.address.line2 } : {}),
+      postalCode: c.address.postal_code,
+      city: c.address.city,
+      country: c.address.country ?? 'DE',
+    };
   }
 
   /**

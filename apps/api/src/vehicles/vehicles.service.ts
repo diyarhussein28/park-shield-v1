@@ -8,6 +8,7 @@ import { sha256 } from '../core/crypto';
 import { CRYPTO, DB } from '../core/tokens';
 import { TagsService } from './tags.service';
 import { normalizeCode, TokensService } from './tokens.service';
+import { queueWelcomeLetterCheck } from '../letters/trigger';
 
 export interface VehicleInput {
   nickname: string;
@@ -147,6 +148,8 @@ export class VehiclesService {
         .returning('id')
         .executeTakeFirstOrThrow();
       await this.tokens.issue(trx, v.id);
+      // The first vehicle may complete the welcome-letter conditions (paid + vehicle).
+      if (Number(n) === 0) await queueWelcomeLetterCheck(trx, userId);
       return v.id;
     });
     return this.get(userId, id);

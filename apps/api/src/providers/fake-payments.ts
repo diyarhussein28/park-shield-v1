@@ -8,6 +8,7 @@ import type {
   Invoice,
   PaymentCheckoutRequest,
   Payments,
+  PostalAddress,
 } from './ports';
 
 const key = (...parts: string[]) => `dev:payments:${parts.join(':')}`;
@@ -34,6 +35,18 @@ export class FakePayments implements Payments {
 
   async deleteCustomer(customerId: string): Promise<{ reference: string }> {
     return { reference: `fake-deleted:${customerId}` };
+  }
+
+  /** The fake checkout collects no address; a fixed sample stands in for Stripe's billing address. */
+  async billingAddress(customerId: string): Promise<PostalAddress | null> {
+    if (!customerId.startsWith('cus_fake_')) return null;
+    return {
+      name: 'Erika Mustermann',
+      line1: 'Musterstraße 12',
+      postalCode: '50667',
+      city: 'Köln',
+      country: 'DE',
+    };
   }
 
   private async store(session: FakeSession): Promise<{ id: string; url: string }> {
