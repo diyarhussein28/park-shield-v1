@@ -14,19 +14,13 @@ const SIDS: ContentSids = {
 
 function sender(
   statusCallback: string | null = 'https://parkshield.de/v1/webhooks/twilio/whatsapp',
+  from = '+4915100000000',
 ) {
   const fetch = vi.fn(
     async (_url: string | URL | Request, _init?: RequestInit) =>
       new Response(JSON.stringify({ sid: 'SM123' }), { status: 201 }),
   );
-  const s = new TwilioWhatsAppSender(
-    'AC1',
-    'secret',
-    '+4915100000000',
-    SIDS,
-    statusCallback,
-    fetch,
-  );
+  const s = new TwilioWhatsAppSender('AC1', 'secret', from, SIDS, statusCallback, fetch);
   const form = () => new URLSearchParams(String(fetch.mock.calls[0]![1]!.body));
   return { s, fetch, form };
 }
@@ -61,6 +55,12 @@ describe('Twilio WhatsApp sender', () => {
       5: buttons[2],
     });
     expect(f.get('StatusCallback')).toBe('https://parkshield.de/v1/webhooks/twilio/whatsapp');
+  });
+
+  it('accepts the sender with the "whatsapp:" prefix the Twilio console shows', async () => {
+    const { s, form } = sender(null, 'whatsapp:+15557987513');
+    await s.sendTemplate({ to: '+491511', template: 'ps_otp', lang: 'de', params: ['123456'] });
+    expect(form().get('From')).toBe('whatsapp:+15557987513');
   });
 
   it('fills inert button ids when a message has no reply links, and skips local callbacks', async () => {

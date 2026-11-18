@@ -95,7 +95,8 @@ export class TwilioWhatsAppSender implements WhatsAppSender {
     const variables = Object.fromEntries(values.map((v, i) => [String(i + 1), v]));
     const form = new URLSearchParams({
       To: `whatsapp:+${input.to.replace(/^\+/, '')}`,
-      From: `whatsapp:+${this.from.replace(/^\+/, '')}`,
+      // Accept the sender as "+49…" or as Twilio's console shows it ("whatsapp:+49…").
+      From: `whatsapp:+${this.from.replace(/^whatsapp:/, '').replace(/^\+/, '')}`,
       ContentSid: contentSid,
       ContentVariables: JSON.stringify(variables),
     });
