@@ -67,7 +67,7 @@ export class LegalTextsService {
   async renewalMode(customerType: 'b2c' | 'b2b' = 'b2c'): Promise<RenewalMode> {
     return customerType === 'b2b'
       ? this.settings.get<RenewalMode>('renewal.mode_b2b', 'annual')
-      : this.settings.get<RenewalMode>('renewal.mode_b2c', 'monthly_after_first_term');
+      : this.settings.get<RenewalMode>('renewal.mode_b2c', 'annual');
   }
 
   async withdrawalDays(): Promise<number> {

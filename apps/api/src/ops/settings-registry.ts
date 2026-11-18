@@ -86,11 +86,12 @@ export const SETTINGS: Record<string, Def> = {
   'refunds.custom_decal_cost_cents': { group: 'refunds', schema: int(0, 2000), default: 0 },
   'withdrawal.require_decal_return': { group: 'refunds', schema: bool, default: false },
 
-  // § 309 Nr. 9 BGB: consumers default to monthly terms after the first year. TODO [LEGAL REVIEW]
+  // Owner decision 2026-11-18: consumers renew by 12 months, charged once a year.
+  // TODO [LEGAL REVIEW: § 309 Nr. 9 BGB] `monthly_after_first_term` is the fallback if the lawyer objects.
   'renewal.mode_b2c': {
     group: 'contracts',
     schema: z.enum(['annual', 'monthly_after_first_term']),
-    default: 'monthly_after_first_term',
+    default: 'annual',
   },
   'renewal.mode_b2b': { group: 'contracts', schema: z.enum(['annual']), default: 'annual' },
   'renewal.reminder_days': { group: 'contracts', schema: int(7, 90), default: 30 },

@@ -6,10 +6,18 @@ the table `legal_texts` (change = new version, no deploy); the legal pages are i
 
 ## 1. Renewal for consumers (§ 309 Nr. 9 BGB) — decide first
 
-- Setting `renewal.mode_b2c`: `monthly_after_first_term` (default, chosen 2026-11-17) or `annual`.
-  `annual` (renews by 12 months, no refund of a running period) is likely invalid for consumers in AGB.
-- After the first 12 months the contract continues monthly at annual price / 12
-  (`STRIPE_PRICE_*_MONTHLY`). Each contract keeps the mode it was concluded under (`subscriptions.renewal_mode`).
+- Setting `renewal.mode_b2c`: **`annual` (default, owner decision 2026-11-18)** or
+  `monthly_after_first_term`. `annual` renews by 12 months and is charged once a year; a cancellation
+  takes effect at the end of the running 12-month period, with no refund of the rest. **Risk:** for
+  consumer contracts since 1 March 2022 § 309 Nr. 9 BGB allows a tacit extension only for an indefinite
+  term with at most one month's notice, so this clause is likely invalid in AGB (Abmahnung risk). The
+  lawyer must decide; if they object, switch the setting back.
+- Fallback `monthly_after_first_term`: after the first 12 months the contract continues monthly at
+  annual price / 12 (needs `STRIPE_PRICE_*_MONTHLY`, not created in Stripe yet). Compliant middle way
+  if needed: keep the yearly charge but let consumers cancel with one month's notice after the first
+  term and refund the unused months (the `proration` refund already exists; the end date in
+  `computeCancellationEnd` would need a third mode). Each contract keeps the mode it was concluded
+  under (`subscriptions.renewal_mode`).
 - Text: `renewalRule()` in `legal-content.ts`, AGB § 4, checkout summary, e-mails.
 
 ## 2. Texts

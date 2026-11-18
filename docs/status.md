@@ -96,6 +96,12 @@ records. Old SendGrid and Brevo records stay but are unused.
   address (stored only in the encrypted letter snapshot). PDF via pdfkit (no Puppeteer/Chromium).
   Open: lawyer check of letter content and footer (`LEGAL_REVIEW.md` §6); deploy to the test
   server (migration `20261130000000_welcome_letters`).
+- **Renewal for consumers → yearly (2026-11-18).** The owner chose `renewal.mode_b2c = annual`
+  (now the code default): 10 € / 15 € charged once a year; a cancellation ends the contract at the
+  end of the paid year, nothing is charged after that. Chosen knowing that § 309 Nr. 9 BGB makes a
+  12-month tacit extension likely invalid for consumers; the lawyer must confirm
+  (`LEGAL_REVIEW.md` §1). Stripe needs no change (yearly prices only, portal cancellation off).
+  Existing test subscriptions on the test server keep `monthly_after_first_term`.
 
 ## 4. Undo before go-live
 
