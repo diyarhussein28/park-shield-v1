@@ -98,8 +98,10 @@ records. Old SendGrid and Brevo records stay but are unused.
   plate and code: new permission `letters.print` (admin, fulfillment; not support), every
   preview and download audited. Address = decal-order shipping address, else Stripe billing
   address (stored only in the encrypted letter snapshot). PDF via pdfkit (no Puppeteer/Chromium).
-  Open: lawyer check of letter content and footer (`LEGAL_REVIEW.md` §6); deploy to the test
-  server (migration `20261130000000_welcome_letters`).
+  Live on the test server since 2026-11-18 (`7029997`, migration `20261130000000_welcome_letters`).
+  Customers who already had a paid plan and a vehicle get no automatic letter (no event was
+  queued for them): use „Neu erstellen“ on their customer page. Open: lawyer check of letter
+  content and footer (`LEGAL_REVIEW.md` §6).
 - **Renewal for consumers → yearly (2026-11-18).** The owner chose `renewal.mode_b2c = annual`
   (now the code default): 10 € / 15 € charged once a year; a cancellation ends the contract at the
   end of the paid year, nothing is charged after that. Chosen knowing that § 309 Nr. 9 BGB makes a
