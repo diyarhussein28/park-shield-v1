@@ -10,7 +10,7 @@ on one laptop, so **everyone (and every AI agent) on every machine reads the sam
 > The repository is **public**. Never write secrets, keys, passwords, customer data, phone numbers
 > or e-mail addresses of real customers here. Names of env vars are fine; their values are not.
 
-_Last updated: 2026-11-17._
+_Last updated: 2026-11-18._
 
 ---
 
@@ -62,7 +62,7 @@ _Last updated: 2026-11-17._
 | Stripe           | **test mode** keys, yearly price IDs, webhook → `https://test.park-shield.de/v1/webhooks/stripe` (5 events), signed delivery verified |
 | E-mail           | **Mailjet** (`MAIL_PROVIDER=mailjet`), tracking off per message, SPF + DKIM green        |
 | SMS              | Twilio, sender ID `ParkShield`, Trust Hub business profile approved, delivery verified |
-| WhatsApp         | `WHATSAPP_PROVIDER=off` until Meta approves the sender                                  |
+| WhatsApp         | **Twilio** (`WHATSAPP_PROVIDER=twilio`, 2026-11-18): Meta business verified, sender `ParkShield` online, all 8 content templates approved (`ps_test` uses the `ps_test_v2_*` SIDs), sender webhook → `https://test.park-shield.de/v1/webhooks/twilio/whatsapp`. End-to-end test (link number, alert, reply button) still open |
 | Print            | `PRINT_PARTNER=manual`                                                                  |
 | Support          | `SUPPORT_PROVIDER=email` → `contact@park-shield.de`                                      |
 | Friendly Captcha | **fake** — decision pending (EU endpoint needs the Advanced plan)                       |
