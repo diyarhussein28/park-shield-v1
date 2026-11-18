@@ -423,6 +423,59 @@ describe('quick replies (US-23, NT-02, NT-10)', () => {
     expect(await status(a)).toMatchObject({ status: 'acknowledged', ownerReply: 'coming' });
   });
 
+  it('a WhatsApp message that fails later falls back to the next channel', async () => {
+    const { s, code } = await vehicleWithCode();
+    await linkWhatsApp(s);
+    await h.app.inject({
+      method: 'PUT',
+      url: '/v1/channels/order',
+      headers: s.headers,
+      payload: { order: ['whatsapp', 'sms', 'webpush', 'email'] },
+    });
+    const a = await alert(code);
+    await h.app.get(DispatchService).dispatch(a.alertId);
+    expect((await ownerChannels(a.alertId)).map((d) => `${d.channel}:${d.status}`)).toEqual([
+      'whatsapp:sent',
+    ]);
+    expect(await status(a)).toMatchObject({ status: 'delivered' });
+
+    const sid = (
+      await h.db
+        .selectFrom('alert_deliveries')
+        .select('provider_message_id')
+        .where('alert_id', '=', a.alertId)
+        .where('channel', '=', 'whatsapp')
+        .executeTakeFirstOrThrow()
+    ).provider_message_id!;
+    const params = { MessageSid: sid, MessageStatus: 'undelivered', ErrorCode: '63112' };
+    const url = `${TEST_TWILIO_WEBHOOK_BASE}${TWILIO_WEBHOOK_PATH}`;
+    const hook = await h.app.inject({
+      method: 'POST',
+      url: TWILIO_WEBHOOK_PATH,
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        'x-twilio-signature': twilioSignature(TEST_TWILIO_AUTH_TOKEN, url, params),
+      },
+      payload: new URLSearchParams(params).toString(),
+    });
+    expect(hook.statusCode).toBe(200);
+    // No longer "reached the driver", and a new dispatch is queued.
+    expect(await status(a)).toMatchObject({ status: 'dispatched' });
+    const queued = await h.db
+      .selectFrom('outbox_events')
+      .select('payload')
+      .where('topic', '=', 'alert.dispatch')
+      .execute();
+    expect(queued.filter((q) => JSON.stringify(q.payload).includes(a.alertId))).toHaveLength(2);
+
+    await h.app.get(DispatchService).dispatch(a.alertId);
+    expect((await ownerChannels(a.alertId)).map((d) => `${d.channel}:${d.status}`)).toEqual([
+      'whatsapp:failed',
+      'email:sent',
+    ]);
+    expect(await status(a)).toMatchObject({ status: 'delivered' });
+  });
+
   it('stops working when the alert expires', async () => {
     const { code } = await vehicleWithCode();
     const a = await alert(code);

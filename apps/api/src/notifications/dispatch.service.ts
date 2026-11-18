@@ -205,7 +205,11 @@ export class DispatchService {
   ) {
     const outcomes: Outcome[] = [];
     const errors: unknown[] = [];
+    const dead = await this.failedLater(alert.id);
     for (const channel of order) {
+      // The provider accepted it, then reported it undeliverable (e.g. WhatsApp sender blocked):
+      // sending there again would fail the same way, so the next channel gets its turn.
+      if (dead.has(channel)) continue;
       let outcome: Outcome;
       try {
         outcome =
@@ -231,6 +235,20 @@ export class DispatchService {
   private async enabled(channel: ChannelType): Promise<boolean> {
     const v = await this.settings.get<unknown>(`channels.${channel}.enabled`, true);
     return v === true || v === 'true';
+  }
+
+  /** Owner channels whose message the provider accepted but later reported as failed (webhook). */
+  private async failedLater(alertId: string): Promise<Set<ChannelType>> {
+    const rows = await this.db
+      .selectFrom('alert_deliveries')
+      .select('channel')
+      .distinct()
+      .where('alert_id', '=', alertId)
+      .where('recipient', '=', 'owner')
+      .where('status', '=', 'failed')
+      .where('provider_message_id', 'is not', null)
+      .execute();
+    return new Set(rows.map((r) => r.channel));
   }
 
   private async alreadySent(alertId: string, channel: ChannelType, providerMessageId?: string) {

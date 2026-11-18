@@ -5,6 +5,7 @@ import type { Logger } from 'pino';
 import type { Db } from '../core/core.module';
 import { DB, LOGGER } from '../core/tokens';
 import type { OwnerReply } from '../db/types.generated';
+import { DISPATCH_TOPIC } from '../scan/scan.service';
 import { AckService } from './ack.service';
 
 const Status = z.object({
@@ -155,6 +156,43 @@ export class WhatsAppWebhookService {
     return rows.length;
   }
 
+  /**
+   * A message the provider had accepted failed afterwards. If no other channel reached the owner, the
+   * alert is no longer "delivered" (the scanner must not read "reached the driver") and is dispatched
+   * again; DispatchService skips the failed channel, so the next one in the owner's order is tried.
+   */
+  private async failover(alertId: string): Promise<void> {
+    await this.db.transaction().execute(async (trx) => {
+      const alert = await trx
+        .selectFrom('alerts')
+        .select('id')
+        .where('id', '=', alertId)
+        .where('status', 'in', ['dispatched', 'delivered'])
+        .where('expires_at', '>', sql<Date>`now()`)
+        .forUpdate()
+        .executeTakeFirst();
+      if (!alert) return;
+      const reached = await trx
+        .selectFrom('alert_deliveries')
+        .select('id')
+        .where('alert_id', '=', alertId)
+        .where('recipient', '=', 'owner')
+        .where('status', 'in', ['sent', 'delivered', 'read'])
+        .executeTakeFirst();
+      if (reached) return;
+      await trx
+        .updateTable('alerts')
+        .set({ status: 'dispatched' })
+        .where('id', '=', alertId)
+        .where('status', '=', 'delivered')
+        .execute();
+      await trx
+        .insertInto('outbox_events')
+        .values({ topic: DISPATCH_TOPIC, payload: JSON.stringify({ alertId }) })
+        .execute();
+    });
+  }
+
   private async apply(
     s: z.infer<typeof Status>,
     channel: 'whatsapp' | 'sms' = 'whatsapp',
@@ -169,8 +207,10 @@ export class WhatsAppWebhookService {
       const r = await base
         .set({ status: 'failed', error_code: s.errors?.[0]?.code.slice(0, 64) ?? 'failed' })
         .where('status', 'in', ['queued', 'sent'])
+        .returning(['alert_id', 'recipient'])
         .executeTakeFirst();
-      return Number(r.numUpdatedRows);
+      if (r?.recipient === 'owner') await this.failover(r.alert_id);
+      return r ? 1 : 0;
     }
     // Webhooks arrive out of order: never move a delivery backwards (read → delivered).
     const lower = (Object.keys(RANK) as (keyof typeof RANK)[]).filter(
