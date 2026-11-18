@@ -46,6 +46,8 @@ ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build /repo/apps/web/.next/standalone ./
 COPY --from=build /repo/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build /repo/apps/web/public ./apps/web/public
+# Next writes optimised images (and other runtime cache) here; the app runs as `node`, not root.
+RUN mkdir -p apps/web/.next/cache && chown -R node:node apps/web/.next/cache
 USER node
 CMD ["node", "apps/web/server.js"]
 
@@ -54,5 +56,6 @@ WORKDIR /app
 ENV NODE_ENV=production PORT=3001
 COPY --from=build /repo/apps/ops/.next/standalone ./
 COPY --from=build /repo/apps/ops/.next/static ./apps/ops/.next/static
+RUN mkdir -p apps/ops/.next/cache && chown -R node:node apps/ops/.next/cache
 USER node
 CMD ["node", "apps/ops/server.js"]
