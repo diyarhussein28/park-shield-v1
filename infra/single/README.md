@@ -95,6 +95,23 @@ ssh -N -L 3001:127.0.0.1:3001 root@<server-ip>
 Then open the printed link (`http://localhost:3001/einladung#t=…`) in Chrome and register a passkey
 (Touch ID, Windows Hello or a security key). Later sign-ins: tunnel + http://localhost:3001.
 
+### Test server: ops app on its own subdomain (temporary)
+
+Since 2026-11-18 the test server also serves the ops app at `https://ops.test.park-shield.de`
+(Caddyfile block `{$OPS_DOMAIN}`), behind the same basic auth as the test site and then the staff
+passkey. Set up:
+
+1. DNS: A record `ops.test` → server IP (Strato).
+2. `.env`: `OPS_DOMAIN=ops.test.park-shield.de`; `server.env`:
+   `OPS_BASE_URL=https://ops.test.park-shield.de`.
+3. `docker compose up -d --force-recreate api worker ops-api ops caddy`.
+4. Passkeys bind to the host in `OPS_BASE_URL`, so every staff member needs a new invite
+   (`ops-invite.sh`) and registers a new passkey; `localhost` passkeys stop working.
+
+**Undo before go-live** (production keeps the ops app VPN-only, AD-01): remove the `{$OPS_DOMAIN}`
+block and `OPS_DOMAIN`, set `OPS_BASE_URL` back (production: the VPN host from Ansible), re-invite
+staff, delete the `ops.test` DNS record.
+
 ## Useful commands (on the server, in `/opt/parkshield/src/infra/single`)
 
 ```bash

@@ -41,8 +41,11 @@ _Last updated: 2026-11-18._
   `ssh -t root@<server> 'nano /opt/parkshield/src/infra/single/server.env'`.
 - **Test site:** https://test.park-shield.de, behind basic auth (`APP_ENV=ci`); the scanner flow
   and `/v1/webhooks/*` are exempt. `park-shield.de` itself is still the Vercel website preview.
-- **Ops app (back office):** not public. Services `ops` (:3001) and `ops-api` (:4001) listen on
-  127.0.0.1 only; public `/ops/*` answers 404. Open it through an SSH tunnel:
+- **Ops app (back office):** since 2026-11-18 at **https://ops.test.park-shield.de** (test server
+  only): the test site's basic auth first, then your staff passkey. `OPS_BASE_URL` is that URL, so
+  passkeys registered for `localhost` no longer work; each person needs a new invite. Undo before
+  go-live (§4). Services `ops` (:3001) and `ops-api` (:4001) still listen on 127.0.0.1 only;
+  public `/ops/*` on the main site answers 404. The SSH tunnel below was the way in until then:
 
   ```bash
   while true; do ssh -N -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -L 3001:127.0.0.1:3001 root@<server>; sleep 3; done
@@ -120,6 +123,11 @@ Relaxed only for testing on the test server. Restore every item before step 5:
 5. **WhatsApp photo template** points to `test.park-shield.de`: before photos go live, create
    `ps_alert_photos_*` with `https://park-shield.de/v/{{6}}`, get it approved and replace
    `TWILIO_CONTENT_PS_ALERT_PHOTOS_*` in `server.env`.
+6. **Ops app on a public subdomain** (`ops.test.park-shield.de`, 2026-11-18): production keeps the
+   back office off the internet (VPN only, AD-01). Remove the `{$OPS_DOMAIN}` block from the
+   Caddyfile and `OPS_DOMAIN` from `.env`, point `OPS_BASE_URL` at the VPN-only address, invite
+   staff again (passkeys bind to that host) and delete the `ops.test` DNS record
+   (`infra/single/README.md`, "Test server: ops app on its own subdomain").
 
 ## 5. Next steps
 

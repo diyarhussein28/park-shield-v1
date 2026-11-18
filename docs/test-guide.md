@@ -19,8 +19,8 @@ each box, note anything odd (see [§13](#13-reporting-a-problem)). Whole run: ab
       test server are **real**. Do not use other people's addresses or numbers.
 - [ ] **Stripe is in test mode:** no real money. Card `4242 4242 4242 4242`, any future date, any
       CVC, any name. Declined card: `4000 0000 0000 0002`. 3-D Secure: `4000 0027 6000 3184`.
-- [ ] **Back office:** SSH tunnel open and your own staff passkey registered
-      ([status.md §2](status.md#2-test-server)).
+- [ ] **Back office:** https://ops.test.park-shield.de (same basic auth), your own staff passkey
+      registered for that address ([status.md §2](status.md#2-test-server)).
 
 What behaves differently on the test server (expected, not bugs):
 
@@ -145,7 +145,7 @@ These end the subscription, so do them last or with a fresh account (new e-mail,
 - [ ] „Konto löschen“ in `/konto/daten` → decals stop working at once; within 24 hours
       `/konto-loeschen-abbrechen` (link in the mail) cancels the deletion.
 
-## 12. Back office (http://localhost:3001 through the tunnel)
+## 12. Back office (https://ops.test.park-shield.de)
 
 Every action is logged under your name. Do not change global settings without telling the owner;
 settings and kill switches apply to the whole test server.
