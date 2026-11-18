@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import type { DecalSpec, Ink } from './layout';
+import { finderOrigins, inFinder, stripeQuads } from './svg';
 
 const PT = 72 / 25.4; // points per millimetre
 export const BLEED_MM = 3;
@@ -35,19 +36,56 @@ function draw(doc: PDFKit.PDFDocument, spec: DecalSpec, ox: number, oy: number, 
         .fillColor(color(p.fill, mode))
         .text(p.text, (ox + p.x) * PT, (oy + p.y) * PT, {
           width: p.width * PT,
-          align: 'center',
+          align: p.align ?? 'center',
           baseline: 'alphabetic',
           lineBreak: false,
         });
+    } else if (p.kind === 'path') {
+      doc.save();
+      doc.translate((ox + p.x) * PT, (oy + p.y) * PT).scale((p.size / p.box) * PT);
+      doc.path(p.d);
+      if (p.stroke) {
+        doc
+          .lineWidth(p.strokeWidth ?? 2)
+          .lineCap('round')
+          .lineJoin('round');
+        if (p.fill) doc.fillAndStroke(color(p.fill, mode), color(p.stroke, mode));
+        else doc.stroke(color(p.stroke, mode));
+      } else if (p.fill) doc.fill(color(p.fill, mode));
+      doc.restore();
+    } else if (p.kind === 'stripes') {
+      const x = (ox + p.x) * PT;
+      const y = (oy + p.y) * PT;
+      doc.save();
+      doc.rect(x, y, p.w * PT, p.h * PT).clip();
+      doc.rect(x, y, p.w * PT, p.h * PT).fill(color(p.b, mode));
+      for (const q of stripeQuads(p)) {
+        doc.polygon(...q.map(([qx, qy]) => [(ox + qx) * PT, (oy + qy) * PT] as [number, number]));
+        doc.fill(color(p.a, mode));
+      }
+      doc.restore();
     } else {
       const n = p.modules.length;
       const m = (p.size / n) * PT;
+      const x0 = (ox + p.x) * PT;
+      const y0 = (oy + p.y) * PT;
       p.modules.forEach((row, r) =>
         row.forEach((dark, c) => {
-          if (dark) doc.rect((ox + p.x) * PT + c * m, (oy + p.y) * PT + r * m, m + 0.05, m + 0.05);
+          if (dark && !(p.roundFinders && inFinder(r, c, n)))
+            doc.rect(x0 + c * m, y0 + r * m, m + 0.05, m + 0.05);
         }),
       );
       doc.fill(color(p.fill, mode));
+      if (p.roundFinders) {
+        const paper: Ink = { rgb: '#ffffff', cmyk: [0, 0, 0, 0] };
+        for (const [r, c] of finderOrigins(n)) {
+          const x = x0 + c * m;
+          const y = y0 + r * m;
+          doc.roundedRect(x, y, 7 * m, 7 * m, 2 * m).fill(color(p.fill, mode));
+          doc.roundedRect(x + m, y + m, 5 * m, 5 * m, 1.4 * m).fill(color(paper, mode));
+          doc.roundedRect(x + 2 * m, y + 2 * m, 3 * m, 3 * m, 0.9 * m).fill(color(p.fill, mode));
+        }
+      }
     }
   }
 }

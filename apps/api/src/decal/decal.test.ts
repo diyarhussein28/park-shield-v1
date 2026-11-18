@@ -2,7 +2,7 @@ import { inflateSync } from 'node:zlib';
 import { DECAL_PRODUCTS, DECAL_TEMPLATES } from '@parkshield/shared';
 import jsQR from 'jsqr';
 import { describe, expect, it } from 'vitest';
-import { FIXED_SENTENCE, layoutDecal, type Primitive } from './layout';
+import { FIXED_SENTENCE, headline, layoutDecal, type Primitive } from './layout';
 import { BLEED_MM, renderHomePdf, renderPrintPdf } from './pdf';
 import { renderSvg } from './svg';
 
@@ -41,7 +41,8 @@ describe('decal layout (US-10)', () => {
           'https://pkshd.de/s/K7QX4M2R9T',
         );
         const texts = spec.primitives.filter((p) => p.kind === 'text').map((p) => p.text);
-        expect(texts).toContain(base.cta);
+        // The headline may be split over two lines; together they are the full text.
+        expect(texts.join(' ')).toContain(base.cta);
         expect(texts).toContain('pkshd.de/s/K7QX4M2R9T'); // domain printed next to the QR (SC-15)
         expect(texts).toContain(FIXED_SENTENCE);
         for (const p of spec.primitives) {
@@ -86,6 +87,17 @@ describe('decal layout (US-10)', () => {
     const size = (s: typeof short) =>
       (s.primitives.find((p) => p.kind === 'text') as { size: number }).size;
     expect(size(long)).toBeLessThan(size(short));
+  });
+});
+
+describe('headline', () => {
+  it('keeps short headlines on one line and splits long ones after the question mark', () => {
+    expect(headline('Hallo', 99, 8.5, 6.5)).toEqual(['Hallo']);
+    expect(headline('Blockiere ich Sie? Bitte scannen', 99, 8.5, 6.5)).toEqual([
+      'Blockiere ich Sie?',
+      'Bitte scannen',
+    ]);
+    expect(headline('X'.repeat(40), 74, 5.8, 4.4)).toEqual(['X'.repeat(40)]);
   });
 });
 
@@ -135,4 +147,28 @@ describe('renderers', () => {
     const pdf = (await renderHomePdf(spec, 'Decal')).toString('latin1');
     expect(pdf).toMatch(/\/MediaBox \[0 0 595\.2\d* 841\.8\d*\]/);
   });
+});
+
+describe('rendered decal scans like a phone sees it', () => {
+  // Rasterise the real SVG (rounded finder patterns, frame, footer) and decode the picture, not
+  // the module matrix: this is what a phone camera gets.
+  for (const product of DECAL_PRODUCTS) {
+    for (const template of DECAL_TEMPLATES) {
+      it(`${product}/${template}`, async () => {
+        const { default: sharp } = await import('sharp');
+        const spec = layoutDecal({ ...base, template, product });
+        const png = await sharp(Buffer.from(renderSvg(spec, 'Decal')), { density: 150 })
+          .ensureAlpha()
+          .raw()
+          .toBuffer({ resolveWithObject: true });
+        const found = jsQR(
+          new Uint8ClampedArray(png.data.buffer, png.data.byteOffset, png.data.length),
+          png.info.width,
+          png.info.height,
+          { inversionAttempts: 'dontInvert' },
+        );
+        expect(found?.data).toBe('https://pkshd.de/s/K7QX4M2R9T');
+      }, 60_000);
+    }
+  }
 });
