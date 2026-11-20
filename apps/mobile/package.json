@@ -53,6 +53,9 @@
   "private": true,
   "jest": {
     "preset": "jest-expo",
+    "modulePaths": [
+      "<rootDir>/node_modules"
+    ],
     "setupFiles": [
       "./jest.setup.ts"
     ],

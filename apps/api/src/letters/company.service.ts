@@ -73,8 +73,10 @@ export class CompanyService {
   /** SVG or PNG in, a PNG without metadata out (pdfkit draws PNG; SVG is rasterised sharply). */
   async normaliseImage(file: Buffer, kind: CompanyImage): Promise<Buffer> {
     if (file.length > IMAGE_MAX_BYTES) throw new BadRequestException({ error: 'image_too_large' });
+    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- head feeds the literal <svg check below, linear
     const head = file.subarray(0, 512).toString('utf8');
     const isPng = file.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- literal <svg prefix check on at most 4 KB, linear
     const isSvg = /<svg[\s>]/i.test(head) || /<svg[\s>]/i.test(file.toString('utf8', 0, 4096));
     if (!isPng && !isSvg) throw new BadRequestException({ error: 'image_type' });
     try {

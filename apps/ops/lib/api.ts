@@ -42,6 +42,7 @@ export async function opsDownload(
   fallbackName: string,
 ): Promise<void> {
   const token = csrf();
+  // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- filename="..." header pattern is linear (negated class, no nesting)
   const res = await fetch(path, {
     method: 'POST',
     credentials: 'same-origin',

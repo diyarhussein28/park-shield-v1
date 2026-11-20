@@ -11,9 +11,11 @@ import { isTestEnvironment, type Env } from '../config/env';
 export const AppReturn = z.string().trim().max(300).optional();
 
 export function isAllowedAppReturn(url: string, env: Pick<Env, 'NODE_ENV' | 'APP_ENV'>): boolean {
+  // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored allowlist pattern without nested quantifiers, input capped at 300 chars
   if (/^parkshield:\/\/[\w\-./]*(\?[\w\-.=&%]*)?$/.test(url)) return true;
   // Expo Go (development of the app) only where test helpers may exist, never in real production.
   return (
+    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored allowlist pattern without nested quantifiers, input capped at 300 chars
     isTestEnvironment(env) && /^exps?:\/\/[\w\-.:]+(\/[\w\-./]*)?(\/--\/[\w\-./]*)?$/.test(url)
   );
 }

@@ -38,6 +38,7 @@ export class ScannerRefService {
   ) {
     this.blockKey = Buffer.from(env.BLOCK_KEY_CURRENT, 'base64');
     this.blockKeyPrevious = Buffer.from(env.BLOCK_KEY_PREVIOUS, 'base64');
+    // nosemgrep: ajinabraham.njsscan.generic.hardcoded_secrets.node_secret -- key derived from env.SESSION_SECRET, nothing hard-coded
     this.fallbackKey = hmac(Buffer.from(env.SESSION_SECRET, 'base64'), 'scanner-ref-fallback');
   }
 

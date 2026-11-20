@@ -53,6 +53,7 @@ export class ScannerVerificationService {
     @Inject(LOGGER) private readonly logger: Logger,
   ) {
     this.pepper = phonePepper(env);
+    // nosemgrep: ajinabraham.njsscan.generic.hardcoded_secrets.node_secret -- key derived from env.SESSION_SECRET, nothing hard-coded
     this.signKey = createHmac('sha256', Buffer.from(env.SESSION_SECRET, 'base64'))
       .update('scanner-verification')
       .digest();

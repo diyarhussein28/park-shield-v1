@@ -49,6 +49,7 @@ beforeEach(async () => {
   await resetState(h);
 });
 
+// nosemgrep: ajinabraham.njsscan.generic.hardcoded_secrets.node_secret -- test message text, not a secret
 const SECRET_TEXT = 'Ich stehe direkt neben Ihrem Auto, Hausnummer 12';
 
 async function owner(email = 'owner@example.de', nickname = 'Der Blaue') {

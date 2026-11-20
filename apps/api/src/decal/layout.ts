@@ -268,6 +268,7 @@ export function headline(text: string, width: number, max: number, min: number):
   const spaces = [...text.matchAll(/ /g)].map((m) => m.index);
   if (!spaces.length) return [text];
   const score = (i: number) =>
+    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- single character class on one character
     Math.abs(i - text.length / 2) - (/[?!,:]/.test(text[i - 1] ?? '') ? text.length / 6 : 0);
   const at = spaces.reduce((a, b) => (score(b) < score(a) ? b : a));
   return [text.slice(0, at), text.slice(at + 1)];

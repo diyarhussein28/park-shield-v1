@@ -86,6 +86,7 @@ export class EmailAuthController {
   @Get('return/:rid')
   async returnUrl(@Param('rid') rid: string, @Req() req: FastifyRequest) {
     await this.limits.enforce('auth.ip', truncateIp(req.ip));
+    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored character class with a bounded length, linear
     if (!/^[A-Za-z0-9_-]{16,40}$/.test(rid)) return { url: null };
     return { url: await this.auth.signInReturnUrl(rid) };
   }

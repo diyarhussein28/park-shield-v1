@@ -92,6 +92,7 @@ export class ChatService {
 
   /** The scanner's socket handshake: alert id + token from the fragment. */
   async verifyScanner(alertId: string, token: string): Promise<boolean> {
+    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored character classes with bounded lengths, linear
     if (!/^[0-9a-f-]{36}$/.test(alertId) || !/^[A-Za-z0-9_-]{20,100}$/.test(token)) return false;
     const row = await this.db
       .selectFrom('chat_sessions')

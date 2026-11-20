@@ -21,6 +21,7 @@ export function signInReturn(
     `${env.WEB_BASE_URL.replace(/\/$/, '')}/app/auth/callback`,
   ];
   if (allowed.includes(requested)) return requested;
+  // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored allowlist pattern without nested quantifiers, input capped at 300 chars
   if (isTestEnvironment(env) && EXPO_GO.test(requested)) return requested;
   return DEFAULT_SIGN_IN_RETURN;
 }

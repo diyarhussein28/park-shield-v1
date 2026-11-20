@@ -68,6 +68,7 @@ const URL_RE = /(https?:\/\/\S+)/g;
 
 const linkify = (text: string) =>
   text.split(URL_RE).map((part, i) =>
+    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored literal prefix check, dev-only page
     /^https?:\/\//.test(part) ? (
       <a key={i} href={part} className="break-all text-primary underline">
         {part}

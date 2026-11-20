@@ -68,6 +68,7 @@ export function deviceLabel(userAgent: string | undefined): string {
  */
 export function ipHash(secretBase64: string, ipPrefix: string, at = new Date()): Buffer {
   const day = at.toISOString().slice(0, 10);
+  // nosemgrep: ajinabraham.njsscan.generic.hardcoded_secrets.node_secret -- salt derived from the configured secret, nothing hard-coded
   const salt = createHmac('sha256', Buffer.from(secretBase64, 'base64'))
     .update(`ip-salt:${day}`)
     .digest();
