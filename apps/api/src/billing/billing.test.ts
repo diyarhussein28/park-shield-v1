@@ -139,7 +139,7 @@ describe('annual checkout (US-06)', () => {
       .select(['immediate_start_consent_id', 'renewal_mode'])
       .executeTakeFirstOrThrow();
     expect(link.immediate_start_consent_id).not.toBeNull();
-    expect(link.renewal_mode).toBe('monthly_after_first_term');
+    expect(link.renewal_mode).toBe('annual');
 
     expect(
       (

@@ -41,8 +41,11 @@ _Last updated: 2026-11-18._
   `ssh -t root@<server> 'nano /opt/parkshield/src/infra/single/server.env'`.
 - **Test site:** https://test.park-shield.de, behind basic auth (`APP_ENV=ci`); the scanner flow
   and `/v1/webhooks/*` are exempt. `park-shield.de` itself is still the Vercel website preview.
-- **Ops app (back office):** not public. Services `ops` (:3001) and `ops-api` (:4001) listen on
-  127.0.0.1 only; public `/ops/*` answers 404. Open it through an SSH tunnel:
+- **Ops app (back office):** since 2026-11-18 at **https://ops.test.park-shield.de** (test server
+  only): the test site's basic auth first, then your staff passkey. `OPS_BASE_URL` is that URL, so
+  passkeys registered for `localhost` no longer work; each person needs a new invite. Undo before
+  go-live (§4). Services `ops` (:3001) and `ops-api` (:4001) still listen on 127.0.0.1 only;
+  public `/ops/*` on the main site answers 404. The SSH tunnel below was the way in until then:
 
   ```bash
   while true; do ssh -N -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -L 3001:127.0.0.1:3001 root@<server>; sleep 3; done
@@ -62,7 +65,7 @@ _Last updated: 2026-11-18._
 | Stripe           | **test mode** keys, yearly price IDs, webhook → `https://test.park-shield.de/v1/webhooks/stripe` (5 events), signed delivery verified |
 | E-mail           | **Mailjet** (`MAIL_PROVIDER=mailjet`), tracking off per message, SPF + DKIM green        |
 | SMS              | Twilio, sender ID `ParkShield`, Trust Hub business profile approved, delivery verified |
-| ~~WhatsApp~~     | **Removed 2026-12** (no Meta dependency; was: **Twilio** (`WHATSAPP_PROVIDER=twilio`, 2026-11-18): Meta business verified, sender `ParkShield` online, all 8 content templates approved (`ps_test` uses the `ps_test_v2_*` SIDs), sender webhook → `https://test.park-shield.de/v1/webhooks/twilio/whatsapp`. End-to-end test passed (link number, alert, reply button). Profile: logo, description, park-shield.de, contact e-mail. Photo alerts use `ps_alert_photos_test_*` (URL button to the test domain; submitted 2026-11-18). The chat header shows the number, not the name, until Meta grants an official business account (needs a messaging limit above 250) |
+| ~~WhatsApp~~     | **Removed 2026-12** (no Meta dependency; was: **Twilio** (`WHATSAPP_PROVIDER=twilio`, 2026-11-18): Meta business verified, sender `ParkShield` online, all 8 content templates approved (`ps_test` uses the `ps_test_v2_*` SIDs), sender webhook → `https://test.park-shield.de/v1/webhooks/twilio/whatsapp`. End-to-end test passed (link number, alert, reply button). Profile: logo, description, park-shield.de, contact e-mail. Photo alerts use `ps_alert_photos_test_*` (URL button to the test domain; submitted 2026-11-18). The chat header shows the number, not the name, until Meta grants an official business account (needs a messaging limit above 250) Before the removal, from 2026-11-18 ~20:15 every WhatsApp alert failed with Twilio 63112 (Meta disabled the WhatsApp Business Account); `eacc3b4` added the fallback to the next channel, which the dispatcher keeps for late SMS failures) |
 | Print            | `PRINT_PARTNER=manual`                                                                  |
 | Support          | `SUPPORT_PROVIDER=email` → `contact@park-shield.de`                                      |
 | Friendly Captcha | **fake** — decision pending (EU endpoint needs the Advanced plan)                       |
@@ -98,8 +101,16 @@ records. Old SendGrid and Brevo records stay but are unused.
   plate and code: new permission `letters.print` (admin, fulfillment; not support), every
   preview and download audited. Address = decal-order shipping address, else Stripe billing
   address (stored only in the encrypted letter snapshot). PDF via pdfkit (no Puppeteer/Chromium).
-  Open: lawyer check of letter content and footer (`LEGAL_REVIEW.md` §6); deploy to the test
-  server (migration `20261130000000_welcome_letters`).
+  Live on the test server since 2026-11-18 (`7029997`, migration `20261130000000_welcome_letters`).
+  Customers who already had a paid plan and a vehicle get no automatic letter (no event was
+  queued for them): use „Neu erstellen“ on their customer page. Open: lawyer check of letter
+  content and footer (`LEGAL_REVIEW.md` §6).
+- **Renewal for consumers → yearly (2026-11-18).** The owner chose `renewal.mode_b2c = annual`
+  (now the code default): 10 € / 15 € charged once a year; a cancellation ends the contract at the
+  end of the paid year, nothing is charged after that. Chosen knowing that § 309 Nr. 9 BGB makes a
+  12-month tacit extension likely invalid for consumers; the lawyer must confirm
+  (`LEGAL_REVIEW.md` §1). Stripe needs no change (yearly prices only, portal cancellation off).
+  Existing test subscriptions on the test server keep `monthly_after_first_term`.
 
 ## 4. Undo before go-live
 
@@ -120,6 +131,11 @@ Relaxed only for testing on the test server. Restore every item before step 5:
 6. **App push**: Firebase project and `FCM_*` in `server.env` (real production refuses to start
    without them); Caddy now also lets `/v1/app/*`, `/v1/socket.io`, `/v1/contacts/*`, `/k/*`, `/app/*`
    and `/.well-known/*` past basic auth (the native app cannot send basic auth).
+7. **Ops app on a public subdomain** (`ops.test.park-shield.de`, 2026-11-18): production keeps the
+   back office off the internet (VPN only, AD-01). Remove the `{$OPS_DOMAIN}` block from the
+   Caddyfile and `OPS_DOMAIN` from `.env`, point `OPS_BASE_URL` at the VPN-only address, invite
+   staff again (passkeys bind to that host) and delete the `ops.test` DNS record
+   (`infra/single/README.md`, "Test server: ops app on its own subdomain").
 
 ## 5. Next steps
 

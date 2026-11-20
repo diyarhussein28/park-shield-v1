@@ -53,8 +53,8 @@ beforeEach(async () => {
 });
 
 it('a cold-start deep link opens the alert with the tabs beneath it', () => {
-  const root = require('@/app/_layout') as { unstable_settings?: { initialRouteName?: string } };
-  expect(root.unstable_settings?.initialRouteName).toBe('(tabs)');
+  const root = require('@/app/_layout') as { unstable_settings?: { anchor?: string } };
+  expect(root.unstable_settings?.anchor).toBe('(tabs)');
 });
 
 it('pushed screens get the theme colours in dark mode (header, title, tint, background)', () => {

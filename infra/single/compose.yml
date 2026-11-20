@@ -77,7 +77,8 @@ services:
 
   # Back office (AD-01): the ops API and the ops app listen on 127.0.0.1 only and are NOT behind
   # Caddy. Staff reach them through an SSH tunnel (README "Ops app"): passkeys are bound to
-  # OPS_BASE_URL, which is http://localhost:3001 on this stack.
+  # OPS_BASE_URL. Temporary on the test server: Caddy also serves the ops app at OPS_DOMAIN
+  # (README "Test server: ops app on its own subdomain").
   ops-api:
     <<: *app
     image: parkshield-api:local

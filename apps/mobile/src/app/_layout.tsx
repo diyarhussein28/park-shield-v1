@@ -16,7 +16,7 @@ import { configureNotifications, handleResponse, registerDevice } from '@/lib/pu
  * A deep link or Universal Link that starts the app on a pushed screen (e.g. /app/alerts/<id>) still
  * gets the tabs beneath it, so the back button and the tab bar exist.
  */
-export const unstable_settings = { initialRouteName: '(tabs)' };
+export const unstable_settings = { anchor: '(tabs)' };
 
 /** Public routes: everything else needs a session. */
 const PUBLIC = new Set(['anmelden', 'app', 'auth']);

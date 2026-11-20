@@ -13,7 +13,7 @@ export interface LegalContext {
   renewalMode: 'annual' | 'monthly_after_first_term';
 }
 
-export const DEFAULT_LEGAL_CONTEXT: LegalContext = { renewalMode: 'monthly_after_first_term' };
+export const DEFAULT_LEGAL_CONTEXT: LegalContext = { renewalMode: 'annual' };
 
 export type LegalSlug =
   'impressum' | 'datenschutz' | 'agb' | 'widerruf' | 'barrierefreiheit' | 'sicherheit';

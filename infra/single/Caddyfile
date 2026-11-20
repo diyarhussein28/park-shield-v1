@@ -90,3 +90,37 @@
 		}
 	}
 }
+
+# Back office on its own subdomain (TEST STACK ONLY, docs/status.md §4): basic auth in front, then
+# staff passkeys. OPS_BASE_URL in server.env must be https://{$OPS_DOMAIN}, because passkeys bind to
+# that host. Only the ops app (:3001) is proxied; it forwards /ops/v1/* to the ops API itself.
+# Production keeps the ops app off the internet (VPN only, AD-01): remove this block before go-live.
+{$OPS_DOMAIN} {
+	tls {
+		protocols tls1.3
+	}
+	header {
+		Strict-Transport-Security "max-age=63072000"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>remote_ip delete
+				request>remote_port delete
+				request>client_ip delete
+				request>headers delete
+				request>uri delete
+				request>tls delete
+				resp_headers delete
+			}
+		}
+	}
+	basic_auth {
+		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+	reverse_proxy 127.0.0.1:3001
+}
