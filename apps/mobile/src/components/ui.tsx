@@ -23,7 +23,13 @@ export function Screen({ children, scroll = true }: { children: ReactNode; scrol
   return (
     <SafeAreaView style={[s.screen, { backgroundColor: c.bg }]} edges={['bottom', 'left', 'right']}>
       {scroll ? (
-        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={s.scroll}>
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          contentContainerStyle={s.scroll}
+          // A tap on a button while the keyboard is open presses the button (not only closes it).
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+        >
           {body}
         </ScrollView>
       ) : (

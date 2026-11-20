@@ -160,6 +160,11 @@ describe('routing gate', () => {
       pathname: '/profil',
       params: { flow: 'complete' },
     });
+    // Reopened mid sign-up (app killed): still the sign-up steps, from the API's newAccount.
+    expect(gateTarget({ ...base, profileComplete: false, newAccount: true })).toEqual({
+      pathname: '/profil',
+      params: { flow: 'signup' },
+    });
     // Alerts are never blocked by the profile.
     expect(gateTarget({ ...base, profileComplete: false, first: 'alerts' })).toBeNull();
   });

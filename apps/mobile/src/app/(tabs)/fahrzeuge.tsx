@@ -79,6 +79,9 @@ export default function Vehicles() {
             plan: PLAN_LABEL[body.plan] ?? body.plan,
           }),
         );
+      } else if (err instanceof ApiError && err.status === 400) {
+        // Say what is wrong instead of „Etwas ist schiefgelaufen“ (QA 2026-11-20).
+        setError(t('vehicleInvalid'));
       } else setError(errorText(err));
     }
   };

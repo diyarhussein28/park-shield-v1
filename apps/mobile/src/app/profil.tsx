@@ -37,6 +37,16 @@ export default function ProfileScreen() {
   const [step, setStep] = useState<Step>('name');
   const [value, setValue] = useState<ProfileData>(EMPTY_PROFILE);
   const [errors, setErrors] = useState<ProfileErrors>({});
+  // A corrected field loses its error at once (not only on the next „Weiter“).
+  const change = (next: ProfileData) => {
+    setErrors((e) => {
+      const kept = { ...e };
+      for (const k of Object.keys(e) as (keyof ProfileData)[])
+        if (next[k] !== value[k]) delete kept[k];
+      return kept;
+    });
+    setValue(next);
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -113,8 +123,8 @@ export default function ProfileScreen() {
       {flow === 'edit' ? (
         <>
           <Title>{pt('profile.title')}</Title>
-          <NameFields value={value} onChange={setValue} errors={errors} />
-          <AddressFields value={value} onChange={setValue} errors={errors} />
+          <NameFields value={value} onChange={change} errors={errors} />
+          <AddressFields value={value} onChange={change} errors={errors} />
           <P muted>{pt('profile.privacyNote')}</P>
           <Button label={pt('vehicles.save')} busy={busy} onPress={() => void submit('all')} />
         </>
@@ -122,14 +132,14 @@ export default function ProfileScreen() {
         <>
           <Title>{t('signUpNameTitle')}</Title>
           <P muted>{pt('profile.whyName')}</P>
-          <NameFields value={value} onChange={setValue} errors={errors} />
+          <NameFields value={value} onChange={change} errors={errors} />
           <Button label={t('continue')} onPress={() => void submit('name')} testID="name-next" />
         </>
       ) : step === 'address' ? (
         <>
           <Title>{t('signUpAddressTitle')}</Title>
           <P muted>{pt('profile.whyAddress')}</P>
-          <AddressFields value={value} onChange={setValue} errors={errors} />
+          <AddressFields value={value} onChange={change} errors={errors} />
           <P muted>{pt('profile.privacyNote')}</P>
           <Button
             label={pt('profile.save')}
@@ -197,7 +207,6 @@ function PhoneStep({
     try {
       await api('/v1/channels/phone/verify', { body: { code: value } });
       setLinked(phone);
-      setMessage({ tone: 'ok', text: t('signUpPhoneDone') });
     } catch (err) {
       const why = err instanceof ApiError ? err.body?.error : undefined;
       setCode('');

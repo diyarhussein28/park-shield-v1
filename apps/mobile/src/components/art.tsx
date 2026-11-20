@@ -81,8 +81,8 @@ function CarShape({
       />
       {[62, 180].map((cx) => (
         <G key={cx}>
-          <Circle cx={cx} cy={94} r={17} fill={c.fg} />
-          <Circle cx={cx} cy={94} r={7} fill={c.surface} />
+          <Circle cx={cx} cy={94} r={17} fill="#0f172a" stroke={c.border} strokeWidth={2} />
+          <Circle cx={cx} cy={94} r={7} fill="#cbd5e1" />
         </G>
       ))}
     </G>

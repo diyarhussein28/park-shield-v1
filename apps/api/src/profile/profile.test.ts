@@ -45,6 +45,7 @@ describe('profile (sign-up data)', () => {
     expect(empty.json()).toEqual({
       email: 'neu@example.de',
       complete: false,
+      newAccount: true,
       profile: null,
       phone: null,
     });

@@ -44,7 +44,13 @@ export default function LockOffer() {
       <Stack.Screen options={{ title: '', headerBackVisible: false, gestureEnabled: false }} />
       <View style={[s.icon, { backgroundColor: c.infoBg }]}>
         <Icon
-          name={info?.kind === 'fingerprint' || info?.kind === 'touchId' ? 'fingerprint' : 'faceId'}
+          name={
+            info?.kind === 'fingerprint' || info?.kind === 'touchId'
+              ? 'fingerprint'
+              : info?.kind === 'deviceCode'
+                ? 'lock'
+                : 'faceId'
+          }
           size={56}
           color={c.primary}
         />

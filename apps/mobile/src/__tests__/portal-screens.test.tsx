@@ -204,6 +204,19 @@ describe('vehicles', () => {
     });
   });
 
+  it('an invalid plate says what to check, not „something went wrong“ (QA)', async () => {
+    api({
+      'GET /v1/vehicles': () => json({ vehicles: [] }),
+      'GET /v1/billing/subscription': () => json({ subscription: subscription() }),
+      'POST /v1/vehicles': () => json({ error: 'invalid_request' }, 400),
+    });
+    await render(<Vehicles />);
+    await fireEvent.changeText(await screen.findByLabelText(pt('vehicles.nickname')), 'Der Blaue');
+    await fireEvent.changeText(screen.getByLabelText(pt('vehicles.plate')), 'BßQA 1');
+    await fireEvent.press(screen.getAllByLabelText(pt('vehicles.add')).at(-1)!);
+    expect(await screen.findByText(t('vehicleInvalid'))).toBeTruthy();
+  });
+
   it('without a subscription the form is replaced by the website notice', async () => {
     api({
       'GET /v1/vehicles': () => json({ vehicles: [] }),

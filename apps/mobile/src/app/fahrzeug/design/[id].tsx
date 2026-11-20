@@ -217,9 +217,10 @@ const s = StyleSheet.create({
   },
   square: { width: '100%', aspectRatio: 1, maxWidth: 360 },
   card: { width: '100%', aspectRatio: 105 / 148, maxWidth: 300 },
-  thumbs: { flexDirection: 'row', gap: space.sm },
+  thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   thumb: {
-    flex: 1,
+    flexBasis: '30%',
+    flexGrow: 1,
     borderRadius: radius.md,
     padding: 6,
     gap: 4,

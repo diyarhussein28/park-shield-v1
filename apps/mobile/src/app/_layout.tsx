@@ -45,6 +45,8 @@ export function gateTarget(s: {
   first: string;
   onboarded: boolean;
   profileComplete: boolean | undefined;
+  /** The account never had a contract: name and address are part of its sign-up. */
+  newAccount?: boolean;
   lockEnabled: boolean | undefined;
 }): Href | null {
   if (!s.signedIn) {
@@ -53,10 +55,8 @@ export function gateTarget(s: {
   }
   if (s.profileComplete === undefined || s.lockEnabled === undefined) return null;
   if (!s.profileComplete && !PROFILE_FREE.has(s.first)) {
-    return {
-      pathname: '/profil',
-      params: { flow: s.first === 'registrieren' ? 'signup' : 'complete' },
-    };
+    const signup = s.first === 'registrieren' || Boolean(s.newAccount);
+    return { pathname: '/profil', params: { flow: signup ? 'signup' : 'complete' } };
   }
   if (s.profileComplete && ['anmelden', 'registrieren', 'willkommen'].includes(s.first)) {
     return s.lockEnabled ? ('/' as Href) : { pathname: '/app-sperre', params: { next: 'home' } };
@@ -67,7 +67,7 @@ export function gateTarget(s: {
 function Gate() {
   const c = useTheme();
   const { signedIn } = useAuth();
-  const { complete } = useProfile();
+  const { complete, newAccount } = useProfile();
   const lock = useLock();
   const segments = useSegments();
   const pathname = usePathname();
@@ -86,10 +86,11 @@ function Gate() {
       first: segments[0] ?? '',
       onboarded,
       profileComplete: complete,
+      newAccount,
       lockEnabled: lock.enabled,
     });
     if (target) router.replace(target);
-  }, [signedIn, onboarded, complete, lock.enabled, segments, router]);
+  }, [signedIn, onboarded, complete, newAccount, lock.enabled, segments, router]);
 
   // Every start refreshes the device registration (last seen, token rotation, locale), and so does
   // every return to the foreground: notifications switched on in the iOS settings count at once.
@@ -135,13 +136,10 @@ function Gate() {
         <Stack.Screen name="registrieren" options={{ title: '', headerBackVisible: false }} />
         <Stack.Screen name="profil" options={{ title: pt('profile.title') }} />
         <Stack.Screen name="app-sperre" options={{ title: '' }} />
-        <Stack.Screen name="tarif" options={{ title: t('paywallTitle') }} />
+        <Stack.Screen name="tarif" options={{ title: '' }} />
         <Stack.Screen name="erfolg" options={{ title: '' }} />
         <Stack.Screen name="abo" options={{ title: t('planRow') }} />
-        <Stack.Screen
-          name="push-erlauben"
-          options={{ title: t('pushTitle'), presentation: 'modal' }}
-        />
+        <Stack.Screen name="push-erlauben" options={{ title: '', presentation: 'modal' }} />
         <Stack.Screen name="alerts/[id]" options={{ title: t('alertTitle') }} />
         <Stack.Screen name="chat/[id]" options={{ title: t('chatTitle') }} />
         <Stack.Screen name="fahrzeug/[id]" options={{ title: pt('portal.vehicles') }} />

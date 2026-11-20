@@ -215,6 +215,7 @@ export function errorText(err: unknown): string {
     if (err.body?.error === 'captcha_failed') return pt('auth.captchaFailed');
     if (err.body?.error === 'promo_invalid') return pt('checkout.promoInvalid');
     if (err.body?.error === 'already_subscribed') return pt('checkout.already');
+    if (err.body?.error === 'profile_incomplete') return pt('profile.needed');
   }
   return pt('auth.genericError');
 }

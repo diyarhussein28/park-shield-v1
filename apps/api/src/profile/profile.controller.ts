@@ -31,9 +31,18 @@ export class ProfileController {
       .where('type', '=', 'sms')
       .where('verified_at', 'is not', null)
       .executeTakeFirst();
+    const contract = await this.db
+      .selectFrom('subscriptions')
+      .select('id')
+      .where('user_id', '=', user.userId)
+      .limit(1)
+      .executeTakeFirst();
     return {
       email: user.email,
       complete: Boolean(profile),
+      // Never had a contract: completing the profile is part of the sign-up (the app shows the
+      // sign-up steps; the profile source becomes `signup`).
+      newAccount: !contract,
       profile: profile && {
         firstName: profile.firstName,
         lastName: profile.lastName,

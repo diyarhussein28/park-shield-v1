@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Linking,
   Pressable,
@@ -39,6 +39,13 @@ export default function Home() {
   const [protection, setProtection] = useState<Protection | null>(null);
   const [vehicles, setVehicles] = useState<PortalVehicle[] | null>(null);
   const [hidden, setHidden] = useState(true);
+  // „Ich komme“ from a card: a short confirmation instead of a card that silently disappears.
+  const [answered, setAnswered] = useState(false);
+  useEffect(() => {
+    if (!answered) return;
+    const id = setTimeout(() => setAnswered(false), 6000);
+    return () => clearTimeout(id);
+  }, [answered]);
 
   const load = useCallback(async () => {
     void reload();
@@ -75,6 +82,7 @@ export default function Home() {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={s.body}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -87,6 +95,11 @@ export default function Home() {
         }
       >
         {error && <Banner tone="err">{t('offline')}</Banner>}
+        {answered && (
+          <Banner tone="ok" testID="coming-sent">
+            {t('comingDone')}
+          </Banner>
+        )}
 
         {open.length > 0 && (
           <View style={s.section}>
@@ -97,7 +110,14 @@ export default function Home() {
               {t('homeOpenAlerts', { count: openAlertCount(open) }).toUpperCase()}
             </Text>
             {open.map((a) => (
-              <OpenAlertCard key={a.id} alert={a} onAnswered={() => void reload()} />
+              <OpenAlertCard
+                key={a.id}
+                alert={a}
+                onAnswered={(sent) => {
+                  if (sent) setAnswered(true);
+                  void reload();
+                }}
+              />
             ))}
           </View>
         )}
@@ -182,7 +202,7 @@ export default function Home() {
           </Pressable>
         )}
 
-        {sub && summary?.next && !hidden && (
+        {sub && summary?.next && !hidden && (vehicles?.length ?? 0) > 0 && (
           <View testID="setup-strip" style={[s.strip, { backgroundColor: c.infoBg }]}>
             <View style={s.stripHead}>
               <Text style={[typeScale.caption, { color: c.infoFg, flex: 1 }]}>

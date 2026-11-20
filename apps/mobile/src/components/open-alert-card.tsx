@@ -9,6 +9,9 @@ import { radius, space, type as typeScale, useTheme } from '@/theme/tokens';
 import { AlertTypeIcon, Icon } from './icons';
 import { Button } from './ui';
 
+/** German „…“, English “…”. */
+export const quoted = (s: string) => (lang() === 'en' ? `“${s}”` : `„${s}“`);
+
 export const isOpen = (a: AlertListItem) => !a.acknowledged && a.status !== 'expired';
 
 /**
@@ -20,7 +23,8 @@ export function OpenAlertCard({
   onAnswered,
 }: {
   alert: AlertListItem;
-  onAnswered: () => void;
+  /** true when „Ich komme“ went through. */
+  onAnswered: (sent: boolean) => void;
 }) {
   const c = useTheme();
   const router = useRouter();
@@ -39,15 +43,17 @@ export function OpenAlertCard({
 
   const coming = async () => {
     setBusy(true);
+    let sent = false;
     try {
       await api(`/v1/app/alerts/${a.id}/ack`, { body: { reply: 'coming' } });
+      sent = true;
     } catch (e) {
       if (!(e instanceof ApiError && e.status === 409)) {
         router.push({ pathname: '/alerts/[id]', params: { id: a.id } });
       }
     } finally {
       setBusy(false);
-      onAnswered();
+      onAnswered(sent);
     }
   };
 
@@ -55,7 +61,7 @@ export function OpenAlertCard({
     <View testID="open-alert" style={[s.alert, { backgroundColor: bg, borderColor: border }]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${type}, „${a.vehicle.nickname}“, ${ago(a.createdAt, now)}`}
+        accessibilityLabel={`${type}, ${quoted(a.vehicle.nickname)}, ${ago(a.createdAt, now)}`}
         accessibilityHint={t('alertsShow')}
         onPress={() => router.push({ pathname: '/alerts/[id]', params: { id: a.id } })}
         style={s.alertHead}
@@ -64,7 +70,7 @@ export function OpenAlertCard({
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={[typeScale.heading, { color: c.fg }]}>{type}</Text>
           <Text style={[typeScale.label, { color: fg }]}>
-            „{a.vehicle.nickname}“ · {ago(a.createdAt, now)}
+            {quoted(a.vehicle.nickname)} · {ago(a.createdAt, now)}
           </Text>
         </View>
         <Icon name="chevronRight" size={20} color={fg} />

@@ -33,6 +33,7 @@ export default function Alerts() {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={s.body}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

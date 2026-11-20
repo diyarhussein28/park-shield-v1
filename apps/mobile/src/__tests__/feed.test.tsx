@@ -116,6 +116,8 @@ describe('Start (Home)', () => {
     await waitFor(() =>
       expect(calls).toContainEqual({ path: '/v1/app/alerts/a1/ack', body: { reply: 'coming' } }),
     );
+    // QA: the card does not just vanish; the owner sees that „Ich komme“ was sent.
+    expect(await screen.findByTestId('coming-sent')).toBeTruthy();
   });
 
   it('without a plan: the car and one button to the plans, no three-step explainer (P9)', async () => {

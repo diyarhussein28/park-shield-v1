@@ -4,6 +4,7 @@ import { errorText } from '@/lib/portal';
 import { pt } from '@/lib/portal-i18n';
 import { Field } from './form';
 import { Banner, Button, P } from './ui';
+import { useOptionalProfile } from '@/lib/profile';
 
 export interface VehicleInput {
   nickname: string;
@@ -59,6 +60,7 @@ export function VehicleForm({
         hint={pt('vehicles.plateHint')}
         value={form.plate}
         onChangeText={set('plate')}
+        ltr
         maxLength={12}
         autoCapitalize="characters"
         autoCorrect={false}
@@ -106,7 +108,17 @@ export function AddressForm({
   submitLabel: string;
   onSubmit: (a: Address) => Promise<void>;
 }) {
-  const [a, setA] = useState({ name: '', line1: '', line2: '', postalCode: '', city: '' });
+  // Prefilled with the sign-up address (Germany only: decals ship within Germany), so nobody
+  // types it twice; it can still be changed for this order.
+  const signup = useOptionalProfile()?.data?.profile;
+  const fromSignup = signup?.country === 'DE';
+  const [a, setA] = useState({
+    name: fromSignup ? `${signup.firstName} ${signup.lastName}` : '',
+    line1: fromSignup ? signup.street : '',
+    line2: '',
+    postalCode: fromSignup ? signup.postalCode : '',
+    city: fromSignup ? signup.city : '',
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof a) => (v: string) => setA((x) => ({ ...x, [k]: v }));

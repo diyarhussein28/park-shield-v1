@@ -23,6 +23,8 @@ export interface ProfileData {
 export interface ProfileResponse {
   email: string;
   complete: boolean;
+  /** Never had a contract: the profile is part of the sign-up. */
+  newAccount?: boolean;
   profile: (ProfileData & { source: 'signup' | 'completed_later'; completedAt: string }) | null;
   phone: string | null;
 }
@@ -31,6 +33,7 @@ interface ProfileState {
   /** undefined while loading (or signed out). */
   data: ProfileResponse | null | undefined;
   complete: boolean | undefined;
+  newAccount: boolean;
   reload: () => Promise<void>;
   save: (input: ProfileData) => Promise<ProfileResponse>;
 }
@@ -72,6 +75,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     () => ({
       data,
       complete: data === undefined ? undefined : (data?.complete ?? true),
+      newAccount: Boolean(data?.newAccount),
       reload,
       save,
     }),
@@ -79,6 +83,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
+
+/** The profile where a provider exists (null elsewhere, e.g. a form rendered on its own). */
+export const useOptionalProfile = (): ProfileState | null => useContext(Ctx);
 
 export function useProfile(): ProfileState {
   const v = useContext(Ctx);
