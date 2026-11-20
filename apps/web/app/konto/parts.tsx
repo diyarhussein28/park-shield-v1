@@ -75,13 +75,163 @@ interface CheckoutTexts {
   renewalRule: string;
 }
 
+interface ProfileValues {
+  firstName: string;
+  lastName: string;
+  street: string;
+  postalCode: string;
+  city: string;
+  country: string;
+}
+type ProfileErrors = Partial<Record<keyof ProfileValues, string>>;
+const EMPTY_PROFILE: ProfileValues = {
+  firstName: '',
+  lastName: '',
+  street: '',
+  postalCode: '',
+  city: '',
+  country: 'DE',
+};
+
+/**
+ * „Konto vervollständigen“ (docs/app-redesign.md §6/§7): name and postal address, required before the
+ * first checkout (the API answers profile_incomplete otherwise). The same rules and texts as the app;
+ * the mobile number stays optional and is set up under Benachrichtigungen.
+ */
+export function ProfileForm({ onSaved }: { onSaved: () => void }) {
+  const { t } = useI18n();
+  const [v, setV] = useState<ProfileValues>(EMPTY_PROFILE);
+  const [errors, setErrors] = useState<ProfileErrors>({});
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function validate(p: ProfileValues): ProfileErrors {
+    const e: ProfileErrors = {};
+    for (const [k, max] of [
+      ['firstName', 60],
+      ['lastName', 60],
+      ['street', 100],
+      ['city', 60],
+    ] as const) {
+      const val = p[k].trim();
+      if (!val) e[k] = t('profile.required');
+      else if (val.length > max) e[k] = t('profile.tooLong');
+      else if (/[<>{}\\[\]`$|^~@#%*=+;]/.test(val)) e[k] = t('profile.invalidCharacters');
+    }
+    const code = p.postalCode.trim();
+    if (!code) e.postalCode = t('profile.required');
+    else if (p.country === 'DE' ? !/^\d{5}$/.test(code) : !/^[A-Za-z0-9 -]{3,10}$/.test(code))
+      e.postalCode = t('profile.postalCodeInvalid');
+    return e;
+  }
+
+  async function submit(ev: FormEvent) {
+    ev.preventDefault();
+    const e = validate(v);
+    setErrors(e);
+    setError(null);
+    if (Object.keys(e).length) return;
+    setBusy(true);
+    try {
+      await api('/v1/me/profile', {
+        method: 'PUT',
+        body: { ...v, postalCode: v.postalCode.trim() },
+      });
+      onSaved();
+    } catch (err) {
+      setError(errorText(err, t));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const field = (
+    key: 'firstName' | 'lastName' | 'street' | 'postalCode' | 'city',
+    autoComplete: string,
+    maxLength: number,
+  ) => (
+    <Field label={t(`profile.${key}`)} error={errors[key]}>
+      {({ id, describedBy, invalid }) => (
+        <Input
+          id={id}
+          name={key}
+          value={v[key]}
+          onChange={(e) => setV({ ...v, [key]: e.target.value })}
+          autoComplete={autoComplete}
+          aria-describedby={describedBy}
+          aria-invalid={invalid || undefined}
+          dir={key === 'postalCode' ? 'ltr' : undefined}
+          inputMode={key === 'postalCode' && v.country === 'DE' ? 'numeric' : undefined}
+          maxLength={maxLength}
+        />
+      )}
+    </Field>
+  );
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
+      <h3 className="font-semibold">{t('profile.completeTitle')}</h3>
+      <Text muted>{t('profile.completeIntro')}</Text>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {field('firstName', 'given-name', 60)}
+        {field('lastName', 'family-name', 60)}
+      </div>
+      {field('street', 'street-address', 100)}
+      <div className="grid gap-4 sm:grid-cols-[10rem_1fr]">
+        {field('postalCode', 'postal-code', 10)}
+        {field('city', 'address-level2', 60)}
+      </div>
+      <Field label={t('profile.country')}>
+        {({ id }) => (
+          <Select
+            id={id}
+            value={v.country}
+            onChange={(e) => setV({ ...v, country: e.target.value })}
+            autoComplete="country"
+            className="max-w-xs"
+          >
+            <option value="DE">{t('profile.countryDE')}</option>
+            <option value="AT">{t('profile.countryAT')}</option>
+            <option value="CH">{t('profile.countryCH')}</option>
+          </Select>
+        )}
+      </Field>
+      <Text muted className="text-sm">
+        {t('profile.privacyNote')}
+      </Text>
+      {error && <Notice tone="danger">{error}</Notice>}
+      <Button type="submit" size="lg" busy={busy} className="sm:w-fit">
+        {t('profile.save')}
+      </Button>
+    </form>
+  );
+}
+
+/** Checkout, after the profile: without name and address the profile form comes first. */
+export function CheckoutForm() {
+  const [complete, setComplete] = useState<boolean | null>(null);
+  useEffect(() => {
+    let live = true;
+    void api<{ complete: boolean }>('/v1/me/profile', { method: 'GET' })
+      .then((r) => live && setComplete(r.complete))
+      // The API still refuses the checkout without a profile, and the form then says why.
+      .catch(() => live && setComplete(true));
+    return () => {
+      live = false;
+    };
+  }, []);
+  if (complete === null) return null;
+  if (!complete) return <ProfileForm onSaved={() => setComplete(true)} />;
+  return <Checkout />;
+}
+
 /**
  * § 312j BGB checkout: summary with price, term and the renewal rule from the server's configuration,
  * the immediate-start declaration exactly as stored (versioned, its hash is recorded with the order),
  * and the button „Zahlungspflichtig bestellen“, disabled until the declaration is ticked.
  * After an ended subscription it first asks whether the old sticker is still on the car.
  */
-export function CheckoutForm() {
+function Checkout() {
   const { t, locale } = useI18n();
   const pending = usePendingClaim();
   const [typed, setPromo] = useState<string | null>(null);

@@ -70,6 +70,7 @@ export function errorText(err: unknown, t: Translate): string {
     if (err.body?.error === 'captcha_failed') return t('auth.captchaFailed');
     if (err.body?.error === 'promo_invalid') return t('checkout.promoInvalid');
     if (err.body?.error === 'already_subscribed') return t('checkout.already');
+    if (err.body?.error === 'profile_incomplete') return t('profile.needed');
   }
   return t('auth.genericError');
 }

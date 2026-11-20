@@ -238,4 +238,32 @@ export async function signUp(page: Page, request: APIRequestContext, email: stri
   // `next dev` renders /konto in up to ~14 s when several sign-ins land at once (production: well under 1 s).
   await expect(page).toHaveURL(/\/konto$/, { timeout: 30_000 });
   await expect(page.getByText(`Angemeldet als ${email}`)).toBeVisible();
+  // New accounts give their name and address before the checkout; a returning one has them already.
+  const form = page.getByRole('heading', { name: 'Konto vervollständigen' });
+  if (
+    await form.waitFor({ timeout: 10_000 }).then(
+      () => true,
+      () => false,
+    )
+  ) {
+    await completeProfile(page);
+  }
+}
+
+/**
+ * Name and address, required before the first checkout (docs/app-redesign.md §6): the same sample
+ * person as the fake Stripe billing address.
+ */
+export async function completeProfile(page: Page) {
+  const form = page.getByRole('heading', { name: 'Konto vervollständigen' });
+  await expect(form).toBeVisible({ timeout: 15_000 });
+  await page.getByLabel('Vorname', { exact: true }).fill('Erika');
+  await page.getByLabel('Nachname', { exact: true }).fill('Mustermann');
+  await page.getByLabel('Straße und Hausnummer').fill('Musterstraße 12');
+  await page.getByLabel('Postleitzahl').fill('50667');
+  await page.getByLabel('Ort', { exact: true }).fill('Köln');
+  await page.getByRole('button', { name: 'Speichern und weiter' }).click();
+  await expect(page.getByRole('button', { name: 'Zahlungspflichtig bestellen' })).toBeVisible({
+    timeout: 15_000,
+  });
 }
