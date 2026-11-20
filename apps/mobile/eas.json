@@ -1,0 +1,22 @@
+{
+  "cli": {
+    "version": ">= 19.1.0",
+    "appVersionSource": "remote",
+    "promptToConfigurePushNotifications": false
+  },
+  "build": {
+    "production": {
+      "environment": "production",
+      "autoIncrement": true,
+      "env": { "EXPO_PUBLIC_API_URL": "https://park-shield.de" }
+    },
+    "preview": {
+      "distribution": "internal",
+      "environment": "preview",
+      "env": { "EXPO_PUBLIC_API_URL": "https://test.park-shield.de" }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

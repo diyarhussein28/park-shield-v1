@@ -20,6 +20,7 @@ ops app and no ops API yet. Do not put real customer data on it before productio
 | `setup-env.sh`      | server, once  | writes `.env` (Compose/Caddy) and `server.env` (apps) with new secrets |
 | `install-backup.sh` | server, once  | backup encryption key + nightly cron (03:15)                           |
 | `backup.sh`         | server, cron  | encrypted pg_dump to Object Storage, restore check, 30-day retention   |
+| `set-fcm-key.sh`    | your computer | Firebase service account JSON → `FCM_*` in `server.env`, restart api   |
 | `compose.yml`       | server        | the stack; all containers on the host network, bound to 127.0.0.1      |
 | `Caddyfile`         | server        | TLS 1.3, basic auth, privacy-filtered access log, webhooks open        |
 

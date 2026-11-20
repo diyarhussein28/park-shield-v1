@@ -91,6 +91,12 @@ docker compose up -d postgres valkey
 # -T and </dev/null: this script arrives on stdin; without them `run` swallows the lines below.
 docker compose run --rm -T migrate </dev/null
 docker compose up -d --remove-orphans
+# The Caddyfile is bind-mounted as a single file: rsync replaces it (new inode), but a running Caddy
+# keeps reading the old one. Restart Caddy only when what it runs differs from the shipped file.
+if ! docker compose exec -T caddy cat /etc/caddy/Caddyfile </dev/null | cmp -s - Caddyfile; then
+  echo "Caddyfile changed: restarting caddy"
+  docker compose restart caddy
+fi
 docker image prune -f >/dev/null
 docker compose ps
 printf '%s\n' "$2" > /opt/parkshield/src/DEPLOYED_COMMIT

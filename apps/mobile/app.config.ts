@@ -22,6 +22,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'ParkShield',
   slug: 'parkshield',
+  // EAS (builds, secrets, registered devices) belongs to the team account, not a personal one.
+  owner: 'and2rows-team',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
@@ -87,13 +89,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         isAccessMediaLocationEnabled: false,
       },
     ],
-    // React Native Firebase on iOS needs static frameworks.
-    ['expo-build-properties', { ios: { useFrameworks: 'static' } }],
+    // React Native Firebase 27 resolves the Firebase iOS SDK through Swift Package Manager, which
+    // only links with dynamic frameworks (static: duplicate symbols; `pod install` refuses it,
+    // https://rnfirebase.io/ios-spm). Expo keeps its own modules static by itself.
+    ['expo-build-properties', { ios: { useFrameworks: 'dynamic' } }],
     ...(hasFirebase ? ['@react-native-firebase/app', '@react-native-firebase/messaging'] : []),
   ],
   experiments: { typedRoutes: true },
   extra: {
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? `https://${DOMAIN}`,
     firebase: hasFirebase,
+    // https://expo.dev/accounts/and2rows-team/projects/parkshield
+    eas: { projectId: '08d05adb-c016-49c3-b5d0-2cac2ca431f9' },
   },
 });
