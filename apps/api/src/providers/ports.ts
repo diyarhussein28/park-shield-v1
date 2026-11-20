@@ -3,7 +3,7 @@ export const CAPTCHA = Symbol('CAPTCHA');
 export const PAYMENTS = Symbol('PAYMENTS');
 export const PRINT = Symbol('PRINT');
 export const PUSH = Symbol('PUSH');
-export const WHATSAPP = Symbol('WHATSAPP');
+export const APP_PUSH = Symbol('APP_PUSH');
 export const SMS = Symbol('SMS');
 export const AUDIT_BUCKET = Symbol('AUDIT_BUCKET');
 export const SUPPORT_DESK = Symbol('SUPPORT_DESK');
@@ -48,29 +48,31 @@ export interface PushSender {
   ): Promise<{ statusCode: number }>;
 }
 
-export type WhatsAppTemplate =
-  | 'ps_otp'
-  | 'ps_alert'
-  | 'ps_test'
-  | 'ps_followup'
-  /** Phase 2: ps_alert plus a URL button https://<domain>/v/{{token}} (docs/whatsapp-templates.md). */
-  | 'ps_alert_photos';
+/**
+ * One push to the native app (FCM; iOS through APNs). Privacy: only a generic text and ids. Never the
+ * scanner's message, a photo, the licence plate or a name: the app loads the details from our API.
+ */
+export interface AppPushMessage {
+  /** FCM registration token of one device. */
+  token: string;
+  title: string;
+  body: string;
+  /** String values only (FCM): alertId, type, kind. */
+  data: Record<string, string>;
+  /** iOS notification category / Android click action that carries the "Ich komme" action button. */
+  category?: string;
+  /** High priority on Android, time-sensitive on iOS. */
+  urgent: boolean;
+  ttlSeconds: number;
+  /** A reminder replaces the first notification of the same alert. */
+  collapseKey?: string;
+}
 
-/** WhatsApp Business utility/authentication templates via Twilio or 360dialog (WHATSAPP_PROVIDER). */
-export interface WhatsAppSender {
-  sendTemplate(input: {
-    /** E.164 without the leading "+" */
-    to: string;
-    template: WhatsAppTemplate;
-    lang: 'de' | 'en';
-    params: string[];
-    /** Quick-reply button payloads, in template button order (NT-02). */
-    buttons?: string[];
-    /** Dynamic suffix of the template's URL button (ps_alert_photos: the view token). */
-    urlButton?: string;
-  }): Promise<{ messageId: string }>;
-  /** Whether this template can be sent in this language (Twilio: a content SID is configured). */
-  supports(template: WhatsAppTemplate, lang: 'de' | 'en'): boolean;
+export type AppPushResult =
+  { ok: true; messageId: string } | { ok: false; invalidToken: boolean; error: string };
+
+export interface AppPushSender {
+  send(msg: AppPushMessage): Promise<AppPushResult>;
 }
 
 /** Plain-text SMS through Twilio (NT-07). SMS has no buttons: replies go through the link in the text. */

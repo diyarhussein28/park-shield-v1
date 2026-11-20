@@ -40,21 +40,26 @@ export interface PushDevice {
   lastOkAt: string | null;
 }
 
-export type OrderableChannel = 'webpush' | 'email' | 'whatsapp' | 'sms';
+export type OrderableChannel = 'native_push' | 'webpush' | 'email' | 'sms';
 
 export interface EmergencyContact {
   id: string;
+  position: number;
   name: string;
-  email: string;
+  email: string | null;
+  phone: string | null;
   vehicleId: string | null;
   vehicleNickname: string | null;
-  status: 'pending' | 'confirmed' | 'declined' | 'revoked';
+  status: 'pending' | 'confirmed' | 'declined' | 'revoked' | 'deactivated';
   requestedAt: string;
   decidedAt: string | null;
   expiresAt: string | null;
 }
 
 export interface EmergencyContactList {
+  /** Trusted contacts and escalation are PREMIUM only. */
+  premium: boolean;
+  escalationEnabled: boolean;
   limit: number;
   ownerName: string | null;
   escalationMinutes: number | null;
@@ -66,10 +71,18 @@ export interface ChannelsOverview {
   order: OrderableChannel[];
   email: { address: string };
   push: { publicKey: string; devices: PushDevice[] };
-  whatsapp: { phone: string; verifiedAt: string; enabled: boolean } | null;
+  /** Devices of the native app (managed by the app: registered at sign-in, removed at sign-out). */
+  app: {
+    devices: {
+      id: string;
+      platform: 'ios' | 'android';
+      appVersion: string | null;
+      lastSeenAt: string;
+    }[];
+  };
   sms: { phone: string; verifiedAt: string; enabled: boolean } | null;
   /** Channels that can be set up right now (kill switches). */
-  available: { sms: boolean; whatsapp: boolean };
+  available: { sms: boolean };
 }
 
 export interface QuietRule {
@@ -96,7 +109,8 @@ export interface VehicleMode {
 
 export interface Protection {
   percent: number;
-  steps: { email: boolean; channel: boolean; contact: boolean; decal: boolean };
+  /** contact is null for PLUS (trusted contacts are PREMIUM only). */
+  steps: { email: boolean; channel: boolean; contact: boolean | null; decal: boolean };
 }
 
 export interface HistoryAlert {
@@ -140,16 +154,17 @@ export interface DeliveryHelp {
   setup: {
     pushDevices: number;
     pushFailing: number;
-    whatsapp: boolean;
+    appDevices: number;
+    appFailing: number;
+    sms: boolean;
     quietHours: number;
     decalTested: boolean;
     switchedOff: string[];
-    whatsappUsage: { used: number; limit: number };
+    smsUsage: { used: number; limit: number };
   };
 }
 
 export interface Usage {
-  whatsapp: { used: number; limit: number };
   sms: { used: number; limit: number };
 }
 

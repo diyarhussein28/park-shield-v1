@@ -98,7 +98,7 @@ const de = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
         paragraphs: [
           'Für Ihr Konto verarbeiten wir E-Mail-Adresse, Kanäle, Fahrzeuge (Kennzeichen verschlüsselt) und Warnungen zur Erfüllung des Vertrags (Art. 6 Abs. 1 lit. b DSGVO). Für die Anmeldung setzen wir zwei technisch notwendige Cookies (Sitzung und Schutz vor Cross-Site-Request-Forgery). Wenn Sie auf der Website die Sprache wechseln, merken wir uns Ihre Wahl in einem Cookie (ps_lang, ein Jahr, ohne personenbezogene Daten, § 25 Abs. 2 TDDDG).',
           'Schalten Sie Push-Benachrichtigungen ein, speichern wir die vom Browser erzeugte Zustelladresse und den Gerätetyp. Die Nachrichten laufen Ende-zu-Ende-verschlüsselt über den Push-Dienst Ihres Browsers (Google, Apple, Mozilla oder Microsoft), der den Inhalt nicht lesen kann. Ein Gerät, das nicht mehr erreichbar ist, entfernen wir automatisch.',
-          'WhatsApp und SMS nutzen wir nur mit Ihrer Einwilligung (Art. 6 Abs. 1 lit. a DSGVO). Notfallkontakte und Mitfahrende werden erst nach deren eigener Bestätigung genutzt; ohne Antwort löschen wir die Einladung nach 14 Tagen.',
+          'SMS nutzen wir nur mit Ihrer Einwilligung (Art. 6 Abs. 1 lit. a DSGVO). Vertrauenspersonen und Mitfahrende werden erst nach deren eigener Bestätigung genutzt; ohne Antwort löschen wir die Einladung nach 14 Tagen.',
           'Rechnungen bewahren wir aufgrund gesetzlicher Pflichten auf (Art. 6 Abs. 1 lit. c DSGVO, § 147 AO, § 14b UStG).',
           'E-Mail-Adressen, die einen Anmeldelink angefordert, aber nie bestätigt haben, löschen wir nach 24 Stunden.',
         ],
@@ -106,7 +106,7 @@ const de = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
       {
         heading: '4. Empfänger und Auftragsverarbeiter',
         paragraphs: [
-          'Contabo GmbH (Hosting und verschlüsselte Datensicherungen, München, Deutschland); Mailjet (E-Mail ohne Öffnungs- und Klick-Tracking, Sinch Mailjet SAS, Frankreich); Twilio Ireland Limited, Irland (nur nach Ihrer Einwilligung: SMS und WhatsApp; dabei übertragen Twilio und bei WhatsApp auch Meta Daten in die USA auf Grundlage des EU-US Data Privacy Framework und von EU-Standardvertragsklauseln); Stripe (Zahlungen, Irland); Friendly Captcha (Sicherheitsprüfung ohne Cookies, Deutschland); unsere Druckerei (Versand des Aufklebers, Deutschland); Sentry (Fehlerprotokolle ohne personenbezogene Daten, EU). Mit allen bestehen Verträge zur Auftragsverarbeitung.',
+          'Contabo GmbH (Hosting und verschlüsselte Datensicherungen, München, Deutschland); Mailjet (E-Mail ohne Öffnungs- und Klick-Tracking, Sinch Mailjet SAS, Frankreich); Twilio Ireland Limited, Irland (nur nach Ihrer Einwilligung: SMS; dabei überträgt Twilio Daten in die USA auf Grundlage des EU-US Data Privacy Framework und von EU-Standardvertragsklauseln); Stripe (Zahlungen, Irland); Friendly Captcha (Sicherheitsprüfung ohne Cookies, Deutschland); unsere Druckerei (Versand des Aufklebers, Deutschland); Sentry (Fehlerprotokolle ohne personenbezogene Daten, EU). Mit allen bestehen Verträge zur Auftragsverarbeitung.',
         ],
       },
       {
@@ -129,7 +129,7 @@ const de = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
       {
         heading: '§ 1 Leistung',
         paragraphs: [
-          'ParkShield ermöglicht es Dritten, Sie über einen QR-Aufkleber an Ihrem Fahrzeug zu benachrichtigen, ohne dass Ihre Kontaktdaten sichtbar werden. Die Zustellung über Push, E-Mail, WhatsApp oder SMS hängt auch von Drittanbietern ab; eine bestimmte Zustellzeit können wir nicht garantieren.',
+          'ParkShield ermöglicht es Dritten, Sie über einen QR-Aufkleber an Ihrem Fahrzeug zu benachrichtigen, ohne dass Ihre Kontaktdaten sichtbar werden. Die Zustellung über App-Push, Browser-Push, E-Mail oder SMS hängt auch von Drittanbietern ab; eine bestimmte Zustellzeit können wir nicht garantieren.',
         ],
       },
       {
@@ -287,7 +287,7 @@ const en = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
       {
         heading: 'Your account',
         paragraphs: [
-          'We process your e-mail address, channels, vehicles (licence plate encrypted) and alerts to provide the service. Push notifications travel end-to-end encrypted through your browser’s push service; unreachable devices are removed automatically. WhatsApp and SMS only with your consent. Two strictly necessary cookies keep you signed in securely; if you switch the language, a third one (ps_lang, one year, no personal data) remembers your choice. Unverified sign-ups are deleted after 24 h; deleted data leaves our encrypted backups within 35 days.',
+          'We process your e-mail address, channels, vehicles (licence plate encrypted) and alerts to provide the service. Push notifications travel end-to-end encrypted through your browser’s push service; unreachable devices are removed automatically. SMS only with your consent. Two strictly necessary cookies keep you signed in securely; if you switch the language, a third one (ps_lang, one year, no personal data) remembers your choice. Unverified sign-ups are deleted after 24 h; deleted data leaves our encrypted backups within 35 days.',
         ],
       },
       {

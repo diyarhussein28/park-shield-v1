@@ -163,12 +163,13 @@ export class AuthController {
       this.passkeys.list(user.userId),
       this.db
         .selectFrom('users')
-        .select(['summary_frequency', 'escalation_minutes', 'timezone'])
+        .select(['summary_frequency', 'escalation_minutes', 'timezone', 'customer_no'])
         .where('id', '=', user.userId)
         .executeTakeFirstOrThrow(),
     ]);
     return {
       email: user.email,
+      customerNo: row.customer_no,
       preferredLang: user.preferredLang,
       summaryFrequency: row.summary_frequency,
       escalationMinutes: row.escalation_minutes,

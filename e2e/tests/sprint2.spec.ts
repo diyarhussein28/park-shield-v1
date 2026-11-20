@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { expectAccessible, linkIn, signUp, uniqueEmail, waitForMail } from './helpers';
 
 test.describe('landing and legal pages (US-04)', () => {
-  test('shows prices incl. VAT, Premium date, Business coming soon, and is accessible', async ({
+  test('shows prices incl. VAT and the Premium date (only Plus and Premium), and is accessible', async ({
     page,
   }) => {
     await page.goto('/');
@@ -13,7 +13,8 @@ test.describe('landing and legal pages (US-04)', () => {
     await expect(pricing.getByText('10 € / Jahr inkl. 19 % MwSt.')).toBeVisible();
     await expect(pricing.getByText('15 € / Jahr inkl. 19 % MwSt.')).toBeVisible();
     await expect(pricing.getByText('Verfügbar ab 9. November 2027')).toBeVisible();
-    await expect(pricing.getByText('Bald verfügbar')).toBeVisible();
+    // The Business plan was removed.
+    await expect(pricing.getByText('Business')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Verträge hier kündigen' })).toBeVisible();
     await expectAccessible(page);
   });
@@ -44,11 +45,9 @@ test.describe('sign-up, annual checkout, cancellation (US-05, US-06, US-07)', ()
     await signUp(page, request, email);
     await expectAccessible(page);
 
-    // Immediate-start request is mandatory before paying.
-    await page.getByRole('button', { name: 'Zahlungspflichtig bestellen' }).click();
-    await expect(page.getByRole('main').getByRole('alert')).toContainText(
-      'Bitte bestätigen Sie den sofortigen Beginn',
-    );
+    // Immediate-start request is mandatory before paying: the button stays off until it is ticked.
+    await expect(page.getByRole('button', { name: 'Zahlungspflichtig bestellen' })).toBeDisabled();
+    await expect(page.getByText('Bitte bestätigen Sie den sofortigen Beginn')).toBeVisible();
     await page.getByLabel(/Ich verlange ausdrücklich/).check();
     await page.getByRole('button', { name: 'Zahlungspflichtig bestellen' }).click();
 
@@ -70,7 +69,7 @@ test.describe('sign-up, annual checkout, cancellation (US-05, US-06, US-07)', ()
       page.getByRole('link', { name: /Rechnung DEV-\d{4}-\d+ vom .* \(PDF\)/ }),
     ).toBeVisible();
     await expectAccessible(page);
-    const welcome = await waitForMail(request, email, 'subscription_started');
+    const welcome = await waitForMail(request, email, 'contract_confirmation');
     expect(welcome.text).toContain(contract);
 
     await page.getByRole('main').getByRole('link', { name: 'Verträge hier kündigen' }).click();
@@ -106,6 +105,7 @@ test.describe('sign-up, annual checkout, cancellation (US-05, US-06, US-07)', ()
     const anonymous = await (await browser.newContext({ locale: 'de-DE' })).newPage();
     await anonymous.goto('/');
     await anonymous.getByRole('link', { name: 'Verträge hier kündigen' }).click();
+    await anonymous.getByLabel('Ihr Name').fill('Jonas Beispiel');
     await anonymous.getByLabel('E-Mail-Adresse Ihres Kontos').fill(email);
     await anonymous.getByLabel('Vertragsnummer').fill(contract);
     await expectAccessible(anonymous);
@@ -129,19 +129,4 @@ test.describe('sign-up, annual checkout, cancellation (US-05, US-06, US-07)', ()
       other.getByText('Dieser Link ist abgelaufen oder wurde schon verwendet.'),
     ).toBeVisible();
   });
-});
-
-test('Business waitlist with double opt-in (US-04)', async ({ page, request }) => {
-  const email = uniqueEmail('flotte');
-  await page.goto('/business');
-  await page.getByLabel('Firmenname').fill('Malermeister Schulz GmbH');
-  await page.getByLabel('Geschäftliche E-Mail-Adresse').fill(email);
-  await page.getByLabel('Anzahl Fahrzeuge').fill('12');
-  await expectAccessible(page);
-  await page.getByRole('button', { name: 'Auf die Warteliste' }).click();
-  await expect(page.getByText('Bitte bestätigen Sie die Anmeldung')).toBeVisible();
-  const mail = await waitForMail(request, email, 'waitlist_confirm');
-  await page.goto(linkIn(mail));
-  await page.getByRole('button', { name: 'Anmeldung bestätigen' }).click();
-  await expect(page.getByText('Danke, Ihre Anmeldung ist bestätigt.')).toBeVisible();
 });

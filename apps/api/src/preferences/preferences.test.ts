@@ -8,6 +8,9 @@ import { FairUseService } from '../notifications/fair-use.service';
 import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
 import {
   addConfirmedContact,
+  enableEscalation,
+  linkSmsDirect,
+  makePremium,
   createHarness,
   mailbox,
   resetState,
@@ -73,20 +76,11 @@ const quiet = (s: Session, payload: Record<string, unknown>) =>
   h.app.inject({ method: 'POST', url: '/v1/quiet-hours', headers: s.headers, payload });
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
-async function linkWhatsApp(s: Session) {
-  await h.app.inject({
-    method: 'POST',
-    url: '/v1/channels/whatsapp',
-    headers: s.headers,
-    payload: { phone: '0151 23456789', consent: true },
-  });
-  const inbox = (await h.app.inject({ method: 'GET', url: '/v1/dev/whatsapp' })).json().messages;
-  await h.app.inject({
-    method: 'POST',
-    url: '/v1/channels/whatsapp/verify',
-    headers: s.headers,
-    payload: { code: inbox.find((m: { template: string }) => m.template === 'ps_otp').params[0] },
-  });
+/** PREMIUM with escalation on and a confirmed contact: escalation is PREMIUM only. */
+async function escalatingOwner(contactEmail = 'kim@example.de') {
+  await makePremium(h, OWNER);
+  await enableEscalation(h, OWNER);
+  await addConfirmedContact(h, OWNER, contactEmail);
 }
 
 describe('quiet hours (US-26, OW-06)', () => {
@@ -104,8 +98,9 @@ describe('quiet hours (US-26, OW-06)', () => {
     const dispatch = h.app.get(DispatchService);
     await dispatch.dispatch(normal.alertId);
     await dispatch.dispatch(normal.alertId); // replay records nothing twice
+    // Recorded once, on the first channel of the owner's order (the app comes first).
     expect(await ownerDeliveries(normal.alertId)).toEqual([
-      { channel: 'webpush', status: 'suppressed', suppressed_reason: 'quiet_hours' },
+      { channel: 'native_push', status: 'suppressed', suppressed_reason: 'quiet_hours' },
     ]);
     expect(await alertMails()).toHaveLength(0);
     const a = await h.db
@@ -139,13 +134,13 @@ describe('quiet hours (US-26, OW-06)', () => {
 
   it('still escalates a muted, escalating alert to the emergency contact', async () => {
     const { s, code } = await vehicleWithCode();
-    await addConfirmedContact(h, OWNER, 'kim@example.de');
+    await escalatingOwner();
     await quiet(s, { days: ALL_DAYS, start: '00:00', end: '00:00', urgentBypass: false });
     const a = await alert(code, 'blocking');
     await h.app.get(DispatchService).dispatch(a.alertId);
     await sql`UPDATE alerts SET escalate_at = now() - interval '1 second'`.execute(h.db);
     expect(await h.app.get(EscalationService).sweep()).toBe(1);
-    await h.app.get(EscalationService).run(a.alertId);
+    await h.app.get(EscalationService).run({ alertId: a.alertId, step: 1 });
     expect((await mailbox(h)).find((m) => m.tag === 'escalation')?.to).toBe('kim@example.de');
   });
 
@@ -223,17 +218,18 @@ describe('temporary modes (US-26, OW-17)', () => {
 });
 
 describe('fair use (US-27, NT-05)', () => {
-  it('counts WhatsApp per month, warns at 80 %, and above the limit falls back to Push and e-mail', async () => {
-    await setSetting(h, 'limits.plus.whatsapp_per_month', 5);
+  it('counts SMS per month (PREMIUM), warns at 80 %, and above the limit falls back to push and e-mail', async () => {
+    await setSetting(h, 'limits.premium.sms_per_month', 5);
     const { s, code } = await vehicleWithCode();
-    await linkWhatsApp(s);
+    await makePremium(h, OWNER);
+    await linkSmsDirect(h, OWNER);
     const dispatch = h.app.get(DispatchService);
     const results: string[] = [];
     for (let i = 0; i < 7; i++) {
       const a = await alert(code, 'blocking');
       await dispatch.dispatch(a.alertId);
-      const wa = (await ownerDeliveries(a.alertId)).find((d) => d.channel === 'whatsapp')!;
-      results.push(wa.status === 'sent' ? 'sent' : `${wa.status}:${wa.suppressed_reason}`);
+      const sms = (await ownerDeliveries(a.alertId)).find((d) => d.channel === 'sms')!;
+      results.push(sms.status === 'sent' ? 'sent' : `${sms.status}:${sms.suppressed_reason}`);
       expect((await ownerDeliveries(a.alertId)).find((d) => d.channel === 'email')?.status).toBe(
         'sent',
       );
@@ -250,33 +246,32 @@ describe('fair use (US-27, NT-05)', () => {
     const mails = await mailbox(h);
     expect(mails.filter((m) => m.tag === 'fair_use_warning')).toHaveLength(1);
     expect(mails.find((m) => m.tag === 'fair_use_warning')?.subject).toBe(
-      'WhatsApp: 4 von 5 Nachrichten in diesem Monat',
+      'SMS: 4 von 5 Nachrichten in diesem Monat',
     );
     expect(mails.filter((m) => m.tag === 'fair_use_reached')).toHaveLength(1);
     const usage = await h.app.inject({ method: 'GET', url: '/v1/me/usage', headers: s.headers });
-    expect(usage.json()).toEqual({ whatsapp: { used: 5, limit: 5 }, sms: { used: 0, limit: 5 } });
+    expect(usage.json()).toEqual({ sms: { used: 5, limit: 5 } });
   });
 
   it('cannot be overshot by concurrent alerts, and a failed send gives the unit back', async () => {
-    await setSetting(h, 'limits.plus.whatsapp_per_month', 5);
+    await setSetting(h, 'limits.premium.sms_per_month', 5);
     await subscribe(h, OWNER);
+    await makePremium(h, OWNER);
     const user = await h.db.selectFrom('users').select('id').executeTakeFirstOrThrow();
     const fair = h.app.get(FairUseService);
     const owner = { id: user.id, email: OWNER, lang: 'de' as const };
-    const granted = await Promise.all(
-      Array.from({ length: 12 }, () => fair.reserve(owner, 'whatsapp')),
-    );
+    const granted = await Promise.all(Array.from({ length: 12 }, () => fair.reserve(owner, 'sms')));
     expect(granted.filter(Boolean)).toHaveLength(5);
-    await fair.release(user.id, 'whatsapp');
-    expect(await fair.reserve(owner, 'whatsapp')).toBe(true);
-    expect(await fair.reserve(owner, 'whatsapp')).toBe(false);
+    await fair.release(user.id, 'sms');
+    expect(await fair.reserve(owner, 'sms')).toBe(true);
+    expect(await fair.reserve(owner, 'sms')).toBe(false);
   });
 });
 
 describe('escalation delay and resilience (US-25, OW-07)', () => {
   it('uses the owner’s own delay (3–30 min)', async () => {
     const { s, code } = await vehicleWithCode();
-    await addConfirmedContact(h, OWNER);
+    await escalatingOwner();
     const patch = (escalationMinutes: unknown) =>
       h.app.inject({
         method: 'PATCH',
@@ -302,7 +297,7 @@ describe('escalation delay and resilience (US-25, OW-07)', () => {
 
   it('keeps working after a Valkey restart: reply links and escalation live in PostgreSQL', async () => {
     const { code } = await vehicleWithCode();
-    await addConfirmedContact(h, OWNER, 'kim@example.de');
+    await escalatingOwner();
     const a = await alert(code, 'blocking');
     await h.app.get(DispatchService).dispatch(a.alertId);
     const mail = (await mailbox(h)).find((m) => m.tag === 'alert_received')!;
@@ -331,7 +326,8 @@ describe('escalation delay and resilience (US-25, OW-07)', () => {
     const escalation = h.app.get(EscalationService);
     expect(await escalation.sweep()).toBe(1);
     expect(await escalation.sweep()).toBe(0); // never twice
-    await escalation.run(a.alertId);
+    await escalation.run({ alertId: a.alertId, step: 1 });
+    await escalation.run({ alertId: a.alertId, step: 1 }); // a replayed event
     expect((await mailbox(h)).filter((m) => m.tag === 'escalation')).toHaveLength(1);
     const again = await h.app.inject({
       method: 'POST',
@@ -347,11 +343,17 @@ describe('protection score (US-28, OW-14)', () => {
     const { s, v, code } = await vehicleWithCode();
     const score = async () =>
       (await h.app.inject({ method: 'GET', url: '/v1/me/protection', headers: s.headers })).json();
+    // PLUS: trusted contacts do not apply, three steps make up 100 %.
+    expect(await score()).toEqual({
+      percent: 33,
+      steps: { email: true, channel: false, contact: null, decal: false },
+    });
+    await makePremium(h, OWNER);
     expect(await score()).toEqual({
       percent: 25,
       steps: { email: true, channel: false, contact: false, decal: false },
     });
-    await linkWhatsApp(s);
+    await linkSmsDirect(h, OWNER);
     expect((await score()).percent).toBe(50);
     await addConfirmedContact(h, OWNER);
     expect((await score()).percent).toBe(75);
@@ -482,7 +484,8 @@ describe('reminders and summaries (US-29, US-30)', () => {
     await reminders.summaries();
     const [summary] = await reminderMails('summary');
     expect(summary?.text).toContain('2 Warnungen');
-    expect(summary?.text).toContain('Ihr Schutz: 25 %');
+    // PLUS: three applicable steps (trusted contacts are PREMIUM only), one done.
+    expect(summary?.text).toContain('Ihr Schutz: 33 %');
     expect(await reminderMails('summary')).toHaveLength(1);
 
     await h.app.inject({

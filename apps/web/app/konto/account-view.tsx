@@ -215,7 +215,7 @@ function SetupGuide({
     {
       key: 'phone',
       done: protection.steps.channel,
-      title: t('protection.stepChannel', { whatsapp: channels?.available.whatsapp ? 'yes' : 'no' }),
+      title: t('protection.stepChannel'),
       href: '/konto/benachrichtigungen',
       go: t('protection.goChannel'),
     },
@@ -226,13 +226,18 @@ function SetupGuide({
       href: first ? `/konto/fahrzeuge/${first.id}` : '/konto/fahrzeuge',
       go: t('protection.goDecal'),
     },
-    {
-      key: 'contact',
-      done: protection.steps.contact,
-      title: t('protection.stepContact'),
-      href: '/konto/notfallkontakte',
-      go: t('protection.goContact'),
-    },
+    // Trusted contacts are PREMIUM only: for PLUS the step does not apply (null).
+    ...(protection.steps.contact === null
+      ? []
+      : [
+          {
+            key: 'contact' as const,
+            done: protection.steps.contact,
+            title: t('protection.stepContact'),
+            href: '/konto/notfallkontakte',
+            go: t('protection.goContact'),
+          },
+        ]),
   ];
   const current = steps.find((s) => !s.done)?.key ?? null;
   const complete = protection.percent === 100 && vehicles.length > 0;
@@ -485,7 +490,7 @@ function QuickLinks({
       title: t('channels.manage'),
       text: t('channels.summaryPhone', {
         push: channels?.push.devices.length ?? 0,
-        phone: channels?.sms || channels?.whatsapp ? 'yes' : 'no',
+        phone: channels?.sms ? 'yes' : 'no',
       }),
     },
     {

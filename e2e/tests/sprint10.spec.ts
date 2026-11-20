@@ -184,7 +184,7 @@ test('settings: a switch is versioned with its reason; provider status and order
   await expect(admin.getByRole('heading', { level: 1, name: 'Anbieter-Status' })).toBeVisible();
   await expect(
     admin.getByRole('list', { name: 'Anbieter-Status' }).getByRole('listitem'),
-  ).toHaveCount(8);
+  ).toHaveCount(7); // SMS, app push, e-mail, browser push, Stripe, print, kill switches
   await expectAccessible(admin);
 
   await admin.goto('/bestellungen?filter=all');

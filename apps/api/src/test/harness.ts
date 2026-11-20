@@ -28,7 +28,6 @@ export interface Harness {
 /** Public app against parkshield_test + Valkey DB 1, with every provider faked. */
 export const PRINT_DIR = join(tmpdir(), `ps-print-${process.pid}`);
 export const AUDIT_DIR = join(tmpdir(), `ps-audit-${process.pid}`);
-export const TEST_WA_WEBHOOK_SECRET = 'test-whatsapp-webhook-secret';
 export const TEST_TWILIO_AUTH_TOKEN = 'test-twilio-auth-token';
 export const TEST_TWILIO_WEBHOOK_BASE = 'https://hooks.parkshield.test';
 
@@ -67,12 +66,16 @@ export async function setSetting(h: Harness, key: string, value: unknown): Promi
   h.app.get(SettingsService).invalidate();
 }
 
-/** A confirmed emergency contact for the owner, as if they had accepted the invitation. */
+/**
+ * A confirmed emergency contact for the owner, as if they had accepted the invitation. Escalation also
+ * needs PREMIUM and the owner's switch (makePremium, enableEscalation).
+ */
 export async function addConfirmedContact(
   h: Harness,
   ownerEmail: string,
-  contactEmail = 'kontakt@example.de',
+  contactEmail: string | null = 'kontakt@example.de',
   vehicleId: string | null = null,
+  opts: { name?: string; phone?: string | null; order?: number } = {},
 ): Promise<string> {
   const crypto = h.app.get<FieldCrypto>(CRYPTO);
   const owner = await h.db
@@ -80,21 +83,116 @@ export async function addConfirmedContact(
     .select('id')
     .where('email', '=', ownerEmail)
     .executeTakeFirstOrThrow();
+  const phone = opts.phone ?? null;
   const row = await h.db
     .insertInto('emergency_contacts')
     .values({
       user_id: owner.id,
       vehicle_id: vehicleId,
-      display_name: 'Kim',
-      channel: 'email',
-      address_enc: crypto.encrypt(contactEmail),
-      address_bidx: crypto.blindIndex(contactEmail),
+      display_name: opts.name ?? 'Kim',
+      channel: phone ? 'sms' : 'email',
+      address_enc: contactEmail ? crypto.encrypt(contactEmail) : null,
+      address_bidx: contactEmail ? crypto.blindIndex(contactEmail) : null,
+      phone_enc: phone ? crypto.encrypt(phone) : null,
+      phone_bidx: phone ? crypto.blindIndex(phone) : null,
+      escalation_order: opts.order ?? 1,
       consent: 'confirmed',
       consent_decided_at: new Date(),
     })
     .returning('id')
     .executeTakeFirstOrThrow();
   return row.id;
+}
+
+/** Switches the owner's subscription to PREMIUM (the paid upgrade itself is tested in billing). */
+export async function makePremium(h: Harness, ownerEmail: string): Promise<void> {
+  await h.db
+    .updateTable('subscriptions')
+    .set({ plan: 'premium' })
+    .where('user_id', '=', (eb) =>
+      eb.selectFrom('users').select('id').where('email', '=', ownerEmail),
+    )
+    .execute();
+}
+
+/** The owner's escalation switch (PREMIUM only), as if set in the app. */
+export async function enableEscalation(h: Harness, ownerEmail: string, on = true): Promise<void> {
+  await h.db
+    .updateTable('users')
+    .set({ escalation_enabled: on })
+    .where('email', '=', ownerEmail)
+    .execute();
+}
+
+/** A verified SMS number for the owner, as after the SMS code (NT-07). */
+export async function linkSmsDirect(h: Harness, ownerEmail: string, phone = '+4915123456789') {
+  const crypto = h.app.get<FieldCrypto>(CRYPTO);
+  const owner = await h.db
+    .selectFrom('users')
+    .select('id')
+    .where('email', '=', ownerEmail)
+    .executeTakeFirstOrThrow();
+  await h.db
+    .insertInto('contact_channels')
+    .values({
+      user_id: owner.id,
+      type: 'sms',
+      address_enc: crypto.encrypt(phone),
+      address_bidx: crypto.blindIndex(phone),
+      priority: 4,
+      verified_at: new Date(),
+      opted_in_at: new Date(),
+    })
+    .execute();
+}
+
+/** The native app's sign-in: magic link with app=true, the session comes back as a bearer token. */
+export async function appSignIn(h: Harness, email: string): Promise<{ authorization: string }> {
+  const res = await h.app.inject({
+    method: 'POST',
+    url: '/v1/app/auth/magic-link',
+    payload: { email, locale: 'de' },
+  });
+  if (res.statusCode !== 202) throw new Error(`app magic link failed: ${res.body}`);
+  const mail = (await mailbox(h)).find((m) => m.tag === 'magic_link' && m.to === email)!;
+  const consumed = await h.app.inject({
+    method: 'POST',
+    url: '/v1/app/auth/consume',
+    payload: { token: linkToken(mail), platform: 'ios' },
+  });
+  if (consumed.statusCode !== 200) throw new Error(`app sign-in failed: ${consumed.body}`);
+  return { authorization: `Bearer ${consumed.json().token}` };
+}
+
+export interface DevAppPush {
+  body: {
+    message: {
+      token: string;
+      notification: { title: string; body: string };
+      data: Record<string, string>;
+      android: Record<string, unknown>;
+      apns: { headers: Record<string, string>; payload: { aps: Record<string, unknown> } };
+    };
+  };
+  messageId: string;
+}
+
+/** App pushes the fake FCM sender stored (newest first). */
+export async function appPushes(h: Harness): Promise<DevAppPush[]> {
+  const res = await h.app.inject({ method: 'GET', url: '/v1/dev/app-push' });
+  return (res.json() as { messages: DevAppPush[] }).messages;
+}
+
+export interface DevSms {
+  to: string;
+  body: string;
+  tag: string;
+  messageId: string;
+}
+
+export async function smsInbox(h: Harness): Promise<DevSms[]> {
+  const res = await h.app.inject({ method: 'GET', url: '/v1/dev/sms' });
+  return (res.json() as { messages: DevSms[] }).messages;
 }
 
 export async function createHarness(
@@ -108,14 +206,19 @@ export async function createHarness(
     FRIENDLY_CAPTCHA_SITEKEY: '',
     PRINT_PARTNER: '',
     PRINT_OUTBOX_DIR: PRINT_DIR,
-    D360_API_KEY: '',
     // Twilio stays a fake sender (no account SID); the token signs test webhooks.
-    WHATSAPP_PROVIDER: 'twilio',
     TWILIO_ACCOUNT_SID: '',
     TWILIO_SMS_FROM: '',
     TWILIO_AUTH_TOKEN: TEST_TWILIO_AUTH_TOKEN,
     TWILIO_WEBHOOK_BASE_URL: TEST_TWILIO_WEBHOOK_BASE,
-    D360_WEBHOOK_SECRET: TEST_WA_WEBHOOK_SECRET,
+    // Firebase stays a fake sender: app pushes land in the dev inbox (DEV_APP_PUSH_KEY).
+    FCM_PROJECT_ID: '',
+    FCM_CLIENT_EMAIL: '',
+    FCM_PRIVATE_KEY: '',
+    // Chat timeouts are swept by the tests themselves (ChatService.sweep), not by a timer.
+    CHAT_SWEEP_MS: '0',
+    // Independent of the developer's .env (e.g. a LAN address for phone testing).
+    WEB_BASE_URL: 'http://localhost:3000',
     AUDIT_BUCKET: '',
     AUDIT_BUCKET_DIR: AUDIT_DIR,
     ZAMMAD_TOKEN: '',
@@ -148,7 +251,7 @@ let settingsSeed: { key: string; value: unknown }[] | null = null;
 export async function resetState(h: Harness): Promise<void> {
   await restoreTouched(h);
   settingsSeed ??= await h.db.selectFrom('app_settings').select(['key', 'value']).execute();
-  await sql`TRUNCATE users, business_waitlist, promo_codes, partners, outbox_events RESTART IDENTITY CASCADE`.execute(
+  await sql`TRUNCATE users, promo_codes, partners, outbox_events RESTART IDENTITY CASCADE`.execute(
     h.db,
   );
   if (settingsSeed.length) {

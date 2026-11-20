@@ -14,6 +14,7 @@ import { CurrentUser, SessionGuard } from '../auth/guards';
 import type { AuthContext } from '../auth/session.service';
 import { ZodPipe } from '../core/zod.pipe';
 import { OrdersService } from './orders.service';
+import { AppReturn } from '../billing/app-return';
 
 export const Address = z.object({
   name: z.string().trim().min(2).max(80),
@@ -27,7 +28,7 @@ export const Address = z.object({
   country: z.literal('DE'),
 });
 const OrderIncluded = z.object({ address: Address });
-const OrderReplacement = z.object({ address: Address });
+const OrderReplacement = z.object({ address: Address, appReturn: AppReturn });
 
 @Controller('v1')
 @UseGuards(SessionGuard)
@@ -61,6 +62,12 @@ export class OrdersController {
     @Param('id', ParseUUIDPipe) vehicleId: string,
     @Body(new ZodPipe(OrderReplacement)) body: z.infer<typeof OrderReplacement>,
   ) {
-    return this.orders.orderReplacement(user.userId, vehicleId, body.address, user.preferredLang);
+    return this.orders.orderReplacement(
+      user.userId,
+      vehicleId,
+      body.address,
+      user.preferredLang,
+      body.appReturn,
+    );
   }
 }

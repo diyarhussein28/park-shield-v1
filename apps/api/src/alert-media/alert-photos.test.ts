@@ -11,9 +11,9 @@ import { CRYPTO } from '../core/tokens';
 import { DispatchService } from '../notifications/dispatch.service';
 import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
 import { DEV_SMS_KEY } from '../providers/twilio-sms';
-import { DEV_WHATSAPP_KEY } from '../providers/whatsapp';
 import {
   createHarness,
+  makePremium,
   lastMail,
   resetState,
   setSetting,
@@ -46,7 +46,7 @@ beforeEach(async () => {
   await resetState(h);
   await rm(MEDIA_DIR, { recursive: true, force: true });
   // The test owner buys Plus; photos are a per-plan setting (default Premium only).
-  await setSetting(h, 'photos.plans', ['plus']);
+  await setSetting(h, 'photos.plans', ['premium']);
 });
 
 const jpeg = (color = '#3366cc') =>
@@ -96,6 +96,7 @@ let n = 0;
 async function owner(): Promise<Owner> {
   const email = `photos${n++}@example.de`;
   const session = await subscribe(h, email);
+  await makePremium(h, email);
   const v = (
     await h.app.inject({
       method: 'POST',
@@ -118,8 +119,8 @@ async function owner(): Promise<Owner> {
 }
 
 async function phoneChannels(userId: string) {
-  for (const type of ['sms', 'whatsapp'] as const) {
-    const number = type === 'sms' ? '+4915199988877' : '+4915199988878';
+  for (const type of ['sms'] as const) {
+    const number = '+4915199988877';
     await h.db
       .insertInto('contact_channels')
       .values({
@@ -199,10 +200,6 @@ describe('alert photos (Phase 2)', () => {
     const token = VIEW.exec(mail!.text)![1]!;
     expect(mail!.html).not.toContain('<img');
     expect(mail!.text).toContain(`/v/${token}?melden=1`);
-    const wa = JSON.parse((await h.valkey.lrange(DEV_WHATSAPP_KEY, 0, 0))[0]!);
-    expect(wa.template).toBe('ps_alert_photos');
-    expect(wa.urlButton).toBe(token);
-    expect(JSON.stringify(wa)).not.toMatch(/mediaUrl/i);
     const sms = JSON.parse((await h.valkey.lrange(DEV_SMS_KEY, 0, 0))[0]!);
     expect(VIEW.exec(sms.body)![1]).toBe(token);
     expect(sms.body.length).toBeLessThanOrEqual(160);
@@ -312,7 +309,7 @@ describe('alert photos (Phase 2)', () => {
     expect(mixed.statusCode).toBe(201);
     expect(mixed.json().photos).toEqual({ stored: 1, rejected: 1, reason: 'invalid' });
 
-    await setSetting(h, 'photos.plans', ['premium']);
+    await setSetting(h, 'photos.plans', ['plus']);
     const page2 = (await h.app.inject({ method: 'GET', url: `/v1/scan/${o.code}` })).json();
     expect(page2.photos).toBe(false);
     const res = await scan(o.code, [{ name: 'a.jpg', type: 'image/jpeg', data: await jpeg() }]);

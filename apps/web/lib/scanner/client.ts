@@ -3,6 +3,8 @@
 // its CSP hash is static. Nothing is read from or stored on the device (§25 TDDDG): no cookies, no Web
 // Storage, no IndexedDB. The status token of the own alert lives in memory and in the URL fragment
 // (never sent to a server), so a reload keeps the status; a phone confirmation lives in memory only.
+// The live chat token travels the same way (third part of the fragment) and is sent only in the
+// Socket.io handshake's auth payload, never in a URL.
 export const SCANNER_JS = `(() => {
 'use strict';
 const d = JSON.parse(document.getElementById('d').textContent);
@@ -11,8 +13,8 @@ let lang = d.lang;
 const t = (k, v) => (d.strings[lang][k] || k).replace(/\\{(\\w+)\\}/g, (_, n) => (v && v[n] != null ? v[n] : ''));
 const time = (iso) => new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 let current = null, timer = null, last = null, busy = false, verification = null;
-const FRAG = /^#a=([0-9a-f-]{36})\\.([A-Za-z0-9_-]{20,})$/;
-function remember(c) { history.replaceState(null, '', c ? '#a=' + c.id + '.' + c.token : location.pathname); }
+const FRAG = /^#a=([0-9a-f-]{36})\\.([A-Za-z0-9_-]{20,100})(?:\\.([A-Za-z0-9_-]{20,100}))?$/;
+function remember(c) { history.replaceState(null, '', c ? '#a=' + c.id + '.' + c.token + (c.chat ? '.' + c.chat : '') : location.pathname); }
 
 function applyLang() {
   document.documentElement.lang = lang;
@@ -133,7 +135,7 @@ async function send(type, message, withoutPhotos) {
     }
     const body = res.body;
     if (res.status === 201) {
-      current = { id: body.alertId, token: body.statusToken };
+      current = { id: body.alertId, token: body.statusToken, chat: body.chatToken };
       remember(current);
       const ph = body.photos;
       const note = ph && ph.rejected ? (ph.stored ? t('photoPartly') : t('photoDropped')) : '';
@@ -276,7 +278,7 @@ $('msg').addEventListener('input', counter);
 $('custom').addEventListener('submit', (e) => { e.preventDefault(); const v = $('msg').value.trim(); if (v) send('custom', v); });
 $('back').addEventListener('click', () => { $('custom').hidden = true; $('pick').hidden = false; error(''); });
 $('another').addEventListener('click', () => {
-  remember(null); current = null; last = null; clearTimeout(timer);
+  remember(null); current = null; last = null; clearTimeout(timer); chatStop();
   $('status').hidden = true; $('custom').hidden = true; $('pick').hidden = false; $('msg').value = ''; counter();
   if ($('ph')) { phClear(); $('ph').hidden = false; }
   $('pick').querySelector('.type').focus();
@@ -296,13 +298,13 @@ function render(s) {
   let tone = 'info';
   if (s.status === 'acknowledged') {
     tone = 'ok';
-    lines.push(s.ownerReply === 'not_nearby' ? t('replyNotNearby') : t('acknowledged'));
+    lines.push(s.ownerReply === 'not_nearby' ? t('replyNotNearby') : s.acknowledgedBy === 'contact' ? t('contactOnTheWay') : t('acknowledged'));
     if (s.ownerReply === 'in_30_min') lines.push(t('replyIn30'));
     if (s.acknowledgedAt) lines.push(t('acknowledgedAt', { time: time(s.acknowledgedAt) }));
     if (s.waitingSentAt) lines.push(t('waitingSent'));
   } else if (s.status === 'escalated') { tone = 'warn'; lines.push(t('escalated')); }
   else if (s.status === 'expired') { tone = 'warn'; lines.push(t('expired')); }
-  else lines.push(s.isTest ? t('testSent') : delivered ? t('delivered') : t('sent'));
+  else lines.push(s.isTest ? t('testSent') : s.seenAt ? t('seen') : delivered ? t('delivered') : t('sent'));
   const box = $('result');
   box.className = 'note ' + tone;
   box.textContent = lines.join(' ');
@@ -376,6 +378,107 @@ async function poll() {
   }
 }
 
+// --- Owner-initiated live chat (Socket.io, loaded only now). No storage: the token is in memory and in
+// the fragment. Wake Lock keeps the screen on while waiting; the socket reconnects when the page is
+// visible again or the network returns.
+let io = null, sock = null, chatState = 'locked', wake = null, ioLoading = null, typingTimer = null, closedShown = false;
+function loadIo() {
+  if (window.io) return Promise.resolve(window.io);
+  if (ioLoading) return ioLoading;
+  ioLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = '/scanner-assets/socket.io.min.js';
+    s.onload = () => resolve(window.io);
+    s.onerror = () => { ioLoading = null; reject(new Error('io')); };
+    document.head.appendChild(s);
+  });
+  return ioLoading;
+}
+async function wakeOn() {
+  if (wake || document.visibilityState !== 'visible' || !('wakeLock' in navigator)) return;
+  try { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); } catch (e) { wake = null; }
+}
+function wakeOff() { if (wake) { wake.release().catch(() => {}); wake = null; } }
+function chatErr(k) { const e = $('chat-err'); e.textContent = k ? t(k) : ''; e.hidden = !k; }
+function chatCount() { $('chat-count').textContent = t('chatCounter', { count: $('chat-msg').value.length }); }
+function addMsg(m) {
+  if (document.getElementById('m-' + m.id)) return;
+  const li = document.createElement('li');
+  li.id = 'm-' + m.id;
+  li.className = m.from;
+  const who = document.createElement('small');
+  who.textContent = (m.from === 'scanner' ? t('chatYou') : t('chatOwner')) + ' · ' + time(m.at);
+  li.appendChild(who);
+  li.appendChild(document.createTextNode(m.text));
+  $('chat-log').appendChild(li);
+  li.scrollIntoView({ block: 'nearest' });
+}
+function chatShow(st) {
+  chatState = st.status;
+  if (st.status === 'locked') { $('chat').hidden = true; return; }
+  if (st.status === 'closed') { chatClosed(); (st.messages || []).forEach(addMsg); if ((st.messages || []).length) $('chat').hidden = false; $('chat-form').hidden = true; return; }
+  $('chat').hidden = false;
+  $('chat-form').hidden = false;
+  (st.messages || []).forEach(addMsg);
+}
+function alertUser() {
+  // The chat opened: sound, vibration and the tab title, so a phone in a pocket notices.
+  document.title = t('chatPageTitle');
+  try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
+  try {
+    const A = window.AudioContext || window.webkitAudioContext;
+    if (A) { const ctx = new A(); const o = ctx.createOscillator(); const g = ctx.createGain(); o.frequency.value = 880; g.gain.value = 0.08; o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.25); }
+  } catch (e) {}
+}
+function chatClosed() {
+  chatState = 'closed';
+  $('chat-form').hidden = true;
+  $('keep').hidden = true;
+  $('chat-typing').hidden = true;
+  wakeOff();
+  if (!closedShown) { closedShown = true; $('chat-closed').hidden = false; }
+}
+async function chatStart() {
+  if (!current || !current.chat || sock) return;
+  try { io = await loadIo(); } catch (e) { return; }
+  if (!current || sock) return;
+  sock = io('/chat', { path: '/v1/socket.io', addTrailingSlash: false, auth: { role: 'scanner', alertId: current.id, token: current.chat, lang }, transports: ['websocket', 'polling'], reconnection: true, reconnectionDelayMax: 10000 });
+  sock.on('chat:state', (st) => { chatShow(st); if (st.status !== 'closed') wakeOn(); });
+  sock.on('chat:opened', (st) => { chatShow(st); alertUser(); wakeOn(); $('chat-msg').focus(); });
+  sock.on('chat:message', (m) => { addMsg(m); if (m.from === 'owner') { $('chat-typing').hidden = true; if (document.visibilityState === 'visible') sock.emit('chat:seen'); } });
+  sock.on('chat:typing', (x) => { if (x.from !== 'owner') return; $('chat-typing').hidden = !x.typing; clearTimeout(typingTimer); if (x.typing) typingTimer = setTimeout(() => { $('chat-typing').hidden = true; }, 6000); });
+  sock.on('chat:closed', () => chatClosed());
+  sock.on('chat:error', (x) => chatErr({ filtered: 'chatFiltered', limit_reached: 'chatLimit', too_long: 'chatTooLong', chat_not_active: 'chatNotActive', rate_limited: 'chatRate' }[x.error] || 'chatError'));
+  sock.on('alert:changed', () => { clearTimeout(timer); poll(); });
+  sock.on('connect_error', () => {});
+}
+function chatStop() { if (sock) { sock.disconnect(); sock = null; } wakeOff(); }
+$('chat-msg').addEventListener('input', () => {
+  chatCount();
+  if (sock && chatState === 'active') sock.emit('chat:typing', { typing: $('chat-msg').value.length > 0 });
+});
+$('chat-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const v = $('chat-msg').value.trim();
+  if (!v || !sock || chatState !== 'active') return;
+  chatErr(null);
+  $('chat-send').disabled = true;
+  sock.timeout(10000).emit('chat:message', { text: v }, (err, r) => {
+    $('chat-send').disabled = false;
+    if (err) return chatErr('chatError');
+    if (r && r.ok) { $('chat-msg').value = ''; chatCount(); sock.emit('chat:typing', { typing: false }); }
+  });
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    document.title = t('title');
+    if (sock && !sock.connected) sock.connect();
+    if (chatState !== 'closed' && current) wakeOn();
+    if (sock && chatState === 'active') sock.emit('chat:seen');
+  } else wakeOff();
+});
+window.addEventListener('online', () => { if (sock && !sock.connected) sock.connect(); });
+
 function showStatus() {
   $('pick').hidden = true; $('custom').hidden = true; $('status').hidden = false;
   if ($('ph')) { stopCamera(); $('ph').hidden = true; }
@@ -383,6 +486,9 @@ function showStatus() {
   $('status').focus();
   clearTimeout(timer);
   poll();
+  chatCount();
+  chatStart();
+  wakeOn();
 }
 
 // Abuse protection §4: optional phone check (number -> SMS code -> confirmed), Protected Mode only.
@@ -426,7 +532,7 @@ if ($('verify')) {
 }
 
 const frag = FRAG.exec(location.hash);
-current = frag ? { id: frag[1], token: frag[2] } : null;
+current = frag ? { id: frag[1], token: frag[2], chat: frag[3] || null } : null;
 applyLang();
 if (current) showStatus();
 })();`;

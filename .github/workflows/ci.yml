@@ -119,6 +119,26 @@ jobs:
           test "$(date -d "$expires" +%s)" -gt "$(date -d '+30 days' +%s)" || {
             echo "::error::security.txt expires on $expires; renew it"; exit 1; }
 
+  mobile:
+    name: App (Expo) typecheck + tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      # Not an npm workspace: the app has its own lockfile (keeps React Native out of the server image).
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test -- --ci
+      - run: npx expo export --platform android --output-dir /tmp/expo-export
+
   infra:
     name: Terraform + Ansible checks
     runs-on: ubuntu-24.04

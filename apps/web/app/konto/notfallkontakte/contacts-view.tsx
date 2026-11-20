@@ -13,7 +13,7 @@ import {
   Text,
   useI18n,
 } from '@parkshield/ui';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { KontoShell } from '@/components/konto-shell';
 import { api, ApiError, errorText } from '@/lib/api-client';
 import type { EmergencyContact, EmergencyContactList } from '@/lib/api-server';
@@ -68,6 +68,9 @@ export function ContactsView({
           {invited && <Notice tone="success">{t('contacts.invited', { name: invited })}</Notice>}
           {!plan ? (
             <Notice tone="info">{t('contacts.noSubscription')}</Notice>
+          ) : plan !== 'premium' ? (
+            // Trusted contacts and escalation are PREMIUM only.
+            <Notice tone="info">{t('contacts.premiumOnly')}</Notice>
           ) : active.length >= data.limit ? (
             <Notice tone="info">
               {t('contacts.limitReached', {
@@ -88,10 +91,66 @@ export function ContactsView({
         </Stack>
       </Card>
 
-      {plan && (
-        <DelayCard value={data.escalationMinutes} defaultMinutes={data.defaultEscalationMinutes} />
+      {plan === 'premium' && (
+        <>
+          <EscalationCard
+            enabled={data.escalationEnabled}
+            confirmed={data.contacts.some((c) => c.status === 'confirmed')}
+          />
+          <DelayCard
+            value={data.escalationMinutes}
+            defaultMinutes={data.defaultEscalationMinutes}
+          />
+        </>
       )}
     </KontoShell>
+  );
+}
+
+/** Escalation on/off (PREMIUM). Off until the owner switches it on, also after a contact confirmed. */
+function EscalationCard({ enabled, confirmed }: { enabled: boolean; confirmed: boolean }) {
+  const { t } = useI18n();
+  const [on, setOn] = useState(enabled);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => setOn(enabled), [enabled]);
+
+  async function toggle() {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api<{ enabled: boolean }>('/v1/escalation', {
+        method: 'PUT',
+        body: { enabled: !on },
+      });
+      setOn(r.enabled);
+    } catch (err) {
+      setError(errorText(err, t));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <Stack gap={3}>
+        <Heading level={2} className="text-xl">
+          {t('contacts.escalationTitle')}
+        </Heading>
+        <Text>{on ? t('contacts.escalationOn') : t('contacts.escalationOff')}</Text>
+        {!on && confirmed && <Notice tone="info">{t('contacts.escalationSuggest')}</Notice>}
+        <Button
+          variant={on ? 'secondary' : 'primary'}
+          className="w-fit"
+          busy={busy}
+          aria-pressed={on}
+          onClick={() => void toggle()}
+        >
+          {on ? t('contacts.escalationDisable') : t('contacts.escalationEnable')}
+        </Button>
+        {error && <Notice tone="danger">{error}</Notice>}
+      </Stack>
+    </Card>
   );
 }
 
@@ -162,7 +221,7 @@ function ContactCard({
         {c.name}
       </Heading>
       <Text muted>
-        {c.email} ·{' '}
+        {[c.phone, c.email].filter(Boolean).join(' · ')} ·{' '}
         {c.vehicleNickname
           ? t('contacts.forVehicle', { nickname: c.vehicleNickname })
           : t('contacts.allVehicles')}
@@ -175,7 +234,9 @@ function ContactCard({
           ? t('contacts.statusConfirmed')
           : c.status === 'pending'
             ? t('contacts.statusPending', { date: new Date(c.expiresAt!) })
-            : t('contacts.statusDeclined')}
+            : c.status === 'deactivated'
+              ? t('contacts.statusDeactivated', { date: new Date(c.expiresAt!) })
+              : t('contacts.statusDeclined')}
       </Badge>
       <Button
         variant="ghost"
@@ -199,7 +260,7 @@ function InviteForm({
   onInvited: (d: EmergencyContactList, name: string) => void;
 }) {
   const { t } = useI18n();
-  const [form, setForm] = useState({ name: '', email: '', vehicleId: '', ownerName });
+  const [form, setForm] = useState({ name: '', phone: '', email: '', vehicleId: '', ownerName });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
@@ -211,10 +272,16 @@ function InviteForm({
     setMessage(null);
     try {
       const data = await api<EmergencyContactList>('/v1/emergency-contacts', {
-        body: { ...form, vehicleId: form.vehicleId || null },
+        body: {
+          name: form.name,
+          phone: form.phone,
+          ...(form.email.trim() ? { email: form.email.trim() } : {}),
+          ownerName: form.ownerName,
+          vehicleId: form.vehicleId || null,
+        },
       });
       const name = form.name;
-      setForm((f) => ({ ...f, name: '', email: '', vehicleId: '' }));
+      setForm((f) => ({ ...f, name: '', phone: '', email: '', vehicleId: '' }));
       onInvited(data, name);
     } catch (err) {
       const code = err instanceof ApiError ? err.body?.error : undefined;
@@ -223,7 +290,9 @@ function InviteForm({
           ? t('contacts.exists')
           : code === 'contact_is_self'
             ? t('contacts.self')
-            : errorText(err, t),
+            : code === 'phone_invalid'
+              ? t('contacts.phoneInvalid')
+              : errorText(err, t),
       );
     } finally {
       setBusy(false);
@@ -238,11 +307,24 @@ function InviteForm({
             <Input id={id} required maxLength={60} value={form.name} onChange={set('name')} />
           )}
         </Field>
+        <Field label={t('contacts.phone')} hint={t('contacts.phoneHint')}>
+          {({ id, describedBy }) => (
+            <Input
+              id={id}
+              required
+              type="tel"
+              autoComplete="off"
+              maxLength={30}
+              value={form.phone}
+              onChange={set('phone')}
+              aria-describedby={describedBy}
+            />
+          )}
+        </Field>
         <Field label={t('contacts.email')}>
           {({ id }) => (
             <Input
               id={id}
-              required
               type="email"
               autoComplete="off"
               maxLength={254}

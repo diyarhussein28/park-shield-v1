@@ -51,12 +51,29 @@
 	# The scanner flow is public in production as well (rate limits + captcha protect it), and the
 	# scan page fetches with credentials 'omit' (no cookies, no basic auth), so it stays open here:
 	# the scan page, the owner's reply page, their API routes and the static build files.
-	@scanner_api path /v1/scan/* /v1/alerts/* /v1/ack /v1/ack/*
+	# The live chat socket (/v1/socket.io, WebSocket or polling), the trusted contacts' links (/v1/contacts/*,
+	# token-protected like /v1/ack) and the native app's API (/v1/app/*: the app cannot send basic auth;
+	# every route there needs a session or a rate-limited sign-in, see apps/api/src/security/routes.test.ts).
+	# The native app shows the whole customer portal and sends its session as a bearer token; it cannot
+	# send basic auth. Such API calls go straight to the API, which checks the session on every owner
+	# route (SessionGuard). A made-up bearer header only reaches routes that are public in production too.
+	@app_bearer {
+		path /v1/*
+		header Authorization "Bearer *"
+	}
+	handle @app_bearer {
+		reverse_proxy 127.0.0.1:4000
+	}
+
+	@scanner_api path /v1/auth/email/* /v1/scan/* /v1/alerts/* /v1/ack /v1/ack/* /v1/socket.io /v1/socket.io/* /v1/contacts/* /v1/app/* /v1/auth/logout /v1/billing/subscription /v1/vehicles /v1/emergency-contact-invitations/*
 	handle @scanner_api {
 		reverse_proxy 127.0.0.1:4000
 	}
 	# /v/*: the owner's photo view link from a notification (Phase 2), token-protected like /antwort.
-	@scanner_web path /s/* /antwort /antwort/* /v/* /_next/*
+	# /auth/open: the bridge page of the app's sign-in e-mail (never signs in on load);
+	# /k/*: a trusted contact's escalation link; /app/*: the app's sign-in link and alert deep links when
+	# the app is not installed; /.well-known/*: Universal Links / App Links verification.
+	@scanner_web path /auth/open /s/* /antwort /antwort/* /v/* /k/* /app/* /notfallkontakt /.well-known/* /_next/*
 	handle @scanner_web {
 		reverse_proxy 127.0.0.1:3000
 	}

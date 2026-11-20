@@ -200,31 +200,99 @@ export class AckService {
       throw new GoneException({ error: 'link_expired' });
     }
 
+    const escalating = await this.apply(a, reply, sql`ack_token_hash = ${hash}`);
+    if (escalating === null)
+      throw new ConflictException({ error: 'already_answered', reply: null });
+    return { reply, escalating };
+  }
+
+  /**
+   * "Ich komme" (or another reply) from the owner's app: the owner session proves who it is, so no link
+   * token is needed. Single use like the link: once acknowledged, a second tap changes nothing.
+   */
+  async replyAsOwner(
+    alertId: string,
+    ownerId: string,
+    reply: OwnerReply,
+  ): Promise<{ reply: OwnerReply; escalating: boolean }> {
+    const a = await this.db
+      .selectFrom('alerts as a')
+      .innerJoin('vehicles as v', 'v.id', 'a.vehicle_id')
+      .innerJoin('alert_types as t', 't.code', 'a.alert_type')
+      .select([
+        'a.id',
+        'a.is_test',
+        'a.owner_reply',
+        'a.acknowledged_by',
+        'a.expires_at',
+        'a.escalated_at',
+        'a.vehicle_id',
+        'v.owner_user_id',
+        't.escalates',
+      ])
+      .where('a.id', '=', alertId)
+      .where('v.owner_user_id', '=', ownerId)
+      .executeTakeFirst();
+    if (!a) throw new NotFoundException({ error: 'alert_not_found' });
+    if (a.owner_reply === 'coming' || a.acknowledged_by) {
+      throw new ConflictException({
+        error: 'already_answered',
+        reply: a.owner_reply,
+        acknowledgedBy: a.acknowledged_by,
+      });
+    }
+    if (a.expires_at < new Date()) throw new GoneException({ error: 'alert_expired' });
+    const escalating = await this.apply(
+      a,
+      reply,
+      sql`(owner_reply IS NULL OR owner_reply <> 'coming') AND acknowledged_by IS NULL`,
+    );
+    if (escalating === null)
+      throw new ConflictException({ error: 'already_answered', reply: null });
+    return { reply, escalating };
+  }
+
+  /**
+   * NT-10: one atomic update decides status, reply, who acknowledged and escalate_at (02-architecture
+   * §3 step 6). "Ich komme" ends the escalation chain, even after it started; "In ca. 30 Min" postpones
+   * a chain that has not started; "Bin nicht in der Nähe" starts it now. Returns null when the guard
+   * did not match (answered in the meantime), else whether an escalation starts now.
+   */
+  private async apply(
+    a: {
+      id: string;
+      is_test: boolean;
+      escalates: boolean;
+      escalated_at: Date | null;
+      owner_user_id: string | null;
+      vehicle_id: string;
+    },
+    reply: OwnerReply,
+    guard: ReturnType<typeof sql<boolean>>,
+  ): Promise<boolean | null> {
     const applies =
-      !a.is_test &&
-      a.escalates &&
-      (await this.escalation.hasContact(a.owner_user_id, a.vehicle_id));
+      !a.is_test && a.escalates && (await this.escalation.applies(a.owner_user_id, a.vehicle_id));
     const escalateAt =
       reply === 'coming' || !applies
-        ? sql`NULL::timestamptz`
+        ? sql<Date | null>`NULL::timestamptz`
         : reply === 'in_30_min'
-          ? sql`now() + interval '30 minutes'`
-          : sql`now()`;
+          ? sql<Date | null>`CASE WHEN escalated_at IS NULL THEN now() + interval '30 minutes' ELSE escalate_at END`
+          : sql<Date | null>`CASE WHEN escalated_at IS NULL THEN now() ELSE escalate_at END`;
     const escalating = applies && reply === 'not_nearby' && a.escalated_at === null;
 
-    const updated = await this.db.transaction().execute(async (trx) => {
+    return this.db.transaction().execute(async (trx) => {
       const row = await trx
         .updateTable('alerts')
         .set({
           status: 'acknowledged',
           owner_reply: reply,
           acknowledged_at: sql`coalesce(acknowledged_at, now())`,
+          ...(reply === 'coming' ? { acknowledged_by: 'owner' } : {}),
           ack_token_hash: null,
-          // After an escalation, a late reply is still shown to the scanner but changes nothing else.
-          escalate_at: sql`CASE WHEN escalated_at IS NOT NULL THEN escalate_at ELSE ${escalateAt} END`,
+          escalate_at: escalateAt,
         })
         .where('id', '=', a.id)
-        .where('ack_token_hash', '=', hash)
+        .where(guard)
         .where('status', 'in', ['dispatched', 'delivered', 'acknowledged', 'escalated'])
         .returning('id')
         .executeTakeFirst();
@@ -234,9 +302,7 @@ export class AckService {
           .values({ topic: ESCALATE_TOPIC, payload: JSON.stringify({ alertId: a.id }) })
           .execute();
       }
-      return Boolean(row);
+      return row ? escalating : null;
     });
-    if (!updated) throw new ConflictException({ error: 'already_answered', reply: null });
-    return { reply, escalating };
   }
 }

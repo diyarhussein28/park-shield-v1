@@ -19,6 +19,7 @@ import {
 } from '../providers/ports';
 import { TokensService } from '../vehicles/tokens.service';
 import { VehiclesService } from '../vehicles/vehicles.service';
+import { returnUrls } from '../billing/app-return';
 
 export const PRINT_TOPIC = 'print.submit';
 
@@ -121,6 +122,7 @@ export class OrdersService {
     vehicleId: string,
     address: ShippingAddress,
     locale: 'de' | 'en',
+    appReturn?: string,
   ) {
     await this.entitlements.require(userId);
     const { token } = await this.vehicles.currentToken(userId, vehicleId);
@@ -129,7 +131,12 @@ export class OrdersService {
       .select(['stripe_customer_id', 'free_replacements'])
       .where('id', '=', userId)
       .executeTakeFirstOrThrow();
-    const back = `${this.env.WEB_BASE_URL}/konto/fahrzeuge/${vehicleId}`;
+    const page = `${this.env.WEB_BASE_URL}/konto/fahrzeuge/${vehicleId}`;
+    // Website: back to the vehicle page; native app: through the bounce page into the app.
+    const back = returnUrls(this.env, 'order', appReturn, {
+      success: `${page}?order=paid`,
+      cancel: `${page}?order=canceled`,
+    });
 
     // AD-08: after ops revoked a code on the owner's behalf, the replacement is free.
     if (user.free_replacements > 0) {
@@ -168,7 +175,7 @@ export class OrdersService {
           .execute();
         return o;
       });
-      if (free) return { id: free.id, url: `${back}?order=paid` };
+      if (free) return { id: free.id, url: back.success };
     }
 
     if (!user.stripe_customer_id) throw new ConflictException({ error: 'no_customer' });
@@ -202,8 +209,8 @@ export class OrdersService {
       amountCents: amount,
       description: locale === 'en' ? 'ParkShield replacement decal' : 'ParkShield-Ersatzaufkleber',
       locale,
-      successUrl: `${back}?order=paid`,
-      cancelUrl: `${back}?order=canceled`,
+      successUrl: back.success,
+      cancelUrl: back.cancel,
       metadata: { orderId: order.id, userId },
     });
   }

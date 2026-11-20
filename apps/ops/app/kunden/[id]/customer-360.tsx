@@ -61,7 +61,7 @@ export interface CustomerView {
       lastOkAt: string | null;
       errorCount: number;
     }[];
-    whatsapp: {
+    sms: {
       id: string;
       phoneMasked: string;
       verifiedAt: string;
@@ -70,7 +70,13 @@ export interface CustomerView {
       errorCount: number;
     } | null;
   };
-  emergencyContacts: { id: string; name: string; emailMasked: string; consent: string }[];
+  emergencyContacts: {
+    id: string;
+    name: string;
+    emailMasked: string | null;
+    phoneMasked: string | null;
+    consent: string;
+  }[];
   orders: {
     id: string;
     status: string;
@@ -253,17 +259,17 @@ export function Customer360({
                 </li>
               ))}
             </ul>
-            <p className="text-sm font-semibold">{t('opsCustomers.whatsapp')}</p>
-            {data.channels.whatsapp ? (
+            <p className="text-sm font-semibold">{t('opsCustomers.sms')}</p>
+            {data.channels.sms ? (
               <div className="text-sm">
-                <span className="font-mono">{data.channels.whatsapp.phoneMasked}</span> ·{' '}
-                {t('opsCustomers.lastOk')}: {d(data.channels.whatsapp.lastOkAt)} ·{' '}
-                {t('opsCustomers.errors')}: {data.channels.whatsapp.errorCount}
+                <span className="font-mono">{data.channels.sms.phoneMasked}</span> ·{' '}
+                {t('opsCustomers.lastOk')}: {d(data.channels.sms.lastOkAt)} ·{' '}
+                {t('opsCustomers.errors')}: {data.channels.sms.errorCount}
                 {canRequest && (
                   <RevealRequest
-                    target="contact_channels.whatsapp"
-                    targetId={data.channels.whatsapp.id}
-                    label={t('opsCustomers.field_whatsapp')}
+                    target="contact_channels.sms"
+                    targetId={data.channels.sms.id}
+                    label={t('opsCustomers.field_sms')}
                   />
                 )}
               </div>
@@ -276,12 +282,23 @@ export function Customer360({
               {data.emergencyContacts.length === 0 && <li>–</li>}
               {data.emergencyContacts.map((e) => (
                 <li key={e.id}>
-                  {e.name} · <span className="font-mono">{e.emailMasked}</span> · {e.consent}
-                  {canRequest && (
+                  {e.name} ·{' '}
+                  <span className="font-mono">
+                    {[e.phoneMasked, e.emailMasked].filter(Boolean).join(' · ')}
+                  </span>{' '}
+                  · {e.consent}
+                  {canRequest && e.emailMasked && (
                     <RevealRequest
                       target="emergency_contacts.email"
                       targetId={e.id}
                       label={`${t('opsCustomers.field_contact')} (${e.name})`}
+                    />
+                  )}
+                  {canRequest && e.phoneMasked && (
+                    <RevealRequest
+                      target="emergency_contacts.phone"
+                      targetId={e.id}
+                      label={`${t('opsCustomers.field_phone')} (${e.name})`}
                     />
                   )}
                 </li>

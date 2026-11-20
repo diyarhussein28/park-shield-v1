@@ -20,7 +20,7 @@ test('support opens Customer 360 and the trace; break-glass needs a second perso
   const url = await ownerWithActiveDecal(page, request, email);
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Licht brennt noch' }).click();
-  await expect(scan.getByText('Die Warnung ist beim Fahrer angekommen.')).toBeVisible({
+  await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });
   await ctx.close();
@@ -148,9 +148,9 @@ test('abuse centre: owner report handled; a new filter word is live at once (US-
     .getByRole('listitem')
     .filter({ hasText: 'Licht brennt noch' })
     .filter({ hasNotText: 'Test' });
-  await card.getByRole('button', { name: 'Missbrauch melden' }).click();
-  await card.getByRole('button', { name: 'Melden', exact: true }).click();
-  await expect(card.getByText(/Gemeldet\./)).toBeVisible();
+  await card.getByRole('button', { name: 'Absender blockieren' }).click();
+  await card.getByRole('button', { name: 'Blockieren', exact: true }).click();
+  await expect(card.getByText(/Blockiert\./)).toBeVisible();
 
   const mod = await staffBrowser(browser, 'mod', ['abuse_moderator']);
   await mod.goto('/missbrauch');

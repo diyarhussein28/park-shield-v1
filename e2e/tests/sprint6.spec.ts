@@ -3,6 +3,7 @@ import {
   expectAccessible,
   ownerWithActiveDecal,
   scannerPage,
+  sql,
   uniqueEmail,
   waitForMail,
 } from './helpers';
@@ -20,6 +21,7 @@ async function inviteContact(page: Page, contactEmail: string) {
   await page.getByRole('link', { name: 'Notfallkontakte verwalten' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Notfallkontakte' })).toBeVisible();
   await page.getByLabel('Name des Kontakts').fill('Kim');
+  await page.getByLabel('Handynummer des Kontakts').fill(`0151 ${String(Date.now()).slice(-8)}`);
   await page.getByLabel('E-Mail-Adresse des Kontakts').fill(contactEmail);
   await page.getByLabel('Ihr Name').fill('Jonas');
   await page.getByRole('button', { name: 'Einladung senden' }).click();
@@ -55,7 +57,7 @@ test('owner replies "Ich komme" from the e-mail; the scanner sees it at once (US
   const url = await ownerWithActiveDecal(page, request, email);
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Licht brennt noch' }).click();
-  await expect(scan.getByText('Die Warnung ist beim Fahrer angekommen.')).toBeVisible({
+  await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });
 
@@ -70,11 +72,11 @@ test('owner replies "Ich komme" from the e-mail; the scanner sees it at once (US
   }
   await expectAccessible(phone);
   // Opening the link changed nothing yet (NT-02).
-  await expect(scan.getByText('Die Warnung ist beim Fahrer angekommen.')).toBeVisible();
+  await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible();
 
   await phone.getByRole('button', { name: 'Ich komme' }).click();
   await expect(phone.getByText('Danke! Die Person sieht, dass Sie unterwegs sind.')).toBeVisible();
-  await expect(scan.getByText(/Der Fahrer hat bestätigt und ist unterwegs/)).toBeVisible({
+  await expect(scan.getByText(/Der Fahrzeughalter ist unterwegs/)).toBeVisible({
     timeout: 5_000,
   });
 
@@ -95,16 +97,22 @@ test('emergency contact: invitation, consent, and escalation on "Bin nicht in de
   const email = uniqueEmail('escalate');
   const contact = uniqueEmail('kim');
   const url = await ownerWithActiveDecal(page, request, email);
+  // Trusted contacts and escalation are PREMIUM only (the upgrade itself is tested in billing).
+  await sql(
+    `UPDATE subscriptions SET plan = 'premium' WHERE user_id = (SELECT id FROM users WHERE email = $1)`,
+    [email],
+  );
   await inviteContact(page, contact);
   await expect(page.getByText(/Wartet auf Zustimmung bis/)).toBeVisible();
   await expectAccessible(page);
-  // Plus allows one contact: the form is replaced by the limit notice.
-  await expect(page.getByRole('button', { name: 'Einladung senden' })).toHaveCount(0);
 
   await acceptInvitation(browser, request, contact);
   await waitForMail(request, email, 'ec_decided');
   await page.reload();
   await expect(page.getByText('Bestätigt', { exact: true })).toBeVisible();
+  // Off until the owner switches it on.
+  await page.getByRole('button', { name: 'Eskalation einschalten' }).click();
+  await expect(page.getByRole('button', { name: 'Eskalation ausschalten' })).toBeVisible();
 
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
@@ -121,7 +129,9 @@ test('emergency contact: invitation, consent, and escalation on "Bin nicht in de
   expect(mail.text).toContain('Fahrzeug versperrt Ausfahrt');
   expect(mail.text).toContain('„Der Blaue“');
   expect(mail.text).not.toContain('K-AB');
-  await expect(scan.getByText('Eskaliert an Notfallkontakt')).toBeVisible({ timeout: 10_000 });
+  await expect(scan.getByText('Eine Vertrauensperson wurde benachrichtigt.')).toBeVisible({
+    timeout: 10_000,
+  });
   await owner.close();
   await ctx.close();
 });
@@ -154,26 +164,18 @@ test('owner changes the channel order (US-22, OW-05)', async ({ page, request })
   await page.goto('/konto/benachrichtigungen');
   const order = page.getByRole('list', { name: 'Reihenfolge bei normalen Warnungen' });
   await expect(order.getByRole('listitem')).toHaveText([
-    /1\. Push/,
-    /2\. E-Mail/,
-    /3\. WhatsApp/,
+    /1\. App/,
+    /2\. Push/,
+    /3\. E-Mail/,
     /4\. SMS/,
   ]);
-  await expect(page.getByRole('button', { name: 'Push nach oben' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'App nach oben' })).toBeDisabled();
   await page.getByRole('button', { name: 'E-Mail nach oben' }).click();
   await expect(page.getByText('Reihenfolge gespeichert.')).toBeVisible();
-  await expect(order.getByRole('listitem')).toHaveText([
-    /1\. E-Mail/,
-    /2\. Push/,
-    /3\. WhatsApp/,
-    /4\. SMS/,
-  ]);
+  const saved = [/1\. App/, /2\. E-Mail/, /3\. Push/, /4\. SMS/];
+  await expect(order.getByRole('listitem')).toHaveText(saved);
   await page.reload();
-  await expect(order.getByRole('listitem')).toHaveText([
-    /1\. E-Mail/,
-    /2\. Push/,
-    /3\. WhatsApp/,
-    /4\. SMS/,
-  ]);
+  await expect(order.getByRole('listitem')).toHaveText(saved);
+  await expect(page.getByText(/WhatsApp/)).toHaveCount(0);
   await expectAccessible(page);
 });

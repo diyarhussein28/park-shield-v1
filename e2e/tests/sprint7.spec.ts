@@ -47,7 +47,7 @@ test('quiet hours mute normal alerts; urgent ones still come through (US-26)', a
   await expect(one.page.getByText('Ihre Warnung wurde gesendet.')).toBeVisible();
   const two = await scanAs(browser, url, 2);
   await two.page.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
-  await expect(two.page.getByText('Die Warnung ist beim Fahrer angekommen.')).toBeVisible({
+  await expect(two.page.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });
   await expect
@@ -99,8 +99,18 @@ test('protection score, summary setting and escalation delay (US-28, US-30, OW-0
   request,
 }) => {
   test.setTimeout(90_000);
-  await ownerWithActiveDecal(page, request, uniqueEmail('score'));
+  const email = uniqueEmail('score');
+  await ownerWithActiveDecal(page, request, email);
+  // PLUS: trusted contacts do not apply, so e-mail and decal are 2 of 3 steps.
   await page.goto('/konto');
+  await expect(page.getByText('67 % eingerichtet')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Notfallkontakt einladen' })).toHaveCount(0);
+  // PREMIUM: four steps (trusted contacts and escalation are PREMIUM only).
+  await sql(
+    `UPDATE subscriptions SET plan = 'premium' WHERE user_id = (SELECT id FROM users WHERE email = $1)`,
+    [email],
+  );
+  await page.reload();
   await expect(page.getByRole('heading', { name: 'Ihr Schutz' })).toBeVisible();
   // E-mail confirmed and decal tested: 2 of 4 steps.
   await expect(page.getByText('50 % eingerichtet')).toBeVisible();

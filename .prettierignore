@@ -10,3 +10,4 @@ docs
 db/migrations
 apps/api/src/db/types.generated.ts
 package-lock.json
+apps/mobile/.expo

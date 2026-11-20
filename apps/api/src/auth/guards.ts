@@ -16,13 +16,25 @@ import { SessionService, type AuthContext } from './session.service';
 
 type AuthedRequest = FastifyRequest & { auth?: AuthContext };
 
+/**
+ * The native app sends its session as `Authorization: Bearer <token>` (kept in the iOS Keychain /
+ * Android Keystore). A bearer header is never sent automatically by a browser, so it needs no CSRF token
+ * (CsrfGuard only checks requests that carry the session cookie).
+ */
+export function bearerToken(req: Pick<FastifyRequest, 'headers'>): string | undefined {
+  const h = req.headers.authorization;
+  if (typeof h !== 'string') return undefined;
+  const m = /^Bearer ([A-Za-z0-9_-]{20,100})$/.exec(h.trim());
+  return m?.[1];
+}
+
 @Injectable()
 export class SessionGuard implements CanActivate {
   constructor(@Inject(SessionService) private readonly sessions: SessionService) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest<AuthedRequest>();
-    const auth = await this.sessions.resolve(req.cookies?.[SESSION_COOKIE]);
+    const auth = await this.sessions.resolve(req.cookies?.[SESSION_COOKIE] ?? bearerToken(req));
     if (!auth) throw new UnauthorizedException({ error: 'not_signed_in' });
     req.auth = auth;
     return true;

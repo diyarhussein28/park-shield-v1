@@ -142,6 +142,7 @@ describe('account deletion (US-32)', () => {
       .execute();
     expect(steps).toEqual([
       { processor: 'brevo', status: 'pending', automated: true },
+      { processor: 'firebase', status: 'not_applicable', automated: true },
       { processor: 'parkshield_db', status: 'pending', automated: true },
       { processor: 'print_partner', status: 'not_applicable', automated: false },
       { processor: 'sentry', status: 'done', automated: true },

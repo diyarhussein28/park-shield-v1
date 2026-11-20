@@ -54,8 +54,13 @@ export class AuditStreamService {
     return [header, ...rows].map((r) => JSON.stringify(r)).join('\n') + '\n';
   }
 
-  private async rows(after: string, upTo?: string, settleSeconds = SETTLE_SECONDS) {
-    let q = this.db
+  private async rows(
+    after: string,
+    upTo?: string,
+    settleSeconds = SETTLE_SECONDS,
+    db: Db = this.db,
+  ) {
+    let q = db
       .selectFrom('audit_logs')
       .select([
         sql<string>`id::text`.as('id'),
@@ -79,39 +84,52 @@ export class AuditStreamService {
     return q.execute();
   }
 
-  /** Streams everything that has settled; returns the number of rows copied. */
+  /**
+   * Streams everything that has settled; returns the number of rows copied.
+   *
+   * One streamer at a time: the cursor row stays locked (`FOR UPDATE SKIP LOCKED`) from reading it
+   * until it has moved past the uploaded batch. Two overlapping runs would otherwise read the same
+   * cursor, upload overlapping files (e.g. 71–72 and 71–73) that Object Lock never lets us remove,
+   * and the hash chain would be broken for good. A run that finds the cursor locked simply stops.
+   */
   async flush(maxRows = 5000, settleSeconds = SETTLE_SECONDS): Promise<number> {
     let copied = 0;
     while (copied < maxRows) {
-      const state = await this.db
-        .selectFrom('audit_stream_state')
-        .select([sql<string>`last_id::text`.as('lastId'), 'last_hash as lastHash'])
-        .where('id', '=', 1)
-        .executeTakeFirstOrThrow();
-      const rows = await this.rows(state.lastId, undefined, settleSeconds);
-      if (!rows.length) break;
-      const body = AuditStreamService.body(state.lastHash, rows);
-      const first = rows[0]!;
-      const last = rows.at(-1)!;
-      const key = `audit/${first.created_at.slice(0, 10).replace(/-/g, '/')}/${pad(first.id)}-${pad(last.id)}.jsonl`;
-      await this.bucket.put(
-        key,
-        Buffer.from(body),
-        new Date(Date.now() + RETAIN_DAYS * 86_400_000),
-      );
-      // Only one process advances the cursor; a second one wrote the identical object ("exists").
-      await this.db
-        .updateTable('audit_stream_state')
-        .set({
-          last_id: last.id as never,
-          last_hash: sha256(body),
-          last_key: key,
-          updated_at: sql`now()`,
-        })
-        .where('id', '=', 1)
-        .where('last_id', '=', state.lastId as never)
-        .execute();
-      copied += rows.length;
+      const n = await this.db.transaction().execute(async (trx) => {
+        const state = await trx
+          .selectFrom('audit_stream_state')
+          .select([sql<string>`last_id::text`.as('lastId'), 'last_hash as lastHash'])
+          .where('id', '=', 1)
+          .forUpdate()
+          .skipLocked()
+          .executeTakeFirst();
+        if (!state) return 0; // another streamer holds the cursor
+        const rows = await this.rows(state.lastId, undefined, settleSeconds, trx);
+        if (!rows.length) return 0;
+        const body = AuditStreamService.body(state.lastHash, rows);
+        const first = rows[0]!;
+        const last = rows.at(-1)!;
+        const key = `audit/${first.created_at.slice(0, 10).replace(/-/g, '/')}/${pad(first.id)}-${pad(last.id)}.jsonl`;
+        // A retry after a failed commit writes the identical object again ("exists" is fine).
+        await this.bucket.put(
+          key,
+          Buffer.from(body),
+          new Date(Date.now() + RETAIN_DAYS * 86_400_000),
+        );
+        await trx
+          .updateTable('audit_stream_state')
+          .set({
+            last_id: last.id as never,
+            last_hash: sha256(body),
+            last_key: key,
+            updated_at: sql`now()`,
+          })
+          .where('id', '=', 1)
+          .execute();
+        return rows.length;
+      });
+      if (!n) break;
+      copied += n;
     }
     return copied;
   }

@@ -24,7 +24,7 @@ import { DEV_MAILBOX_KEY } from '../providers/mailer';
 import { simplePdf } from '../providers/pdf';
 import { PAYMENTS } from '../providers/ports';
 import { DEV_TICKETS_KEY } from '../providers/support-desk';
-import { DEV_WHATSAPP_KEY } from '../providers/whatsapp';
+import { DEV_APP_PUSH_KEY } from '../providers/fcm';
 import { DEV_SMS_KEY } from '../providers/twilio-sms';
 import { TokensService } from '../vehicles/tokens.service';
 
@@ -55,9 +55,10 @@ export class DevController {
     return { mails: rows.map((r) => JSON.parse(r) as unknown) };
   }
 
-  @Get('whatsapp')
-  async whatsappInbox() {
-    const rows = await this.valkey.lrange(DEV_WHATSAPP_KEY, 0, 49);
+  /** App pushes (FCM) while Firebase is faked: the exact request body that would go to Google. */
+  @Get('app-push')
+  async appPushInbox() {
+    const rows = await this.valkey.lrange(DEV_APP_PUSH_KEY, 0, 99);
     return { messages: rows.map((r) => JSON.parse(r) as unknown) };
   }
 

@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
 import type { FakePayments } from '../providers/fake-payments';
 import { PAYMENTS } from '../providers/ports';
 import { WithdrawalsService } from '../legal/withdrawals.service';
+import { isAllowedAppReturn } from './app-return';
 import { BillingService } from './billing.service';
 import {
   createHarness,
@@ -29,7 +29,7 @@ async function checkout(s: Session, payload: Record<string, unknown>) {
 const subscribe = (email: string, promoCode?: string) => subscribeWith(h, email, promoCode);
 
 describe('plans (US-04)', () => {
-  it('lists Plus €10 purchasable, Premium €15 shown but not yet purchasable, Business coming soon', async () => {
+  it('lists Plus €10 purchasable and Premium €15 shown but not yet purchasable; no Business plan', async () => {
     const res = await h.app.inject({ method: 'GET', url: '/v1/plans' });
     expect(res.json()).toEqual([
       {
@@ -44,13 +44,6 @@ describe('plans (US-04)', () => {
         name: 'ParkShield Premium',
         availability: 'available',
         priceYearGrossCents: 1500,
-        purchasable: false,
-      },
-      {
-        code: 'business',
-        name: 'ParkShield Business',
-        availability: 'coming_soon',
-        priceYearGrossCents: null,
         purchasable: false,
       },
     ]);
@@ -466,44 +459,6 @@ describe('online withdrawal (§ 356a BGB)', () => {
   });
 });
 
-describe('Business waitlist with double opt-in (US-04)', () => {
-  it('stores unconfirmed, confirms once via the e-mailed link', async () => {
-    const join = await h.app.inject({
-      method: 'POST',
-      url: '/v1/business-waitlist',
-      payload: {
-        companyName: 'Malermeister Schulz GmbH',
-        email: 'chef@schulz.de',
-        fleetSize: 12,
-        industry: 'Handwerk',
-        captcha: DEV_CAPTCHA_SOLUTION,
-      },
-    });
-    expect(join.statusCode).toBe(202);
-    const entry = await h.db.selectFrom('business_waitlist').selectAll().executeTakeFirstOrThrow();
-    expect(entry.confirmed_at).toBeNull();
-
-    const token = /#t=([A-Za-z0-9_-]+)/.exec((await lastMail(h, 'waitlist_confirm'))!.text)![1]!;
-    const ok = await h.app.inject({
-      method: 'POST',
-      url: '/v1/business-waitlist/confirm',
-      payload: { token },
-    });
-    expect(ok.statusCode).toBe(200);
-    const again = await h.app.inject({
-      method: 'POST',
-      url: '/v1/business-waitlist/confirm',
-      payload: { token },
-    });
-    expect(again.statusCode).toBe(400);
-    const confirmed = await h.db
-      .selectFrom('business_waitlist')
-      .select('confirmed_at')
-      .executeTakeFirstOrThrow();
-    expect(confirmed.confirmed_at).toBeInstanceOf(Date);
-  });
-});
-
 describe('back from Checkout without the webhook (US-06)', () => {
   it('confirms the paid session for its owner only, once', async () => {
     const payments = h.app.get<FakePayments>(PAYMENTS);
@@ -551,5 +506,63 @@ describe('back from Checkout without the webhook (US-06)', () => {
     expect(subs).toHaveLength(1);
     expect((await mailbox(h)).filter((m) => m.tag === 'contract_confirmation')).toHaveLength(1);
     payments.checkoutCompletion = original;
+  });
+});
+
+describe('paying inside the native app (Stripe returns through /app/zurueck)', () => {
+  const app = 'exp://192.168.178.25:8082/--/zurueck';
+  const consent = { plan: 'plus', immediateStart: true, immediateStartVersion: 1, termsVersion: 1 };
+
+  it('sends Stripe back to the bounce page with the app address, the result and the session id', async () => {
+    const payments = h.app.get<FakePayments>(PAYMENTS);
+    const s = await signIn(h, 'app-pay@example.de');
+    const res = await checkout(s, { ...consent, appReturn: app });
+    expect(res.statusCode).toBe(200);
+    const sessionId = new URL(res.json().url).searchParams.get('session')!;
+    const session = (await payments.getSession(sessionId))!;
+    const back = new URL(session.successUrl);
+    expect(back.pathname).toBe('/app/zurueck');
+    expect(Object.fromEntries(back.searchParams)).toEqual({
+      to: 'checkout',
+      u: app,
+      result: 'success',
+      session_id: sessionId,
+    });
+    expect(new URL(session.cancelUrl).searchParams.get('result')).toBe('canceled');
+  });
+
+  it('refuses any other return address (no open redirect)', async () => {
+    const s = await signIn(h, 'app-pay-evil@example.de');
+    for (const appReturn of [
+      'https://evil.example/x',
+      'javascript:alert(1)',
+      'parkshield://x"><',
+    ]) {
+      const res = await checkout(s, { ...consent, appReturn });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toBe('app_return_invalid');
+    }
+  });
+
+  it('the payment-method page returns to the app too', async () => {
+    const s = await subscribe('app-portal@example.de');
+    const res = await h.app.inject({
+      method: 'POST',
+      url: '/v1/billing/portal',
+      headers: s.headers,
+      payload: { appReturn: 'parkshield://zurueck' },
+    });
+    const url = new URL(res.json().url);
+    expect(url.pathname).toBe('/app/zurueck');
+    expect(url.searchParams.get('to')).toBe('portal');
+    expect(url.searchParams.get('u')).toBe('parkshield://zurueck');
+  });
+
+  it('Expo Go addresses only outside real production', () => {
+    const prod = { NODE_ENV: 'production', APP_ENV: 'production' } as const;
+    const ci = { NODE_ENV: 'production', APP_ENV: 'ci' } as const;
+    expect(isAllowedAppReturn('parkshield://zurueck', prod)).toBe(true);
+    expect(isAllowedAppReturn(app, prod)).toBe(false);
+    expect(isAllowedAppReturn(app, ci)).toBe(true);
   });
 });

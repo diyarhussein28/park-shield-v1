@@ -18,6 +18,8 @@ interface Job {
 @Injectable()
 export class SchedulerService implements OnModuleDestroy {
   private readonly timers: NodeJS.Timeout[] = [];
+  /** Jobs whose previous run in this process has not finished yet (the Valkey lock can expire first). */
+  private readonly running = new Set<string>();
 
   constructor(
     @Inject(VALKEY) private readonly valkey: Redis,
@@ -26,14 +28,18 @@ export class SchedulerService implements OnModuleDestroy {
 
   every(job: Job): void {
     const tick = async () => {
+      if (this.running.has(job.name)) return;
       const lockMs = Math.max(job.everyMs - 1000, Math.floor(job.everyMs / 2));
       const lock = await this.valkey.set(`job:${job.name}`, '1', 'PX', lockMs, 'NX');
       if (!lock) return;
+      this.running.add(job.name);
       try {
         const result = await job.run();
         if (!job.quiet || result) this.logger.info({ job: job.name, result }, 'job finished');
       } catch (err) {
         this.logger.error({ job: job.name, err: String(err) }, 'job failed');
+      } finally {
+        this.running.delete(job.name);
       }
     };
     void tick();

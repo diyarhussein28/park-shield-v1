@@ -12,7 +12,22 @@ const securityHeaders = [
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
 ];
 
+/**
+ * `next dev` only serves its scripts to localhost. When WEB_BASE_URL points at the PC's network address
+ * (testing the app on a phone, AUTH.md), that host must be allowed too, or pages opened on the phone
+ * never run their JavaScript (the sign-in bridge page needs it). Has no effect on production builds.
+ */
+const devHost = (() => {
+  try {
+    const host = new URL(process.env.WEB_BASE_URL ?? '').hostname;
+    return host && host !== 'localhost' && host !== '127.0.0.1' ? [host] : [];
+  } catch {
+    return [];
+  }
+})();
+
 const config: NextConfig = {
+  allowedDevOrigins: devHost,
   // A production build next to a running `next dev` must not share its folder (HMR hash mismatch loop).
   distDir: process.env.NEXT_DIST_DIR ?? '.next',
   // Docker image on our own servers; Vercel (temporary website preview) builds its own output.

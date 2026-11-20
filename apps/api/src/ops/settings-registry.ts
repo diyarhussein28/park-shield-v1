@@ -10,6 +10,7 @@ export type SettingGroup =
   | 'contracts'
   | 'health'
   | 'reminders'
+  | 'chat'
   | 'general';
 
 interface Def {
@@ -28,25 +29,57 @@ const bool = z.boolean();
  * and bounds; the code reads them through SettingsService with the same defaults (hard rule 6).
  */
 export const SETTINGS: Record<string, Def> = {
+  'channels.native_push.enabled': {
+    group: 'channels',
+    schema: bool,
+    default: true,
+    killSwitch: true,
+  },
   'channels.webpush.enabled': { group: 'channels', schema: bool, default: true, killSwitch: true },
   'channels.email.enabled': { group: 'channels', schema: bool, default: true, killSwitch: true },
-  'channels.whatsapp.enabled': { group: 'channels', schema: bool, default: true, killSwitch: true },
   'channels.sms.enabled': { group: 'channels', schema: bool, default: true, killSwitch: true },
 
   'escalation.default_minutes': { group: 'escalation', schema: int(1, 60), default: 7 },
   'followup.after_ack_minutes': { group: 'escalation', schema: int(5, 120), default: 15 },
   'followup.escalate_after_minutes': { group: 'escalation', schema: int(1, 60), default: 5 },
+  // Owner reminder (tiered notifications): second push, PREMIUM second SMS.
+  'reminder.after_minutes': { group: 'escalation', schema: int(1, 30), default: 3 },
+  'reminder.max_owner_sms': { group: 'escalation', schema: int(0, 5), default: 2 },
+  // Owner-initiated live chat.
+  'chat.inactivity_minutes': { group: 'chat', schema: int(5, 120), default: 20 },
+  'chat.max_minutes': { group: 'chat', schema: int(30, 720), default: 180 },
+  'chat.max_message_chars': { group: 'chat', schema: int(50, 1000), default: 500 },
+  'chat.max_messages_per_side': { group: 'chat', schema: int(1, 100), default: 20 },
+  'chat.quick_replies': {
+    group: 'chat',
+    schema: z.object({
+      de: z.array(z.string().min(1).max(120)).max(8),
+      en: z.array(z.string().min(1).max(120)).max(8),
+    }),
+    default: {
+      de: [
+        'Ich bin in 2 Minuten am Fahrzeug.',
+        'Ich komme sofort.',
+        'Vielen Dank für den Hinweis!',
+        'Ich kümmere mich darum.',
+      ],
+      en: [
+        'I will be at the car in 2 minutes.',
+        'I am coming right away.',
+        'Thank you for letting me know!',
+        'I will take care of it.',
+      ],
+    },
+  },
 
   'limits.plus.vehicles': { group: 'limits', schema: int(1, 20), default: 2 },
-  'limits.plus.emergency_contacts': { group: 'limits', schema: int(0, 10), default: 1 },
-  'limits.plus.whatsapp_per_month': { group: 'limits', schema: int(0, 1000), default: 10 },
-  'limits.plus.sms_per_month': { group: 'limits', schema: int(0, 100), default: 5 },
+  // PLUS has no SMS and no escalation (channel matrix); the keys stay so ops can see them.
+  'limits.plus.emergency_contacts': { group: 'limits', schema: int(0, 0), default: 0 },
+  'limits.plus.sms_per_month': { group: 'limits', schema: int(0, 0), default: 0 },
   'limits.premium.vehicles': { group: 'limits', schema: int(1, 50), default: 5 },
-  'limits.premium.emergency_contacts': { group: 'limits', schema: int(0, 10), default: 3 },
-  'limits.premium.whatsapp_per_month': { group: 'limits', schema: int(0, 1000), default: 40 },
+  'limits.premium.emergency_contacts': { group: 'limits', schema: int(0, 3), default: 3 },
   'limits.premium.sms_per_month': { group: 'limits', schema: int(0, 100), default: 10 },
   'fair_use.warn_percent': { group: 'limits', schema: int(50, 100), default: 80 },
-  'whatsapp.cost_micros': { group: 'limits', schema: int(0, 1_000_000), default: 55_000 },
   'sms.cost_micros': { group: 'limits', schema: int(0, 1_000_000), default: 100_000 },
   'plans.premium.purchasable': { group: 'limits', schema: bool, default: false },
 
@@ -75,7 +108,7 @@ export const SETTINGS: Record<string, Def> = {
   // abuse report does. The per-vehicle scanner block is capped at 30 days (OW-08).
   'photos.plans': {
     group: 'limits',
-    schema: z.array(z.enum(['plus', 'premium', 'business'])).max(3),
+    schema: z.array(z.enum(['plus', 'premium'])).max(2),
     default: ['premium'],
   },
   'photos.abuse_block_days': { group: 'abuse', schema: int(1, 30), default: 30 },
@@ -101,7 +134,7 @@ export const SETTINGS: Record<string, Def> = {
     default: 'on_demand',
   },
 
-  'health.whatsapp_failure_pct': { group: 'health', schema: int(1, 100), default: 5 },
+  'health.sms_failure_pct': { group: 'health', schema: int(1, 100), default: 5 },
   'health.email_failure_pct': { group: 'health', schema: int(1, 100), default: 5 },
   'health.push_failure_pct': { group: 'health', schema: int(1, 100), default: 10 },
   'health.stripe_webhook_failures': { group: 'health', schema: int(1, 1000), default: 1 },

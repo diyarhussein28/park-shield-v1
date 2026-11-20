@@ -1,0 +1,250 @@
+import { Image } from 'expo-image';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AlertTypeIcon } from '@/components/icons';
+import { Banner, Button, Card, Chip, Loading, P, Screen, useTheme } from '@/components/ui';
+import { radius, space, type as typeScale } from '@/theme/tokens';
+import { api, ApiError, authHeaders, mediaUrl } from '@/lib/api';
+import { minutesSince } from '@/lib/chat';
+import { lang, t } from '@/lib/i18n';
+import { savePhoto } from '@/lib/photos';
+import type { AlertDetail } from '@/lib/types';
+
+type Reply = 'coming' | 'in_30_min' | 'not_nearby';
+
+/**
+ * Alert detail. Opening it marks the alert "seen" (shown to the scanner; it does not stop reminders or
+ * escalation). Only „Ich komme" does. Photos are streamed from the API with the session (memory cache
+ * only, nothing on disk) and saved to the gallery only on "Speichern".
+ */
+export default function AlertScreen() {
+  const c = useTheme();
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [a, setA] = useState<AlertDetail | null>(null);
+  const [error, setError] = useState(false);
+  const [busy, setBusy] = useState<Reply | 'chat' | null>(null);
+  const [headers, setHeaders] = useState<Record<string, string>>({});
+  const [saved, setSaved] = useState(false);
+  // Large text: the two other replies stack instead of squeezing side by side.
+  const stack = useWindowDimensions().fontScale > 1.3;
+
+  const load = useCallback(
+    async (reveal = false) => {
+      try {
+        setA(await api<AlertDetail>(`/v1/app/alerts/${id}${reveal ? '?reveal=1' : ''}`));
+        setError(false);
+      } catch {
+        setError(true);
+      }
+    },
+    [id],
+  );
+
+  useEffect(() => {
+    void authHeaders().then(setHeaders);
+    void api(`/v1/app/alerts/${id}/seen`, { body: {} }).catch(() => undefined);
+  }, [id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+
+  if (!a) return error ? <Banner tone="err">{t('error')}</Banner> : <Loading />;
+
+  const reply = async (r: Reply) => {
+    setBusy(r);
+    try {
+      await api(`/v1/app/alerts/${a.id}/ack`, { body: { reply: r } });
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 409)) setError(true);
+    } finally {
+      setBusy(null);
+      await load(a.revealed && a.contentHidden);
+    }
+  };
+
+  const openChat = async () => {
+    setBusy('chat');
+    try {
+      if (a.chat?.status === 'locked') await api(`/v1/app/alerts/${a.id}/chat/open`, { body: {} });
+      router.push({ pathname: '/chat/[id]', params: { id: a.id } });
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const type = lang() === 'en' ? a.type.en : a.type.de;
+  const time = new Intl.DateTimeFormat(lang(), {
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(a.createdAt));
+  const done = a.reply === 'coming' || a.acknowledgedBy !== null;
+  const open = !done && !['expired', 'blocked'].includes(a.status);
+  const chat = a.chat;
+  const lastSeen = minutesSince(chat?.scanner.lastSeenAt ?? null);
+  const urgent = a.severity === 'urgent';
+
+  const chatBlock = chat && (
+    <View style={s.chat}>
+      <Text style={[typeScale.label, { color: chat.scanner.online ? c.successFg : c.muted }]}>
+        {chat.scanner.online
+          ? t('senderOnline')
+          : lastSeen !== null
+            ? t('senderOffline', { minutes: lastSeen })
+            : t('senderOfflineNever')}
+      </Text>
+      {chat.senderBlocked ? (
+        <P muted>{t('chatBlocked')}</P>
+      ) : chat.purged ? (
+        <P muted>{t('chatPurged')}</P>
+      ) : chat.status === 'locked' ? (
+        chat.canOpen && (
+          <Button
+            label={t('chatOpen')}
+            variant="secondary"
+            onPress={() => void openChat()}
+            busy={busy === 'chat'}
+            testID="open-chat"
+          />
+        )
+      ) : (
+        <Button label={t('chatContinue')} variant="secondary" onPress={() => void openChat()} />
+      )}
+    </View>
+  );
+
+  return (
+    <Screen>
+      <Card style={urgent ? { borderColor: c.urgent, borderWidth: 2 } : undefined}>
+        <View style={s.hero}>
+          <AlertTypeIcon code={a.type.code} urgent={urgent} size={32} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text accessibilityRole="header" style={[typeScale.title, { color: c.fg }]}>
+              {type}
+            </Text>
+            <Text style={[typeScale.label, { color: c.muted, fontWeight: '400' }]}>
+              „{a.vehicle.nickname}“ · {t('at', { time })}
+            </Text>
+          </View>
+        </View>
+        <View style={s.chips}>
+          {done ? (
+            <Chip tone="ok">{t('acknowledged')}</Chip>
+          ) : a.status === 'expired' ? (
+            <Chip tone="neutral">{t('expired')}</Chip>
+          ) : a.seenAt ? (
+            <Chip tone="info">{t('seen')}</Chip>
+          ) : (
+            <Chip tone={urgent ? 'urgent' : 'info'}>{t('open')}</Chip>
+          )}
+          {a.isTest && <Chip tone="neutral">{t('test')}</Chip>}
+        </View>
+        {a.contentHidden && !a.revealed ? (
+          <>
+            <P>{t('hiddenContent')}</P>
+            <Button label={t('reveal')} variant="secondary" onPress={() => void load(true)} />
+          </>
+        ) : (
+          a.message && (
+            <View style={[s.message, { backgroundColor: c.bg, borderColor: c.border }]}>
+              <Text style={[typeScale.caption, { color: c.muted }]}>{t('message')}</Text>
+              <P>{a.message}</P>
+            </View>
+          )
+        )}
+      </Card>
+
+      {a.acknowledgedBy?.kind === 'contact' ? (
+        <Banner tone="ok">
+          {a.acknowledgedBy.name
+            ? t('comingByContact', { name: a.acknowledgedBy.name })
+            : t('comingByContactNoName')}
+        </Banner>
+      ) : done ? (
+        <Banner tone="ok">{t('comingDone')}</Banner>
+      ) : null}
+
+      {open && (
+        <View style={s.actions}>
+          <Button
+            label={t('coming')}
+            size="lg"
+            onPress={() => void reply('coming')}
+            busy={busy === 'coming'}
+            testID="ack"
+          />
+          {chatBlock}
+          <View style={[s.tertiary, stack && { flexDirection: 'column' }]}>
+            <View style={s.half}>
+              <Button
+                label={t('in30')}
+                variant="ghost"
+                onPress={() => void reply('in_30_min')}
+                busy={busy === 'in_30_min'}
+              />
+            </View>
+            <View style={s.half}>
+              <Button
+                label={t('notNearby')}
+                variant="ghost"
+                onPress={() => void reply('not_nearby')}
+                busy={busy === 'not_nearby'}
+              />
+            </View>
+          </View>
+        </View>
+      )}
+      {!open && chatBlock && <Card>{chatBlock}</Card>}
+
+      {a.photos.map((p) => (
+        <View key={p.id} style={s.photo}>
+          <Image
+            source={{ uri: mediaUrl(a.id, p.id), headers }}
+            // Memory only: the decrypted photo never lands in a disk cache.
+            cachePolicy="memory"
+            accessibilityLabel={t('photoAlt', { n: p.position })}
+            style={[s.image, { aspectRatio: p.width / Math.max(1, p.height) }]}
+            contentFit="cover"
+          />
+          <Button
+            label={t('savePhoto')}
+            variant="secondary"
+            onPress={() =>
+              void savePhoto(a.id, p.id, p.position).then(
+                () => setSaved(true),
+                () => setError(true),
+              )
+            }
+          />
+        </View>
+      ))}
+      {saved && <Banner tone="ok">{t('photoSaved')}</Banner>}
+
+      {a.escalation.notified.map((n) => (
+        <P key={n.step ?? 0} muted>
+          {t('escalationStep', { step: n.step ?? 0, name: n.name ?? '–' })}
+        </P>
+      ))}
+      {error && <Banner tone="err">{t('error')}</Banner>}
+    </Screen>
+  );
+}
+
+const s = StyleSheet.create({
+  hero: { flexDirection: 'row', gap: space.md, alignItems: 'center' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  message: { borderWidth: 1, borderRadius: radius.md, padding: space.md, gap: 2 },
+  actions: { gap: space.md },
+  chat: { gap: space.sm },
+  tertiary: { flexDirection: 'row', gap: space.sm },
+  half: { flex: 1 },
+  photo: { gap: 6 },
+  image: { width: '100%', borderRadius: radius.lg },
+});

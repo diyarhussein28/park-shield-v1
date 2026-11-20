@@ -59,8 +59,6 @@ export const RATE_LIMITS = {
   'verify.otp_country': { max: 50, windowSeconds: 3600 },
   'verify.check_phone': { max: 5, windowSeconds: 900 },
   'report.fake_ip': { max: 5, windowSeconds: 3600 },
-  'whatsapp.otp_user': { max: 3, windowSeconds: 3600 },
-  'whatsapp.otp_phone': { max: 5, windowSeconds: 86_400 },
   // NT-07: every SMS code costs money and reaches a third party's phone if mistyped.
   'sms.otp_user': { max: 3, windowSeconds: 3600 },
   'sms.otp_phone': { max: 5, windowSeconds: 86_400 },
@@ -69,8 +67,6 @@ export const RATE_LIMITS = {
   'cancel.ip': { max: 10, windowSeconds: 3600 },
   'withdrawal.ip': { max: 10, windowSeconds: 3600 },
   'cancel.email': { max: 5, windowSeconds: 3600 },
-  'waitlist.ip': { max: 10, windowSeconds: 3600 },
-  'waitlist.email': { max: 3, windowSeconds: 86_400 },
   'scan.not_found': { max: 30, windowSeconds: 60 },
   // US-24: invitations e-mail third parties, so an account cannot be used to send many of them.
   'contact.invite': { max: 5, windowSeconds: 86_400 },
@@ -80,6 +76,8 @@ export const RATE_LIMITS = {
   // ASVS 2.2.1: completing a sign-in (link, passkey) is limited per network even though the
   // tokens are unguessable; a shared NAT (office, campus) still has plenty of room.
   'auth.ip': { max: 60, windowSeconds: 600 },
+  // 6-digit codes: on top of 5 tries per code, a network may only guess this often.
+  'auth.code_ip': { max: 30, windowSeconds: 900 },
   'ops_auth.ip': { max: 30, windowSeconds: 600 },
   // Phase 2 alert photos: uploads per vehicle (an alert with photos counts once), and the owner's
   // view page with its photos and the "Missbrauch melden" button, per network.

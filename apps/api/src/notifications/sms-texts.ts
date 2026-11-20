@@ -110,39 +110,82 @@ export function toGsm7(s: string): string {
 
 export const isGsm7 = (s: string) => [...s].every((c) => GSM7.has(c));
 
-const PHOTO_TEXTS = {
-  de: { lead: 'ParkShield', link: 'Fotos & Antwort' },
-  en: { lead: 'ParkShield', link: 'Photos & reply' },
+/**
+ * Every SMS with a link is one GSM-7 segment: `<lead>: <subject> (<label>). <link text>: <host>/<path>`.
+ * The kinds below are all SMS the tiered notifications send (owner and emergency contacts).
+ * - alert/reminder/followup/test: to the owner, link to the view page /v/<token> (details, photos,
+ *   "Ich komme"). No photo, ever.
+ * - escalation: to a confirmed emergency contact, link to /k/<token> ("Ich komme", opt-out). Only the
+ *   alert type and the vehicle label the owner chose: no plate, no scanner text, no photo.
+ * - invite: to a new emergency contact, link to the invitation (accept / decline).
+ */
+export type LinkSmsKind =
+  'alert' | 'photos' | 'reminder' | 'followup' | 'test' | 'escalation' | 'invite';
+
+const LINK_TEXTS = {
+  de: {
+    alert: { lead: 'ParkShield', link: 'Details' },
+    photos: { lead: 'ParkShield', link: 'Fotos & Antwort' },
+    reminder: { lead: 'ParkShield Erinnerung', link: 'Details' },
+    followup: { lead: 'ParkShield Erinnerung, die Person wartet noch', link: 'Details' },
+    test: { lead: 'ParkShield Test erfolgreich', link: 'Details' },
+    escalation: { lead: 'ParkShield Vertrauensperson', link: 'Ich komme / Abmelden' },
+    invite: { lead: 'ParkShield', link: 'Annehmen/Ablehnen' },
+  },
+  en: {
+    alert: { lead: 'ParkShield', link: 'Details' },
+    photos: { lead: 'ParkShield', link: 'Photos & reply' },
+    reminder: { lead: 'ParkShield reminder', link: 'Details' },
+    followup: { lead: 'ParkShield reminder, the person is still waiting', link: 'Details' },
+    test: { lead: 'ParkShield test successful', link: 'Details' },
+    escalation: { lead: 'ParkShield trusted contact', link: 'I am coming / Opt out' },
+    invite: { lead: 'ParkShield', link: 'Accept/decline' },
+  },
 } as const;
 
 /**
- * SMS for an alert with photos: `ParkShield: <type> (<nickname>). Fotos & Antwort: <host>/v/<token>`.
- * Hard limit one segment: GSM-7 only and at most 160 characters including the link. The nickname is
- * dropped first and the type shortened if needed; if even "ParkShield: Fotos & Antwort: <link>" does not
- * fit (a much longer domain), it throws, so a template that cannot work fails in tests, not at runtime.
+ * One GSM-7 segment, at most 160 characters including the link. The label (vehicle nickname) is dropped
+ * first, then the subject shortened; if even "<lead>: <link text>: <link>" does not fit (a much longer
+ * domain), it throws, so a template that cannot work fails in tests, not at runtime.
  */
-export function smsPhotoText(
+export function smsLinkText(
   lang: 'de' | 'en',
-  type: string,
-  nickname: string,
-  viewUrl: string,
+  kind: LinkSmsKind,
+  subject: string,
+  label: string,
+  url: string,
 ): string {
-  const t = PHOTO_TEXTS[lang];
+  const t = LINK_TEXTS[lang][kind];
   // "https://" costs 8 characters; phones link a bare domain with a path just as well.
-  const link = toGsm7(viewUrl.replace(/^https:\/\//, ''));
+  const link = toGsm7(url.replace(/^https:\/\//, ''));
   const tail = ` ${t.link}: ${link}`;
-  const cleanType = toGsm7(type).slice(0, 60);
-  const cleanNick = toGsm7(nickname).slice(0, 40);
+  const lead = toGsm7(t.lead);
+  const cleanSubject = toGsm7(subject).slice(0, 80);
+  const cleanLabel = toGsm7(label).slice(0, 40);
   const candidates = [
-    cleanNick ? `${t.lead}: ${cleanType} (${cleanNick}).${tail}` : null,
-    `${t.lead}: ${cleanType}.${tail}`,
+    cleanLabel ? `${lead}: ${cleanSubject} (${cleanLabel}).${tail}` : null,
+    `${lead}: ${cleanSubject}.${tail}`,
   ].filter((c): c is string => c !== null);
   for (const c of candidates) if (c.length <= SMS_SEGMENT_MAX) return c;
-  const room = SMS_SEGMENT_MAX - `${t.lead}: .${tail}`.length;
-  if (room >= 8) return `${t.lead}: ${cleanType.slice(0, room).trimEnd()}.${tail}`;
-  const minimal = `${t.lead}:${tail}`;
+  const room = SMS_SEGMENT_MAX - `${lead}: .${tail}`.length;
+  if (room >= 8) return `${lead}: ${cleanSubject.slice(0, room).trimEnd()}.${tail}`;
+  const minimal = `${lead}:${tail}`;
   if (minimal.length > SMS_SEGMENT_MAX) {
-    throw new Error(`photo SMS does not fit one segment (${minimal.length} characters)`);
+    throw new Error(`SMS does not fit one segment (${minimal.length} characters)`);
   }
   return minimal;
+}
+
+/** SMS for an alert with photos (kept for callers of the Phase 2 photo feature). */
+export const smsPhotoText = (lang: 'de' | 'en', type: string, nickname: string, viewUrl: string) =>
+  smsLinkText(lang, 'photos', type, nickname, viewUrl);
+
+/** Invitation SMS to a new emergency contact: "<Vorname> moechte Sie als Vertrauensperson ...". */
+export function smsInviteText(lang: 'de' | 'en', ownerFirstName: string, url: string): string {
+  const owner = toGsm7(ownerFirstName).slice(0, 20) || (lang === 'de' ? 'Jemand' : 'Someone');
+  const subject =
+    lang === 'de'
+      ? `${owner} moechte Sie als Vertrauensperson hinterlegen`
+      : `${owner} would like you as a trusted contact`;
+  return smsLinkText(lang, 'invite', subject, '', url);
 }

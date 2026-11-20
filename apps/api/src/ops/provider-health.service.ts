@@ -11,7 +11,7 @@ const RANK: Record<Level, number> = { unknown: 0, ok: 0, warning: 1, critical: 2
 
 export interface HealthCheck {
   key: string;
-  provider: 'whatsapp' | 'email' | 'webpush' | 'stripe' | 'print' | 'channels';
+  provider: 'sms' | 'app_push' | 'email' | 'webpush' | 'stripe' | 'print' | 'channels';
   level: Level;
   /** Short value for the screen, e.g. "3 / 120 (2.5 %)" or "RED". */
   value: string;
@@ -24,7 +24,7 @@ const rate = (failed: number, total: number) =>
 
 /**
  * US-41 / AD-16: provider health on one screen, from our own delivery records and the provider
- * events (Meta quality rating and templates, Stripe webhook failures). The worker runs `evaluate`
+ * events (Stripe webhook failures). The worker runs `evaluate`
  * every five minutes and mails the team when a check gets worse, again after `renotify_hours`, and
  * when it recovers.
  */
@@ -37,19 +37,7 @@ export class ProviderHealthService {
     @Inject(MailService) private readonly mail: MailService,
   ) {}
 
-  private async latest(provider: string, metricLike: string) {
-    return this.db
-      .selectFrom('provider_status_events')
-      .distinctOn('metric')
-      .select(['metric', 'value', 'captured_at'])
-      .where('provider', '=', provider)
-      .where('metric', 'like', metricLike)
-      .orderBy('metric')
-      .orderBy('captured_at', 'desc')
-      .execute();
-  }
-
-  private async failures(channel: 'whatsapp' | 'email') {
+  private async failures(channel: 'sms' | 'email' | 'native_push') {
     const r = await this.db
       .selectFrom('alert_deliveries')
       .select((eb) => [
@@ -72,7 +60,7 @@ export class ProviderHealthService {
 
   async checks(): Promise<HealthCheck[]> {
     const t = {
-      whatsapp: await this.settings.get('health.whatsapp_failure_pct', 5),
+      sms: await this.settings.get('health.sms_failure_pct', 5),
       email: await this.settings.get('health.email_failure_pct', 5),
       push: await this.settings.get('health.push_failure_pct', 10),
       stripe: await this.settings.get('health.stripe_webhook_failures', 1),
@@ -80,44 +68,21 @@ export class ProviderHealthService {
     };
     const checks: HealthCheck[] = [];
 
-    const [quality] = await this.latest('360dialog', 'meta_quality_rating');
+    const sms = await this.failures('sms');
     checks.push({
-      key: 'whatsapp.quality',
-      provider: 'whatsapp',
-      level: !quality
-        ? 'unknown'
-        : quality.value === 'RED'
-          ? 'critical'
-          : quality.value === 'YELLOW'
-            ? 'warning'
-            : 'ok',
-      value: quality?.value ?? '–',
-      since: quality?.captured_at ?? null,
+      key: 'sms.failures',
+      provider: 'sms',
+      level: this.level(sms.failed, sms.total, t.sms),
+      value: rate(sms.failed, sms.total),
     });
-    const templates = await this.latest('360dialog', 'template_status:%');
-    const bad = templates.filter((x) => ['PAUSED', 'DISABLED', 'REJECTED'].includes(x.value));
+    // Native app push (FCM): failures include uninstalled apps (FCM "UNREGISTERED"), so the push
+    // threshold applies, not the stricter one of paid channels.
+    const app = await this.failures('native_push');
     checks.push({
-      key: 'whatsapp.templates',
-      provider: 'whatsapp',
-      level: !templates.length
-        ? 'unknown'
-        : bad.length
-          ? 'critical'
-          : templates.some((x) => x.value === 'PENDING')
-            ? 'warning'
-            : 'ok',
-      value: templates.length
-        ? templates
-            .map((x) => `${x.metric.slice('template_status:'.length)}: ${x.value}`)
-            .join(', ')
-        : '–',
-    });
-    const wa = await this.failures('whatsapp');
-    checks.push({
-      key: 'whatsapp.failures',
-      provider: 'whatsapp',
-      level: this.level(wa.failed, wa.total, t.whatsapp),
-      value: rate(wa.failed, wa.total),
+      key: 'app_push.failures',
+      provider: 'app_push',
+      level: this.level(app.failed, app.total, t.push),
+      value: rate(app.failed, app.total),
     });
     const mail = await this.failures('email');
     checks.push({
@@ -206,7 +171,7 @@ export class ProviderHealthService {
     });
 
     const off: string[] = [];
-    for (const c of ['webpush', 'email', 'whatsapp'] as const) {
+    for (const c of ['native_push', 'webpush', 'email', 'sms'] as const) {
       if ((await this.settings.get<unknown>(`channels.${c}.enabled`, true)) === false) off.push(c);
     }
     checks.push({

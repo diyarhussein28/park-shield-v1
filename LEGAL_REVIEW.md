@@ -107,7 +107,7 @@ over a silent ("shadow") block so that a person in real danger looks for other h
 - Automatic: 2 blocks within 30 days for one vehicle → 30 days (extended by further blocks). Manual on
   or off at any time in the vehicle page. Applies to everyone who scans that vehicle, because the
   harasser cannot be identified reliably; this is why it hides only content and never blocks.
-- Notifications (push, WhatsApp, SMS, e-mail) carry no free text of an unconfirmed sender, only
+- Notifications (app push, browser push, SMS, e-mail) carry no free text of an unconfirmed sender, only
   "Nachricht von nicht bestätigtem Absender – ansehen in ParkShield".
 
 ## 5. Alert photos (Phase 2, behind `ALERT_PHOTOS_ENABLED`)
@@ -174,18 +174,14 @@ recognition, short retention, single recipient. Also check the DSK „Muss-Liste
 the engineering side: do the DPIA (or a documented threshold assessment) anyway; the facts above are its
 input.
 
-### Twilio and Meta (WhatsApp, SMS)
+### Twilio (SMS)
 
-- WhatsApp and SMS carry only the alert type, the vehicle nickname and the link, never a photo
-  (`mediaUrl` is not used; template `ps_alert_photos` in `docs/whatsapp-templates.md`, TODO
-  [LEGAL REVIEW] on its text).
+- SMS carry only the alert type, the vehicle nickname and the view link, never a photo, in one GSM-7
+  segment (`smsLinkText` in `apps/api/src/notifications/sms-texts.ts`).
 - **Twilio:** DPA with Twilio Ireland Limited; transfers to the US under the EU-US Data Privacy
-  Framework and SCCs. **To do:** confirm the DPA covers WhatsApp and SMS content incl. the view link,
-  and Twilio's message-body retention.
-- **Meta (WhatsApp Business Platform):** Meta processes message content and metadata as Twilio's
-  sub-processor / for its own purposes per the WhatsApp Business terms; third-country transfer to the
-  US. **Question:** is the link itself (which grants access to the photos for 30 days) acceptable in a
-  message processed by Meta, or should WhatsApp show only „Fotos im Konto ansehen“ without the token?
+  Framework and SCCs. **To do:** confirm the DPA covers SMS content incl. the view link, and Twilio's
+  message-body retention.
+- WhatsApp was removed completely (no Meta dependency, see §7).
 
 ## 6. Welcome letter (posted to every new customer)
 
@@ -201,3 +197,82 @@ Code: `apps/api/src/letters/` (texts in `company.ts`, layout in `letter.ts`). Po
   whether a deleted account must keep its letter.
 - **Address source:** the Stripe billing address entered at checkout is reused for posting the
   welcome letter. Mention this purpose in the Datenschutzerklärung.
+
+## 7. Native app, tiered notifications, trusted contacts and live chat (2026-12)
+
+Code: `apps/mobile` (Expo app), `apps/api/src/{app,chat,contacts,notifications}`, migration
+`db/migrations/20261201000000_app_notifications_chat.sql`. Every point below is marked
+`TODO [LEGAL REVIEW]` in code or texts.
+
+### App privacy notice (new section, to be written by the lawyer)
+
+- **Push via Firebase Cloud Messaging (Google):** the app registers an FCM token (no device fingerprint,
+  no advertising ID; Android blocks `AD_ID`). iOS pushes travel Google → Apple (APNs). The push
+  payload contains only a generic text („Neuer Alarm für Ihr Fahrzeug: Ausfahrt blockiert“) and ids
+  (`alertId`, `type`, `kind`): no scanner message, no photo, no licence plate, no nickname, no name
+  (test: `apps/api/src/notifications/sms-templates.test.ts`, `replies.test.ts`). **To do:** DPA with
+  Google (Firebase), transfer basis (EU-US DPF / SCCs), Art. 13 wording, and whether the alert _type_
+  in the push text is acceptable or should become fully generic.
+- Device tokens: deleted on sign-out, when FCM reports them invalid, and after 90 days without a sign
+  of life (`run_retention`). Erasure requests delete them with the account (processor step
+  `firebase`, automated).
+- No analytics or advertising SDK. Crash reporting is not included; if added, only self-hosted or
+  EU-hosted and documented.
+- Session token in iOS Keychain / Android Keystore (`expo-secure-store`, this device only). Photos are
+  kept in memory only and saved to the gallery only on an explicit „Speichern“.
+- **Store privacy labels** (App Store „App Privacy“, Google Play „Data safety“): contact info (e-mail,
+  phone for SMS: app functionality, linked to the user), identifiers (FCM token: app functionality),
+  user content (alert photos and chat messages received: app functionality, not stored on the
+  device), no tracking, no data sold. To be confirmed before submission.
+- Denied notification permission: persistent banner in the app and at most one e-mail hint a day
+  (`push_denied`).
+
+### Channel matrix (product decision, for the AGB / Leistungsbeschreibung)
+
+- PLUS: app push + e-mail. PREMIUM: app push + e-mail + SMS (fair use, max. 2 SMS per alert to the
+  owner). Escalation to trusted contacts is PREMIUM only. WhatsApp and the Business plan are removed;
+  the privacy notice and AGB must no longer mention WhatsApp (`packages/shared/src/legal-content.ts`
+  still has WhatsApp in the privacy text and the Leistungsbeschreibung: rewrite).
+
+### Trusted contacts („Vertrauenspersonen“)
+
+- **Consent text** (e-mail `ec_invite`, SMS `smsInviteText`, page `/notfallkontakt`): who asks (the
+  owner's first name), what the contact receives (alert type and the vehicle label the owner chose; no
+  plate, no scanner text, no photo), by SMS and e-mail, „Ich komme“ and an opt-out link in every
+  message. Nothing is sent before consent.
+- **Deletion:** no answer or declined → deleted after 14 days. Opt-out from any escalation message
+  (`/k/<token>` → „Keine Benachrichtigungen mehr erhalten“) deletes the contact at once and tells the
+  owner. Downgrade PREMIUM → PLUS: contacts deactivated at once, deleted after 30 days, owner informed
+  (`ec_deactivated`); a re-upgrade within 30 days restores them. Is keeping them 30 days after a
+  downgrade covered by the contact's consent?
+- Escalation SMS count toward the owner's SMS fair-use limit; at the limit the contact gets e-mail only.
+- Legal basis for processing the contact's phone number and e-mail: their consent (Art. 6(1)(a)) —
+  confirm, and the information duty towards the contact (Art. 14) via the invitation.
+
+### Live chat (owner-initiated)
+
+- Locked until the owner opens it; text only, 500 characters, 20 messages per side; scanner messages
+  pass the existing text filter (links, phone numbers, e-mail addresses, insults); owner messages get a
+  warning before personal data but are allowed (the owner decides to share).
+- Ends when the owner closes it, after 20 minutes without a message, or 3 hours after opening.
+  **Retention:** messages (encrypted at rest) and the chat token hash are deleted 24 h after the chat
+  closed; a 7-day backstop deletes messages of a chat that never closed. The app then shows
+  „Chatverlauf wurde nach 24 Stunden automatisch gelöscht.“
+- **Scanner side (§ 25 TDDDG):** the chat token lives in memory and in the URL fragment only (never
+  sent in a URL to a server, only in the Socket.io handshake payload); no cookies, no Web Storage, no
+  IndexedDB (e2e test `app-notifications-chat.spec.ts`). Screen Wake Lock while waiting (no data).
+  Presence („Absender ist gerade online“) is derived from the open connection and stored only as the
+  last-seen time of the session (deleted with it).
+- The scanner page needs a privacy notice line on the chat (what is stored, 24 h) — draft text needed.
+
+### Paying inside the app (owner decision 2026-11-19)
+
+- The app contains the whole customer portal, including the checkout: the subscription (Plus/Premium)
+  is paid on **Stripe's page inside the app** (in-app browser), the same § 312j flow, texts and consent
+  records as on the website. Cancellation (§ 312k button) and withdrawal (§ 356a) work in the app too;
+  account deletion in the app is required by Apple (guideline 5.1.1(v)) and Google.
+- **Risk:** Apple (guideline 3.1.1) and Google Play (payments policy) require their own in-app purchase
+  for digital subscriptions; the app may be rejected at review. Options if that happens: Apple's EU
+  „StoreKit External Purchase Link“ entitlement (link to the website checkout, Apple fee), or in-app
+  purchase. The printed decal (a physical good) may stay on Stripe either way.
+- The Stripe return goes through `/app/zurueck`, which only redirects to the app's own scheme.

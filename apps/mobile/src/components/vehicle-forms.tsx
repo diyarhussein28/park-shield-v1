@@ -1,0 +1,163 @@
+import { useState } from 'react';
+import { View } from 'react-native';
+import { errorText } from '@/lib/portal';
+import { pt } from '@/lib/portal-i18n';
+import { Field } from './form';
+import { Banner, Button, P } from './ui';
+
+export interface VehicleInput {
+  nickname: string;
+  plate: string;
+  color: string;
+  makeModel: string;
+}
+
+/** Nickname, plate, colour, make and model (web: VehicleForm). */
+export function VehicleForm({
+  initial,
+  submitLabel,
+  onSubmit,
+}: {
+  initial?: {
+    nickname: string;
+    plate: string | null;
+    color: string | null;
+    makeModel: string | null;
+  };
+  submitLabel: string;
+  onSubmit: (v: VehicleInput) => Promise<void>;
+}) {
+  const [form, setForm] = useState<VehicleInput>({
+    nickname: initial?.nickname ?? '',
+    plate: initial?.plate ?? '',
+    color: initial?.color ?? '',
+    makeModel: initial?.makeModel ?? '',
+  });
+  const [busy, setBusy] = useState(false);
+  const set = (k: keyof VehicleInput) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const submit = async () => {
+    setBusy(true);
+    try {
+      await onSubmit(form);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={{ gap: 12 }}>
+      <Field
+        label={pt('vehicles.nickname')}
+        hint={pt('vehicles.nicknameHint')}
+        value={form.nickname}
+        onChangeText={set('nickname')}
+        maxLength={60}
+      />
+      <Field
+        label={pt('vehicles.plate')}
+        hint={pt('vehicles.plateHint')}
+        value={form.plate}
+        onChangeText={set('plate')}
+        maxLength={12}
+        autoCapitalize="characters"
+        autoCorrect={false}
+      />
+      <Field
+        label={pt('vehicles.color')}
+        optional={pt('common.optional')}
+        value={form.color}
+        onChangeText={set('color')}
+        maxLength={30}
+      />
+      <Field
+        label={pt('vehicles.makeModel')}
+        optional={pt('common.optional')}
+        value={form.makeModel}
+        onChangeText={set('makeModel')}
+        maxLength={80}
+      />
+      <Button
+        label={submitLabel}
+        busy={busy}
+        disabled={!form.nickname.trim() || form.plate.trim().length < 2}
+        onPress={() => void submit()}
+      />
+    </View>
+  );
+}
+
+export interface Address {
+  name: string;
+  line1: string;
+  line2?: string;
+  postalCode: string;
+  city: string;
+  country: 'DE';
+}
+
+/** Shipping address in Germany (web: AddressForm), for the included and the replacement decal. */
+export function AddressForm({
+  intro,
+  submitLabel,
+  onSubmit,
+}: {
+  intro: string;
+  submitLabel: string;
+  onSubmit: (a: Address) => Promise<void>;
+}) {
+  const [a, setA] = useState({ name: '', line1: '', line2: '', postalCode: '', city: '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const set = (k: keyof typeof a) => (v: string) => setA((x) => ({ ...x, [k]: v }));
+  const valid = a.name.trim() && a.line1.trim() && /^\d{5}$/.test(a.postalCode) && a.city.trim();
+
+  const submit = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await onSubmit({ ...a, line2: a.line2 || undefined, country: 'DE' });
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={{ gap: 12 }}>
+      <P>{intro}</P>
+      <Field
+        label={pt('order.name')}
+        value={a.name}
+        onChangeText={set('name')}
+        autoComplete="name"
+      />
+      <Field
+        label={pt('order.line1')}
+        value={a.line1}
+        onChangeText={set('line1')}
+        autoComplete="address-line1"
+      />
+      <Field
+        label={pt('order.line2')}
+        optional={pt('common.optional')}
+        value={a.line2}
+        onChangeText={set('line2')}
+        autoComplete="address-line2"
+      />
+      <Field
+        label={pt('order.postalCode')}
+        value={a.postalCode}
+        onChangeText={(v) => set('postalCode')(v.replace(/\D/g, ''))}
+        keyboardType="number-pad"
+        maxLength={5}
+        autoComplete="postal-code"
+      />
+      <Field label={pt('order.city')} value={a.city} onChangeText={set('city')} />
+      <P muted>{pt('order.countryNote')}</P>
+      {error && <Banner tone="err">{error}</Banner>}
+      <Button label={submitLabel} busy={busy} disabled={!valid} onPress={() => void submit()} />
+    </View>
+  );
+}

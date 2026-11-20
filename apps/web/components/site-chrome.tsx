@@ -80,9 +80,6 @@ export function SiteHeader({ sticky = false }: { sticky?: boolean }) {
           <Link className={link} href="/#preise" onClick={close}>
             {t('nav.pricing')}
           </Link>
-          <Link className={link} href="/business" onClick={close}>
-            {t('nav.business')}
-          </Link>
           <Link
             className="inline-flex min-h-12 items-center justify-center rounded-full bg-primary px-5 font-semibold text-primary-fg shadow-md shadow-primary/20 transition hover:bg-primary-hover md:ml-2"
             href={signedIn ? '/konto' : '/anmelden'}
@@ -106,7 +103,6 @@ export function SiteFooter() {
       [
         ['/#so-funktionierts', t('nav.how')],
         ['/#preise', t('nav.pricing')],
-        ['/business', t('nav.business')],
         ['/#faq', t('common.footer.faq')],
       ],
     ],

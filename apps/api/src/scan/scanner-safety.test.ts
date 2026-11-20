@@ -6,6 +6,8 @@ import { DispatchService } from '../notifications/dispatch.service';
 import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
 import {
   addConfirmedContact,
+  enableEscalation,
+  makePremium,
   createHarness,
   lastMail,
   resetState,
@@ -152,7 +154,12 @@ describe('the three scanner limits (US-17)', () => {
 describe('"Ich warte noch" and the owner reminder (US-18, SC-14, NT-09)', () => {
   async function acknowledged(minutesAgo: number, type = 'blocking', contact = true) {
     const { code } = await vehicle('owner@example.de');
-    if (contact) await addConfirmedContact(h, 'owner@example.de');
+    if (contact) {
+      // Escalation is PREMIUM only and switched on by the owner.
+      await makePremium(h, 'owner@example.de');
+      await enableEscalation(h, 'owner@example.de');
+      await addConfirmedContact(h, 'owner@example.de');
+    }
     const res = await send(code, { type });
     const { alertId, statusToken } = res.json();
     await h.db

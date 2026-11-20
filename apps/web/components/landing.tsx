@@ -420,9 +420,9 @@ function Privacy() {
   );
 }
 
-const CHANNELS: { key: 'Push' | 'Whatsapp' | 'Email'; icon: IconName; tint: string }[] = [
+const CHANNELS: { key: 'App' | 'Push' | 'Email'; icon: IconName; tint: string }[] = [
+  { key: 'App', icon: 'phone', tint: 'from-emerald-500 to-green-700' },
   { key: 'Push', icon: 'bell', tint: 'from-blue-500 to-indigo-600' },
-  { key: 'Whatsapp', icon: 'chat', tint: 'from-emerald-500 to-green-700' },
   { key: 'Email', icon: 'mail', tint: 'from-amber-400 to-orange-500' },
 ];
 
@@ -532,24 +532,6 @@ function Pricing() {
             </span>
           </div>
         </Reveal>
-        <Reveal delay={240} className="h-full">
-          <div className={card}>
-            <div>
-              <h3 className="text-2xl font-bold">{t('landing.businessName')}</h3>
-              <p className="text-muted">{t('landing.businessFor')}</p>
-            </div>
-            <span className="w-fit rounded-full bg-warning-bg px-3 py-1 text-sm font-semibold text-warning-fg">
-              {t('landing.businessSoon')}
-            </span>
-            <p>{t('landing.businessText')}</p>
-            <Link
-              href="/business"
-              className={cx(btn, 'mt-auto border-2 border-border-strong hover:bg-secondary')}
-            >
-              {t('landing.businessCta')}
-            </Link>
-          </div>
-        </Reveal>
       </div>
     </section>
   );
@@ -620,9 +602,6 @@ function ClosingCta() {
             <Link href="/konto" className={btnAmber}>
               {t('landing.heroCta')}
               <Icon name="arrowRight" className="size-5 transition group-hover:translate-x-1" />
-            </Link>
-            <Link href="/business" className={btnGhostDark}>
-              {t('landing.businessName')}
             </Link>
           </div>
         </div>

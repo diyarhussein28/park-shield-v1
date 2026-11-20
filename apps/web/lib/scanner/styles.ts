@@ -49,6 +49,15 @@ footer p{margin:0 0 6px}footer a{color:var(--primary)}
 #ph-cam{margin:12px 0;padding:12px;border-radius:14px;background:var(--surface);border:2px solid var(--strong)}
 #ph-cam h3{font-size:18px;margin:0 0 8px}#ph-video{display:block;width:100%;max-height:60vh;border-radius:12px;background:#000;margin-bottom:10px}
 button:disabled{opacity:.6;cursor:not-allowed}
+.chatbox{margin:12px 0;padding:12px;border-radius:14px;border:2px solid var(--primary)}
+.chatbox h3{font-size:19px;margin:0 0 8px}
+.chat{list-style:none;padding:0;margin:0 0 8px;display:grid;gap:8px;max-height:50vh;overflow-y:auto}
+.chat li{max-width:85%;padding:10px 12px;border-radius:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.chat li.owner{background:var(--info-bg);color:var(--info-fg);justify-self:start}
+.chat li.scanner{background:var(--surface);border:1px solid var(--border);justify-self:end}
+.chat li small{display:block;font-size:13px;color:var(--muted);margin-bottom:2px}
+.chat li.owner small{color:inherit}
+#chat-msg{min-height:84px}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 `;

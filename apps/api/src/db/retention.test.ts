@@ -354,25 +354,67 @@ describe('run_retention() (US-33)', () => {
     expect(await count('vehicle_members')).toBe(0);
   });
 
-  it('deletes unconfirmed business waitlist entries after 30 days', async () => {
+  it('deletes chat messages and the chat token hash 24 h after the chat closed', async () => {
+    const f = await fixture();
+    const closed = await f.alert();
+    const recent = await f.alert();
+    const open = await f.alert();
+    for (const id of [closed, recent, open]) {
+      await h.db
+        .insertInto('alert_messages')
+        .values({ alert_id: id, sender: 'scanner', body_enc: crypto.encrypt('Hallo') })
+        .execute();
+    }
     await h.db
-      .insertInto('business_waitlist')
+      .updateTable('chat_sessions')
+      .set({ status: 'closed', closed_at: ago('25 hours'), close_reason: 'owner' })
+      .where('alert_id', '=', closed)
+      .execute();
+    await h.db
+      .updateTable('chat_sessions')
+      .set({ status: 'closed', closed_at: ago('23 hours'), close_reason: 'inactivity' })
+      .where('alert_id', '=', recent)
+      .execute();
+    await h.db
+      .updateTable('chat_sessions')
+      .set({ status: 'active', opened_at: ago('25 hours') })
+      .where('alert_id', '=', open)
+      .execute();
+    await run();
+    const left = await h.db.selectFrom('alert_messages').select('alert_id').execute();
+    expect(left.map((r) => r.alert_id).sort()).toEqual([recent, open].sort());
+    const session = await h.db
+      .selectFrom('chat_sessions')
+      .select(['token_hash', 'purged_at'])
+      .where('alert_id', '=', closed)
+      .executeTakeFirstOrThrow();
+    expect(session.token_hash).toBeNull();
+    expect(session.purged_at).not.toBeNull();
+    // The alert itself stays (its own 90-day rule).
+    expect(await alertRow(closed)).toBeDefined();
+  });
+
+  it('deletes app devices not seen for 90 days', async () => {
+    const f = await fixture();
+    await h.db
+      .insertInto('user_devices')
       .values([
-        { company_name: 'A', contact_email: 'a@firma.de', created_at: ago('31 days') },
         {
-          company_name: 'B',
-          contact_email: 'b@firma.de',
-          created_at: ago('31 days'),
-          confirmed_at: ago('30 days'),
+          user_id: f.userId,
+          fcm_token: 'a'.repeat(40),
+          platform: 'ios',
+          last_seen_at: ago('91 days'),
+        },
+        {
+          user_id: f.userId,
+          fcm_token: 'b'.repeat(40),
+          platform: 'android',
+          last_seen_at: ago('89 days'),
         },
       ])
       .execute();
     await run();
-    expect(
-      (await h.db.selectFrom('business_waitlist').select('company_name').execute()).map(
-        (r) => r.company_name,
-      ),
-    ).toEqual(['B']);
+    expect(await count('user_devices')).toBe(1);
   });
 
   it('deletes never-verified sign-ups after 24 h', async () => {

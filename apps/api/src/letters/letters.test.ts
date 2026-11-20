@@ -40,7 +40,6 @@ beforeAll(async () => {
     MAIL_PROVIDER: 'brevo',
     BREVO_API_KEY: '',
     STRIPE_SECRET_KEY: '',
-    D360_API_KEY: '',
     TWILIO_ACCOUNT_SID: '',
     PRINT_PARTNER: '',
   });
@@ -241,8 +240,6 @@ describe('snapshot and content', () => {
     expect(planBenefits('premium')).toEqual(
       [1, 2, 3, 4, 5].map((i) => de(`landing.premiumF${i}` as never)),
     );
-    // Business has no feature list on the pricing page yet (waitlist only): no list on the letter.
-    expect(planBenefits('business')).toEqual([]);
     for (const line of [...planBenefits('plus'), ...planBenefits('premium')]) {
       expect(line).not.toMatch(/^landing\./);
     }

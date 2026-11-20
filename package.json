@@ -6,7 +6,9 @@
     "node": ">=24"
   },
   "workspaces": [
-    "apps/*",
+    "apps/api",
+    "apps/web",
+    "apps/ops",
     "packages/*",
     "e2e"
   ],

@@ -13,6 +13,10 @@ const texts = {
       title: `Erinnerung: ${nickname}`,
       body: `Die Person wartet noch (${type}).`,
     }),
+    reminder: (type: string, nickname: string) => ({
+      title: `Erinnerung: ${type}`,
+      body: `Bitte reagieren Sie (${nickname}).`,
+    }),
   },
   en: {
     alert: (type: string, nickname: string) => ({
@@ -27,8 +31,43 @@ const texts = {
       title: `Reminder: ${nickname}`,
       body: `The person is still waiting (${type}).`,
     }),
+    reminder: (type: string, nickname: string) => ({
+      title: `Reminder: ${type}`,
+      body: `Please respond (${nickname}).`,
+    }),
   },
 };
+
+/**
+ * Native app push (FCM is a Google service): a generic title and the alert type only. Never the
+ * scanner's message, a photo, the licence plate, the vehicle nickname or any name. The app loads the
+ * details from our API after opening.
+ */
+const APP_TEXTS = {
+  de: {
+    alert: (type: string) => `Neuer Alarm für Ihr Fahrzeug: ${type}`,
+    test: () => 'Testalarm angekommen. So erreichen Sie Warnungen.',
+    reminder: (type: string) => `Erinnerung: ${type}. Bitte reagieren Sie.`,
+    followup: (type: string) => `Die Person am Fahrzeug wartet noch: ${type}`,
+    chat: () => 'Neue Nachricht im Chat zu Ihrem Alarm',
+  },
+  en: {
+    alert: (type: string) => `New alert for your vehicle: ${type}`,
+    test: () => 'Test alert received. This is how alerts reach you.',
+    reminder: (type: string) => `Reminder: ${type}. Please respond.`,
+    followup: (type: string) => `The person at the vehicle is still waiting: ${type}`,
+    chat: () => 'New message in the chat about your alert',
+  },
+} as const;
+
+export type AppPushKind = keyof (typeof APP_TEXTS)['de'];
+
+export function appPushText(lang: 'de' | 'en', kind: AppPushKind, type: string) {
+  return { title: 'ParkShield', body: APP_TEXTS[lang][kind](type) };
+}
+
+/** iOS notification category (Android click action) with the "Ich komme" action button. */
+export const APP_ALERT_CATEGORY = 'PS_ALERT';
 
 export type PushKind = keyof (typeof texts)['de'];
 

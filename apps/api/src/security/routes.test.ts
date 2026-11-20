@@ -23,6 +23,14 @@ const PUBLIC: Record<string, Control> = {
     captcha: true,
   },
   'POST /v1/auth/magic-link/consume': { kind: 'rate', limits: ['auth.ip'] },
+  // The native app has no captcha widget; the same per-network and per-address limits apply.
+  'POST /v1/app/auth/magic-link': { kind: 'rate', limits: ['magic_link.ip', 'magic_link.email'] },
+  'POST /v1/app/auth/consume': { kind: 'rate', limits: ['auth.ip'] },
+  // App sign-in by e-mail: code (5 tries per code + per network) and the bridge page's link.
+  'POST /v1/auth/email/request': { kind: 'rate', limits: ['magic_link.ip', 'magic_link.email'] },
+  'POST /v1/auth/email/verify-code': { kind: 'rate', limits: ['auth.code_ip'] },
+  'POST /v1/auth/email/verify-link': { kind: 'rate', limits: ['auth.ip'] },
+  'GET /v1/auth/email/return/:rid': { kind: 'rate', limits: ['auth.ip'] },
   'POST /v1/auth/passkey/login/options': { kind: 'rate', limits: ['auth.ip'] },
   'POST /v1/auth/passkey/login/verify': { kind: 'rate', limits: ['auth.ip'] },
   // § 312k / § 356a BGB: no captcha or login before a cancellation or withdrawal; IP-hash limit only.
@@ -32,21 +40,10 @@ const PUBLIC: Record<string, Control> = {
   'GET /v1/legal/context': { kind: 'static' },
   'GET /v1/legal/checkout-texts': { kind: 'static' },
   'POST /v1/webhooks/stripe': { kind: 'signed', what: 'Stripe-Signature (HMAC over the raw body)' },
-  'POST /v1/webhooks/whatsapp/:secret': { kind: 'signed', what: 'shared secret in the path' },
-  'POST /v1/webhooks/twilio/whatsapp': {
-    kind: 'signed',
-    what: 'X-Twilio-Signature (HMAC-SHA1 with the auth token)',
-  },
   'POST /v1/webhooks/twilio/sms': {
     kind: 'signed',
     what: 'X-Twilio-Signature (HMAC-SHA1 with the auth token)',
   },
-  'POST /v1/business-waitlist': {
-    kind: 'rate',
-    limits: ['waitlist.ip', 'waitlist.email'],
-    captcha: true,
-  },
-  'POST /v1/business-waitlist/confirm': { kind: 'token', what: 'double opt-in token, 256 bit' },
   'GET /v1/scan/:code': { kind: 'rate', limits: ['scan.not_found'] },
   'POST /v1/scan/:code/alerts': {
     kind: 'rate',
@@ -80,6 +77,18 @@ const PUBLIC: Record<string, Control> = {
     kind: 'token',
     what: 'consent token, 256 bit',
   },
+  'POST /v1/emergency-contact-invitations/accept': {
+    kind: 'token',
+    what: 'consent token, 256 bit',
+  },
+  'POST /v1/emergency-contact-invitations/decline': {
+    kind: 'token',
+    what: 'consent token, 256 bit',
+  },
+  // A trusted contact's escalation link (/k/…): "Ich komme" and opt-out.
+  'POST /v1/contacts/alert/preview': { kind: 'token', what: 'HMAC contact link token, 256 bit' },
+  'POST /v1/contacts/alert/ack': { kind: 'token', what: 'HMAC contact link token, 256 bit' },
+  'POST /v1/contacts/opt-out': { kind: 'token', what: 'HMAC contact link token, 256 bit' },
   'POST /v1/me/dsr/confirm': { kind: 'token', what: 'HMAC request token' },
   'POST /v1/me/deletion/cancel': { kind: 'token', what: 'HMAC request token' },
   'GET /v1/claim/:code': { kind: 'rate', limits: ['scan.not_found'] },

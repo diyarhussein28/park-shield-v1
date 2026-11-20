@@ -64,11 +64,14 @@ export function DeliveryHelpView({ data }: { data: DeliveryHelp }) {
                   ? t('deliveryHelp.pushFailing', { count: s.pushFailing })
                   : t('deliveryHelp.okPush', { count: s.pushDevices })}
             </Check>
-            <Check ok={s.whatsapp}>
-              {s.whatsapp ? t('deliveryHelp.okWhatsApp') : t('deliveryHelp.noWhatsApp')}
-              {s.whatsapp && s.whatsappUsage.limit > 0 && (
-                <> {t('deliveryHelp.whatsappUsage', s.whatsappUsage)}</>
-              )}
+            <Check ok={s.appDevices > 0 && s.appFailing === 0}>
+              {s.appDevices > 0
+                ? t('deliveryHelp.okApp', { count: s.appDevices })
+                : t('deliveryHelp.noApp')}
+            </Check>
+            <Check ok={s.sms}>
+              {s.sms ? t('deliveryHelp.okSms') : t('deliveryHelp.noSms')}
+              {s.sms && s.smsUsage.limit > 0 && <> {t('deliveryHelp.smsUsage', s.smsUsage)}</>}
             </Check>
             {s.quietHours > 0 && (
               <Check

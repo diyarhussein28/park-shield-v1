@@ -6,12 +6,7 @@ import type { DB as Schema } from '../db/types.generated';
 import { LegalTextsService } from './legal-texts.service';
 
 export type ConsentType =
-  | 'immediate_start'
-  | 'agb'
-  | 'privacy_notice'
-  | 'marketing_doi'
-  | 'whatsapp_opt_in'
-  | 'emergency_contact';
+  'immediate_start' | 'agb' | 'privacy_notice' | 'marketing_doi' | 'emergency_contact';
 
 /**
  * Append-only proof of what someone agreed to: the exact text version and its hash, when, in which

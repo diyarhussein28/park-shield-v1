@@ -232,7 +232,7 @@ export class HistoryService {
 
   /** SP-05: the latest attempts with reasons, plus what is set up right now. */
   async deliveries(userId: string) {
-    const [attempts, devices, whatsapp, rules, protection, usage] = await Promise.all([
+    const [attempts, devices, appDevices, sms, rules, protection, usage] = await Promise.all([
       this.db
         .selectFrom('alert_deliveries as d')
         .innerJoin('alerts as a', 'a.id', 'd.alert_id')
@@ -261,10 +261,15 @@ export class HistoryService {
         .where('user_id', '=', userId)
         .execute(),
       this.db
+        .selectFrom('user_devices')
+        .select(['platform', 'failed_count'])
+        .where('user_id', '=', userId)
+        .execute(),
+      this.db
         .selectFrom('contact_channels')
         .select('id')
         .where('user_id', '=', userId)
-        .where('type', '=', 'whatsapp')
+        .where('type', '=', 'sms')
         .where('verified_at', 'is not', null)
         .executeTakeFirst(),
       this.db.selectFrom('notification_rules').select('id').where('user_id', '=', userId).execute(),
@@ -272,7 +277,7 @@ export class HistoryService {
       this.fairUse.usage(userId),
     ]);
     const switchedOff: string[] = [];
-    for (const c of ['webpush', 'email', 'whatsapp']) {
+    for (const c of ['native_push', 'webpush', 'email', 'sms']) {
       const v = await this.settings.get<unknown>(`channels.${c}.enabled`, true);
       if (!(v === true || v === 'true')) switchedOff.push(c);
     }
@@ -290,11 +295,13 @@ export class HistoryService {
       setup: {
         pushDevices: devices.length,
         pushFailing: devices.filter((d) => d.failed_count > 0).length,
-        whatsapp: Boolean(whatsapp),
+        appDevices: appDevices.length,
+        appFailing: appDevices.filter((d) => d.failed_count > 0).length,
+        sms: Boolean(sms),
         quietHours: rules.length,
         decalTested: protection.steps.decal,
         switchedOff,
-        whatsappUsage: usage.whatsapp,
+        smsUsage: usage.sms,
       },
     };
   }

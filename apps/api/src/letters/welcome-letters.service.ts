@@ -345,8 +345,7 @@ export class WelcomeLettersService {
     const plan = sub.plan as Plan;
     const address = await this.address(userId, user.stripe_customer_id);
     const company = await this.company.current();
-    const price =
-      plan === 'business' ? 0 : await this.billing.priceFor(plan, sub.promo_code_id ?? undefined);
+    const price = await this.billing.priceFor(plan, sub.promo_code_id ?? undefined);
     const portal = new URL('/konto', this.env.WEB_BASE_URL);
     const snapshot: LetterSnapshot = {
       v: 1,

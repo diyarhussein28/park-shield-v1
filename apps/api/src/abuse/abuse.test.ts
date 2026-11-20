@@ -33,7 +33,6 @@ beforeAll(async () => {
     MAIL_PROVIDER: 'brevo',
     BREVO_API_KEY: '',
     STRIPE_SECRET_KEY: '',
-    D360_API_KEY: '',
     TWILIO_ACCOUNT_SID: '',
     PRINT_PARTNER: '',
   });
@@ -223,7 +222,8 @@ describe('Protected Mode (abuse protection §4)', () => {
     expect(status).toMatchObject({ active: true, source: 'auto' });
     const days = (new Date(status.activeUntil).getTime() - Date.now()) / 86_400_000;
     expect(days).toBeGreaterThan(29.9);
-    expect(days).toBeLessThanOrEqual(30);
+    // The database clock and the test's clock can differ by a millisecond.
+    expect(days).toBeLessThanOrEqual(30.0001);
   });
 
   it('two blocks more than 30 days apart do not switch it on', async () => {
@@ -253,6 +253,8 @@ describe('Protected Mode (abuse protection §4)', () => {
     // Every channel: push device, SMS number, WhatsApp is template-only, e-mail.
     const ecdh = createECDH('prime256v1');
     ecdh.generateKeys();
+    // SMS is PREMIUM only (channel matrix).
+    await h.db.updateTable('subscriptions').set({ plan: 'premium' }).execute();
     const sub = await h.app.inject({
       method: 'POST',
       url: '/v1/push-subscriptions',
@@ -301,12 +303,10 @@ describe('Protected Mode (abuse protection §4)', () => {
 
     const mails = (await mailbox(h)).filter((m) => m.tag === 'alert_received');
     const sms = (await smsInbox()).filter((m) => m.tag === 'sms_alert');
-    const whatsapp = (await h.app.inject({ method: 'GET', url: '/v1/dev/whatsapp' })).json()
-      .messages as unknown[];
     expect(mails).toHaveLength(1);
     expect(sms).toHaveLength(1);
     expect(pushed).toHaveLength(1);
-    const everything = JSON.stringify([mails, sms, pushed, whatsapp]);
+    const everything = JSON.stringify([mails, sms, pushed]);
     expect(everything).not.toContain('Hausnummer 12');
     expect(mails[0]!.text).toContain(
       'Nachricht von nicht bestätigtem Absender – ansehen in ParkShield',

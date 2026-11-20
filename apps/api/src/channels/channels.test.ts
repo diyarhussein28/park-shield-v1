@@ -7,17 +7,17 @@ import { CRYPTO } from '../core/tokens';
 import { DispatchService, PUSH_MAX_FAILURES } from '../notifications/dispatch.service';
 import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
 import { TWILIO_SMS_WEBHOOK_PATH } from '../providers/twilio-sms';
-import { twilioSignature } from '../providers/twilio-whatsapp';
+import { twilioSignature } from '../providers/twilio-signature';
 import {
   createHarness,
   lastMail,
+  makePremium,
   resetState,
   setSetting,
   signIn,
   TEST_TWILIO_AUTH_TOKEN,
   TEST_TWILIO_WEBHOOK_BASE,
   subscribe,
-  TEST_WA_WEBHOOK_SECRET,
   UA_IPHONE,
   type Harness,
   type Session,
@@ -117,14 +117,6 @@ const deliveries = (alertId: string) =>
     .where('alert_id', '=', alertId)
     .orderBy('queued_at')
     .execute();
-
-const waInbox = async () =>
-  (await h.app.inject({ method: 'GET', url: '/v1/dev/whatsapp' })).json().messages as {
-    to: string;
-    template: string;
-    params: string[];
-    messageId: string;
-  }[];
 
 const smsInbox = async () =>
   (await h.app.inject({ method: 'GET', url: '/v1/dev/sms' })).json().messages as {
@@ -280,195 +272,6 @@ describe('dispatch on all channels (US-20, US-21, NT-06, NT-12)', () => {
   });
 });
 
-describe('WhatsApp linking (US-21)', () => {
-  async function link(s: Session, phone = '0151 23456789') {
-    const start = await h.app.inject({
-      method: 'POST',
-      url: '/v1/channels/whatsapp',
-      headers: s.headers,
-      payload: { phone, consent: true },
-    });
-    expect(start.statusCode).toBe(200);
-    const otp = (await waInbox()).find((m) => m.template === 'ps_otp')!;
-    return { start, otp };
-  }
-
-  it('needs consent and a valid mobile number', async () => {
-    const s = await signIn(h, 'owner@example.de');
-    const noConsent = await h.app.inject({
-      method: 'POST',
-      url: '/v1/channels/whatsapp',
-      headers: s.headers,
-      payload: { phone: '0151 23456789' },
-    });
-    expect(noConsent.statusCode).toBe(400);
-    const landline = await h.app.inject({
-      method: 'POST',
-      url: '/v1/channels/whatsapp',
-      headers: s.headers,
-      payload: { phone: '030 1234567', consent: true },
-    });
-    expect(landline.json().error).toBe('phone_invalid');
-    expect(await waInbox()).toHaveLength(0);
-  });
-
-  it('verifies the OTP, records the opt-in, sends a test message, and unlinks with one tap', async () => {
-    const s = await signIn(h, 'owner@example.de');
-    const { start, otp } = await link(s);
-    expect(start.json().phone).toBe('+49 ••• 6789');
-    expect(otp.to).toBe('4915123456789');
-    const code = otp.params[0]!;
-    expect(code).toMatch(/^\d{6}$/);
-
-    const wrong = code === '000000' ? '111111' : '000000';
-    const bad = await h.app.inject({
-      method: 'POST',
-      url: '/v1/channels/whatsapp/verify',
-      headers: s.headers,
-      payload: { code: wrong },
-    });
-    expect(bad.json()).toEqual({ error: 'code_wrong', attemptsLeft: 4 });
-
-    const ok = await h.app.inject({
-      method: 'POST',
-      url: '/v1/channels/whatsapp/verify',
-      headers: s.headers,
-      payload: { code },
-    });
-    expect(ok.statusCode).toBe(200);
-    expect((await waInbox())[0]?.template).toBe('ps_test');
-    const channel = await h.db.selectFrom('contact_channels').selectAll().executeTakeFirstOrThrow();
-    expect(channel.verified_at).not.toBeNull();
-    expect(channel.opted_in_at).not.toBeNull();
-    expect(channel.address_enc!.toString('latin1')).not.toContain('15123456789');
-    const consent = await h.db.selectFrom('consents').selectAll().executeTakeFirstOrThrow();
-    expect(consent).toMatchObject({ purpose: 'whatsapp', withdrawn_at: null });
-    const overview = (
-      await h.app.inject({ method: 'GET', url: '/v1/channels', headers: s.headers })
-    ).json();
-    expect(overview.whatsapp.phone).toBe('+49 ••• 6789');
-
-    // The code works only once.
-    const replay = await h.app.inject({
-      method: 'POST',
-      url: '/v1/channels/whatsapp/verify',
-      headers: s.headers,
-      payload: { code },
-    });
-    expect(replay.json().error).toBe('code_expired');
-
-    const unlink = await h.app.inject({
-      method: 'DELETE',
-      url: '/v1/channels/whatsapp',
-      headers: s.headers,
-    });
-    expect(unlink.statusCode).toBe(200);
-    expect(await h.db.selectFrom('contact_channels').selectAll().execute()).toHaveLength(0);
-    const withdrawn = await h.db
-      .selectFrom('consents')
-      .select('withdrawn_at')
-      .executeTakeFirstOrThrow();
-    expect(withdrawn.withdrawn_at).not.toBeNull();
-  });
-
-  it('locks the code after 5 wrong attempts and limits code requests', async () => {
-    const s = await signIn(h, 'owner@example.de');
-    await link(s);
-    for (let i = 0; i < 5; i++) {
-      await h.app.inject({
-        method: 'POST',
-        url: '/v1/channels/whatsapp/verify',
-        headers: s.headers,
-        payload: { code: '999999' },
-      });
-    }
-    const otp = (await waInbox()).find((m) => m.template === 'ps_otp')!;
-    const late = await h.app.inject({
-      method: 'POST',
-      url: '/v1/channels/whatsapp/verify',
-      headers: s.headers,
-      payload: { code: otp.params[0] },
-    });
-    expect(late.json().error).toBe('code_expired');
-
-    await link(s);
-    await link(s);
-    const fourth = await h.app.inject({
-      method: 'POST',
-      url: '/v1/channels/whatsapp',
-      headers: s.headers,
-      payload: { phone: '0151 23456789', consent: true },
-    });
-    expect(fourth.statusCode).toBe(429);
-    expect(fourth.json().limit).toBe('whatsapp.otp_user');
-  });
-
-  it('delivers alerts on WhatsApp with cost, and tracks statuses from the webhook', async () => {
-    const { s, code } = await vehicleWithCode();
-    const { otp } = await link(s);
-    await h.app.inject({
-      method: 'POST',
-      url: '/v1/channels/whatsapp/verify',
-      headers: s.headers,
-      payload: { code: otp.params[0] },
-    });
-    // Urgent, so WhatsApp is used alongside e-mail (a normal alert stops at the first channel).
-    const id = await alert(code, 'blocking');
-    await h.app.get(DispatchService).dispatch(id);
-    const msg = (await waInbox())[0]!;
-    expect(msg).toMatchObject({ template: 'ps_alert', to: '4915123456789' });
-    expect(msg.params).toEqual(['Fahrzeug versperrt Ausfahrt', 'Der Blaue']);
-    const wa = (await deliveries(id)).find((r) => r.channel === 'whatsapp')!;
-    expect(wa).toMatchObject({
-      status: 'sent',
-      cost_micros_eur: 55_000,
-      provider_message_id: msg.messageId,
-    });
-
-    const hook = (statuses: unknown[], secret = TEST_WA_WEBHOOK_SECRET) =>
-      h.app.inject({
-        method: 'POST',
-        url: `/v1/webhooks/whatsapp/${secret}`,
-        payload: { entry: [{ changes: [{ value: { statuses } }] }] },
-      });
-    expect((await hook([], 'wrong')).statusCode).toBe(404);
-    const ts = Math.floor(Date.now() / 1000);
-    expect((await hook([{ id: msg.messageId, status: 'read', timestamp: ts }])).statusCode).toBe(
-      200,
-    );
-    // Out of order: a late "delivered" must not move it back.
-    await hook([{ id: msg.messageId, status: 'delivered', timestamp: ts - 5 }]);
-    const row = await h.db
-      .selectFrom('alert_deliveries')
-      .select(['status', 'delivered_at', 'read_at'])
-      .where('channel', '=', 'whatsapp')
-      .executeTakeFirstOrThrow();
-    expect(row.status).toBe('read');
-    expect(row.read_at).not.toBeNull();
-    expect(row.delivered_at).not.toBeNull();
-  });
-
-  it('records a WhatsApp kill switch as suppressed', async () => {
-    const { s, code } = await vehicleWithCode();
-    const { otp } = await link(s);
-    await h.app.inject({
-      method: 'POST',
-      url: '/v1/channels/whatsapp/verify',
-      headers: s.headers,
-      payload: { code: otp.params[0] },
-    });
-    await setSetting(h, 'channels.whatsapp.enabled', false);
-    const before = (await waInbox()).length;
-    const id = await alert(code, 'blocking');
-    await h.app.get(DispatchService).dispatch(id);
-    expect((await waInbox()).length).toBe(before);
-    expect((await deliveries(id)).find((r) => r.channel === 'whatsapp')).toMatchObject({
-      status: 'suppressed',
-      suppressed_reason: 'kill_switch',
-    });
-  });
-});
-
 describe('SMS (NT-07)', () => {
   async function linkSms(s: Session, phone = '0151 23456789') {
     const start = await h.app.inject({
@@ -515,8 +318,8 @@ describe('SMS (NT-07)', () => {
       await h.app.inject({ method: 'GET', url: '/v1/channels', headers: s.headers })
     ).json();
     expect(overview.sms.phone).toBe('+49 ••• 6789');
-    expect(overview.whatsapp).toBeNull();
-    expect(overview.order).toEqual(['webpush', 'email', 'whatsapp', 'sms']);
+    expect(overview).not.toHaveProperty('whatsapp');
+    expect(overview.order).toEqual(['native_push', 'webpush', 'email', 'sms']);
 
     await h.app.inject({ method: 'DELETE', url: '/v1/channels/sms', headers: s.headers });
     expect(await h.db.selectFrom('contact_channels').selectAll().execute()).toHaveLength(0);
@@ -540,8 +343,24 @@ describe('SMS (NT-07)', () => {
     expect(fourth.json().limit).toBe('sms.otp_user');
   });
 
-  it('texts urgent alerts with the reply link and cost, and tracks signed status callbacks', async () => {
+  it('never texts a PLUS owner (channel matrix: push + e-mail only)', async () => {
     const { s, code: decal } = await vehicleWithCode();
+    const { code } = await linkSms(s);
+    await h.app.inject({
+      method: 'POST',
+      url: '/v1/channels/sms/verify',
+      headers: s.headers,
+      payload: { code },
+    });
+    const id = await alert(decal, 'blocking');
+    await h.app.get(DispatchService).dispatch(id);
+    expect((await smsInbox()).filter((m) => m.tag === 'sms_alert')).toHaveLength(0);
+    expect((await deliveries(id)).map((r) => r.channel)).toEqual(['email']);
+  });
+
+  it('texts PREMIUM alerts in one GSM-7 segment with the view link and cost, and tracks signed status callbacks', async () => {
+    const { s, code: decal } = await vehicleWithCode();
+    await makePremium(h, 'owner@example.de');
     const { code } = await linkSms(s);
     await h.app.inject({
       method: 'POST',
@@ -553,8 +372,9 @@ describe('SMS (NT-07)', () => {
     await h.app.get(DispatchService).dispatch(id);
     const msg = (await smsInbox())[0]!;
     expect(msg).toMatchObject({ tag: 'sms_alert', to: '+4915123456789' });
-    expect(msg.body).toContain('Fahrzeug versperrt Ausfahrt (Der Blaue)');
-    expect(msg.body).toMatch(/\/antwort#t=[A-Za-z0-9_-]{66}$/);
+    expect(msg.body).toContain('Fahrzeug versperrt Ausfahrt (Der Blaue). Details:');
+    expect(msg.body).toMatch(/\/v\/[A-Za-z0-9_-]{43}$/);
+    expect(msg.body.length).toBeLessThanOrEqual(160);
     const row = (await deliveries(id)).find((r) => r.channel === 'sms')!;
     expect(row).toMatchObject({
       status: 'sent',
@@ -582,6 +402,7 @@ describe('SMS (NT-07)', () => {
 
   it('stops at the monthly SMS limit and falls through to the other channels', async () => {
     const { s, code: decal } = await vehicleWithCode();
+    await makePremium(h, 'owner@example.de');
     const { code } = await linkSms(s);
     await h.app.inject({
       method: 'POST',
@@ -589,7 +410,7 @@ describe('SMS (NT-07)', () => {
       headers: s.headers,
       payload: { code },
     });
-    await setSetting(h, 'limits.plus.sms_per_month', 1);
+    await setSetting(h, 'limits.premium.sms_per_month', 1);
     const first = await alert(decal, 'blocking', '198.51.100.9');
     await h.app.get(DispatchService).dispatch(first);
     const second = await alert(decal, 'blocking', '192.0.2.44');
@@ -607,17 +428,16 @@ describe('SMS (NT-07)', () => {
   });
 });
 
-describe('one mobile number for SMS and WhatsApp (US-21, NT-07)', () => {
-  it('links both channels with one SMS code and sends one confirmation each', async () => {
+describe('one mobile number for SMS (NT-07)', () => {
+  it('links the number with one SMS code through the phone set-up', async () => {
     const s = await signIn(h, 'owner@example.de');
     const start = await h.app.inject({
       method: 'POST',
       url: '/v1/channels/phone',
       headers: s.headers,
-      payload: { phone: '0151 23456789', channels: ['whatsapp', 'sms'], consent: true },
+      payload: { phone: '0151 23456789', channels: ['sms'], consent: true },
     });
     expect(start.json()).toEqual({ phone: '+49 ••• 6789', via: 'sms' });
-    expect(await waInbox()).toHaveLength(0);
     const otp = (await smsInbox()).find((m) => m.tag === 'sms_otp')!;
     const code = /(\d{6})/.exec(otp.body)![1]!;
     const ok = await h.app.inject({
@@ -626,70 +446,46 @@ describe('one mobile number for SMS and WhatsApp (US-21, NT-07)', () => {
       headers: s.headers,
       payload: { code },
     });
-    expect(ok.json()).toEqual({ channels: ['whatsapp', 'sms'] });
+    expect(ok.json()).toEqual({ channels: ['sms'] });
     const rows = await h.db.selectFrom('contact_channels').select('type').execute();
-    expect(rows.map((r) => r.type).sort()).toEqual(['sms', 'whatsapp']);
-    const consents = await h.db.selectFrom('consents').select('purpose').execute();
-    expect(consents.map((c) => c.purpose).sort()).toEqual(['sms', 'whatsapp']);
-    expect((await smsInbox())[0]?.tag).toBe('sms_linked');
-    expect((await waInbox())[0]?.template).toBe('ps_test');
-
+    expect(rows.map((r) => r.type)).toEqual(['sms']);
     const overview = (
       await h.app.inject({ method: 'GET', url: '/v1/channels', headers: s.headers })
     ).json();
-    expect(overview.available).toEqual({ whatsapp: true, sms: true });
-    const protection = (
-      await h.app.inject({ method: 'GET', url: '/v1/me/protection', headers: s.headers })
-    ).json();
-    expect(protection.steps.channel).toBe(true);
+    expect(overview.available).toEqual({ sms: true });
   });
 
-  it('adds the second channel later without a new code, only for a confirmed number', async () => {
+  it('refuses WhatsApp everywhere (removed)', async () => {
     const s = await signIn(h, 'owner@example.de');
-    const add = (channel: string) =>
-      h.app.inject({
-        method: 'POST',
-        url: '/v1/channels/phone/add',
-        headers: s.headers,
-        payload: { channel, consent: true },
-      });
-    expect((await add('whatsapp')).json().error).toBe('phone_missing');
-
-    await h.app.inject({
-      method: 'POST',
-      url: '/v1/channels/phone',
-      headers: s.headers,
-      payload: { phone: '0151 23456789', channels: ['sms'], consent: true },
-    });
-    const otp = (await smsInbox()).find((m) => m.tag === 'sms_otp')!;
-    await h.app.inject({
-      method: 'POST',
-      url: '/v1/channels/phone/verify',
-      headers: s.headers,
-      payload: { code: /(\d{6})/.exec(otp.body)![1] },
-    });
-    expect((await add('whatsapp')).statusCode).toBe(200);
-    const wa = await h.db
-      .selectFrom('contact_channels')
-      .select(['verified_at', 'opted_in_at'])
-      .where('type', '=', 'whatsapp')
-      .executeTakeFirstOrThrow();
-    expect(wa.opted_in_at).not.toBeNull();
-    expect((await waInbox())[0]?.template).toBe('ps_test');
-  });
-
-  it('does not offer a switched-off channel', async () => {
-    const s = await signIn(h, 'owner@example.de');
-    await setSetting(h, 'channels.whatsapp.enabled', false);
-    const overview = (
-      await h.app.inject({ method: 'GET', url: '/v1/channels', headers: s.headers })
-    ).json();
-    expect(overview.available).toEqual({ whatsapp: false, sms: true });
     const start = await h.app.inject({
       method: 'POST',
       url: '/v1/channels/phone',
       headers: s.headers,
       payload: { phone: '0151 23456789', channels: ['whatsapp'], consent: true },
+    });
+    expect(start.statusCode).toBe(400);
+    for (const url of [
+      '/v1/channels/whatsapp',
+      '/v1/webhooks/twilio/whatsapp',
+      '/v1/webhooks/whatsapp/x',
+    ]) {
+      const r = await h.app.inject({ method: 'POST', url, headers: s.headers, payload: {} });
+      expect(r.statusCode).toBe(404);
+    }
+  });
+
+  it('does not offer a switched-off channel', async () => {
+    const s = await signIn(h, 'owner@example.de');
+    await setSetting(h, 'channels.sms.enabled', false);
+    const overview = (
+      await h.app.inject({ method: 'GET', url: '/v1/channels', headers: s.headers })
+    ).json();
+    expect(overview.available).toEqual({ sms: false });
+    const start = await h.app.inject({
+      method: 'POST',
+      url: '/v1/channels/phone',
+      headers: s.headers,
+      payload: { phone: '0151 23456789', channels: ['sms'], consent: true },
     });
     expect(start.json().error).toBe('channel_unavailable');
   });

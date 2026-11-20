@@ -8,8 +8,9 @@ import { SettingsService } from '../core/settings.service';
 import { DB, ENV, LOGGER } from '../core/tokens';
 import { MailService } from '../mail/mail.service';
 
-export type MeteredChannel = 'whatsapp' | 'sms';
-const CHANNEL_NAME: Record<MeteredChannel, string> = { whatsapp: 'WhatsApp', sms: 'SMS' };
+/** Paid channels with a monthly fair-use limit (NT-05). WhatsApp was removed; SMS is PREMIUM only. */
+export type MeteredChannel = 'sms';
+const CHANNEL_NAME: Record<MeteredChannel, string> = { sms: 'SMS' };
 
 /** Current month as YYYY-MM-01 in German time (counters reset at local midnight on the 1st). */
 export function usagePeriod(now = new Date()): string {
@@ -47,8 +48,8 @@ export class FairUseService {
   }
 
   async usage(userId: string) {
-    const [whatsapp, sms] = await Promise.all(
-      (['whatsapp', 'sms'] as const).map(async (channel) => {
+    const [sms] = await Promise.all(
+      (['sms'] as const).map(async (channel) => {
         const limit = await this.limitFor(userId, channel);
         const row = await this.db
           .selectFrom('usage_counters')
@@ -60,7 +61,7 @@ export class FairUseService {
         return { used: row?.value ?? 0, limit };
       }),
     );
-    return { whatsapp: whatsapp!, sms: sms! };
+    return { sms: sms! };
   }
 
   /** true = within the limit and counted; false = limit reached (the caller suppresses the channel). */
@@ -108,8 +109,7 @@ export class FairUseService {
     values: { used: number; limit: number },
   ) {
     // The marker row makes the mail once-per-month per channel, even with concurrent alerts.
-    // WhatsApp keeps its original marker name so existing counters stay valid.
-    const marker = channel === 'whatsapp' ? template : `${template}:${channel}`;
+    const marker = `${template}:${channel}`;
     const marked = await sql`
       INSERT INTO usage_counters (subject_id, period, metric, value)
       VALUES (${owner.id}, ${period}::date, ${marker}, 1)

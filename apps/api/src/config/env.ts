@@ -61,17 +61,14 @@ export const envSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().min(20),
   VAPID_PRIVATE_KEY: z.string().min(20),
   VAPID_SUBJECT: z.string().default('mailto:contact@park-shield.de'),
-  // WhatsApp provider: Twilio (no monthly fee) or 360dialog (BSP, Berlin). Both use the same four
-  // Meta-approved templates (docs/whatsapp-templates.md).
-  WHATSAPP_PROVIDER: z.preprocess(
-    (v) => (v === '' ? undefined : v),
-    // off: WhatsApp is not offered at all (e.g. until Meta approves the sender); SMS, push and e-mail work.
-    z.enum(['twilio', '360dialog', 'off']).default('twilio'),
-  ),
+  // Native app push: Firebase Cloud Messaging HTTP v1 (iOS through APNs via FCM). A service account of
+  // the Firebase project; the private key may contain literal "\n". Empty: local fake (dev inbox).
+  // TODO [LEGAL REVIEW] FCM is a Google service: DPA, transfer basis and the privacy notice.
+  FCM_PROJECT_ID: z.string().default(''),
+  FCM_CLIENT_EMAIL: z.string().default(''),
+  FCM_PRIVATE_KEY: z.string().default(''),
   TWILIO_ACCOUNT_SID: z.string().default(''),
   TWILIO_AUTH_TOKEN: z.string().default(''),
-  /** The WhatsApp sender number in E.164 form, e.g. +4915123456789. */
-  TWILIO_WHATSAPP_FROM: z.string().default(''),
   /**
    * SMS sender (NT-07): an alphanumeric sender ID (max. 11 characters, e.g. ParkShield), a Twilio
    * number in E.164 form, or a Messaging Service SID (MG…). Uses the same Twilio account.
@@ -80,24 +77,8 @@ export const envSchema = z.object({
   // Twilio Verify service (VA…) for the optional phone check of scanners in Protected Mode. Empty: the
   // check is faked locally and switched off in production (Protected Mode then hides for everyone).
   TWILIO_VERIFY_SERVICE_SID: z.string().default(''),
-  /** Public https origin Twilio calls (status callbacks, button replies); empty: WEB_BASE_URL. */
+  /** Public https origin Twilio calls (SMS status callbacks); empty: WEB_BASE_URL. */
   TWILIO_WEBHOOK_BASE_URL: z.string().default(''),
-  // Content SIDs (HX…) of the approved templates, one per template and language.
-  TWILIO_CONTENT_PS_ALERT_DE: z.string().default(''),
-  TWILIO_CONTENT_PS_ALERT_EN: z.string().default(''),
-  TWILIO_CONTENT_PS_FOLLOWUP_DE: z.string().default(''),
-  TWILIO_CONTENT_PS_FOLLOWUP_EN: z.string().default(''),
-  TWILIO_CONTENT_PS_TEST_DE: z.string().default(''),
-  TWILIO_CONTENT_PS_TEST_EN: z.string().default(''),
-  TWILIO_CONTENT_PS_OTP_DE: z.string().default(''),
-  TWILIO_CONTENT_PS_OTP_EN: z.string().default(''),
-  // Alert with photos: same body and quick replies as ps_alert plus a URL button to /v/{{6}}. Only
-  // required in production while ALERT_PHOTOS_ENABLED is on.
-  TWILIO_CONTENT_PS_ALERT_PHOTOS_DE: z.string().default(''),
-  TWILIO_CONTENT_PS_ALERT_PHOTOS_EN: z.string().default(''),
-  D360_API_KEY: z.string().default(''),
-  D360_BASE_URL: z.url().default('https://waba-v2.360dialog.io'),
-  D360_WEBHOOK_SECRET: z.string().default(''),
   /** '' = local fake; 'manual' = print files and job tickets in PRINT_OUTBOX_DIR, shipped by staff. */
   PRINT_PARTNER: z.string().default(''),
   PRINT_OUTBOX_DIR: z.string().default(''),
@@ -120,6 +101,9 @@ export const envSchema = z.object({
   ZAMMAD_GROUP: z.string().default('Support'),
   // US-45: Better Stack heartbeat (infra/monitoring output worker_heartbeat_url); empty: no heartbeat.
   HEARTBEAT_URL_WORKER: z.string().default(''),
+  // Live chat timeouts (inactivity, max. duration): how often the API checks. 0 = never (unit tests
+  // call the sweep directly, so it cannot run into a test's database reset).
+  CHAT_SWEEP_MS: z.coerce.number().int().min(0).default(10_000),
   // Phase 2: optional photos with alerts. Off by default; which plans get it is the setting photos.plans.
   ALERT_PHOTOS_ENABLED: z
     .enum(['true', 'false', '1', '0', ''])
@@ -142,12 +126,7 @@ export function fakeProviders(env: Env) {
           : !env.BREVO_API_KEY,
     captcha: !env.FRIENDLY_CAPTCHA_API_KEY || !env.FRIENDLY_CAPTCHA_SITEKEY,
     payments: !env.STRIPE_SECRET_KEY,
-    whatsapp:
-      env.WHATSAPP_PROVIDER === 'off'
-        ? false
-        : env.WHATSAPP_PROVIDER === 'twilio'
-          ? !env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN || !env.TWILIO_WHATSAPP_FROM
-          : !env.D360_API_KEY,
+    fcm: !env.FCM_PROJECT_ID || !env.FCM_CLIENT_EMAIL || !env.FCM_PRIVATE_KEY,
     sms: !env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN || !env.TWILIO_SMS_FROM,
     // No real print partner adapter yet: it is built once the partner is chosen in Phase 0.
     print: !env.PRINT_PARTNER,
@@ -196,13 +175,6 @@ export function loadEnv(overrides: Partial<Record<keyof Env, string>> = {}): Env
   const realProduction = parsed.data.NODE_ENV === 'production' && parsed.data.APP_ENV !== 'ci';
   if (realProduction && fakes.length) {
     throw new Error(`Missing provider keys in production: ${fakes.map(([p]) => p).join(', ')}`);
-  }
-  if (realProduction && parsed.data.WHATSAPP_PROVIDER === 'twilio') {
-    const missing = Object.entries(parsed.data)
-      .filter(([k, v]) => k.startsWith('TWILIO_CONTENT_') && !v)
-      .filter(([k]) => parsed.data.ALERT_PHOTOS_ENABLED || !k.includes('_PS_ALERT_PHOTOS_'))
-      .map(([k]) => k);
-    if (missing.length) throw new Error(`Missing Twilio template SIDs: ${missing.join(', ')}`);
   }
   if (realProduction && !parsed.data.PHONE_PEPPER) {
     throw new Error('PHONE_PEPPER is required in production (32 random bytes, base64)');

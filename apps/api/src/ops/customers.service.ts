@@ -313,8 +313,8 @@ export class CustomersService {
       vehicles,
       tokens,
       push,
-      whatsapp,
-      waStats,
+      sms,
+      smsStats,
       contacts,
       orders,
       refunds,
@@ -372,14 +372,14 @@ export class CustomersService {
         .selectFrom('contact_channels')
         .select(['id', 'address_enc', 'verified_at', 'opted_in_at', 'is_enabled'])
         .where('user_id', '=', userId)
-        .where('type', '=', 'whatsapp')
+        .where('type', '=', 'sms')
         .where('verified_at', 'is not', null)
         .executeTakeFirst(),
       sql<{ last_ok: Date | null; errors: number }>`
           SELECT max(d.sent_at) FILTER (WHERE d.status IN ('sent','delivered','read')) AS last_ok,
                  count(*) FILTER (WHERE d.status = 'failed')::int AS errors
             FROM alert_deliveries d JOIN alerts a ON a.id = d.alert_id JOIN vehicles v ON v.id = a.vehicle_id
-           WHERE v.owner_user_id = ${userId} AND d.channel = 'whatsapp' AND d.recipient = 'owner'`.execute(
+           WHERE v.owner_user_id = ${userId} AND d.channel = 'sms' AND d.recipient = 'owner'`.execute(
         db,
       ),
       db
@@ -388,6 +388,7 @@ export class CustomersService {
           'id',
           'display_name',
           'address_enc',
+          'phone_enc',
           'consent',
           'consent_requested_at',
           'consent_decided_at',
@@ -452,7 +453,7 @@ export class CustomersService {
     ]);
     await this.staff.auditRead(by.userId, 'customer.view', 'users', userId);
     const dec = (b: Buffer | null) => (b && b.length ? this.crypto.decrypt(b) : null);
-    const wa = waStats.rows[0];
+    const sm = smsStats.rows[0];
     return {
       customer: {
         id: u.id,
@@ -509,21 +510,22 @@ export class CustomersService {
           lastOkAt: p.last_ok_at,
           errorCount: p.failed_count,
         })),
-        whatsapp: whatsapp
+        sms: sms
           ? {
-              id: whatsapp.id,
-              phoneMasked: maskPhone(dec(whatsapp.address_enc) ?? ''),
-              verifiedAt: whatsapp.verified_at,
-              enabled: whatsapp.is_enabled,
-              lastOkAt: wa?.last_ok ?? null,
-              errorCount: wa?.errors ?? 0,
+              id: sms.id,
+              phoneMasked: maskPhone(dec(sms.address_enc) ?? ''),
+              verifiedAt: sms.verified_at,
+              enabled: sms.is_enabled,
+              lastOkAt: sm?.last_ok ?? null,
+              errorCount: sm?.errors ?? 0,
             }
           : null,
       },
       emergencyContacts: contacts.map((c) => ({
         id: c.id,
         name: c.display_name,
-        emailMasked: maskEmail(dec(c.address_enc) ?? ''),
+        emailMasked: c.address_enc ? maskEmail(dec(c.address_enc) ?? '') : null,
+        phoneMasked: c.phone_enc ? maskPhone(dec(c.phone_enc) ?? '') : null,
         consent: c.consent,
         requestedAt: c.consent_requested_at,
         decidedAt: c.consent_decided_at,
@@ -618,9 +620,9 @@ export class CustomersService {
             .selectFrom('contact_channels')
             .select((e) => e.fn.countAll<string>().as('n'))
             .where('user_id', '=', u.id)
-            .where('type', '=', 'whatsapp')
+            .where('type', '=', 'sms')
             .where('verified_at', 'is not', null)
-            .as('whatsapp'),
+            .as('sms'),
           eb
             .selectFrom('emergency_contacts')
             .select((e) => e.fn.countAll<string>().as('n'))
@@ -661,7 +663,7 @@ export class CustomersService {
       vehicles: Number(counts.vehicles ?? 0),
       activeDecals: Number(counts.activeDecals ?? 0),
       pushDevices: Number(counts.pushDevices ?? 0),
-      whatsapp: Number(counts.whatsapp ?? 0) > 0,
+      sms: Number(counts.sms ?? 0) > 0,
       contacts: Number(counts.contacts ?? 0),
       lastAlertAt: (counts.lastAlertAt as Date | null) ?? null,
       openDsr: Number(counts.openDsr ?? 0),

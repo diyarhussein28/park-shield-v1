@@ -25,6 +25,7 @@ import { TokensService } from '../vehicles/tokens.service';
 import { legalDoc, LEGAL_DOC_VERSION, renewalRule, type LegalSlug } from '@parkshield/shared';
 import { PAYMENTS, type BillingEvent, type PaidPlan, type Payments } from '../providers/ports';
 import { queueWelcomeLetterCheck } from '../letters/trigger';
+import { returnUrls } from './app-return';
 
 const LIVE = ['active', 'past_due'] as const;
 const PLAN_NAMES: Record<PaidPlan, string> = { plus: 'Plus', premium: 'Premium' };
@@ -177,7 +178,7 @@ export class BillingService {
   /** US-06: annual Stripe Checkout. Feature access starts only once the payment event arrives. */
   async checkout(
     user: AuthContext,
-    input: { plan: PaidPlan; promoCode?: string } & CheckoutConsents,
+    input: { plan: PaidPlan; promoCode?: string; appReturn?: string } & CheckoutConsents,
     ipHash: Buffer | null = null,
   ): Promise<{ url: string }> {
     if (!(await this.isPurchasable(input.plan)))
@@ -255,14 +256,18 @@ export class BillingService {
       metadata.sticker = input.stickerStillAttached ? 'keep' : 'replace';
     }
 
+    // Stripe fills in the session id, so the account page (or the app) can confirm the payment.
+    const back = returnUrls(this.env, 'checkout', input.appReturn, {
+      success: `${this.env.WEB_BASE_URL}/konto?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel: `${this.env.WEB_BASE_URL}/konto?checkout=canceled`,
+    });
     return this.payments.createCheckout({
       customerId,
       plan: input.plan,
       locale: user.preferredLang,
       stripeCouponId: promo?.stripe_coupon_id ?? null,
-      // Stripe fills in the session id, so the account page can confirm the payment on return.
-      successUrl: `${this.env.WEB_BASE_URL}/konto?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${this.env.WEB_BASE_URL}/konto?checkout=canceled`,
+      successUrl: back.success,
+      cancelUrl: back.cancel,
       metadata,
     });
   }
@@ -554,15 +559,17 @@ export class BillingService {
     return Number(r.numUpdatedRows);
   }
 
-  async portal(userId: string): Promise<{ url: string }> {
+  async portal(userId: string, appReturn?: string): Promise<{ url: string }> {
     const row = await this.db
       .selectFrom('users')
       .select('stripe_customer_id')
       .where('id', '=', userId)
       .executeTakeFirstOrThrow();
     if (!row.stripe_customer_id) throw new NotFoundException({ error: 'no_customer' });
-    return {
-      url: await this.payments.portalUrl(row.stripe_customer_id, `${this.env.WEB_BASE_URL}/konto`),
-    };
+    const back = returnUrls(this.env, 'portal', appReturn, {
+      success: `${this.env.WEB_BASE_URL}/konto`,
+      cancel: `${this.env.WEB_BASE_URL}/konto`,
+    });
+    return { url: await this.payments.portalUrl(row.stripe_customer_id, back.success) };
   }
 }

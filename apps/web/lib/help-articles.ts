@@ -28,7 +28,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Ein Aufkleber mit QR-Code, eine Warnung an Sie – ohne dass jemand Ihre Nummer sieht.',
       body: [
         'Sie kleben den ParkShield-Aufkleber gut sichtbar hinter die Windschutzscheibe. Wer ein Problem an Ihrem Auto bemerkt, scannt den QR-Code mit dem Handy und wählt aus, was los ist, zum Beispiel „Licht brennt noch“ oder „Fahrzeug versperrt Ausfahrt“.',
-        'Wir benachrichtigen Sie sofort über Push, E-Mail oder WhatsApp. Die Person, die scannt, sieht weder Ihren Namen noch Ihre Telefonnummer noch Ihr Kennzeichen. Sie sieht nur den Spitznamen, den Sie Ihrem Auto gegeben haben.',
+        'Wir benachrichtigen Sie sofort in der ParkShield-App und per E-Mail, im Premium-Tarif auch per SMS. Die Person, die scannt, sieht weder Ihren Namen noch Ihre Telefonnummer noch Ihr Kennzeichen. Sie sieht nur den Spitznamen, den Sie Ihrem Auto gegeben haben.',
         'Mit einer Schnellantwort sagen Sie Bescheid, dass Sie kommen. Die Person sieht das auf ihrer Seite.',
       ],
     },
@@ -37,7 +37,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       summary: 'A decal with a QR code and an alert to you – without anyone seeing your number.',
       body: [
         'You put the ParkShield decal clearly visible behind the windscreen. Anyone who notices a problem with your car scans the QR code with their phone and picks what is wrong, for example “Lights are still on” or “Vehicle is blocking an exit”.',
-        'We notify you at once by push, e-mail or WhatsApp. The person who scans sees neither your name nor your phone number nor your licence plate. They only see the nickname you gave your car.',
+        'We notify you at once in the ParkShield app and by e-mail, with Premium also by SMS. The person who scans sees neither your name nor your phone number nor your licence plate. They only see the nickname you gave your car.',
         'With a quick reply you let them know you are on your way. They see it on their page.',
       ],
     },
@@ -102,7 +102,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       body: [
         'Öffnen Sie park-shield.de in Safari, tippen Sie auf „Teilen“ und dann auf „Zum Home-Bildschirm“. Öffnen Sie ParkShield danach über das neue Symbol und melden Sie sich an.',
         'Gehen Sie in den Benachrichtigungen auf „Dieses Gerät hinzufügen“ und erlauben Sie Mitteilungen. Ohne den Weg über den Home-Bildschirm bietet iOS keine Web-Push-Nachrichten an.',
-        'Prüfen Sie zusätzlich, dass der Fokus-Modus ParkShield nicht stummschaltet. Als zweiten Kanal empfehlen wir WhatsApp oder E-Mail.',
+        'Prüfen Sie zusätzlich, dass der Fokus-Modus ParkShield nicht stummschaltet. Am zuverlässigsten ist die ParkShield-App aus dem App Store.',
       ],
     },
     en: {
@@ -111,32 +111,36 @@ export const HELP_ARTICLES: HelpArticle[] = [
       body: [
         'Open park-shield.de in Safari, tap “Share” and then “Add to Home Screen”. Then open ParkShield from the new icon and sign in.',
         'In notifications, choose “Add this device” and allow notifications. Without the home screen step, iOS does not offer web push.',
-        'Also check that a Focus mode does not silence ParkShield. We recommend WhatsApp or e-mail as a second channel.',
+        'Also check that a Focus mode does not silence ParkShield. The most reliable way is the ParkShield app from the App Store.',
       ],
     },
   },
   {
-    slug: 'whatsapp-einrichten',
+    slug: 'app-einrichten',
     category: 'alerts',
-    action: { href: '/konto/benachrichtigungen', de: 'WhatsApp verbinden', en: 'Connect WhatsApp' },
+    action: {
+      href: '/konto/benachrichtigungen',
+      de: 'Benachrichtigungen ansehen',
+      en: 'View notifications',
+    },
     de: {
-      title: 'WhatsApp als Kanal einrichten',
+      title: 'Die ParkShield-App einrichten',
       summary:
-        'Nummer eingeben, Code bestätigen, fertig. Im Plus-Tarif sind 10 WhatsApp-Warnungen im Monat enthalten.',
+        'App installieren, mit Ihrer E-Mail anmelden, Mitteilungen erlauben. Fotos und Chat gibt es direkt in der App.',
       body: [
-        'Geben Sie in den Benachrichtigungen Ihre Handynummer ein. Wir schicken Ihnen per WhatsApp einen Bestätigungscode, den Sie im Konto eingeben.',
-        'Warnungen kommen danach als WhatsApp-Nachricht mit Antwort-Knöpfen. Ein Tipp auf „Ich komme“ genügt.',
-        'Wenn das Monatskontingent aufgebraucht ist, kommen Warnungen weiter über Push und E-Mail. Wir sagen Ihnen vorher Bescheid.',
+        'Laden Sie die ParkShield-App aus dem App Store oder von Google Play. Sie melden sich mit derselben E-Mail-Adresse an wie im Kundenportal; wir schicken Ihnen einen Anmeldelink.',
+        'Erlauben Sie Mitteilungen, wenn die App fragt. Ohne Mitteilungen erfahren Sie nicht sofort von Problemen an Ihrem Fahrzeug. Die Mitteilung enthält nur die Art der Warnung; alles Weitere lädt die App sicher von unseren Servern.',
+        'Mit „Ich komme“ direkt in der Mitteilung oder in der App sagen Sie Bescheid. In der App können Sie der Person am Fahrzeug auch eine kurze Rückfrage stellen.',
       ],
     },
     en: {
-      title: 'Setting up WhatsApp',
+      title: 'Setting up the ParkShield app',
       summary:
-        'Enter your number, confirm the code, done. Plus includes 10 WhatsApp alerts a month.',
+        'Install the app, sign in with your e-mail, allow notifications. Photos and chat are right in the app.',
       body: [
-        'Enter your mobile number in notifications. We send you a confirmation code by WhatsApp, which you enter in your account.',
-        'From then on, alerts arrive as WhatsApp messages with reply buttons. One tap on “I’m coming” is enough.',
-        'When the monthly allowance is used up, alerts keep coming by push and e-mail. We let you know beforehand.',
+        'Get the ParkShield app from the App Store or Google Play. You sign in with the same e-mail address as in the customer portal; we send you a sign-in link.',
+        'Allow notifications when the app asks. Without notifications you do not learn about problems with your vehicle right away. The notification contains only the type of alert; the app loads everything else securely from our servers.',
+        'Tap “I’m coming” right in the notification or in the app. In the app you can also ask the person at the vehicle a short question.',
       ],
     },
   },
@@ -226,8 +230,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
       summary: 'Mit einem Tipp sagen Sie der Person Bescheid, ohne ein Wort zu tippen.',
       body: [
         'Jede Warnung kommt mit Antwort-Knöpfen: „Ich komme“, „In 30 Minuten“ und „Bin nicht in der Nähe“. Die Person, die gescannt hat, sieht Ihre Antwort sofort auf ihrer Seite.',
-        'Bei „Bin nicht in der Nähe“ informieren wir auf Wunsch Ihren Notfallkontakt.',
-        'Die Knöpfe funktionieren in der Push-Nachricht, in WhatsApp und in der E-Mail.',
+        'Bei „Bin nicht in der Nähe“ informieren wir im Premium-Tarif auf Wunsch Ihre Vertrauenspersonen.',
+        '„Ich komme“ funktioniert in der App-Mitteilung, in der App, in der Push-Nachricht und in der E-Mail.',
       ],
     },
     en: {
@@ -235,8 +239,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
       summary: 'One tap tells the person, without typing a word.',
       body: [
         'Every alert comes with reply buttons: “I’m coming”, “In 30 minutes” and “Not nearby”. The person who scanned sees your reply on their page at once.',
-        'With “Not nearby” we inform your emergency contact if you want us to.',
-        'The buttons work in the push notification, in WhatsApp and in the e-mail.',
+        'With “Not nearby” we inform your trusted contacts if you want us to (Premium).',
+        '“I’m coming” works in the app notification, in the app, in the push notification and in the e-mail.',
       ],
     },
   },
@@ -385,7 +389,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       title: 'Abo und Preise',
       summary: 'Plus kostet 10 € im Jahr inklusive Mehrwertsteuer und einem gedruckten Aufkleber.',
       body: [
-        'ParkShield Plus kostet 10 € pro Jahr und gilt für bis zu 2 Fahrzeuge. Enthalten sind Push und E-Mail ohne Limit, 10 WhatsApp-Warnungen im Monat, ein Notfallkontakt und ein gedruckter Aufkleber.',
+        'ParkShield Plus kostet 10 € pro Jahr und gilt für bis zu 2 Fahrzeuge. Enthalten sind App-Push und E-Mail ohne Limit und ein gedruckter Aufkleber. SMS und Vertrauenspersonen gibt es im Premium-Tarif.',
         'Bezahlen können Sie mit Karte, SEPA-Lastschrift, PayPal oder Apple Pay. Die Rechnung finden Sie im Konto.',
         'Bei Fragen zu Plus antworten wir innerhalb von 48 Stunden.',
       ],
@@ -394,7 +398,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       title: 'Subscription and prices',
       summary: 'Plus costs €10 a year including VAT and one printed decal.',
       body: [
-        'ParkShield Plus costs €10 a year and covers up to 2 vehicles. It includes unlimited push and e-mail, 10 WhatsApp alerts a month, one emergency contact and one printed decal.',
+        'ParkShield Plus costs €10 a year and covers up to 2 vehicles. It includes unlimited app push and e-mail and one printed decal. SMS and trusted contacts come with Premium.',
         'You can pay by card, SEPA direct debit, PayPal or Apple Pay. The invoice is in your account.',
         'We answer questions from Plus customers within 48 hours.',
       ],

@@ -130,6 +130,8 @@ describe('session and CSRF', () => {
     const s = await signIn(h, 'me@example.de');
     const me = await h.app.inject({ method: 'GET', url: '/v1/me', headers: { cookie: s.cookie } });
     expect(me.json()).toMatchObject({ email: 'me@example.de', preferredLang: 'de', passkeys: [] });
+    // The app's account screen shows the customer number (assigned by the database on sign-up).
+    expect(me.json().customerNo).toMatch(/^PS-\d{4}-/);
   });
 
   it('rejects state-changing requests without the CSRF token', async () => {

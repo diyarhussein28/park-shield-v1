@@ -60,17 +60,22 @@ test('friendly limit message, then guidance with the right numbers after expiry 
   const { ctx, page: scan } = await scanner(browser, url);
   await scan.getByRole('button', { name: 'Licht brennt noch' }).click();
   await expect(scan.getByRole('heading', { name: 'Status Ihrer Warnung' })).toBeVisible();
+  const id = await latestAlert(email);
 
-  // Same person (same network and browser) tries again right away from a new tab.
+  // Same person (same network and browser) tries again from new tabs: two alerts per hour
+  // (sliding window, `alert.scanner_vehicle`), then a friendly wait.
+  const second = await scanner(browser, url);
+  await second.page.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
+  await expect(second.page.getByRole('heading', { name: 'Status Ihrer Warnung' })).toBeVisible();
+  await second.ctx.close();
   const again = await scanner(browser, url);
   await again.page.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
   await expect(again.page.getByRole('alert')).toHaveText(
-    /Sie haben dieses Fahrzeug gerade schon gewarnt\. Bitte warten Sie 1[45] Min\./,
+    /Sie haben das Limit für Benachrichtigungen überschritten\. Bitte versuchen Sie es später erneut \(in ca\. \d+ Min\.\)\./,
   );
   await again.ctx.close();
 
   // The first alert expires unanswered; the scanner was in Austria.
-  const id = await latestAlert(email);
   await sql(
     `UPDATE alerts SET scanner_country = 'AT', expires_at = now() - interval '1 minute' WHERE id = $1`,
     [id],
@@ -99,7 +104,7 @@ test('"Ich warte noch" reminds the owner once (US-18, SC-14)', async ({
   const url = await ownerWithVehicle(page, request, email);
   const { ctx, page: scan } = await scanner(browser, url);
   await scan.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
-  await expect(scan.getByText('Die Warnung ist beim Fahrer angekommen.')).toBeVisible({
+  await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });
   await expect(scan.getByRole('button', { name: 'Ich warte noch' })).toBeHidden();
@@ -214,7 +219,7 @@ test('push devices: list, alert delivery and removal; iPhone guide (US-20)', asy
   await iphone.close();
 });
 
-test('mobile number: one SMS code for SMS and WhatsApp, add and turn off (US-21, NT-07)', async ({
+test('mobile number: one SMS code, confirm and turn off; no WhatsApp anywhere (NT-07)', async ({
   page,
   request,
 }) => {
@@ -241,7 +246,10 @@ test('mobile number: one SMS code for SMS and WhatsApp, add and turn off (US-21,
   await card.getByLabel('Handynummer').fill(phone);
   // Nothing is pre-ticked: sending without a channel asks for one.
   await card.getByRole('button', { name: 'Code per SMS senden' }).click();
-  await expect(card.getByText('Bitte wählen Sie SMS oder WhatsApp.')).toBeVisible();
+  await expect(
+    card.getByText('Bitte setzen Sie das Häkchen bei SMS, damit wir Ihr Handy erreichen.'),
+  ).toBeVisible();
+  await expect(card.getByText(/WhatsApp/)).toHaveCount(0);
   await card.getByLabel(/^Per SMS/).check();
   await card.getByRole('button', { name: 'Code per SMS senden' }).click();
   await expect(
@@ -269,17 +277,9 @@ test('mobile number: one SMS code for SMS and WhatsApp, add and turn off (US-21,
   await expect(card.getByText('Ihre Handynummer ist bestätigt.', { exact: false })).toBeVisible();
   await expect(card.getByText(`Ihre Nummer: +49 ••• ${phone.slice(-4)}`)).toBeVisible();
 
-  // WhatsApp for the same number: no second code.
-  await card.getByRole('button', { name: 'Auch per WhatsApp' }).click();
-  await expect(card.getByText('WhatsApp ist eingeschaltet.')).toBeVisible();
-  const wa = (await (await request.get(`${API_URL}/v1/dev/whatsapp`)).json()) as {
-    messages: { to: string; template: string }[];
-  };
-  expect(wa.messages.find((m) => m.to === to.slice(1))?.template).toBe('ps_test');
+  await expect(page.getByText(/WhatsApp/)).toHaveCount(0);
   await expectAccessible(page);
 
-  await card.getByRole('button', { name: 'WhatsApp abschalten' }).click();
-  await expect(card.getByText('WhatsApp ist abgeschaltet.')).toBeVisible();
   await card.getByRole('button', { name: 'SMS abschalten' }).click();
   await expect(card.getByLabel('Handynummer')).toBeVisible();
 });

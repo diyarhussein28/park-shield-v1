@@ -173,7 +173,8 @@ describe('"I didn’t get the alert" (SP-05)', () => {
     });
     expect(r.setup).toMatchObject({
       pushDevices: 0,
-      whatsapp: false,
+      appDevices: 0,
+      sms: false,
       quietHours: 1,
       decalTested: false,
       switchedOff: ['webpush'],

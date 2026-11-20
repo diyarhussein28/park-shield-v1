@@ -7,15 +7,15 @@ import { Icon } from '@/components/icons';
 import { api, ApiError, errorText } from '@/lib/api-client';
 import type { ChannelsOverview, Usage } from '@/lib/api-server';
 
-type PhoneChannel = 'sms' | 'whatsapp';
+type PhoneChannel = 'sms';
 type Message = { tone: 'success' | 'danger' | 'warning' | 'info'; text: string } | null;
 
-const CHANNELS: PhoneChannel[] = ['sms', 'whatsapp'];
+const CHANNELS: PhoneChannel[] = ['sms'];
 
 /**
- * The owner's mobile number (US-21, NT-07): typed once, confirmed with one code, then used for SMS
- * and/or WhatsApp. Nothing is pre-ticked: each channel is an explicit opt-in (Art. 6(1)(a) GDPR).
- * Only channels that are switched on (kill switch, AD-15) are offered.
+ * The owner's mobile number (NT-07): typed once, confirmed with one SMS code, then used for SMS alerts
+ * (PREMIUM). Nothing is pre-ticked: SMS is an explicit opt-in (Art. 6(1)(a) GDPR). Only offered while
+ * SMS is switched on (kill switch, AD-15). WhatsApp was removed.
  */
 export function PhoneSetup({
   overview,
@@ -24,7 +24,7 @@ export function PhoneSetup({
   headingLevel = 2,
   embedded = false,
 }: {
-  overview: Pick<ChannelsOverview, 'sms' | 'whatsapp' | 'available'>;
+  overview: Pick<ChannelsOverview, 'sms' | 'available'>;
   usage?: Usage;
   onChange: () => Promise<void>;
   headingLevel?: 2 | 3;
@@ -33,18 +33,12 @@ export function PhoneSetup({
 }) {
   const { t } = useI18n();
   const H = `h${headingLevel}` as const;
-  const linked: Record<PhoneChannel, ChannelsOverview['sms']> = {
-    sms: overview.sms,
-    whatsapp: overview.whatsapp,
-  };
+  const linked: Record<PhoneChannel, ChannelsOverview['sms']> = { sms: overview.sms };
   const available = CHANNELS.filter((c) => overview.available[c]);
-  const number = linked.sms?.phone ?? linked.whatsapp?.phone ?? null;
+  const number = linked.sms?.phone ?? null;
   const [editing, setEditing] = useState(false);
   const [phone, setPhone] = useState('');
-  const [chosen, setChosen] = useState<Record<PhoneChannel, boolean>>({
-    sms: false,
-    whatsapp: false,
-  });
+  const [chosen, setChosen] = useState<Record<PhoneChannel, boolean>>({ sms: false });
   const [sent, setSent] = useState<{ phone: string; via: PhoneChannel } | null>(null);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -60,9 +54,7 @@ export function PhoneSetup({
     if (!channels.length) {
       setMessage({
         tone: 'danger',
-        text: t('channels.phoneChooseOne', {
-          whatsapp: overview.available.whatsapp ? 'yes' : 'no',
-        }),
+        text: t('channels.phoneChooseOne', { whatsapp: 'no' }),
       });
       return;
     }
@@ -92,7 +84,7 @@ export function PhoneSetup({
       setSent(null);
       setEditing(false);
       setPhone('');
-      setChosen({ sms: false, whatsapp: false });
+      setChosen({ sms: false });
       await onChange();
       setMessage({ tone: 'success', text: t('channels.phoneLinkedNow') });
     } catch (err) {
@@ -117,8 +109,11 @@ export function PhoneSetup({
     setBusy(true);
     setMessage(null);
     try {
-      if (on) await api('/v1/channels/phone/add', { body: { channel, consent: true } });
-      else await api(`/v1/channels/${channel}`, { method: 'DELETE' });
+      if (on) {
+        setEditing(true);
+        return;
+      }
+      await api(`/v1/channels/${channel}`, { method: 'DELETE' });
       await onChange();
       setMessage({
         tone: 'success',
@@ -197,9 +192,7 @@ export function PhoneSetup({
         <p className="text-sm text-muted">{t('channels.phoneConsentNote')}</p>
       </fieldset>
       <Button type="submit" busy={busy} className="w-fit">
-        {t('channels.phoneSendCode', {
-          via: chosen.whatsapp && !chosen.sms ? 'whatsapp' : 'sms',
-        })}
+        {t('channels.phoneSendCode', { via: 'sms' })}
       </Button>
     </form>
   );

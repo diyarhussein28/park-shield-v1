@@ -24,7 +24,7 @@ export type Summary =
       vehicles: number;
       activeDecals: number;
       pushDevices: number;
-      whatsapp: boolean;
+      sms: boolean;
       contacts: number;
       lastAlertAt: string | null;
       openDsr: number;
@@ -63,7 +63,7 @@ export function ZammadSummary({ me, data }: { me: StaffMe; data: Summary | null 
                 <dd>
                   {t('opsZammad.channelsValue', {
                     push: data.pushDevices,
-                    whatsapp: data.whatsapp ? t('ops.yes') : t('ops.no'),
+                    sms: data.sms ? t('ops.yes') : t('ops.no'),
                   })}
                 </dd>
                 <dt>{t('opsZammad.contacts')}</dt>

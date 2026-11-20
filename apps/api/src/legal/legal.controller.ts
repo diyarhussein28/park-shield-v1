@@ -23,6 +23,7 @@ import { BillingService } from '../billing/billing.service';
 import { CancellationsService } from './cancellations.service';
 import { LegalTextsService } from './legal-texts.service';
 import { WithdrawalsService } from './withdrawals.service';
+import { AppReturn } from '../billing/app-return';
 
 const locale = z.enum(['de', 'en']).default('de');
 const isoDate = z
@@ -61,6 +62,7 @@ const Renew = z.object({
   immediateStartVersion: z.number().int().positive(),
   termsVersion: z.number().int().positive(),
   stickerStillAttached: z.boolean(),
+  appReturn: AppReturn,
 });
 
 const requestedDate = (b: z.infer<typeof CancelBase>) => {

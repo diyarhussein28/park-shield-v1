@@ -1,11 +1,10 @@
 // Defaults for plans.limits; runtime overrides live in app_settings (docs/05-business.md §1).
-export type PlanCode = 'plus' | 'premium' | 'business';
+export type PlanCode = 'plus' | 'premium';
 
 export interface PlanLimits {
   vehicles: number;
   emergencyContacts: number;
   coDrivers: number;
-  whatsappPerMonth: number;
   smsPerMonth: number;
   maskedCallMinutesPerMonth: number;
   includedDecals: number;
@@ -14,10 +13,10 @@ export interface PlanLimits {
 export const PLAN_LIMIT_DEFAULTS: Record<'plus' | 'premium', PlanLimits> = {
   plus: {
     vehicles: 2,
-    emergencyContacts: 1,
+    // Channel matrix: PLUS = push + e-mail; no SMS, no escalation to trusted contacts.
+    emergencyContacts: 0,
     coDrivers: 0,
-    whatsappPerMonth: 10,
-    smsPerMonth: 5,
+    smsPerMonth: 0,
     maskedCallMinutesPerMonth: 0,
     includedDecals: 1,
   },
@@ -25,7 +24,6 @@ export const PLAN_LIMIT_DEFAULTS: Record<'plus' | 'premium', PlanLimits> = {
     vehicles: 5,
     emergencyContacts: 3,
     coDrivers: 3,
-    whatsappPerMonth: 40,
     smsPerMonth: 10,
     maskedCallMinutesPerMonth: 10,
     includedDecals: 1,
@@ -36,7 +34,7 @@ export const PLAN_LIMIT_DEFAULTS: Record<'plus' | 'premium', PlanLimits> = {
  * Plan catalog: how many feature lines each plan has on the pricing page (i18n keys
  * landing.<plan>F1 … F<n>). The welcome letter lists the same lines, so both always match.
  */
-export const PLAN_FEATURE_COUNTS = { plus: 6, premium: 5, business: 0 } as const;
+export const PLAN_FEATURE_COUNTS = { plus: 6, premium: 5 } as const;
 
 /** Consumer prices in euro cents, VAT included (PAngV). */
 export const PLAN_PRICES_CENTS = { plus: 1000, premium: 1500 } as const;

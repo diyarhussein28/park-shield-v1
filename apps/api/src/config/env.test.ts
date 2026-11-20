@@ -1,8 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import { isTestEnvironment, loadEnv } from './env';
+import { envSchema, fakeProviders, isTestEnvironment, loadEnv } from './env';
 
 /** 32 bytes, base64: required in real production since the abuse protection (phone hashes). */
 const PHONE_PEPPER = Buffer.alloc(32, 7).toString('base64');
+
+/** Every provider key real production needs (FCM included since the native app). */
+const PROD = {
+  NODE_ENV: 'production',
+  APP_ENV: 'production',
+  PHONE_PEPPER,
+  MAIL_PROVIDER: 'brevo',
+  BREVO_API_KEY: 'k',
+  FRIENDLY_CAPTCHA_API_KEY: 'k',
+  FRIENDLY_CAPTCHA_SITEKEY: 's',
+  FRIENDLY_CAPTCHA_ENDPOINT: 'eu',
+  STRIPE_SECRET_KEY: 'k',
+  TWILIO_ACCOUNT_SID: 'AC1',
+  TWILIO_AUTH_TOKEN: 't',
+  TWILIO_SMS_FROM: 'ParkShield',
+  FCM_PROJECT_ID: 'parkshield',
+  FCM_CLIENT_EMAIL: 'push@parkshield.iam.gserviceaccount.com',
+  FCM_PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\\nx\\n-----END PRIVATE KEY-----',
+  PRINT_PARTNER: 'p',
+  AUDIT_BUCKET: 'b',
+  ZAMMAD_TOKEN: 't',
+} as const;
 
 describe('test helpers are limited to dev, unit tests and CI', () => {
   it.each([
@@ -21,163 +43,56 @@ describe('test helpers are limited to dev, unit tests and CI', () => {
     ).toThrow(/Missing provider keys in production/);
   });
 
+  it('starts in real production with every provider key', () => {
+    expect(loadEnv(PROD).MAIL_PROVIDER).toBe('brevo');
+  });
+
   it('uses the EU captcha endpoint by default and refuses global in real production', () => {
     expect(loadEnv({ FRIENDLY_CAPTCHA_ENDPOINT: '' as never }).FRIENDLY_CAPTCHA_ENDPOINT).toBe(
       'eu',
     );
-    expect(() =>
-      loadEnv({
-        NODE_ENV: 'production',
-        APP_ENV: 'production',
-        PHONE_PEPPER,
-        MAIL_PROVIDER: 'brevo',
-        BREVO_API_KEY: 'k',
-        FRIENDLY_CAPTCHA_API_KEY: 'k',
-        FRIENDLY_CAPTCHA_SITEKEY: 's',
-        STRIPE_SECRET_KEY: 'k',
-        D360_API_KEY: 'k',
-        PRINT_PARTNER: 'p',
-        AUDIT_BUCKET: 'b',
-        ZAMMAD_TOKEN: 't',
-        WHATSAPP_PROVIDER: '360dialog',
-        TWILIO_ACCOUNT_SID: 'AC1',
-        TWILIO_AUTH_TOKEN: 't',
-        TWILIO_SMS_FROM: 'ParkShield',
-        FRIENDLY_CAPTCHA_ENDPOINT: 'global',
-      }),
-    ).toThrow(/FRIENDLY_CAPTCHA_ENDPOINT must be "eu"/);
+    expect(() => loadEnv({ ...PROD, FRIENDLY_CAPTCHA_ENDPOINT: 'global' })).toThrow(
+      /FRIENDLY_CAPTCHA_ENDPOINT must be "eu"/,
+    );
   });
 
   it('needs an SMS sender and the key of the chosen e-mail provider in real production', () => {
-    const prod = {
-      NODE_ENV: 'production',
-      APP_ENV: 'production',
-      PHONE_PEPPER,
-      FRIENDLY_CAPTCHA_API_KEY: 'k',
-      FRIENDLY_CAPTCHA_SITEKEY: 's',
-      STRIPE_SECRET_KEY: 'k',
-      WHATSAPP_PROVIDER: '360dialog',
-      D360_API_KEY: 'k',
-      TWILIO_ACCOUNT_SID: 'AC1',
-      TWILIO_AUTH_TOKEN: 't',
-      PRINT_PARTNER: 'p',
-      AUDIT_BUCKET: 'b',
-      ZAMMAD_TOKEN: 't',
-      FRIENDLY_CAPTCHA_ENDPOINT: 'eu',
-      MAIL_PROVIDER: 'brevo',
-    } as const;
-    expect(() => loadEnv({ ...prod, BREVO_API_KEY: 'k', TWILIO_SMS_FROM: '' })).toThrow(
+    expect(() => loadEnv({ ...PROD, TWILIO_SMS_FROM: '' })).toThrow(
       /Missing provider keys in production: sms/,
     );
-    expect(() =>
-      loadEnv({ ...prod, MAIL_PROVIDER: 'sendgrid', BREVO_API_KEY: 'k', TWILIO_SMS_FROM: 'X' }),
-    ).toThrow(/Missing provider keys in production: mail/);
+    expect(() => loadEnv({ ...PROD, MAIL_PROVIDER: 'sendgrid' })).toThrow(
+      /Missing provider keys in production: mail/,
+    );
     expect(
-      loadEnv({ ...prod, MAIL_PROVIDER: 'sendgrid', SENDGRID_API_KEY: 'SG', TWILIO_SMS_FROM: 'X' })
-        .MAIL_PROVIDER,
+      loadEnv({ ...PROD, MAIL_PROVIDER: 'sendgrid', SENDGRID_API_KEY: 'SG' }).MAIL_PROVIDER,
     ).toBe('sendgrid');
   });
 
-  it('needs the photo template SIDs only while ALERT_PHOTOS_ENABLED is on', () => {
-    const sids = Object.fromEntries(
-      ['ALERT', 'FOLLOWUP', 'TEST', 'OTP'].flatMap((t) =>
-        ['DE', 'EN'].map((l) => [`TWILIO_CONTENT_PS_${t}_${l}`, 'HX1']),
-      ),
+  it('needs the Firebase service account for app push in real production', () => {
+    expect(() => loadEnv({ ...PROD, FCM_PRIVATE_KEY: '' })).toThrow(
+      /Missing provider keys in production: fcm/,
     );
-    const prod = {
-      NODE_ENV: 'production',
-      APP_ENV: 'production',
-      PHONE_PEPPER,
-      MAIL_PROVIDER: 'brevo',
-      BREVO_API_KEY: 'k',
-      FRIENDLY_CAPTCHA_API_KEY: 'k',
-      FRIENDLY_CAPTCHA_SITEKEY: 's',
-      FRIENDLY_CAPTCHA_ENDPOINT: 'eu',
-      STRIPE_SECRET_KEY: 'k',
-      WHATSAPP_PROVIDER: 'twilio',
-      TWILIO_ACCOUNT_SID: 'AC1',
-      TWILIO_AUTH_TOKEN: 't',
-      TWILIO_WHATSAPP_FROM: '+4915100000000',
-      TWILIO_SMS_FROM: 'ParkShield',
-      PRINT_PARTNER: 'p',
-      AUDIT_BUCKET: 'b',
-      ZAMMAD_TOKEN: 't',
-      ...sids,
-    } as const;
-    expect(loadEnv(prod).ALERT_PHOTOS_ENABLED).toBe(false);
-    expect(() => loadEnv({ ...prod, ALERT_PHOTOS_ENABLED: 'true' })).toThrow(
-      /TWILIO_CONTENT_PS_ALERT_PHOTOS_DE/,
-    );
+    const env = envSchema.parse({ ...process.env, FCM_PROJECT_ID: '' });
+    expect(fakeProviders(env).fcm).toBe(true);
   });
 
-  it('uses Twilio for WhatsApp by default and needs every template SID in real production', () => {
-    expect(loadEnv({ WHATSAPP_PROVIDER: '' as never }).WHATSAPP_PROVIDER).toBe('twilio');
-    expect(() =>
-      loadEnv({
-        NODE_ENV: 'production',
-        APP_ENV: 'production',
-        MAIL_PROVIDER: 'brevo',
-        BREVO_API_KEY: 'k',
-        FRIENDLY_CAPTCHA_API_KEY: 'k',
-        FRIENDLY_CAPTCHA_SITEKEY: 's',
-        STRIPE_SECRET_KEY: 'k',
-        WHATSAPP_PROVIDER: 'twilio',
-        TWILIO_ACCOUNT_SID: 'AC1',
-        TWILIO_AUTH_TOKEN: 't',
-        TWILIO_WHATSAPP_FROM: '+4915100000000',
-        TWILIO_SMS_FROM: 'ParkShield',
-        TWILIO_CONTENT_PS_ALERT_DE: 'HX1',
-        TWILIO_CONTENT_PS_ALERT_EN: '',
-        PRINT_PARTNER: 'p',
-        AUDIT_BUCKET: 'b',
-        ZAMMAD_TOKEN: 't',
-      }),
-    ).toThrow(/Missing Twilio template SIDs: .*TWILIO_CONTENT_PS_ALERT_EN/);
+  it('knows no WhatsApp setting any more', () => {
+    const keys = Object.keys(envSchema.shape);
+    expect(keys.filter((k) => /WHATSAPP|D360|TWILIO_CONTENT/.test(k))).toEqual([]);
+    expect(Object.keys(fakeProviders(loadEnv()))).not.toContain('whatsapp');
   });
 
-  it('starts in real production with WhatsApp off, manual printing and support by e-mail', () => {
+  it('starts in real production with manual printing and support by e-mail', () => {
     const env = loadEnv({
-      NODE_ENV: 'production',
-      APP_ENV: 'production',
-      PHONE_PEPPER,
-      FRIENDLY_CAPTCHA_API_KEY: 'k',
-      FRIENDLY_CAPTCHA_SITEKEY: 's',
-      FRIENDLY_CAPTCHA_ENDPOINT: 'eu',
-      STRIPE_SECRET_KEY: 'k',
-      MAIL_PROVIDER: 'sendgrid',
-      SENDGRID_API_KEY: 'SG',
-      WHATSAPP_PROVIDER: 'off',
-      TWILIO_ACCOUNT_SID: 'AC1',
-      TWILIO_AUTH_TOKEN: 't',
-      TWILIO_SMS_FROM: 'ParkShield',
-      TWILIO_WHATSAPP_FROM: '',
-      TWILIO_CONTENT_PS_ALERT_DE: '',
+      ...PROD,
       PRINT_PARTNER: 'manual',
-      AUDIT_BUCKET: 'b',
       SUPPORT_PROVIDER: 'email',
       SUPPORT_EMAIL: 'contact@park-shield.de',
       ZAMMAD_TOKEN: '',
     });
-    expect(env.WHATSAPP_PROVIDER).toBe('off');
+    expect(env.SUPPORT_PROVIDER).toBe('email');
     expect(() =>
-      loadEnv({
-        NODE_ENV: 'production',
-        APP_ENV: 'production',
-        FRIENDLY_CAPTCHA_API_KEY: 'k',
-        FRIENDLY_CAPTCHA_SITEKEY: 's',
-        FRIENDLY_CAPTCHA_ENDPOINT: 'eu',
-        STRIPE_SECRET_KEY: 'k',
-        MAIL_PROVIDER: 'sendgrid',
-        SENDGRID_API_KEY: 'SG',
-        WHATSAPP_PROVIDER: 'off',
-        TWILIO_ACCOUNT_SID: 'AC1',
-        TWILIO_AUTH_TOKEN: 't',
-        TWILIO_SMS_FROM: 'ParkShield',
-        PRINT_PARTNER: 'manual',
-        AUDIT_BUCKET: 'b',
-        SUPPORT_PROVIDER: 'email',
-        SUPPORT_EMAIL: '',
-      }),
+      loadEnv({ ...PROD, PRINT_PARTNER: 'manual', SUPPORT_PROVIDER: 'email', SUPPORT_EMAIL: '' }),
     ).toThrow(/Missing provider keys in production: support/);
   });
 });

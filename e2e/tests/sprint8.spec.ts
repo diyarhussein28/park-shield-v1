@@ -36,17 +36,17 @@ test('history shows the alert with its text; reporting blocks that scanner (US-3
   await expect(list.getByRole('listitem').filter({ hasText: 'Test' })).toHaveCount(1); // the decal test
   await expectAccessible(page);
 
-  await card.getByRole('button', { name: 'Missbrauch melden' }).click();
+  await card.getByRole('button', { name: 'Absender blockieren' }).click();
   await card.getByLabel('Was war los?').selectOption({ label: 'Belästigung oder Drohung' });
-  await card.getByRole('button', { name: 'Melden', exact: true }).click();
+  await card.getByRole('button', { name: 'Blockieren', exact: true }).click();
   await expect(
     card.getByText(
-      'Gemeldet. Diese Person kann „Der Blaue“ 30 Tage lang nicht mehr benachrichtigen.',
+      'Blockiert. Diese Person kann „Der Blaue“ 30 Tage lang nicht mehr benachrichtigen.',
     ),
   ).toBeVisible();
   await page.reload();
-  await expect(card.getByText('Gemeldet', { exact: true })).toBeVisible();
-  await expect(card.getByRole('button', { name: 'Missbrauch melden' })).toHaveCount(0);
+  await expect(card.getByText('Blockiert', { exact: true })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Absender blockieren' })).toHaveCount(0);
 });
 
 test('"Warnung nicht bekommen?" explains the latest attempts (SP-05)', async ({
@@ -58,7 +58,7 @@ test('"Warnung nicht bekommen?" explains the latest attempts (SP-05)', async ({
   const url = await ownerWithActiveDecal(page, request, uniqueEmail('help'));
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Licht brennt noch' }).click();
-  await expect(scan.getByText('Die Warnung ist beim Fahrer angekommen.')).toBeVisible({
+  await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });
   await ctx.close();

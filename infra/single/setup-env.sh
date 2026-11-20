@@ -86,21 +86,14 @@ SUPPORT_PROVIDER=email
 SUPPORT_EMAIL=contact@park-shield.de
 
 # --- Providers (empty = fake adapter) ---------------------------------------------
-# off until Meta approves the WhatsApp sender; then twilio + the TWILIO_CONTENT_* SIDs below.
-WHATSAPP_PROVIDER=off
+# Native app push (Firebase Cloud Messaging service account); empty = fake (dev inbox).
+FCM_PROJECT_ID=
+FCM_CLIENT_EMAIL=
+FCM_PRIVATE_KEY=
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
-TWILIO_WHATSAPP_FROM=
 TWILIO_SMS_FROM=
 TWILIO_WEBHOOK_BASE_URL=https://${domain}
-TWILIO_CONTENT_PS_ALERT_DE=
-TWILIO_CONTENT_PS_ALERT_EN=
-TWILIO_CONTENT_PS_FOLLOWUP_DE=
-TWILIO_CONTENT_PS_FOLLOWUP_EN=
-TWILIO_CONTENT_PS_TEST_DE=
-TWILIO_CONTENT_PS_TEST_EN=
-TWILIO_CONTENT_PS_OTP_DE=
-TWILIO_CONTENT_PS_OTP_EN=
 MAIL_PROVIDER=mailjet
 MAILJET_API_KEY=
 MAILJET_SECRET_KEY=

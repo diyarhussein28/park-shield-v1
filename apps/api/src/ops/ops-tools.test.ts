@@ -34,7 +34,6 @@ beforeAll(async () => {
     MAIL_PROVIDER: 'brevo',
     BREVO_API_KEY: '',
     STRIPE_SECRET_KEY: '',
-    D360_API_KEY: '',
     TWILIO_ACCOUNT_SID: '',
     PRINT_PARTNER: '',
   });

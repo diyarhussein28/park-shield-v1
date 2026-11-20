@@ -206,21 +206,47 @@ export class PreferencesService {
 
   // --- protection score (OW-14) ------------------------------------------------------------------
 
-  /** Computed from data, never stored (US-28). Four steps of 25 %. */
+  /**
+   * Computed from data, never stored (US-28). Four steps of 25 % for PREMIUM. Trusted contacts are
+   * PREMIUM only, so for PLUS that step does not apply (null) and the other three make up 100 %.
+   */
   async protection(userId: string) {
-    const row = await sql<{ email: boolean; channel: boolean; contact: boolean; decal: boolean }>`
+    const row = await sql<{
+      email: boolean;
+      channel: boolean;
+      contact: boolean;
+      decal: boolean;
+      premium: boolean;
+    }>`
       SELECT
         (u.email_verified_at IS NOT NULL) AS email,
         (EXISTS (SELECT 1 FROM push_subscriptions p WHERE p.user_id = u.id)
-          OR EXISTS (SELECT 1 FROM contact_channels c WHERE c.user_id = u.id AND c.type IN ('whatsapp', 'sms')
+          OR EXISTS (SELECT 1 FROM user_devices d WHERE d.user_id = u.id)
+          OR EXISTS (SELECT 1 FROM contact_channels c WHERE c.user_id = u.id AND c.type = 'sms'
                       AND c.verified_at IS NOT NULL AND c.is_enabled)) AS channel,
-        EXISTS (SELECT 1 FROM emergency_contacts e WHERE e.user_id = u.id AND e.consent = 'confirmed') AS contact,
+        EXISTS (SELECT 1 FROM emergency_contacts e WHERE e.user_id = u.id AND e.consent = 'confirmed'
+                 AND e.deactivated_at IS NULL) AS contact,
         EXISTS (SELECT 1 FROM qr_tokens t JOIN vehicles v ON v.id = t.vehicle_id
-                 WHERE v.owner_user_id = u.id AND t.status <> 'revoked' AND t.last_test_at IS NOT NULL) AS decal
+                 WHERE v.owner_user_id = u.id AND t.status <> 'revoked' AND t.last_test_at IS NOT NULL) AS decal,
+        EXISTS (SELECT 1 FROM subscriptions s WHERE s.user_id = u.id AND s.plan = 'premium'
+                 AND s.status IN ('active', 'past_due')) AS premium
       FROM users u WHERE u.id = ${userId}`.execute(this.db);
-    const steps = row.rows[0] ?? { email: false, channel: false, contact: false, decal: false };
-    const done = Object.values(steps).filter(Boolean).length;
+    const r = row.rows[0] ?? {
+      email: false,
+      channel: false,
+      contact: false,
+      decal: false,
+      premium: false,
+    };
+    const steps = {
+      email: r.email,
+      channel: r.channel,
+      contact: r.premium ? r.contact : null,
+      decal: r.decal,
+    };
+    const applicable = Object.values(steps).filter((v) => v !== null);
+    const done = applicable.filter(Boolean).length;
     // On iOS, a push subscription exists only for the home-screen app, so any subscription counts.
-    return { percent: done * 25, steps };
+    return { percent: Math.round((done / applicable.length) * 100), steps };
   }
 }

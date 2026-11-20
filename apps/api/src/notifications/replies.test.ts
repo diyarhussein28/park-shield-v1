@@ -8,20 +8,23 @@ import { CRYPTO } from '../core/tokens';
 import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
 import {
   addConfirmedContact,
+  appPushes,
+  appSignIn,
   createHarness,
+  enableEscalation,
+  linkSmsDirect,
   mailbox,
+  makePremium,
   resetState,
   setSetting,
+  smsInbox,
   subscribe,
-  TEST_TWILIO_AUTH_TOKEN,
-  TEST_TWILIO_WEBHOOK_BASE,
-  TEST_WA_WEBHOOK_SECRET,
   type Harness,
   type Session,
 } from '../test/harness';
-import { twilioSignature, TWILIO_WEBHOOK_PATH } from '../providers/twilio-whatsapp';
 import { DispatchService } from './dispatch.service';
 import { ESCALATE_TOPIC, EscalationService } from './escalation.service';
+import { OwnerReminderService, REMIND_TOPIC } from './owner-reminder.service';
 
 let h: Harness;
 let crypto: FieldCrypto;
@@ -118,23 +121,6 @@ const ownerChannels = (alertId: string) =>
     .orderBy('queued_at')
     .execute();
 
-async function linkWhatsApp(s: Session) {
-  await h.app.inject({
-    method: 'POST',
-    url: '/v1/channels/whatsapp',
-    headers: s.headers,
-    payload: { phone: '0151 23456789', consent: true },
-  });
-  const inbox = (await h.app.inject({ method: 'GET', url: '/v1/dev/whatsapp' })).json().messages;
-  const code = inbox.find((m: { template: string }) => m.template === 'ps_otp').params[0];
-  await h.app.inject({
-    method: 'POST',
-    url: '/v1/channels/whatsapp/verify',
-    headers: s.headers,
-    payload: { code },
-  });
-}
-
 /** The reply token from the newest alert e-mail (it travels in the URL fragment). */
 async function replyToken(tag = 'alert_received') {
   const mail = (await mailbox(h)).find((m) => m.tag === tag);
@@ -145,20 +131,108 @@ async function replyToken(tag = 'alert_received') {
 const reply = (token: string, r: string) =>
   h.app.inject({ method: 'POST', url: '/v1/ack', payload: { token, reply: r } });
 
-describe('channel order and fallback (US-22, NT-01, NT-12)', () => {
-  it('normal alerts stop at the first channel that works (Push before e-mail)', async () => {
+/** An app device of the owner (FCM fake: tokens starting with "invalid" are gone). */
+async function registerApp(token = 'fcm-token-phone-0000000001') {
+  const app = await appSignIn(h, OWNER);
+  const r = await h.app.inject({
+    method: 'POST',
+    url: '/v1/app/devices/register',
+    headers: app,
+    payload: { fcmToken: token, platform: 'ios', appVersion: '1.0.0', locale: 'de' },
+  });
+  expect(r.statusCode).toBe(200);
+  return app;
+}
+
+/** PREMIUM owner with escalation switched on and three confirmed contacts, in order. */
+async function premiumWithContacts(n = 3) {
+  await makePremium(h, OWNER);
+  await enableEscalation(h, OWNER);
+  const ids: string[] = [];
+  for (let i = 1; i <= n; i++) {
+    ids.push(
+      await addConfirmedContact(h, OWNER, `kontakt${i}@example.de`, null, {
+        name: `Kontakt ${i}`,
+        phone: `+4915100000${i}0${i}`,
+        order: i,
+      }),
+    );
+  }
+  return ids;
+}
+
+const due = () =>
+  sql`UPDATE alerts SET escalate_at = now() - interval '1 second'
+  WHERE escalate_at IS NOT NULL`.execute(h.db);
+
+/** Runs the sweeper and the queued escalation events, like the worker. */
+async function escalateNow() {
+  const escalation = h.app.get(EscalationService);
+  const n = await escalation.sweep();
+  const events = await h.db
+    .selectFrom('outbox_events')
+    .select(['id', 'payload'])
+    .where('topic', '=', ESCALATE_TOPIC)
+    .where('processed_at', 'is', null)
+    .execute();
+  for (const e of events) {
+    await escalation.run(e.payload as Record<string, unknown>);
+    await h.db
+      .updateTable('outbox_events')
+      .set({ processed_at: new Date() })
+      .where('id', '=', e.id)
+      .execute();
+  }
+  return n;
+}
+
+const contactDeliveries = (alertId: string) =>
+  h.db
+    .selectFrom('alert_deliveries as d')
+    .leftJoin('emergency_contacts as c', 'c.id', 'd.emergency_contact_id')
+    .select(['d.channel', 'd.status', 'd.escalation_step', 'c.display_name'])
+    .where('d.alert_id', '=', alertId)
+    .where('d.recipient', '=', 'emergency_contact')
+    .orderBy('d.queued_at')
+    .execute();
+
+describe('channel matrix (tiered notifications)', () => {
+  it('PLUS: push (app and browser) and e-mail at once, never SMS, never WhatsApp', async () => {
     const { s, code } = await vehicleWithCode();
     await registerPush(s, `${pushBase}/ok/1`);
+    await registerApp();
+    await linkSmsDirect(h, OWNER);
     const a = await alert(code);
     await h.app.get(DispatchService).dispatch(a.alertId);
     expect(pushed).toEqual(['/ok/1']);
-    expect(await ownerChannels(a.alertId)).toEqual([
-      { channel: 'webpush', status: 'sent', suppressed_reason: null },
+    expect((await ownerChannels(a.alertId)).map((d) => `${d.channel}:${d.status}`)).toEqual([
+      'native_push:sent',
+      'webpush:sent',
+      'email:sent',
     ]);
-    expect((await mailbox(h)).filter((m) => m.tag === 'alert_received')).toHaveLength(0);
+    expect(await smsInbox(h)).toHaveLength(0);
   });
 
-  it('falls back to the next channel when one fails, or is switched off', async () => {
+  it('PREMIUM: push, e-mail and SMS at once', async () => {
+    const { s, code } = await vehicleWithCode();
+    await makePremium(h, OWNER);
+    await registerPush(s, `${pushBase}/ok/1`);
+    await registerApp();
+    await linkSmsDirect(h, OWNER);
+    const a = await alert(code);
+    await h.app.get(DispatchService).dispatch(a.alertId);
+    expect((await ownerChannels(a.alertId)).map((d) => `${d.channel}:${d.status}`)).toEqual([
+      'native_push:sent',
+      'webpush:sent',
+      'email:sent',
+      'sms:sent',
+    ]);
+    const sms = (await smsInbox(h))[0]!;
+    expect(sms.body.length).toBeLessThanOrEqual(160);
+    expect(sms.body).toMatch(/Details: .*\/v\/[A-Za-z0-9_-]{43}$/);
+  });
+
+  it('keeps going when one channel fails or is switched off', async () => {
     const { s, code } = await vehicleWithCode();
     await registerPush(s, `${pushBase}/fail/1`);
     const a = await alert(code);
@@ -179,52 +253,61 @@ describe('channel order and fallback (US-22, NT-01, NT-12)', () => {
     ]);
   });
 
-  it('urgent alerts go to every channel at once', async () => {
-    const { s, code } = await vehicleWithCode();
-    await registerPush(s, `${pushBase}/ok/1`);
-    await linkWhatsApp(s);
-    const a = await alert(code, 'blocking');
+  it('the app push carries no message text, photo, plate, nickname or name', async () => {
+    const { code } = await vehicleWithCode();
+    await registerApp();
+    const a = await alert(code, 'custom', 'Ihr Licht brennt, Herr Meier');
     await h.app.get(DispatchService).dispatch(a.alertId);
-    expect((await ownerChannels(a.alertId)).map((d) => `${d.channel}:${d.status}`)).toEqual([
-      'webpush:sent',
-      'email:sent',
-      'whatsapp:sent',
-    ]);
+    const push = (await appPushes(h))[0]!.body.message;
+    expect(push.notification).toEqual({
+      title: 'ParkShield',
+      body: 'Neuer Alarm für Ihr Fahrzeug: Eigene Nachricht',
+    });
+    expect(push.data).toEqual({ alertId: a.alertId, type: 'custom', kind: 'alert' });
+    expect(JSON.stringify(push)).not.toMatch(/Meier|Licht|Der Blaue|K-AB|owner@example|jpg|\/v\//);
+    expect(push.apns.headers['apns-push-type']).toBe('alert');
+    expect(push.apns.payload.aps.category).toBe('PS_ALERT');
+    expect(push.android).toMatchObject({ priority: 'NORMAL' });
+    // E-mail carries the time, the filtered message and the view link, no attachment.
+    const mail = (await mailbox(h)).find((m) => m.tag === 'alert_received')!;
+    expect(mail.text).toContain('Ihr Licht brennt, Herr Meier');
+    expect(mail.text).toMatch(/Details & Fotos ansehen: http.*\/v\/[A-Za-z0-9_-]{43}/);
   });
 
-  it('follows the owner’s own order, and the default order from settings', async () => {
-    const { s, code } = await vehicleWithCode();
-    await registerPush(s, `${pushBase}/ok/1`);
-    const overview = await h.app.inject({ method: 'GET', url: '/v1/channels', headers: s.headers });
-    expect(overview.json().order).toEqual(['webpush', 'email', 'whatsapp', 'sms']);
-
-    await setSetting(h, 'channels.order', ['email', 'webpush', 'whatsapp']);
+  it('removes an app device FCM reports as unregistered', async () => {
+    const { code } = await vehicleWithCode();
+    await registerApp('invalid-token-0000000000001');
     const a = await alert(code);
     await h.app.get(DispatchService).dispatch(a.alertId);
-    expect((await ownerChannels(a.alertId)).map((d) => d.channel)).toEqual(['email']);
+    expect(await h.db.selectFrom('user_devices').selectAll().execute()).toHaveLength(0);
+    expect((await ownerChannels(a.alertId))[0]).toMatchObject({
+      channel: 'native_push',
+      status: 'failed',
+    });
+  });
 
+  it('follows the owner’s order for the sequence; the order has no WhatsApp', async () => {
+    const { s } = await vehicleWithCode();
+    const overview = await h.app.inject({ method: 'GET', url: '/v1/channels', headers: s.headers });
+    expect(overview.json().order).toEqual(['native_push', 'webpush', 'email', 'sms']);
     const bad = await h.app.inject({
       method: 'PUT',
       url: '/v1/channels/order',
       headers: s.headers,
-      payload: { order: ['email', 'email', 'whatsapp', 'sms'] },
+      payload: { order: ['email', 'webpush', 'whatsapp', 'sms'] },
     });
     expect(bad.statusCode).toBe(400);
     const saved = await h.app.inject({
       method: 'PUT',
       url: '/v1/channels/order',
       headers: s.headers,
-      payload: { order: ['whatsapp', 'sms', 'webpush', 'email'] },
+      payload: { order: ['email', 'sms', 'webpush', 'native_push'] },
     });
-    expect(saved.json().order).toEqual(['whatsapp', 'sms', 'webpush', 'email']);
-    // WhatsApp and SMS are not linked, so the first channel that works is Push.
-    const b = await alert(code);
-    await h.app.get(DispatchService).dispatch(b.alertId);
-    expect((await ownerChannels(b.alertId)).map((d) => d.channel)).toEqual(['webpush']);
+    expect(saved.json().order).toEqual(['email', 'sms', 'webpush', 'native_push']);
   });
 });
 
-describe('quick replies (US-23, NT-02, NT-10)', () => {
+describe('quick replies and „Ich komme" (US-23, NT-02, NT-10)', () => {
   it('records "Ich komme" on a tap only, shows it to the scanner, and works once', async () => {
     const { code } = await vehicleWithCode();
     const a = await alert(code);
@@ -252,175 +335,47 @@ describe('quick replies (US-23, NT-02, NT-10)', () => {
     const r = await reply(token, 'coming');
     expect(r.statusCode).toBe(200);
     expect(r.json()).toEqual({ reply: 'coming', escalating: false });
-    expect(await status(a)).toMatchObject({ status: 'acknowledged', ownerReply: 'coming' });
+    expect(await status(a)).toMatchObject({
+      status: 'acknowledged',
+      ownerReply: 'coming',
+      acknowledgedBy: 'owner',
+    });
 
     const again = await reply(token, 'not_nearby');
     expect(again.statusCode).toBe(409);
     expect(again.json()).toEqual({ error: 'already_answered', reply: 'coming' });
-    const after = await h.app.inject({
-      method: 'POST',
-      url: '/v1/ack/preview',
-      payload: { token },
-    });
-    expect(after.json()).toMatchObject({ answered: true, reply: 'coming' });
     expect((await reply('x'.repeat(43), 'coming')).statusCode).toBe(404);
   });
 
-  it('uses the same link in every channel and every retry', async () => {
-    const { s, code } = await vehicleWithCode();
-    await linkWhatsApp(s);
-    const a = await alert(code, 'blocking');
-    const dispatch = h.app.get(DispatchService);
-    await dispatch.dispatch(a.alertId);
-    const token = await replyToken();
-    const wa = (await h.app.inject({ method: 'GET', url: '/v1/dev/whatsapp' })).json().messages[0];
-    expect(wa.buttons).toEqual([
-      `ack:${token}:coming`,
-      `ack:${token}:in_30_min`,
-      `ack:${token}:not_nearby`,
-    ]);
-  });
-
-  it('"In ca. 30 Min" postpones escalation by 30 minutes, "Ich komme" cancels it', async () => {
+  it('"seen" in the app is not an answer; "Ich komme" in the app is, once', async () => {
     const { code } = await vehicleWithCode();
-    await addConfirmedContact(h, OWNER);
-    const a = await alert(code, 'blocking');
-    const initial = await h.db.selectFrom('alerts').select('escalate_at').executeTakeFirstOrThrow();
-    expect(initial.escalate_at!.getTime()).toBeGreaterThan(Date.now() + 6 * 60_000);
-    expect(initial.escalate_at!.getTime()).toBeLessThan(Date.now() + 8 * 60_000);
-
+    const app = await registerApp();
+    const a = await alert(code);
     await h.app.get(DispatchService).dispatch(a.alertId);
-    await reply(await replyToken(), 'in_30_min');
-    const later = await h.db.selectFrom('alerts').select('escalate_at').executeTakeFirstOrThrow();
-    expect(later.escalate_at!.getTime()).toBeGreaterThan(Date.now() + 29 * 60_000);
-    expect((await status(a)).ownerReply).toBe('in_30_min');
-
-    const b = await alert(code, 'damage');
-    await h.app.get(DispatchService).dispatch(b.alertId);
-    await reply(await replyToken(), 'coming');
-    const row = await h.db
-      .selectFrom('alerts')
-      .select('escalate_at')
-      .where('id', '=', b.alertId)
-      .executeTakeFirstOrThrow();
-    expect(row.escalate_at).toBeNull();
-  });
-
-  it('"Bin nicht in der Nähe" escalates at once to the confirmed contact, once, with no details', async () => {
-    const { code } = await vehicleWithCode();
-    await addConfirmedContact(h, OWNER, 'kim@example.de');
-    const a = await alert(code, 'blocking', undefined);
-    await h.app.get(DispatchService).dispatch(a.alertId);
-    const r = await reply(await replyToken(), 'not_nearby');
-    expect(r.json()).toEqual({ reply: 'not_nearby', escalating: true });
-    const events = await h.db
-      .selectFrom('outbox_events')
-      .select(['topic', 'payload'])
-      .where('topic', '=', ESCALATE_TOPIC)
-      .execute();
-    expect(events).toEqual([{ topic: ESCALATE_TOPIC, payload: { alertId: a.alertId } }]);
-
-    const escalation = h.app.get(EscalationService);
-    await escalation.run(a.alertId);
-    await escalation.run(a.alertId); // replayed event
-    const mails = (await mailbox(h)).filter((m) => m.tag === 'escalation');
-    expect(mails).toHaveLength(1);
-    expect(mails[0]!.to).toBe('kim@example.de');
-    expect(mails[0]!.subject).toBe('ParkShield: Fahrzeug versperrt Ausfahrt bei „Der Blaue“');
-    expect(mails[0]!.text).not.toMatch(/K-AB|owner@example\.de|antwort/);
-    expect(await status(a)).toMatchObject({ status: 'escalated', ownerReply: 'not_nearby' });
-  });
-
-  it('without a contact, "Bin nicht in der Nähe" only tells the scanner', async () => {
-    const { code } = await vehicleWithCode();
-    const a = await alert(code, 'blocking');
-    await h.app.get(DispatchService).dispatch(a.alertId);
-    expect((await reply(await replyToken(), 'not_nearby')).json().escalating).toBe(false);
-    expect(await status(a)).toMatchObject({ status: 'acknowledged', ownerReply: 'not_nearby' });
-    const row = await h.db.selectFrom('alerts').select('escalate_at').executeTakeFirstOrThrow();
-    expect(row.escalate_at).toBeNull();
-  });
-
-  it('accepts quick replies from WhatsApp buttons', async () => {
-    const { s, code } = await vehicleWithCode();
-    await linkWhatsApp(s);
-    const a = await alert(code, 'blocking');
-    await h.app.get(DispatchService).dispatch(a.alertId);
-    const token = await replyToken();
-    const hook = await h.app.inject({
+    const seen = await h.app.inject({
       method: 'POST',
-      url: `/v1/webhooks/whatsapp/${TEST_WA_WEBHOOK_SECRET}`,
-      payload: {
-        entry: [
-          {
-            changes: [
-              {
-                value: {
-                  messages: [
-                    {
-                      from: '4915123456789',
-                      type: 'button',
-                      button: { payload: `ack:${token}:coming`, text: 'Ich komme' },
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-        ],
-      },
+      url: `/v1/app/alerts/${a.alertId}/seen`,
+      headers: app,
     });
-    expect(hook.statusCode).toBe(200);
-    expect(await status(a)).toMatchObject({ status: 'acknowledged', ownerReply: 'coming' });
-  });
-
-  it('accepts Twilio status callbacks and button taps, only with a valid signature', async () => {
-    const { s, code } = await vehicleWithCode();
-    await linkWhatsApp(s);
-    const a = await alert(code, 'blocking');
-    await h.app.get(DispatchService).dispatch(a.alertId);
-    const token = await replyToken();
-    const waDelivery = () =>
-      h.db
-        .selectFrom('alert_deliveries')
-        .select(['provider_message_id', 'status'])
-        .where('alert_id', '=', a.alertId)
-        .where('channel', '=', 'whatsapp')
-        .executeTakeFirstOrThrow();
-    const url = `${TEST_TWILIO_WEBHOOK_BASE}${TWILIO_WEBHOOK_PATH}`;
-    const post = (
-      params: Record<string, string>,
-      signature = twilioSignature(TEST_TWILIO_AUTH_TOKEN, url, params),
-    ) =>
-      h.app.inject({
-        method: 'POST',
-        url: TWILIO_WEBHOOK_PATH,
-        headers: {
-          'content-type': 'application/x-www-form-urlencoded',
-          'x-twilio-signature': signature,
-        },
-        payload: new URLSearchParams(params).toString(),
-      });
-
-    const delivered = {
-      MessageSid: (await waDelivery()).provider_message_id!,
-      MessageStatus: 'delivered',
-    };
-    expect((await post(delivered, 'forged-signature')).statusCode).toBe(403);
-    expect((await waDelivery()).status).toBe('sent');
-    const ok = await post(delivered);
-    expect(ok.statusCode).toBe(200);
-    expect(ok.body).toContain('<Response>');
-    expect((await waDelivery()).status).toBe('delivered');
-
-    const tap = {
-      From: 'whatsapp:+4915123456789',
-      MessageSid: 'SMtap',
-      ButtonText: 'Ich komme',
-      ButtonPayload: `ack:${token}:coming`,
-    };
-    expect((await post(tap)).statusCode).toBe(200);
-    expect(await status(a)).toMatchObject({ status: 'acknowledged', ownerReply: 'coming' });
+    expect(seen.statusCode).toBe(200);
+    expect(await status(a)).toMatchObject({ status: 'delivered', ownerReply: null });
+    expect((await status(a)).seenAt).not.toBeNull();
+    const ack = await h.app.inject({
+      method: 'POST',
+      url: `/v1/app/alerts/${a.alertId}/ack`,
+      headers: app,
+      payload: {},
+    });
+    expect(ack.json()).toEqual({ reply: 'coming', escalating: false });
+    const twice = await h.app.inject({
+      method: 'POST',
+      url: `/v1/app/alerts/${a.alertId}/ack`,
+      headers: app,
+      payload: {},
+    });
+    expect(twice.statusCode).toBe(409);
+    // The e-mail link is spent too.
+    expect((await reply(await replyToken(), 'coming')).statusCode).toBe(409);
   });
 
   it('stops working when the alert expires', async () => {
@@ -436,11 +391,11 @@ describe('quick replies (US-23, NT-02, NT-10)', () => {
 
   it('the reminder after "Ich warte noch" brings fresh reply buttons', async () => {
     const { code } = await vehicleWithCode();
-    await addConfirmedContact(h, OWNER);
+    await premiumWithContacts(1);
     const a = await alert(code, 'blocking');
     await h.app.get(DispatchService).dispatch(a.alertId);
     const first = await replyToken();
-    await reply(first, 'coming');
+    await reply(first, 'in_30_min');
     await sql`UPDATE alerts SET acknowledged_at = now() - interval '16 minutes'`.execute(h.db);
     const w = await h.app.inject({
       method: 'POST',
@@ -451,20 +406,115 @@ describe('quick replies (US-23, NT-02, NT-10)', () => {
     await h.app.get(DispatchService).followup(a.alertId);
     const fresh = await replyToken('alert_followup');
     expect(fresh).not.toBe(first);
-    expect((await reply(fresh, 'not_nearby')).json()).toEqual({
-      reply: 'not_nearby',
-      escalating: true,
-    });
+    expect((await reply(fresh, 'coming')).json()).toEqual({ reply: 'coming', escalating: false });
   });
 });
 
-describe('escalation engine (NT-03, 02-architecture §3 step 8)', () => {
-  it('schedules escalation only for escalating, real alerts with a confirmed contact', async () => {
-    const { s, v, code } = await vehicleWithCode();
-    await alert(code, 'blocking');
+describe('owner reminder (all plans; PREMIUM also by SMS)', () => {
+  it('sends a second push after 3 minutes; "seen" does not stop it, an answer does', async () => {
+    const { code } = await vehicleWithCode();
+    const app = await registerApp();
+    const reminders = h.app.get(OwnerReminderService);
+    const a = await alert(code);
+    const row = await h.db.selectFrom('alerts').select('remind_at').executeTakeFirstOrThrow();
+    expect(row.remind_at!.getTime()).toBeGreaterThan(Date.now() + 2.5 * 60_000);
+    expect(row.remind_at!.getTime()).toBeLessThan(Date.now() + 3.5 * 60_000);
+    await h.app.get(DispatchService).dispatch(a.alertId);
+    await h.app.inject({ method: 'POST', url: `/v1/app/alerts/${a.alertId}/seen`, headers: app });
+
+    expect(await reminders.sweep()).toBe(0);
+    await sql`UPDATE alerts SET remind_at = now() - interval '1 second'`.execute(h.db);
+    expect(await reminders.sweep()).toBe(1);
+    expect(await reminders.sweep()).toBe(0); // never twice
+    const events = await h.db
+      .selectFrom('outbox_events')
+      .select('payload')
+      .where('topic', '=', REMIND_TOPIC)
+      .execute();
+    expect(events).toEqual([{ payload: { alertId: a.alertId } }]);
+    await h.app.get(DispatchService).remind(a.alertId);
+    await h.app.get(DispatchService).remind(a.alertId); // replay
+    const pushes = (await appPushes(h)).filter((p) => p.body.message.data.kind === 'reminder');
+    expect(pushes).toHaveLength(1);
+    expect(pushes[0]!.body.message.notification.body).toBe(
+      'Erinnerung: Licht brennt noch. Bitte reagieren Sie.',
+    );
+    // With a push device, no reminder e-mail.
+    expect((await mailbox(h)).filter((m) => m.tag === 'alert_reminder')).toHaveLength(0);
+
+    // An answered alert gets no reminder.
+    const b = await alert(code, 'lights_on', undefined);
+    await h.app.get(DispatchService).dispatch(b.alertId);
+    await h.app.inject({
+      method: 'POST',
+      url: `/v1/app/alerts/${b.alertId}/ack`,
+      headers: app,
+      payload: {},
+    });
+    await sql`UPDATE alerts SET remind_at = now() - interval '1 second' WHERE id = ${b.alertId}`.execute(
+      h.db,
+    );
+    expect(await reminders.sweep()).toBe(0);
+  });
+
+  it('without any push device: e-mail with the hint; PREMIUM: a second SMS, at most 2 per alert', async () => {
+    const { code } = await vehicleWithCode();
+    await makePremium(h, OWNER);
+    await linkSmsDirect(h, OWNER);
+    const a = await alert(code, 'blocking');
+    const dispatch = h.app.get(DispatchService);
+    await dispatch.dispatch(a.alertId);
+    await sql`UPDATE alerts SET remind_at = now() - interval '1 second'`.execute(h.db);
+    await h.app.get(OwnerReminderService).sweep();
+    await dispatch.remind(a.alertId);
+    const mail = (await mailbox(h)).find((m) => m.tag === 'alert_reminder')!;
+    expect(mail.text).toContain('Sie haben keine App mit aktivierten Mitteilungen');
+    const sms = await smsInbox(h);
+    expect(sms.map((m) => m.tag)).toEqual(['sms_reminder', 'sms_alert']);
+    expect(sms[0]!.body.length).toBeLessThanOrEqual(160);
+    // A third SMS (the follow-up) is not sent: max 2 per alert to the owner.
+    await reply(await replyToken(), 'in_30_min');
+    await sql`UPDATE alerts SET acknowledged_at = now() - interval '16 minutes'`.execute(h.db);
+    await h.app.inject({
+      method: 'POST',
+      url: `/v1/alerts/${a.alertId}/waiting`,
+      headers: { 'x-status-token': a.statusToken },
+    });
+    await dispatch.followup(a.alertId);
+    expect((await smsInbox(h)).filter((m) => m.tag.startsWith('sms_'))).toHaveLength(2);
+  });
+});
+
+describe('escalation to trusted contacts (PREMIUM, NT-03)', () => {
+  it('never for PLUS: no escalate_at, and the API answers 403', async () => {
+    const { s, code } = await vehicleWithCode();
+    await enableEscalation(h, OWNER);
     await addConfirmedContact(h, OWNER);
+    await alert(code, 'blocking');
+    const row = await h.db.selectFrom('alerts').select('escalate_at').executeTakeFirstOrThrow();
+    expect(row.escalate_at).toBeNull();
+    for (const url of ['/v1/app/escalation', '/v1/escalation']) {
+      const r = await h.app.inject({ method: 'GET', url, headers: s.headers });
+      expect(r.statusCode).toBe(403);
+      expect(r.json().error).toBe('premium_required');
+    }
+    const invite = await h.app.inject({
+      method: 'POST',
+      url: '/v1/app/emergency-contacts',
+      headers: s.headers,
+      payload: { name: 'Kim', phone: '0151 11111111', ownerName: 'Max' },
+    });
+    expect(invite.statusCode).toBe(403);
+  });
+
+  it('only for escalating types, switched on, with a confirmed contact, not for tests', async () => {
+    const { s, v, code } = await vehicleWithCode();
+    await makePremium(h, OWNER);
+    await addConfirmedContact(h, OWNER);
+    await alert(code, 'blocking'); // switched off (default)
+    await enableEscalation(h, OWNER);
     await alert(code, 'lights_on');
-    await alert(code, 'damage');
+    await alert(code, 'window_open');
     await h.app.inject({
       method: 'POST',
       url: `/v1/vehicles/${v.id}/test-window`,
@@ -477,62 +527,259 @@ describe('escalation engine (NT-03, 02-architecture §3 step 8)', () => {
       .orderBy('created_at')
       .execute();
     expect(rows.map((r) => [r.alert_type, r.is_test, r.escalate_at !== null])).toEqual([
-      ['blocking', false, false], // no contact yet
+      ['blocking', false, false], // escalation off
       ['lights_on', false, false], // type does not escalate
-      ['damage', false, true],
+      ['window_open', false, true],
       ['towing_risk', true, false], // test
     ]);
   });
 
-  it('the sweeper escalates due alerts once and queues the contact notification', async () => {
+  it('escalates contact 1 → 2 → 3 with the delay, once each, by SMS and e-mail without details', async () => {
     const { code } = await vehicleWithCode();
-    const contactId = await addConfirmedContact(h, OWNER, 'kim@example.de');
-    const a = await alert(code, 'blocking');
-    const escalation = h.app.get(EscalationService);
-    expect(await escalation.sweep()).toBe(0);
-    await sql`UPDATE alerts SET escalate_at = now() - interval '1 second'`.execute(h.db);
-    expect(await escalation.sweep()).toBe(1);
-    expect(await escalation.sweep()).toBe(0);
-    expect((await status(a)).status).toBe('escalated');
-    await escalation.run(a.alertId);
-    const delivery = await h.db
-      .selectFrom('alert_deliveries')
-      .select(['recipient', 'emergency_contact_id', 'status'])
-      .where('recipient', '=', 'emergency_contact')
-      .executeTakeFirstOrThrow();
-    expect(delivery).toEqual({
-      recipient: 'emergency_contact',
-      emergency_contact_id: contactId,
-      status: 'sent',
-    });
-
-    // A late reply is still accepted and shown; it does not undo the escalation.
-    await h.app.get(DispatchService).dispatch(a.alertId); // status escalated: no owner dispatch now
-    const late = await h.db.selectFrom('alerts').select('escalated_at').executeTakeFirstOrThrow();
-    expect(late.escalated_at).not.toBeNull();
-  });
-
-  it('does not escalate when the contact withdrew before the alert fell due', async () => {
-    const { code } = await vehicleWithCode();
-    await addConfirmedContact(h, OWNER);
-    await alert(code, 'blocking');
-    await h.db.deleteFrom('emergency_contacts').execute();
-    await sql`UPDATE alerts SET escalate_at = now() - interval '1 second'`.execute(h.db);
-    expect(await h.app.get(EscalationService).sweep()).toBe(0);
-  });
-
-  it('accepts a late reply after escalation', async () => {
-    const { code } = await vehicleWithCode();
-    await addConfirmedContact(h, OWNER);
+    await premiumWithContacts(3);
     const a = await alert(code, 'blocking');
     await h.app.get(DispatchService).dispatch(a.alertId);
-    const token = await replyToken();
-    await sql`UPDATE alerts SET escalate_at = now() - interval '1 second'`.execute(h.db);
-    await h.app.get(EscalationService).sweep();
-    const r = await reply(token, 'coming');
+    expect(await escalateNow()).toBe(0); // not due yet
+    await due();
+    expect(await escalateNow()).toBe(1);
+    expect(await escalateNow()).toBe(0); // next step only after the delay
+    let rows = await h.db
+      .selectFrom('alerts')
+      .select(['escalation_step', 'escalate_at'])
+      .executeTakeFirstOrThrow();
+    expect(rows.escalation_step).toBe(1);
+    expect(rows.escalate_at!.getTime()).toBeGreaterThan(Date.now() + 6 * 60_000);
+    await due();
+    await escalateNow();
+    await due();
+    await escalateNow();
+    await due();
+    expect(await escalateNow()).toBe(0); // the chain ends after contact 3
+    rows = await h.db
+      .selectFrom('alerts')
+      .select(['escalation_step', 'escalate_at'])
+      .executeTakeFirstOrThrow();
+    expect(rows).toEqual({ escalation_step: 3, escalate_at: null });
+    const d = await contactDeliveries(a.alertId);
+    expect(d.map((x) => `${x.escalation_step}:${x.display_name}:${x.channel}:${x.status}`)).toEqual(
+      [
+        '1:Kontakt 1:sms:sent',
+        '1:Kontakt 1:email:sent',
+        '2:Kontakt 2:sms:sent',
+        '2:Kontakt 2:email:sent',
+        '3:Kontakt 3:sms:sent',
+        '3:Kontakt 3:email:sent',
+      ],
+    );
+    const sms = (await smsInbox(h)).filter((m) => m.tag === 'sms_escalation');
+    expect(sms).toHaveLength(3);
+    for (const m of sms) {
+      expect(m.body.length).toBeLessThanOrEqual(160);
+      expect(m.body).toMatch(/\/k\/[A-Za-z0-9_-]{43}$/);
+      expect(m.body).not.toMatch(/K-AB|Meier|owner@example/);
+    }
+    const mail = (await mailbox(h)).find((m) => m.tag === 'escalation')!;
+    expect(mail.subject).toBe('ParkShield: Fahrzeug versperrt Ausfahrt bei „Der Blaue“');
+    expect(mail.text).toContain('Keine Benachrichtigungen mehr erhalten');
+    expect(mail.text).not.toMatch(/K-AB|owner@example\.de|antwort|\/v\//);
+    expect(await status(a)).toMatchObject({ status: 'escalated' });
+  });
+
+  it('the first „Ich komme" (a contact) stops the chain; the owner sees who', async () => {
+    const { code } = await vehicleWithCode();
+    await premiumWithContacts(3);
+    const app = await registerApp();
+    const a = await alert(code, 'blocking');
+    await h.app.get(DispatchService).dispatch(a.alertId);
+    await due();
+    await escalateNow();
+    const link = /\/k\/([A-Za-z0-9_-]{43})/.exec(
+      (await smsInbox(h)).find((m) => m.tag === 'sms_escalation')!.body,
+    )![1]!;
+    const preview = await h.app.inject({
+      method: 'POST',
+      url: '/v1/contacts/alert/preview',
+      payload: { token: link },
+    });
+    expect(preview.json()).toMatchObject({ nickname: 'Der Blaue', acknowledged: false });
+    expect(JSON.stringify(preview.json())).not.toMatch(/K-AB|owner@example/);
+    const ack = await h.app.inject({
+      method: 'POST',
+      url: '/v1/contacts/alert/ack',
+      payload: { token: link },
+    });
+    expect(ack.statusCode).toBe(200);
+    expect(
+      (
+        await h.app.inject({
+          method: 'POST',
+          url: '/v1/contacts/alert/ack',
+          payload: { token: link },
+        })
+      ).statusCode,
+    ).toBe(409);
+    expect(await status(a)).toMatchObject({ status: 'acknowledged', acknowledgedBy: 'contact' });
+    await due();
+    expect(await escalateNow()).toBe(0);
+    const detail = (
+      await h.app.inject({ method: 'GET', url: `/v1/app/alerts/${a.alertId}`, headers: app })
+    ).json();
+    expect(detail.acknowledgedBy).toEqual({ kind: 'contact', name: 'Kontakt 1' });
+    // The owner's own "Ich komme" is spent now too.
+    expect((await reply(await replyToken(), 'coming')).statusCode).toBe(409);
+  });
+
+  it('the owner’s „Ich komme" after the chain started stops it', async () => {
+    const { code } = await vehicleWithCode();
+    await premiumWithContacts(2);
+    const a = await alert(code, 'blocking');
+    await h.app.get(DispatchService).dispatch(a.alertId);
+    await due();
+    await escalateNow();
+    expect((await reply(await replyToken(), 'coming')).statusCode).toBe(200);
+    await due();
+    expect(await escalateNow()).toBe(0);
+    expect((await contactDeliveries(a.alertId)).every((d) => d.escalation_step === 1)).toBe(true);
+  });
+
+  it('"Bin nicht in der Nähe" starts the chain at once; "In ca. 30 Min" postpones it', async () => {
+    const { code } = await vehicleWithCode();
+    await premiumWithContacts(1);
+    const a = await alert(code, 'blocking');
+    await h.app.get(DispatchService).dispatch(a.alertId);
+    expect((await reply(await replyToken(), 'not_nearby')).json()).toEqual({
+      reply: 'not_nearby',
+      escalating: true,
+    });
+    const events = await h.db
+      .selectFrom('outbox_events')
+      .select(['topic', 'payload'])
+      .where('topic', '=', ESCALATE_TOPIC)
+      .execute();
+    expect(events).toEqual([{ topic: ESCALATE_TOPIC, payload: { alertId: a.alertId } }]);
+    await h.app.get(EscalationService).run({ alertId: a.alertId });
+    await h.app.get(EscalationService).run({ alertId: a.alertId }); // replay
+    expect((await contactDeliveries(a.alertId)).map((d) => d.channel)).toEqual(['sms', 'email']);
+
+    const b = await alert(code, 'damage');
+    await h.app.get(DispatchService).dispatch(b.alertId);
+    await reply(await replyToken(), 'in_30_min');
+    const later = await h.db
+      .selectFrom('alerts')
+      .select('escalate_at')
+      .where('id', '=', b.alertId)
+      .executeTakeFirstOrThrow();
+    expect(later.escalate_at!.getTime()).toBeGreaterThan(Date.now() + 29 * 60_000);
+  });
+
+  it('switching escalation off cancels pending steps; on applies to new alerts', async () => {
+    const { s, code } = await vehicleWithCode();
+    await premiumWithContacts(1);
+    const a = await alert(code, 'blocking');
+    const off = await h.app.inject({
+      method: 'PUT',
+      url: '/v1/escalation',
+      headers: s.headers,
+      payload: { enabled: false },
+    });
+    expect(off.json()).toMatchObject({ available: true, enabled: false });
+    const row = await h.db
+      .selectFrom('alerts')
+      .select('escalate_at')
+      .where('id', '=', a.alertId)
+      .executeTakeFirstOrThrow();
+    expect(row.escalate_at).toBeNull();
+    await h.app.inject({
+      method: 'PUT',
+      url: '/v1/escalation',
+      headers: s.headers,
+      payload: { enabled: true, delayMinutes: 12 },
+    });
+    await alert(code, 'blocking');
+    const rows = await h.db
+      .selectFrom('alerts')
+      .select('escalate_at')
+      .orderBy('created_at', 'desc')
+      .executeTakeFirstOrThrow();
+    expect(rows.escalate_at!.getTime()).toBeGreaterThan(Date.now() + 11 * 60_000);
+    // Per vehicle: off for this vehicle only.
+    const settings = (
+      await h.app.inject({ method: 'GET', url: '/v1/escalation', headers: s.headers })
+    ).json();
+    await h.app.inject({
+      method: 'PUT',
+      url: '/v1/escalation',
+      headers: s.headers,
+      payload: { vehicles: [{ id: settings.vehicles[0].id, enabled: false }] },
+    });
+    await alert(code, 'blocking');
+    const last = await h.db
+      .selectFrom('alerts')
+      .select('escalate_at')
+      .orderBy('created_at', 'desc')
+      .executeTakeFirstOrThrow();
+    expect(last.escalate_at).toBeNull();
+  });
+
+  it('never escalates to pending, declined or deactivated contacts', async () => {
+    const { code } = await vehicleWithCode();
+    const [id] = await premiumWithContacts(1);
+    await h.db.updateTable('emergency_contacts').set({ consent: 'pending' }).execute();
+    const a = await alert(code, 'blocking');
+    expect(
+      (await h.db.selectFrom('alerts').select('escalate_at').executeTakeFirstOrThrow()).escalate_at,
+    ).toBeNull();
+    await h.db.updateTable('emergency_contacts').set({ consent: 'confirmed' }).execute();
+    await sql`UPDATE alerts SET escalate_at = now()`.execute(h.db);
+    await h.db
+      .updateTable('emergency_contacts')
+      .set({ deactivated_at: new Date() })
+      .where('id', '=', id!)
+      .execute();
+    await due();
+    expect(await escalateNow()).toBe(0);
+    expect(await contactDeliveries(a.alertId)).toHaveLength(0);
+  });
+
+  it('a downgrade to PLUS stops escalation at once (checked at escalation time)', async () => {
+    const { code } = await vehicleWithCode();
+    await premiumWithContacts(1);
+    const a = await alert(code, 'blocking');
+    await h.db.updateTable('subscriptions').set({ plan: 'plus' }).execute();
+    await due();
+    expect(await escalateNow()).toBe(0);
+    expect(await contactDeliveries(a.alertId)).toHaveLength(0);
+  });
+
+  it('the sweeper recovers a step whose job got lost (e.g. Valkey restart), never twice', async () => {
+    const { code } = await vehicleWithCode();
+    await premiumWithContacts(1);
+    await alert(code, 'blocking');
+    await h.valkey.flushdb();
+    await due();
+    const escalation = h.app.get(EscalationService);
+    const [one, two] = await Promise.all([escalation.sweep(), escalation.sweep()]);
+    expect(one + two).toBe(1);
+  });
+
+  it('opt-out from an escalation message deletes the contact and tells the owner', async () => {
+    const { code } = await vehicleWithCode();
+    await premiumWithContacts(1);
+    const a = await alert(code, 'blocking');
+    await due();
+    await escalateNow();
+    const link = /\/k\/([A-Za-z0-9_-]{43})/.exec(
+      (await smsInbox(h)).find((m) => m.tag === 'sms_escalation')!.body,
+    )![1]!;
+    const r = await h.app.inject({
+      method: 'POST',
+      url: '/v1/contacts/opt-out',
+      payload: { token: link },
+    });
     expect(r.statusCode).toBe(200);
-    const s = await status(a);
-    expect(s).toMatchObject({ status: 'acknowledged', ownerReply: 'coming' });
-    expect(s.escalatedAt).not.toBeNull();
+    expect(await h.db.selectFrom('emergency_contacts').selectAll().execute()).toHaveLength(0);
+    const mail = (await mailbox(h)).find((m) => m.tag === 'ec_decided')!;
+    expect(mail.to).toBe(OWNER);
+    expect(a.alertId).toBeTruthy();
   });
 });

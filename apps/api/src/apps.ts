@@ -81,22 +81,28 @@ import { RenewalsService } from './billing/renewals.service';
 import { LegalRequestsService } from './ops/legal-requests.service';
 import { ClaimController, VehiclesController } from './vehicles/vehicles.controller';
 import { VehiclesService } from './vehicles/vehicles.service';
-import {
-  ChannelsController,
-  TwilioWebhookController,
-  WhatsAppWebhookController,
-} from './channels/channels.controller';
+import { ChannelsController, TwilioWebhookController } from './channels/channels.controller';
 import { ChannelsService } from './channels/channels.service';
 import {
+  ContactLinkController,
   EmergencyContactInvitationsController,
   EmergencyContactsController,
+  EscalationSettingsController,
 } from './contacts/emergency-contacts.controller';
 import { EmergencyContactsService } from './contacts/emergency-contacts.service';
+import { ContactLinkService } from './contacts/contact-link.service';
+import { AppAuthController, AppController } from './app/app.controller';
+import { EmailAuthController } from './auth/email-auth.controller';
+import { AppAlertsService } from './app/app-alerts.service';
+import { DevicesService } from './app/devices.service';
+import { ChatGateway } from './chat/chat.gateway';
+import { ChatService } from './chat/chat.service';
+import { OwnerReminderService } from './notifications/owner-reminder.service';
+import { SmsStatusService } from './notifications/sms-status.service';
 import { AckController } from './notifications/ack.controller';
 import { AckService } from './notifications/ack.service';
 import { DispatchService } from './notifications/dispatch.service';
 import { EscalationService } from './notifications/escalation.service';
-import { WhatsAppWebhookService } from './notifications/whatsapp-webhook.service';
 import { FairUseService } from './notifications/fair-use.service';
 import { PreferencesController } from './preferences/preferences.controller';
 import { PreferencesService } from './preferences/preferences.service';
@@ -107,7 +113,6 @@ import { ScannerRefService } from './scan/scanner-ref.service';
 import { PhoneBansService } from './abuse/phone-bans.service';
 import { ProtectionService } from './abuse/protection.service';
 import { ScannerVerificationService } from './abuse/verification.service';
-import { WaitlistController } from './waitlist/waitlist.controller';
 import { CompanyService } from './letters/company.service';
 import {
   COMPANY_IMAGE_MULTIPART,
@@ -142,8 +147,13 @@ const domainProviders = [
   ScanService,
   DispatchService,
   ChannelsService,
-  WhatsAppWebhookService,
+  SmsStatusService,
   EscalationService,
+  OwnerReminderService,
+  ChatService,
+  ContactLinkService,
+  AppAlertsService,
+  DevicesService,
   AckService,
   EmergencyContactsService,
   PreferencesService,
@@ -192,17 +202,20 @@ export class PublicAppModule {
         BillingController,
         StripeWebhookController,
         LegalController,
-        WaitlistController,
         VehiclesController,
         OrdersController,
         ScanController,
         ChannelsController,
         PreferencesController,
-        WhatsAppWebhookController,
         TwilioWebhookController,
         AckController,
         EmergencyContactsController,
         EmergencyContactInvitationsController,
+        EscalationSettingsController,
+        ContactLinkController,
+        AppAuthController,
+        EmailAuthController,
+        AppController,
         HistoryController,
         AlertViewController,
         PortalAlertMediaController,
@@ -219,6 +232,9 @@ export class PublicAppModule {
         SessionGuard,
         AuthService,
         PasskeyService,
+        // Live chat (Socket.io on the public API's HTTP server) and its timeout sweeper.
+        SchedulerService,
+        ChatGateway,
         { provide: APP_GUARD, useClass: CsrfGuard },
       ],
     };
@@ -289,6 +305,8 @@ export async function buildPublicApp(env: Env, logger: Logger) {
   const app = await createHttpApp(PublicAppModule.forRoot(env, logger), logger);
   // Scanner alerts with photos (Phase 2): memory storage, at most 2 files of 500 KB each.
   await app.register(fastifyMultipart as never, MULTIPART_OPTIONS);
+  // Live chat: Socket.io on the same HTTP server (path /v1/socket.io).
+  app.get(ChatGateway).attach(app.getHttpServer());
   return app;
 }
 

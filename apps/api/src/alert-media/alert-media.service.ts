@@ -142,7 +142,24 @@ export class AlertMediaService {
     };
   }
 
-  /** In the alert's transaction: the media rows and the one view link for all channels. */
+  /**
+   * In the alert's transaction: the one view link for all channels (/v/<token>). Every alert has one
+   * since the tiered notifications (e-mail and SMS link to it, with or without photos); it expires with
+   * the photos (30 days).
+   */
+  async issueViewLink(trx: Transaction<Schema>, alertId: string): Promise<void> {
+    await trx
+      .insertInto('alert_view_tokens')
+      .values({
+        alert_id: alertId,
+        token_hash: this.tokens.hashFor(alertId),
+        expires_at: sql<Date>`now() + make_interval(days => ${PHOTO_RETENTION_DAYS})`,
+      })
+      .onConflict((oc) => oc.doNothing())
+      .execute();
+  }
+
+  /** In the alert's transaction: the media rows. */
   async attach(trx: Transaction<Schema>, alertId: string, items: StoredPhoto[]): Promise<void> {
     if (!items.length) return;
     const expires = sql<Date>`now() + make_interval(days => ${PHOTO_RETENTION_DAYS})`;
@@ -161,10 +178,6 @@ export class AlertMediaService {
           expires_at: expires,
         })),
       )
-      .execute();
-    await trx
-      .insertInto('alert_view_tokens')
-      .values({ alert_id: alertId, token_hash: this.tokens.hashFor(alertId), expires_at: expires })
       .execute();
   }
 
@@ -268,6 +281,29 @@ export class AlertMediaService {
   async photo(token: string, mediaId: string): Promise<{ data: Buffer; position: number } | null> {
     const alertId = await this.tokens.resolve(token);
     if (!alertId) return null;
+    return this.readPhoto(alertId, mediaId);
+  }
+
+  /** The native app: the owner's session proves access (vehicle owner), no view token needed. */
+  async photoForOwner(
+    ownerId: string,
+    alertId: string,
+    mediaId: string,
+  ): Promise<{ data: Buffer; position: number } | null> {
+    const own = await this.db
+      .selectFrom('alerts as a')
+      .innerJoin('vehicles as v', 'v.id', 'a.vehicle_id')
+      .select('a.id')
+      .where('a.id', '=', alertId)
+      .where('v.owner_user_id', '=', ownerId)
+      .executeTakeFirst();
+    return own ? this.readPhoto(alertId, mediaId) : null;
+  }
+
+  private async readPhoto(
+    alertId: string,
+    mediaId: string,
+  ): Promise<{ data: Buffer; position: number } | null> {
     const m = await this.db
       .selectFrom('alert_media')
       .select(['storage_key', 'wrapped_key', 'position'])

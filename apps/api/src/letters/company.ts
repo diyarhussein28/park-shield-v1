@@ -76,8 +76,8 @@ export const DEFAULT_COMPANY: CompanyData = {
       'herzlich willkommen bei ParkShield und vielen Dank für Ihr Vertrauen. Ihr Tarif {plan} ist aktiv: Wer ein Problem an Ihrem geparkten Fahrzeug bemerkt, kann Sie ab sofort über den QR-Aufkleber erreichen, ohne Ihre Telefonnummer, Ihren Namen oder Ihr Kennzeichen zu sehen.',
     nextSteps: [
       'Melden Sie sich im Kundenportal an: {portalUrl}',
-      'Prüfen Sie Ihre Benachrichtigungswege (Push, E-Mail, SMS oder WhatsApp).',
-      'Hinterlegen Sie einen Notfallkontakt, der einspringt, wenn Sie nicht reagieren.',
+      'Installieren Sie die ParkShield-App und erlauben Sie Mitteilungen; prüfen Sie Ihre Benachrichtigungswege (App, E-Mail, SMS).',
+      'Premium: Hinterlegen Sie Vertrauenspersonen, die einspringen, wenn Sie nicht reagieren.',
       'Bringen Sie den Aufkleber gut sichtbar an und testen Sie ihn einmal mit „Aufkleber testen“.',
     ].join('\n'),
     closing: 'Mit freundlichen Grüßen',

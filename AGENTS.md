@@ -16,7 +16,7 @@ _Last updated: 10 November 2026 (after the Phase 1 MVP, the US-45 hardening and 
 A QR decal for cars. Anyone who sees a problem with a parked car (it blocks an exit, the lights are
 on, a window is open, it is about to be towed, there is damage) scans the decal with their phone
 camera, picks the problem on a web page and taps send. **No app, no account, and nobody sees the
-owner's phone number, name or licence plate.** The owner is notified by Push, WhatsApp or e-mail
+owner's phone number, name or licence plate.** The owner is notified in the ParkShield app (push), by e-mail and, with Premium, by SMS
 and replies with one tap ("Ich komme", "In ca. 30 Min", "Bin nicht in der Nähe"); the person at
 the car sees the reply live. If the owner does not react, the alert escalates to an emergency
 contact (who must have consented).
@@ -71,7 +71,7 @@ npm workspaces + Turborepo. Node.js 24+, TypeScript everywhere.
 ### Inside `apps/api/src`
 
 One folder per domain module: `auth` (magic link + passkeys), `billing` (Stripe, invoices, refunds,
-credit notes), `channels` (Push, WhatsApp, e-mail set-up), `contacts` (emergency contacts),
+credit notes), `channels` (push, SMS, e-mail set-up), `contacts` (trusted contacts, escalation settings, the `/k/…` contact link), `app` (native app API: sign-in, devices, alerts, photos), `chat` (Socket.io gateway and live chat),
 `decal` (layout, SVG and print PDF of the decal), `scan` (scanner page API, alert creation),
 `notifications` (dispatch, replies, escalation, follow-ups), `moderation` (text filter, word lists),
 `preferences` (quiet hours, channel order, vehicle modes), `history`, `orders` (decal print orders),
@@ -178,8 +178,8 @@ product works offline. Production refuses to start with fakes (unless `APP_ENV=c
 | E-mail: SendGrid (optional)    | `MAIL_PROVIDER=sendgrid`, `SENDGRID_API_KEY`, `SENDGRID_REGION` (`global`/`eu`), `MAIL_FROM`            | `/dev/postfach` inbox                   |
 | SMS (Twilio)                   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` (sender ID, number or `MG…`)               | SMS in `/dev/postfach`                  |
 | Scanner phone check (Twilio)   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` (`VA…`, Fraud Guard on)          | code in `/dev/postfach`; prod: off      |
-| WhatsApp (Twilio, default)     | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`, `TWILIO_CONTENT_*` (8)               | messages stored locally                 |
-| WhatsApp (360dialog, optional) | `WHATSAPP_PROVIDER=360dialog`, `D360_API_KEY`, `D360_BASE_URL`, `D360_WEBHOOK_SECRET`                   | messages stored locally                 |
+| App push (Firebase FCM)        | `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, `FCM_PRIVATE_KEY` (service account of the Firebase project)       | pushes in `/dev/postfach` (App-Push)    |
+| App links (website)            | `APP_IOS_TEAM_ID`, `APP_IOS_BUNDLE_ID`, `APP_ANDROID_PACKAGE`, `APP_ANDROID_SHA256` (web app env)       | empty `/.well-known/*` files            |
 | Friendly Captcha               | `FRIENDLY_CAPTCHA_SITEKEY`, `FRIENDLY_CAPTCHA_API_KEY`, `NEXT_PUBLIC_FRIENDLY_CAPTCHA_SITEKEY`          | "Sicherheitsprüfung: lokal simuliert"   |
 | Print partner                  | `PRINT_PARTNER` (`manual` until a partner adapter exists)                                               | orders written to `.local/print-outbox` |
 | Audit bucket (S3, Object Lock) | `AUDIT_BUCKET`, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`                            | files in `.local/audit-bucket`          |
@@ -187,8 +187,8 @@ product works offline. Production refuses to start with fakes (unless `APP_ENV=c
 | Support by e-mail (instead)    | `SUPPORT_PROVIDER=email`, `SUPPORT_EMAIL`                                                               | tickets stored locally                  |
 | Better Stack heartbeat         | `HEARTBEAT_URL_WORKER`                                                                                  | no ping                                 |
 
-Production without every provider account: `WHATSAPP_PROVIDER=off` hides WhatsApp everywhere (SMS,
-push and e-mail still work) until Meta approves the sender; `PRINT_PARTNER=manual` writes print
+WhatsApp and the Business plan were removed (2026-12, migration `20261201000000_app_notifications_chat`).
+Production without every provider account: `PRINT_PARTNER=manual` writes print
 files and job tickets to `PRINT_OUTBOX_DIR`, and staff mark orders shipped in the ops app;
 `SUPPORT_PROVIDER=email` with `SUPPORT_EMAIL` sends each contact-form request as one e-mail
 (reply-to = customer) instead of a Zammad ticket. All three count as real providers in production.
@@ -208,9 +208,7 @@ ones `StripePayments.parseWebhook` handles:
 stripe listen --events checkout.session.completed,customer.subscription.updated,customer.subscription.deleted,invoice.paid,invoice.payment_failed --forward-to localhost:4000/v1/webhooks/stripe
 ```
 
-Put the printed `whsec_…` into `STRIPE_WEBHOOK_SECRET`. WhatsApp replies need a public URL: with
-Twilio `https://<domain>/v1/webhooks/twilio/whatsapp`, with 360dialog
-`https://<domain>/v1/webhooks/whatsapp/<D360_WEBHOOK_SECRET>`.
+Put the printed `whsec_…` into `STRIPE_WEBHOOK_SECRET`.
 
 Stripe account settings the code relies on (test mode and live, set once per account):
 
@@ -228,19 +226,16 @@ Stripe account settings the code relies on (test mode and live, set once per acc
 
 SMS (NT-07) go through the same Twilio account: `TWILIO_SMS_FROM` is an alphanumeric sender ID (max.
 11 characters, one-way, no registration needed in Germany), a Twilio number or a Messaging Service SID
-(`MG…`). SMS carry the reply-page link instead of buttons; each one counts against
-`limits.<plan>.sms_per_month` (Plus 5, Premium 10) and costs `sms.cost_micros`. Status callbacks arrive
+(`MG…`). SMS are PREMIUM only, one GSM-7 segment (≤ 160 characters) with the view link `/v/<token>`;
+each one counts against `limits.premium.sms_per_month` and costs `sms.cost_micros`. Status callbacks arrive
 signed at `https://<domain>/v1/webhooks/twilio/sms` (locally only through a tunnel and
 `TWILIO_WEBHOOK_BASE_URL`).
 
-WhatsApp templates (DE and EN): `ps_alert`, `ps_followup`, `ps_test`, `ps_otp`; texts, variables
-and button order in [`docs/whatsapp-templates.md`](docs/whatsapp-templates.md). With Twilio each
-template and language is a Content Template whose SID (`HX…`) goes into `TWILIO_CONTENT_<NAME>_<LANG>`;
-the quick-reply button ids are variables after the body variables (the code fills them with
-`ack:<token>:<reply>`). Twilio calls one webhook for status callbacks and button taps:
-`https://<domain>/v1/webhooks/twilio/whatsapp` (signature-checked; set it as the sender's "incoming
-message" URL; status callbacks are sent per message). Locally that needs a tunnel and
-`TWILIO_WEBHOOK_BASE_URL`, because Twilio signs the exact public URL.
+App push (Firebase Cloud Messaging HTTP v1): create a Firebase project with an Android and an iOS
+app `de.parkshield.app`, upload the APNs key in the Firebase console, put a service account's
+project id, client e-mail and private key into `FCM_*` (API) and `google-services.json` /
+`GoogleService-Info.plist` into `apps/mobile/firebase/` (app build). Without keys the API uses a fake
+that stores the exact FCM request body in the dev inbox.
 
 ## 5. Commands
 
@@ -343,6 +338,51 @@ mobile, 032 as VoIP and other +49 numbers as landline. Free text (and later phot
 a notification when `alerts.content_hidden` is true. The scanner page must not use cookies, Web
 Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
 
+### Notifications, escalation, chat and the app (2026-12)
+
+- **Channel matrix** (`planChannels` in `notifications/dispatch.service.ts`): every alert goes to all
+  channels of the plan at once. PLUS = app push (FCM) + browser push + e-mail; PREMIUM adds SMS. E-mail
+  and SMS carry only the view link `/v/<token>` (every alert has one now), never a photo.
+- **App push payload** is generic: title „ParkShield“, the alert type, and `{ alertId, type, kind }`.
+  Never the scanner's text, a photo, the plate, the nickname or a name (FCM is Google). The app loads
+  the rest from `/v1/app/*` with its bearer session.
+- **Seen ≠ acknowledged.** `POST /v1/app/alerts/:id/seen` sets `seen_at` (the scanner sees „gesehen“);
+  only „Ich komme“ (`owner_reply = 'coming'`, or a contact's `acknowledged_by = 'contact_n'`) stops
+  the reminder and the escalation chain.
+- **Owner reminder**: `remind_at` (default +3 min), swept by the worker like `escalate_at`; second push
+  for all, second SMS for PREMIUM, at most `reminder.max_owner_sms` SMS per alert; without any push
+  device an e-mail with the „keine App“ hint.
+- **Escalation chain** (PREMIUM, switched on by the owner, per vehicle override): contact 1 → 2 → 3,
+  each after `users.escalation_minutes` (3–30, default 7). The sweeper advances `escalation_step`
+  atomically; plan, switch, contact state and acknowledgement are checked at every step. Contacts
+  get SMS + e-mail with one link `/k/<token>` („Ich komme“, opt-out). Downgrade → contacts
+  deactivated (30 days, then deleted).
+- **Live chat**: Socket.io on the public API, namespace `/chat`, path `/v1/socket.io` **without a
+  trailing slash** (Next.js would redirect `/v1/socket.io/`). Scanner auth = alert id + chat token
+  (URL fragment, handshake payload only); owner auth = app session. Locked until the owner opens it;
+  limits and timeouts in `chat.*` settings; PostgreSQL is the source of truth, the Valkey adapter is
+  wired for several instances. `CHAT_SWEEP_MS=0` turns the timeout timer off (unit tests).
+- **App** (`apps/mobile`): Expo SDK 58 + Expo Router, **not an npm workspace** (own lockfile; keeps
+  React Native out of the server Docker build). `npm --prefix apps/mobile test`, `… run typecheck`.
+  Besides alerts, alert detail and chat, the app has **the whole customer portal**, screen for screen
+  like `/konto/*` (overview with set-up guide, vehicles with QR code, design, orders, modes, Protected
+  Mode, new code; notifications with SMS number, channel order, quiet hours; trusted contacts; history
+  with blocking; delivery help; plan with checkout, invoices, cancellation and withdrawal; data export
+  and account deletion). It uses the same owner API with a bearer session and **the website's texts**:
+  `packages/i18n` and `packages/shared` are shared as source (`metro.config.js`, tsconfig `paths`, Jest
+  `moduleNameMapper`; `pt()` in `src/lib/portal-i18n.ts`); app-only texts stay in `src/lib/i18n.ts`.
+  **Payments run on Stripe's page inside the app** (owner decision 2026-11-19, App Store risk in
+  `LEGAL_REVIEW.md` §7): the app sends `appReturn` (its own `parkshield://zurueck`, Expo Go's `exp://`
+  only in test environments), Stripe returns to the website's bounce page `/app/zurueck`, which
+  redirects into the app, and the app confirms the checkout at once. Passkeys are added on the website.
+  Navigation: four tabs in `src/app/(tabs)` (Warnungen · Fahrzeuge · Konto · Mehr) with the branded
+  `BrandTabBar` (`src/components/tab-bar.tsx`, open-alert badge from `src/lib/alerts-store.tsx`);
+  every other screen is pushed above the tabs. Colours, spacing and type come from
+  `src/theme/tokens.ts`, a 1:1 copy of `packages/ui/src/theme.css` (a test checks it); icons and the
+  logo are the website's SVG paths (`src/components/icons.tsx`, via react-native-svg).
+  Start Metro from `apps/mobile`, never from the repo root.
+  Push needs a development or store build with Firebase (Expo Go shows the UI only).
+
 ## 8. Hard rules (from `docs/README.md`, apply to humans and AI alike)
 
 1. Never store raw secrets (tokens, links): SHA-256 hashes only. Exception: the decal code is also
@@ -427,9 +467,10 @@ Also:
 - [ ] **Stripe:** live/test keys, the two yearly prices (Plus 10 €, Premium 15 €, tax-inclusive),
       webhook secret.
 - [ ] **Friendly Captcha:** account, sitekey and API key.
-- [ ] **Twilio / WhatsApp:** Twilio account, Meta business verification through Twilio, sender
-      number, display name, the four templates (Content Template Builder), the eight content SIDs,
-      webhook URL (needs hosting or a tunnel).
+- [ ] **Twilio (SMS):** Twilio account, sender ID, status callback URL (needs hosting or a tunnel).
+- [ ] **Firebase (app push):** project, APNs key, service account → `FCM_*`; app config files.
+- [ ] **App stores:** Apple developer team (→ `APP_IOS_TEAM_ID`), Play Console signing key
+      fingerprint (→ `APP_ANDROID_SHA256`), store listings and privacy labels (`LEGAL_REVIEW.md` §7).
 - [ ] **Mailjet (e-mail, default):** account (free plan), sender domain park-shield.de verified
       (SPF/DKIM records at Strato), API key + secret → `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`.
       Brevo was tried first but always rewrites links and adds an open pixel (opt-out only for
@@ -474,21 +515,23 @@ Also:
 
 ### C. Known product gaps (deliberate, Phase 1)
 
-- Emergency contacts are reached by **e-mail only**; WhatsApp for contacts needs its own
-  Meta-approved opt-in template.
+- Android: the „Ich komme“ action button is on the iOS notification (APNs category); on Android a tap
+  opens the alert with a large „Ich komme“ button (FCM notification messages carry no action buttons).
 - Muted alerts (quiet hours, sensitive spot) are stored as suppressed deliveries and shown in the
   owner's history — keep it that way.
-- Account deletion leaves an erasure request "in progress" with manual steps (Zammad, the WhatsApp
-  provider, print partner) that staff tick off in the ops GDPR queue.
+- Account deletion leaves an erasure request "in progress" with manual steps (Zammad, Twilio, print
+  partner) that staff tick off in the ops GDPR queue.
 
 ### D. Next phases (see `docs/03-user-stories.md` §3)
 
 - **Paid beta** (July 2027, 300 founding members) → **public Plus launch 3 Aug 2027**.
 - **Phase 2 — Premium** (launch 9 Nov 2027): co-drivers and vehicle transfer, anonymous chat, SMS
-  fallback, masked calls, escalation to up to 3 contacts, Capacitor app, parking assistant, Wallet
+  fallback, masked calls, parking assistant, Wallet
   passes, NFC decals, scanner photo with blurring, AI support assistant, Plus → Premium upgrade with
   proration.
-- **Business** only after decision gate G3 (concierge pilot first).
+- Done ahead of Phase 2 (2026-12): native app (Expo, `apps/mobile`), tiered notifications,
+  owner reminder, sequential escalation to up to 3 trusted contacts, owner-initiated live chat. The
+  Business plan was dropped (only PLUS and PREMIUM).
 
 ## 12. Where to look for what
 

@@ -10,6 +10,16 @@ interface TemplateSource {
 
 const templates = {
   de: {
+    sign_in_code: {
+      subject: 'Ihr ParkShield-Anmeldecode: {code}',
+      lines: [
+        'Hallo,',
+        'Ihr Anmeldecode: {code} (gültig 15 Minuten)',
+        'Geben Sie den Code in der ParkShield-App ein. Oder tippen Sie unten auf „In der App anmelden“.',
+        'Code und Link funktionieren nur einmal. Wenn Sie nichts angefordert haben, können Sie diese E-Mail ignorieren.',
+      ],
+      action: 'In der App anmelden',
+    },
     magic_link: {
       subject: 'Ihr Anmeldelink für ParkShield',
       lines: [
@@ -89,14 +99,6 @@ const templates = {
       ],
       action: 'Verträge hier kündigen',
     },
-    waitlist_confirm: {
-      subject: 'Bitte bestätigen Sie Ihre Anmeldung zur Business-Warteliste',
-      lines: [
-        'Sie haben {company} für die Warteliste von ParkShield Business eingetragen.',
-        'Bitte bestätigen Sie die Anmeldung. Ohne Bestätigung löschen wir die Angaben nach 30 Tagen.',
-      ],
-      action: 'Anmeldung bestätigen',
-    },
     payment_failed: {
       subject: 'Ihre Zahlung für ParkShield hat nicht geklappt',
       lines: [
@@ -124,27 +126,36 @@ const templates = {
     alert_received: {
       subject: '{type}: „{nickname}“',
       lines: [
-        'Jemand hat gerade Ihren ParkShield-Aufkleber an „{nickname}“ gescannt: {type}.',
+        'Jemand hat am {at, date, long} um {at, time, short} Uhr Ihren ParkShield-Aufkleber an „{nickname}“ gescannt: {type}.',
         '{hasMessage, select, yes {Nachricht: „{message}“} hidden {Nachricht von nicht bestätigtem Absender – ansehen in ParkShield} other {}}',
-        'Die Person sieht, dass Ihre Warnung angekommen ist. Antworten Sie mit einem Tipp, dann sieht sie auch Ihre Antwort:',
+        'Die Person sieht, dass Ihre Warnung angekommen ist. Tippen Sie auf „Ich komme“, dann sieht sie Ihre Antwort:',
       ],
-      action: 'Zum Konto',
+      action: 'Details & Fotos ansehen',
     },
     // Phase 2: alert with photos. Only the link to the view page, never an attachment or embedded image.
     alert_received_photos: {
       subject: '{type}: „{nickname}“ (mit Fotos)',
       lines: [
-        'Jemand hat gerade Ihren ParkShield-Aufkleber an „{nickname}“ gescannt: {type}. Die Person hat Fotos angehängt.',
+        'Jemand hat am {at, date, long} um {at, time, short} Uhr Ihren ParkShield-Aufkleber an „{nickname}“ gescannt: {type}. Die Person hat Fotos angehängt.',
         '{hasMessage, select, yes {Nachricht: „{message}“} hidden {Nachricht von nicht bestätigtem Absender – ansehen in ParkShield} other {}}',
-        'Antworten Sie mit einem Tipp, dann sieht die Person Ihre Antwort:',
+        'Die Fotos sehen Sie nur in der App oder über den Link unten, nie als Anhang. Tippen Sie auf „Ich komme“, dann sieht die Person Ihre Antwort:',
       ],
-      action: 'Fotos ansehen',
+      action: 'Details & Fotos ansehen',
+    },
+    alert_reminder: {
+      subject: 'Erinnerung: {type} bei „{nickname}“',
+      lines: [
+        'Sie haben auf die Warnung von {at, time, short} Uhr noch nicht reagiert: {type} bei „{nickname}“.',
+        '{noApp, select, yes {Hinweis: Sie haben keine App mit aktivierten Mitteilungen. Ohne Mitteilungen erfahren Sie nicht sofort von Problemen an Ihrem Fahrzeug. Installieren Sie die ParkShield-App und erlauben Sie Mitteilungen.} other {}}',
+        'Tippen Sie auf „Ich komme“, wenn Sie sich darum kümmern:',
+      ],
+      action: 'Details & Fotos ansehen',
     },
     alert_test: {
       subject: 'Test erfolgreich: „{nickname}“',
       lines: [
         'Ihr Aufkleber an „{nickname}“ funktioniert. So kommen Warnungen bei Ihnen an.',
-        'Tipp: Schalten Sie zusätzlich Push oder WhatsApp ein, damit Sie Warnungen sofort sehen.',
+        'Tipp: Installieren Sie die ParkShield-App und erlauben Sie Mitteilungen, damit Sie Warnungen sofort sehen.',
       ],
       action: 'Zum Konto',
     },
@@ -171,23 +182,27 @@ const templates = {
         'Bitte kommen Sie zum Fahrzeug oder antworten Sie kurz, damit sie Bescheid weiß:',
       ],
     },
+    // TODO [LEGAL REVIEW] Only the alert type and the vehicle label: no plate, no scanner text, no photo.
     escalation: {
       subject: 'ParkShield: {type} bei „{nickname}“',
       lines: [
         'Hallo {contact},',
-        '{hasOwner, select, yes {{owner} hat Sie als Notfallkontakt eingetragen.} other {Sie sind als Notfallkontakt eingetragen.}} Gerade wurde gemeldet: {type} beim Fahrzeug „{nickname}“. Der Fahrer hat nicht reagiert oder ist nicht in der Nähe.',
-        'Bitte versuchen Sie, ihn zu erreichen. Mehr wissen wir nicht, und mehr geben wir zum Schutz aller Beteiligten nicht weiter.',
-        'Sie erhalten diese Nachricht, weil Sie zugestimmt haben. Über den Link in Ihrer Einladung können Sie sich jederzeit abmelden.',
+        '{hasOwner, select, yes {{owner} hat Sie als Vertrauensperson hinterlegt.} other {Sie sind als Vertrauensperson hinterlegt.}} Gerade wurde gemeldet: {type} beim Fahrzeug „{nickname}“. Der Fahrer hat noch nicht reagiert.',
+        'Können Sie sich darum kümmern? Dann tippen Sie auf „Ich komme“: Der Fahrer und die Person am Fahrzeug sehen, dass jemand unterwegs ist, und niemand weiteres wird benachrichtigt.',
+        'Sie erhalten diese Nachricht, weil Sie zugestimmt haben.',
       ],
+      action: 'Ich komme',
     },
+    // TODO [LEGAL REVIEW] Consent text for emergency contacts (what they receive, 14-day deletion).
     ec_invite: {
-      subject: '{owner} möchte Sie als Notfallkontakt bei ParkShield',
+      subject: '{owner} möchte Sie als Vertrauensperson bei ParkShield hinterlegen',
       lines: [
         'Hallo {contact},',
-        '{owner} nutzt ParkShield: Wer ein Problem mit dem geparkten Auto bemerkt, kann den Fahrer anonym benachrichtigen. Reagiert der Fahrer bei einem dringenden Problem nicht, möchte {owner} Sie per E-Mail informieren.',
-        'Sie erfahren dann nur, was los ist und um welches Fahrzeug es geht. Ohne Ihre Zustimmung schicken wir Ihnen nichts; ohne Antwort löschen wir Ihre Adresse nach 14 Tagen.',
+        '{owner} nutzt ParkShield: Wer ein Problem mit dem geparkten Auto bemerkt, kann den Fahrer anonym benachrichtigen. Reagiert der Fahrer bei einem dringenden Problem nicht, möchte {owner} Sie per SMS und E-Mail informieren.',
+        'Sie erfahren dann nur, was los ist und welches Fahrzeug es ist (die Bezeichnung, die {owner} gewählt hat), kein Kennzeichen und keine Nachricht. Mit „Ich komme“ zeigen Sie, dass Sie sich kümmern; jede Nachricht enthält einen Link zum Abmelden.',
+        'Ohne Ihre Zustimmung schicken wir Ihnen nichts. Ohne Antwort oder nach einer Ablehnung löschen wir Ihre Daten nach 14 Tagen.',
       ],
-      action: 'Einladung ansehen',
+      action: 'Annehmen oder ablehnen',
     },
     ec_decided: {
       subject:
@@ -196,6 +211,21 @@ const templates = {
         '{decision, select, confirmed {{contact} hat zugestimmt. Bei dringenden Warnungen, auf die Sie nicht reagieren, informieren wir {contact} per E-Mail.} declined {{contact} möchte nicht Ihr Notfallkontakt sein. Sie können eine andere Person einladen.} other {{contact} hat die Zustimmung zurückgezogen. Laden Sie bei Bedarf eine andere Person ein.}}',
       ],
       action: 'Notfallkontakte verwalten',
+    },
+    push_denied: {
+      subject: 'Mitteilungen für ParkShield sind ausgeschaltet',
+      lines: [
+        'Sie haben der ParkShield-App auf {device} keine Mitteilungen erlaubt.',
+        'Ohne Mitteilungen erfahren Sie nicht sofort von Problemen an Ihrem Fahrzeug. Warnungen kommen dann nur per E-Mail{sms, select, yes { und SMS} other {}}. Sie können Mitteilungen jederzeit in den Einstellungen Ihres Handys für ParkShield einschalten.',
+      ],
+    },
+    ec_deactivated: {
+      subject: 'Eskalation an Vertrauenspersonen pausiert',
+      lines: [
+        'Ihr Tarif ist nicht mehr Premium. Die Eskalation an Ihre Vertrauenspersonen ist deshalb ab sofort aus, und Ihre Vertrauenspersonen werden nicht mehr benachrichtigt.',
+        'Wir bewahren die Kontakte 30 Tage lang deaktiviert auf, bis {until, date, long}. Wechseln Sie bis dahin wieder zu Premium, sind sie sofort wieder aktiv; danach löschen wir sie.',
+      ],
+      action: 'Tarif ansehen',
     },
     activation_reminder: {
       subject: 'Ist Ihr Aufkleber an „{nickname}“ schon getestet?',
@@ -342,6 +372,16 @@ const templates = {
     },
   },
   en: {
+    sign_in_code: {
+      subject: 'Your ParkShield sign-in code: {code}',
+      lines: [
+        'Hello,',
+        'Your sign-in code: {code} (valid for 15 minutes)',
+        'Enter the code in the ParkShield app. Or tap “Sign in in the app” below.',
+        'The code and the link work only once. If you did not request anything, you can ignore this e-mail.',
+      ],
+      action: 'Sign in in the app',
+    },
     magic_link: {
       subject: 'Your ParkShield sign-in link',
       lines: [
@@ -417,14 +457,6 @@ const templates = {
       ],
       action: 'Cancel contract here',
     },
-    waitlist_confirm: {
-      subject: 'Please confirm your ParkShield Business waitlist sign-up',
-      lines: [
-        'You added {company} to the ParkShield Business waitlist.',
-        'Please confirm. Without confirmation we delete the details after 30 days.',
-      ],
-      action: 'Confirm sign-up',
-    },
     payment_failed: {
       subject: 'Your ParkShield payment did not go through',
       lines: [
@@ -452,26 +484,35 @@ const templates = {
     alert_received: {
       subject: '{type}: “{nickname}”',
       lines: [
-        'Someone just scanned your ParkShield decal on “{nickname}”: {type}.',
+        'On {at, date, long} at {at, time, short} someone scanned your ParkShield decal on “{nickname}”: {type}.',
         '{hasMessage, select, yes {Message: “{message}”} hidden {Message from an unconfirmed sender – view it in ParkShield} other {}}',
-        'They can see that your alert has arrived. Reply with one tap and they see your answer too:',
+        'They can see that your alert has arrived. Tap “I’m coming” and they see your answer:',
       ],
-      action: 'Open my account',
+      action: 'View details & photos',
     },
     alert_received_photos: {
       subject: '{type}: “{nickname}” (with photos)',
       lines: [
-        'Someone just scanned your ParkShield decal on “{nickname}”: {type}. They attached photos.',
+        'On {at, date, long} at {at, time, short} someone scanned your ParkShield decal on “{nickname}”: {type}. They attached photos.',
         '{hasMessage, select, yes {Message: “{message}”} hidden {Message from an unconfirmed sender – view it in ParkShield} other {}}',
-        'Reply with one tap and they see your answer:',
+        'You see the photos only in the app or through the link below, never as an attachment. Tap “I’m coming” and they see your answer:',
       ],
-      action: 'View photos',
+      action: 'View details & photos',
+    },
+    alert_reminder: {
+      subject: 'Reminder: {type} at “{nickname}”',
+      lines: [
+        'You have not responded to the alert from {at, time, short} yet: {type} at “{nickname}”.',
+        '{noApp, select, yes {Note: you have no app with notifications turned on. Without notifications you do not learn about problems with your vehicle right away. Install the ParkShield app and allow notifications.} other {}}',
+        'Tap “I’m coming” when you take care of it:',
+      ],
+      action: 'View details & photos',
     },
     alert_test: {
       subject: 'Test successful: “{nickname}”',
       lines: [
         'Your decal on “{nickname}” works. This is how alerts reach you.',
-        'Tip: also turn on Push or WhatsApp so you see alerts immediately.',
+        'Tip: install the ParkShield app and allow notifications so you see alerts immediately.',
       ],
       action: 'Open my account',
     },
@@ -502,19 +543,21 @@ const templates = {
       subject: 'ParkShield: {type} at “{nickname}”',
       lines: [
         'Hello {contact},',
-        '{hasOwner, select, yes {{owner} added you as an emergency contact.} other {You are listed as an emergency contact.}} Someone just reported: {type} at the vehicle “{nickname}”. The driver has not responded or is not nearby.',
-        'Please try to reach them. We know nothing more, and to protect everyone involved we share nothing more.',
-        'You receive this because you agreed to it. You can opt out at any time with the link in your invitation.',
+        '{hasOwner, select, yes {{owner} added you as a trusted contact.} other {You are listed as a trusted contact.}} Someone just reported: {type} at the vehicle “{nickname}”. The driver has not responded yet.',
+        'Can you take care of it? Then tap “I’m coming”: the driver and the person at the vehicle see that someone is on the way, and nobody else is notified.',
+        'You receive this because you agreed to it.',
       ],
+      action: 'I’m coming',
     },
     ec_invite: {
-      subject: '{owner} would like you as an emergency contact on ParkShield',
+      subject: '{owner} would like you as a trusted contact on ParkShield',
       lines: [
         'Hello {contact},',
-        '{owner} uses ParkShield: anyone who notices a problem with the parked car can notify the driver anonymously. If the driver does not respond to an urgent problem, {owner} would like us to tell you by e-mail.',
-        'You would only learn what is wrong and which vehicle it is. Without your consent we send you nothing; without an answer we delete your address after 14 days.',
+        '{owner} uses ParkShield: anyone who notices a problem with the parked car can notify the driver anonymously. If the driver does not respond to an urgent problem, {owner} would like us to tell you by SMS and e-mail.',
+        'You would only learn what is wrong and which vehicle it is (the label {owner} chose): no licence plate and no message. With “I’m coming” you show that you take care of it; every message has a link to opt out.',
+        'Without your consent we send you nothing. Without an answer, or after you decline, we delete your details after 14 days.',
       ],
-      action: 'View invitation',
+      action: 'Accept or decline',
     },
     ec_decided: {
       subject:
@@ -523,6 +566,21 @@ const templates = {
         '{decision, select, confirmed {{contact} agreed. If you do not respond to an urgent alert, we tell {contact} by e-mail.} declined {{contact} does not want to be your emergency contact. You can invite someone else.} other {{contact} withdrew their consent. Invite someone else if needed.}}',
       ],
       action: 'Manage emergency contacts',
+    },
+    push_denied: {
+      subject: 'Notifications for ParkShield are turned off',
+      lines: [
+        'You have not allowed the ParkShield app on {device} to send notifications.',
+        'Without notifications you do not learn about problems with your vehicle right away. Alerts then only arrive by e-mail{sms, select, yes { and SMS} other {}}. You can turn notifications on for ParkShield in your phone’s settings at any time.',
+      ],
+    },
+    ec_deactivated: {
+      subject: 'Escalation to trusted contacts paused',
+      lines: [
+        'Your plan is no longer Premium. Escalation to your trusted contacts is therefore off from now on, and they are no longer notified.',
+        'We keep the contacts deactivated for 30 days, until {until, date, long}. If you switch back to Premium by then, they are active again at once; after that we delete them.',
+      ],
+      action: 'View plans',
     },
     activation_reminder: {
       subject: 'Have you tested your decal on “{nickname}” yet?',

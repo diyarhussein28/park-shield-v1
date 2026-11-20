@@ -34,7 +34,8 @@ const json = (v: unknown) => JSON.stringify(v).replace(/</g, '\\u003c');
 export function scannerCsp(withCaptcha: boolean): string {
   return [
     "default-src 'none'",
-    `script-src ${JS_HASH}${withCaptcha ? ` ${GLUE_HASH} 'self'` : ''}`,
+    // 'self': the Socket.io client for the live chat (/scanner-assets, loaded after an alert is sent).
+    `script-src ${JS_HASH} 'self'${withCaptcha ? ` ${GLUE_HASH}` : ''}`,
     `style-src ${CSS_HASH}`,
     // blob: for the photo thumbnails (Phase 2); the camera stream itself is not a fetched resource.
     "img-src 'self' data: blob:",
@@ -199,6 +200,21 @@ ${data.photos ? photoBox(label) : ''}
 <h2 id="sh" ${label('statusTitle')}</h2>
 <ol class="steps" id="steps"><li ${label('stepSent')}</li><li ${label('stepDelivered')}</li><li class="final" ${label('stepAcknowledged')}</li></ol>
 <p id="result" class="note info" role="status" aria-live="polite"></p>
+<p class="hint" id="keep" ${label('chatKeepOpen')}</p>
+<section id="chat" class="chatbox" hidden aria-labelledby="ch">
+<h3 id="ch" ${label('chatTitle')}</h3>
+<p id="chat-intro" class="note info" ${label('chatOpened')}</p>
+<ol id="chat-log" class="chat" role="log" aria-live="polite" aria-relevant="additions"></ol>
+<p id="chat-typing" class="hint" aria-live="polite" hidden ${label('chatTyping')}</p>
+<form id="chat-form">
+<label for="chat-msg" ${label('chatLabel')}</label>
+<textarea id="chat-msg" maxlength="500" rows="3" aria-describedby="chat-hint chat-count"></textarea>
+<p class="hint" id="chat-hint" ${label('chatHint')}</p><p class="hint" id="chat-count" aria-live="polite"></p>
+<button type="submit" id="chat-send" class="primary" ${label('chatSend')}</button>
+</form>
+<p id="chat-err" class="note err" role="alert" hidden></p>
+</section>
+<p id="chat-closed" class="note ok" role="status" tabindex="-1" hidden ${label('chatClosed')}</p>
 <div id="waitbox" hidden><button type="button" id="wait" class="primary" ${label('waitingButton')}</button><p class="hint" ${label('waitingHint')}</p></div>
 <div id="guide" class="note warn" hidden><h3 ${label('guideTitle')}</h3><p id="g-office"></p><p><a id="g-search" rel="noopener noreferrer" target="_blank"></a></p><p id="g-police"></p><p id="g-emergency"></p></div>
 <p id="offline" class="note warn" hidden ${label('offline')}</p>

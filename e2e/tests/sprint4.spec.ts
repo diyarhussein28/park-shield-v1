@@ -60,7 +60,9 @@ test('owner test scan activates the decal, then a stranger scans (US-12, US-14, 
   expect(csp).toContain("default-src 'none'");
   expect(csp).toMatch(/script-src 'sha256-[^']+'/);
   expect(res.headers()['set-cookie']).toBeUndefined();
-  expect((await res.body()).length).toBeLessThan(40_000); // whole page incl. inline JS and CSS
+  // Whole page incl. inline JS, CSS and both languages' texts (~17 KB compressed). Raised from 40 KB
+  // for the live chat UI; the hard budget is 90 KB (AGENTS.md §7).
+  expect((await res.body()).length).toBeLessThan(55_000);
   await expect(scan.getByRole('heading', { level: 1 })).toHaveText('Was ist los?');
   await expect(scan.getByText('„Der Blaue“')).toBeVisible();
   await expect(scan.getByText('Blau', { exact: true })).toBeVisible();
@@ -75,7 +77,7 @@ test('owner test scan activates the decal, then a stranger scans (US-12, US-14, 
 
   await scan.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
   await expect(scan.getByRole('heading', { name: 'Status Ihrer Warnung' })).toBeVisible();
-  await expect(scan.getByText('Die Warnung ist beim Fahrer angekommen.')).toBeVisible({
+  await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });
   const mail = await waitForMail(request, email, 'alert_received');
@@ -83,9 +85,9 @@ test('owner test scan activates the decal, then a stranger scans (US-12, US-14, 
 
   // Survives a reload in the same session; language switches in place; no cookies were ever set.
   await scan.reload();
-  await expect(scan.getByText('Die Warnung ist beim Fahrer angekommen.')).toBeVisible();
+  await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible();
   await scan.getByRole('button', { name: /EN/ }).click();
-  await expect(scan.getByText('The alert has reached the driver.')).toBeVisible();
+  await expect(scan.getByText('The vehicle owner has been notified.')).toBeVisible();
   await expect(scan.locator('html')).toHaveAttribute('lang', 'en');
   expect(await ctx.cookies()).toEqual([]);
   await ctx.close();

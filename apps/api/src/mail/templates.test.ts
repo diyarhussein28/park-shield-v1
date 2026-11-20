@@ -8,6 +8,7 @@ const values = {
   endsAt: new Date('2028-08-03T00:00:00Z'),
   periodEnd: new Date('2028-08-03T00:00:00Z'),
   device: 'Chrome · Windows',
+  code: '482913',
   plan: 'Plus',
   contractNo: 'PS-7K3Q9X2M',
   company: 'Malermeister <Schulz> GmbH',
@@ -31,7 +32,7 @@ const values = {
   score: 75,
   used: 8,
   limit: 10,
-  channel: 'WhatsApp',
+  channel: 'SMS',
   due: new Date('2027-08-04T09:15:00Z'),
   name: 'Anna',
   field: 'Kennzeichen',
@@ -42,7 +43,7 @@ const values = {
   creditNote: 'GS-2027-000001',
   ended: 'yes',
   days: 90,
-  list: 'whatsapp.quality: CRITICAL (RED)',
+  list: 'sms.failures: CRITICAL',
   price: '10,00 €',
   startedAt: new Date('2027-08-03T09:15:00Z'),
   renewalRule: 'Die erste Laufzeit beträgt 12 Monate.',
@@ -58,6 +59,10 @@ const values = {
   receiptEmail: 'anna@example.de',
   renewsAt: new Date('2028-08-03T00:00:00Z'),
   interval: 'month',
+  at: new Date('2027-08-03T09:15:00Z'),
+  noApp: 'yes',
+  sms: 'yes',
+  until: new Date('2027-09-02T00:00:00Z'),
 };
 
 describe('mail templates', () => {
@@ -79,7 +84,12 @@ describe('mail templates', () => {
   });
 
   it('formats dates in German time and escapes HTML', () => {
-    const r = renderMail('waitlist_confirm', 'de', values, 'https://parkshield.de/b?x=1&y=2');
+    const r = renderMail(
+      'ec_invite',
+      'de',
+      { ...values, owner: values.company },
+      'https://parkshield.de/b?x=1&y=2',
+    );
     expect(r.html).toContain('Malermeister &lt;Schulz&gt; GmbH');
     expect(r.html).toContain('href="https://parkshield.de/b?x=1&amp;y=2"');
     const c = renderMail('cancel_received', 'de', values);

@@ -25,6 +25,7 @@ import { DB, ENV, LOGGER } from '../core/tokens';
 import type { Env } from '../config/env';
 import { ZodPipe } from '../core/zod.pipe';
 import { PAYMENTS, type Payments } from '../providers/ports';
+import { AppReturn } from './app-return';
 import { BillingService } from './billing.service';
 import { RefundsService } from './refunds.service';
 
@@ -37,7 +38,10 @@ const Checkout = z.object({
   immediateStartVersion: z.number().int().positive(),
   termsVersion: z.number().int().positive(),
   stickerStillAttached: z.boolean().optional(),
+  /** Paying in the native app: its return address (see app-return.ts). */
+  appReturn: AppReturn,
 });
+const Portal = z.object({ appReturn: AppReturn });
 const ConfirmCheckout = z.object({
   sessionId: z
     .string()
@@ -92,8 +96,11 @@ export class BillingController {
   @Post('billing/portal')
   @HttpCode(200)
   @UseGuards(SessionGuard)
-  portal(@CurrentUser() user: AuthContext) {
-    return this.billing.portal(user.userId);
+  portal(
+    @CurrentUser() user: AuthContext,
+    @Body(new ZodPipe(Portal)) body: z.infer<typeof Portal>,
+  ) {
+    return this.billing.portal(user.userId, body.appReturn);
   }
 
   @Get('billing/invoices')

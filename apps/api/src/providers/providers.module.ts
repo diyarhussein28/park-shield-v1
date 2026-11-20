@@ -10,6 +10,7 @@ import { FakePrintPartner } from './fake-print';
 import { BrevoMailer, DevMailer, MailjetMailer, SendGridMailer } from './mailer';
 import { LocalAuditBucket, S3AuditBucket } from './audit-bucket';
 import {
+  APP_PUSH,
   AUDIT_BUCKET,
   CAPTCHA,
   MAILER,
@@ -18,13 +19,11 @@ import {
   PUSH,
   SMS,
   SUPPORT_DESK,
-  WHATSAPP,
   type Mailer,
 } from './ports';
 import { DevSupportDesk, EmailSupportDesk, ZammadDesk } from './support-desk';
 import { VapidPushSender } from './push';
-import { Dialog360Sender, DevWhatsAppSender, DisabledWhatsAppSender } from './whatsapp';
-import { contentSidsFromEnv, twilioWebhookUrl, TwilioWhatsAppSender } from './twilio-whatsapp';
+import { DevAppPushSender, FcmSender } from './fcm';
 import { StripePayments } from './stripe-payments';
 import { DevSmsSender, TwilioSmsSender, twilioSmsWebhookUrl } from './twilio-sms';
 import {
@@ -101,22 +100,12 @@ export class ProvidersModule {
             ),
         },
         {
-          provide: WHATSAPP,
+          provide: APP_PUSH,
           inject: [VALKEY, LOGGER],
           useFactory: (valkey: Redis, logger: Logger) =>
-            env.WHATSAPP_PROVIDER === 'off'
-              ? new DisabledWhatsAppSender()
-              : fakes.whatsapp
-                ? new DevWhatsAppSender(valkey, logger)
-                : env.WHATSAPP_PROVIDER === 'twilio'
-                  ? new TwilioWhatsAppSender(
-                      env.TWILIO_ACCOUNT_SID,
-                      env.TWILIO_AUTH_TOKEN,
-                      env.TWILIO_WHATSAPP_FROM,
-                      contentSidsFromEnv(env),
-                      twilioWebhookUrl(env),
-                    )
-                  : new Dialog360Sender(env.D360_API_KEY, env.D360_BASE_URL),
+            fakes.fcm
+              ? new DevAppPushSender(valkey, logger)
+              : new FcmSender(env.FCM_PROJECT_ID, env.FCM_CLIENT_EMAIL, env.FCM_PRIVATE_KEY),
         },
         {
           provide: SMS,
@@ -179,7 +168,7 @@ export class ProvidersModule {
         PAYMENTS,
         PRINT,
         PUSH,
-        WHATSAPP,
+        APP_PUSH,
         SMS,
         PHONE_VERIFIER,
         AUDIT_BUCKET,

@@ -240,13 +240,6 @@ export class PrivacyService {
       })),
       channels: {
         email: u.email,
-        whatsapp: channels
-          .filter((c) => c.type === 'whatsapp' && c.address_enc)
-          .map((c) => ({
-            phone: this.dec(c.address_enc),
-            verifiedAt: fmt(c.verified_at),
-            optedInAt: fmt(c.opted_in_at),
-          })),
         sms: channels
           .filter((c) => c.type === 'sms' && c.address_enc)
           .map((c) => ({
@@ -383,26 +376,39 @@ export class PrivacyService {
     userId: string | null,
     type: 'erasure' | 'access_export' | string,
   ): Promise<Step[]> {
-    const [u, hasWhatsApp, hasOrders] = userId
+    const [u, hasSms, hasOrders, hasAppDevice] = userId
       ? await Promise.all([
           db
             .selectFrom('users')
             .select('stripe_customer_id')
             .where('id', '=', userId)
             .executeTakeFirst(),
+          // SMS go through Twilio: the owner's own number, or a trusted contact's.
           db
             .selectFrom('contact_channels')
             .select('id')
             .where('user_id', '=', userId)
-            .where('type', '=', 'whatsapp')
+            .where('type', '=', 'sms')
+            .unionAll(
+              db
+                .selectFrom('emergency_contacts')
+                .select('id')
+                .where('user_id', '=', userId)
+                .where('phone_enc', 'is not', null),
+            )
             .executeTakeFirst(),
           db
             .selectFrom('decal_orders')
             .select('id')
             .where('user_id', '=', userId)
             .executeTakeFirst(),
+          db
+            .selectFrom('user_devices')
+            .select('id')
+            .where('user_id', '=', userId)
+            .executeTakeFirst(),
         ])
-      : [undefined, undefined, undefined];
+      : [undefined, undefined, undefined, undefined];
     const na = (applies: unknown): 'pending' | 'not_applicable' =>
       applies ? 'pending' : 'not_applicable';
     return [
@@ -425,12 +431,15 @@ export class PrivacyService {
         status: 'done',
         evidence: 'no personal data sent (scrubbed at source)',
       },
-      // The WhatsApp provider in use ('twilio' or '360dialog'): deletion request handled by staff.
+      // Twilio carried the SMS (message logs): the deletion request is handled by staff.
+      { processor: 'twilio', automated: false, status: na(hasSms) },
+      // Firebase Cloud Messaging holds no account data for us: the device tokens are deleted with the
+      // account (database step). TODO [LEGAL REVIEW] FCM processing and transfer basis.
       {
-        // With WhatsApp off, Twilio still carried any SMS; the step names the provider either way.
-        processor: this.env.WHATSAPP_PROVIDER === 'off' ? 'twilio' : this.env.WHATSAPP_PROVIDER,
-        automated: false,
-        status: na(hasWhatsApp),
+        processor: 'firebase',
+        automated: true,
+        status: hasAppDevice ? 'done' : 'not_applicable',
+        ...(hasAppDevice ? { evidence: 'device tokens deleted with the account' } : {}),
       },
       { processor: 'print_partner', automated: false, status: na(hasOrders) },
       // Support requests live in Zammad, or in the support mailbox (SUPPORT_PROVIDER=email).

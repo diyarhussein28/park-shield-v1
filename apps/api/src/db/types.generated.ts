@@ -23,15 +23,21 @@ export type BillingInterval = "month" | "year";
 
 export type BreakGlassStatus = "approved" | "expired" | "rejected" | "requested" | "used";
 
-export type ChannelType = "email" | "native_push" | "sms" | "voice" | "webpush" | "whatsapp";
+export type ChannelType = "email" | "native_push" | "sms" | "voice" | "webpush";
+
+export type ChatCloseReason = "alert_deleted" | "inactivity" | "max_duration" | "owner";
 
 export type ChatSender = "owner" | "scanner" | "system";
+
+export type ChatStatus = "active" | "closed" | "locked";
 
 export type ConsentState = "confirmed" | "declined" | "pending" | "revoked";
 
 export type DecalProduct = "a6_dashboard_card" | "nfc_vinyl_sticker" | "uv_vinyl_sticker";
 
 export type DeliveryStatus = "delivered" | "failed" | "queued" | "read" | "sent" | "suppressed";
+
+export type DevicePlatform = "android" | "ios";
 
 export type DsrStatus = "awaiting_identity" | "completed" | "in_progress" | "received" | "rejected";
 
@@ -69,7 +75,7 @@ export type PartnerKind = "dealer" | "driving_school" | "hausverwaltung" | "insu
 
 export type PlanAvailability = "available" | "coming_soon" | "retired";
 
-export type PlanCode = "business" | "plus" | "premium";
+export type PlanCode = "plus" | "premium";
 
 export type PromoKind = "amount_off" | "extra_months" | "percent_off";
 
@@ -117,6 +123,7 @@ export interface AbuseReports {
 }
 
 export interface AlertDeliveries {
+  ack_token_hash: Buffer | null;
   alert_id: string;
   attempt: Generated<number>;
   channel: ChannelType;
@@ -124,6 +131,7 @@ export interface AlertDeliveries {
   delivered_at: Timestamp | null;
   emergency_contact_id: string | null;
   error_code: string | null;
+  escalation_step: number | null;
   id: Generated<string>;
   provider: string;
   provider_message_id: string | null;
@@ -166,6 +174,7 @@ export interface Alerts {
   ack_token_expires_at: Timestamp | null;
   ack_token_hash: Buffer | null;
   acknowledged_at: Timestamp | null;
+  acknowledged_by: string | null;
   alert_type: string;
   block_ref: Buffer | null;
   content_hidden: Generated<boolean>;
@@ -174,6 +183,7 @@ export interface Alerts {
   dispatched_at: Timestamp | null;
   escalate_at: Timestamp | null;
   escalated_at: Timestamp | null;
+  escalation_step: Generated<number>;
   expires_at: Generated<Timestamp>;
   followup_sent_at: Timestamp | null;
   id: Generated<string>;
@@ -182,10 +192,13 @@ export interface Alerts {
   moderation: Generated<ModerationState>;
   owner_reply: OwnerReply | null;
   qr_token_id: string;
+  remind_at: Timestamp | null;
+  reminded_at: Timestamp | null;
   scanner_country: string | null;
   scanner_lang: Generated<UiLang>;
   scanner_ref: Buffer | null;
   scanner_waiting_at: Timestamp | null;
+  seen_at: Timestamp | null;
   severity: AlertSeverity;
   status: Generated<AlertStatus>;
   status_view_hash: Buffer;
@@ -254,18 +267,6 @@ export interface BreakGlassRequests {
   valid_until: Timestamp | null;
 }
 
-export interface BusinessWaitlist {
-  company_name: string;
-  confirm_token_hash: Buffer | null;
-  confirmed_at: Timestamp | null;
-  contact_email: string;
-  contacted_at: Timestamp | null;
-  created_at: Generated<Timestamp>;
-  fleet_size: number | null;
-  id: Generated<string>;
-  industry: string | null;
-}
-
 export interface CancellationRequests {
   channel: string;
   computed_end_date: Timestamp | null;
@@ -284,6 +285,23 @@ export interface CancellationRequests {
   submitted_name: string | null;
   subscription_id: string | null;
   type: string;
+}
+
+export interface ChatSessions {
+  alert_id: string;
+  close_reason: ChatCloseReason | null;
+  closed_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+  last_message_at: Timestamp | null;
+  opened_at: Timestamp | null;
+  owner_msg_count: Generated<number>;
+  owner_read_at: Timestamp | null;
+  purged_at: Timestamp | null;
+  scanner_msg_count: Generated<number>;
+  scanner_read_at: Timestamp | null;
+  scanner_seen_at: Timestamp | null;
+  status: Generated<ChatStatus>;
+  token_hash: Buffer | null;
 }
 
 export interface CompanyProfiles {
@@ -389,18 +407,21 @@ export interface DsrProcessorSteps {
 }
 
 export interface EmergencyContacts {
-  address_bidx: Buffer;
-  address_enc: Buffer;
+  address_bidx: Buffer | null;
+  address_enc: Buffer | null;
   channel: ChannelType;
   consent: Generated<ConsentState>;
   consent_decided_at: Timestamp | null;
   consent_requested_at: Generated<Timestamp>;
   consent_token_hash: Buffer | null;
   created_at: Generated<Timestamp>;
+  deactivated_at: Timestamp | null;
   display_name: string;
   escalation_order: Generated<number>;
   id: Generated<string>;
   key_version: Generated<number>;
+  phone_bidx: Buffer | null;
+  phone_enc: Buffer | null;
   user_id: string;
   vehicle_id: string | null;
 }
@@ -424,9 +445,13 @@ export interface LegalTexts {
 }
 
 export interface MagicLinkTokens {
+  code_attempts: Generated<number>;
+  code_hash: Buffer | null;
   created_at: Generated<Timestamp>;
   expires_at: Timestamp;
   id: Generated<string>;
+  return_id: string | null;
+  return_url: string | null;
   token_hash: Buffer;
   used_at: Timestamp | null;
   user_id: string;
@@ -795,6 +820,18 @@ export interface UsageCounters {
   value: Generated<number>;
 }
 
+export interface UserDevices {
+  app_version: string | null;
+  created_at: Generated<Timestamp>;
+  failed_count: Generated<number>;
+  fcm_token: string;
+  id: Generated<string>;
+  last_seen_at: Generated<Timestamp>;
+  locale: UiLang | null;
+  platform: DevicePlatform;
+  user_id: string;
+}
+
 export interface Users {
   activation_reminders: Generated<number>;
   created_at: Generated<Timestamp>;
@@ -803,6 +840,7 @@ export interface Users {
   display_name: string | null;
   email: string;
   email_verified_at: Timestamp | null;
+  escalation_enabled: Generated<boolean>;
   escalation_minutes: number | null;
   free_replacements: Generated<number>;
   id: Generated<string>;
@@ -852,6 +890,7 @@ export interface VehicleProtection {
 export interface Vehicles {
   color: string | null;
   created_at: Generated<Timestamp>;
+  escalation_enabled: boolean | null;
   id: Generated<string>;
   key_version: Generated<number>;
   make_model: string | null;
@@ -931,8 +970,8 @@ export interface DB {
   audit_logs: AuditLogs;
   audit_stream_state: AuditStreamState;
   break_glass_requests: BreakGlassRequests;
-  business_waitlist: BusinessWaitlist;
   cancellation_requests: CancellationRequests;
+  chat_sessions: ChatSessions;
   company_profiles: CompanyProfiles;
   consent_records: ConsentRecords;
   consents: Consents;
@@ -982,6 +1021,7 @@ export interface DB {
   tag_events: TagEvents;
   token_batches: TokenBatches;
   usage_counters: UsageCounters;
+  user_devices: UserDevices;
   users: Users;
   vehicle_members: VehicleMembers;
   vehicle_modes: VehicleModes;

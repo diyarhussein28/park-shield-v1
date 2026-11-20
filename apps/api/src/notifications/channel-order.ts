@@ -2,8 +2,12 @@ import type { Kysely } from 'kysely';
 import type { SettingsService } from '../core/settings.service';
 import type { DB } from '../db/types.generated';
 
-/** Channels an owner can order (NT-01: cheapest first; SMS last, NT-07). */
-export const ORDERABLE = ['webpush', 'email', 'whatsapp', 'sms'] as const;
+/**
+ * The order in which channels are tried (NT-01: cheapest first; SMS last, NT-07). Since the tiered
+ * notifications every alert goes to all channels of the owner's plan at once; the order only decides the
+ * sequence (and the reminder's "fastest first").
+ */
+export const ORDERABLE = ['native_push', 'webpush', 'email', 'sms'] as const;
 export type OrderableChannel = (typeof ORDERABLE)[number];
 
 const isOrderable = (v: unknown): v is OrderableChannel =>
@@ -51,7 +55,7 @@ export async function saveChannelOrder(
   await db.transaction().execute(async (trx) => {
     for (const [i, type] of order.entries()) {
       const priority = i + 1;
-      // Updates the linked WhatsApp/SMS row too; an unlinked one keeps its place in an address-less row,
+      // Updates the linked SMS row too; an unlinked one keeps its place in an address-less row,
       // which dispatch ignores (never verified).
       const updated = await trx
         .updateTable('contact_channels')

@@ -18,7 +18,6 @@ import {
   setSetting,
   signIn,
   subscribe,
-  TEST_WA_WEBHOOK_SECRET,
   type Harness,
   type Session,
 } from '../test/harness';
@@ -40,7 +39,6 @@ beforeAll(async () => {
     MAIL_PROVIDER: 'brevo',
     BREVO_API_KEY: '',
     STRIPE_SECRET_KEY: '',
-    D360_API_KEY: '',
     TWILIO_ACCOUNT_SID: '',
     PRINT_PARTNER: '',
     AUDIT_BUCKET: '',
@@ -695,31 +693,32 @@ describe('US-41 settings, kill switches and provider health (AD-14–16)', () =>
     }
   });
 
-  it('provider health turns critical on a flagged number and a webhook failure; the team is told once', async () => {
+  it('provider health turns critical on failing SMS and a webhook failure; the team is told once', async () => {
     const admin = await staffAs(['admin']);
     await h.db.deleteFrom('provider_status_events').execute();
     await h.db.deleteFrom('provider_health_alerts').execute();
-    const hook = await h.app.inject({
+    const c = await customer('health@example.de');
+    const scan = await h.app.inject({
       method: 'POST',
-      url: `/v1/webhooks/whatsapp/${TEST_WA_WEBHOOK_SECRET}`,
-      payload: {
-        entry: [
-          {
-            changes: [
-              {
-                field: 'phone_number_quality_update',
-                value: { event: 'FLAGGED', current_limit: 'TIER_1K' },
-              },
-              {
-                field: 'message_template_status_update',
-                value: { event: 'PAUSED', message_template_name: 'ps_alert' },
-              },
-            ],
-          },
-        ],
-      },
+      url: `/v1/scan/${c.code}/alerts`,
+      remoteAddress: '198.51.100.77',
+      payload: { type: 'lights_on', captcha: DEV_CAPTCHA_SOLUTION, lang: 'de' },
     });
-    expect(hook.statusCode).toBe(200);
+    const alertId = scan.json().alertId as string;
+    // Two of two SMS failed in the last 24 h (Twilio status callbacks "undelivered").
+    await h.db
+      .insertInto('alert_deliveries')
+      .values(
+        [1, 2].map((attempt) => ({
+          alert_id: alertId,
+          recipient: 'owner' as const,
+          channel: 'sms' as const,
+          provider: 'twilio',
+          status: 'failed' as const,
+          attempt,
+        })),
+      )
+      .execute();
     expect(
       (await h.app.inject({ method: 'POST', url: '/v1/webhooks/stripe', payload: {} })).statusCode,
     ).toBe(400);
@@ -730,19 +729,17 @@ describe('US-41 settings, kill switches and provider health (AD-14–16)', () =>
       value: string;
     }[];
     const by = Object.fromEntries(checks.map((c) => [c.key, c]));
-    expect(by['whatsapp.quality']).toMatchObject({ level: 'critical', value: 'RED' });
-    expect(by['whatsapp.templates']).toMatchObject({
-      level: 'critical',
-      value: 'ps_alert: PAUSED',
-    });
+    expect(Object.keys(by).filter((k) => k.startsWith('whatsapp'))).toEqual([]);
+    expect(by['sms.failures']).toMatchObject({ level: 'critical', value: '2 / 2 (100.0 %)' });
+    expect(by['app_push.failures']?.level).toBe('ok');
     expect(by['stripe.webhooks']).toMatchObject({ level: 'critical', value: '1' });
     expect(by['email.failures']?.level).toBe('ok');
 
     const health = ops.get(ProviderHealthService);
-    expect(await health.evaluate()).toBe(3);
+    expect(await health.evaluate()).toBe(2);
     const mails = (await mailbox(h)).filter((m) => m.tag === 'provider_health_alert');
     expect(mails).toHaveLength(1);
-    expect(mails[0]!.text).toContain('whatsapp.quality: CRITICAL (RED)');
+    expect(mails[0]!.text).toContain('sms.failures: CRITICAL');
     expect(await health.evaluate()).toBe(0);
   });
 });
@@ -779,6 +776,14 @@ describe('US-42 audit log: append-only and streamed to the locked bucket (AD-17)
     const report = await stream.verify();
     expect(report).toMatchObject({ ok: true, problems: [] });
     expect(report.objects).toBeGreaterThanOrEqual(1);
+
+    // Two streamers at once (a slow run overlapping the next tick, or two workers): one holds the
+    // cursor, the other stops, so no overlapping file is written and the chain stays intact.
+    for (let i = 0; i < 3; i++) await get(admin, '/ops/v1/audit');
+    const both = await Promise.all([stream.flush(5000, 0), stream.flush(5000, 0)]);
+    expect(both[0]! + both[1]!).toBeGreaterThanOrEqual(3);
+    expect(both.filter((n) => n > 0)).toHaveLength(1);
+    expect(await stream.verify()).toMatchObject({ ok: true, problems: [] });
 
     await sql`SELECT run_retention()`.execute(h.db);
     expect(
@@ -986,7 +991,7 @@ describe('US-44 contact form to Zammad and the ticket sidebar summary (SP-01, AD
       email: 'k•••@example.de',
       subscription: { plan: 'plus', status: 'active' },
       vehicles: 1,
-      protection: 25,
+      protection: 33,
     });
     expect(
       (await get(support, '/ops/v1/customers/summary?email=niemand%40example.de')).json(),

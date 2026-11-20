@@ -15,7 +15,7 @@ export interface PlanLimits {
 
 export interface Entitlement {
   subscriptionId: string;
-  plan: 'plus' | 'premium' | 'business';
+  plan: 'plus' | 'premium';
   limits: PlanLimits;
 }
 

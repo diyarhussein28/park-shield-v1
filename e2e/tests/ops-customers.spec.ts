@@ -25,7 +25,10 @@ test('admin lists all customers, creates, suspends and deletes an account', asyn
   // Suspend with a reason.
   await admin.getByLabel('Kontostatus').selectOption('suspended');
   await admin.getByLabel('Begründung (mind. 5 Zeichen)').fill('Test: Konto sperren');
+  // Saving reloads the page; wait for it, or the reload wipes the deletion form filled below.
+  const reloaded = admin.waitForEvent('load');
   await admin.getByRole('button', { name: 'Änderungen speichern' }).click();
+  await reloaded;
   await expect
     .poll(async () => (await sql('SELECT status FROM users WHERE email = $1', [email]))[0]?.status)
     .toBe('suspended');

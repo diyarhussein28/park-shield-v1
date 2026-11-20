@@ -16,6 +16,8 @@ import { CRYPTO, DB } from '../core/tokens';
 import { filterText } from '../moderation/text-filter';
 import { WordListsService } from '../moderation/word-lists.service';
 import { EscalationService } from '../notifications/escalation.service';
+import { OwnerReminderService } from '../notifications/owner-reminder.service';
+import { ChatService } from '../chat/chat.service';
 import { contractState, scannerDecision } from '../legal/rules';
 import { PhoneBansService } from '../abuse/phone-bans.service';
 import { ProtectionService } from '../abuse/protection.service';
@@ -55,6 +57,8 @@ export class ScanService {
     @Inject(PhoneBansService) private readonly phoneBans: PhoneBansService,
     @Inject(ScannerVerificationService) private readonly verification: ScannerVerificationService,
     @Inject(AlertMediaService) private readonly media: AlertMediaService,
+    @Inject(OwnerReminderService) private readonly reminders: OwnerReminderService,
+    @Inject(ChatService) private readonly chat: ChatService,
   ) {}
 
   /** The pseudonymous references of this request (server side only, never stored on the device). */
@@ -190,7 +194,13 @@ export class ScanService {
     input: { type: AlertTypeCode; message?: string; lang: 'de' | 'en'; verification?: string },
     ctx: ScanContext,
     photos: Buffer[] = [],
-  ): Promise<{ alertId: string; statusToken: string; photos?: PhotoOutcome }> {
+  ): Promise<{
+    alertId: string;
+    statusToken: string;
+    /** The scanner's live chat token (kept in memory and the URL fragment, never stored on the device). */
+    chatToken: string;
+    photos?: PhotoOutcome;
+  }> {
     const type = await this.db
       .selectFrom('alert_types')
       .select(['code', 'severity', 'escalates'])
@@ -293,6 +303,8 @@ export class ScanService {
       escalates: type.escalates,
       isTest,
     });
+    // Owner reminder after N minutes without an answer (tiered notifications).
+    const remindAt = await this.reminders.initialRemindAt(isTest);
     // Phase 2: photos are checked, re-encoded, encrypted and written only now, after every check above.
     // A photo problem drops the photo, never the alert.
     const prepared = await this.media.prepare({
@@ -312,6 +324,7 @@ export class ScanService {
             status_view_hash: sha256(statusToken),
             dispatched_at: sql`now()`,
             escalate_at: escalateAt,
+            remind_at: remindAt,
             verified_phone_hash: verifiedHash,
             content_hidden: contentHidden,
           })
@@ -330,22 +343,28 @@ export class ScanService {
             .execute();
         }
         await this.media.attach(trx, alert.id, prepared.items);
+        // The one view link of the alert (e-mail and SMS carry it, with or without photos).
+        await this.media.issueViewLink(trx, alert.id);
+        // Live chat: locked until the owner opens it.
+        const chatToken = await this.chat.createSession(trx, alert.id);
         await trx
           .insertInto('outbox_events')
           .values({ topic: DISPATCH_TOPIC, payload: JSON.stringify({ alertId: alert.id }) })
           .execute();
-        return alert.id;
+        return { alertId: alert.id, chatToken };
       });
-    let alertId: string;
+    let created: { alertId: string; chatToken: string };
     try {
-      alertId = await create();
+      created = await create();
     } catch (err) {
       await this.media.discard(prepared.items);
       throw err;
     }
+    const { alertId, chatToken } = created;
     return {
       alertId,
       statusToken,
+      chatToken,
       ...(photos.length ? { photos: prepared.outcome } : {}),
     };
   }
@@ -387,6 +406,9 @@ export class ScanService {
         'expires_at',
         'scanner_country',
         'scanner_waiting_at',
+        'seen_at',
+        'acknowledged_by',
+        'escalation_step',
       ])
       .where('id', '=', alertId)
       .where('status_view_hash', '=', sha256(statusToken))
@@ -413,6 +435,14 @@ export class ScanService {
       deliveredAt: a.status === 'blocked' ? null : (delivered?.at ?? null),
       acknowledgedAt: a.acknowledged_at,
       ownerReply: a.owner_reply,
+      // „Fahrzeughalter hat die Nachricht gesehen" (opened in the app; not an answer).
+      seenAt: a.status === 'blocked' ? null : a.seen_at,
+      // Who is on the way: the owner or one of their trusted contacts (never a name).
+      acknowledgedBy: a.acknowledged_by
+        ? a.acknowledged_by === 'owner'
+          ? 'owner'
+          : 'contact'
+        : null,
       escalatedAt: a.escalated_at,
       expiresAt: a.expires_at,
       // The scanner's own country (24 h), so guidance names the right emergency numbers (SC-13).

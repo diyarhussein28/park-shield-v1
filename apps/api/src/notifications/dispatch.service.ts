@@ -8,24 +8,38 @@ import type { FieldCrypto } from '../core/crypto';
 import { SettingsService } from '../core/settings.service';
 import { CRYPTO, DB, ENV, LOGGER } from '../core/tokens';
 import type { ChannelType } from '../db/types.generated';
+import { EntitlementService } from '../billing/entitlements.service';
 import { MailService } from '../mail/mail.service';
 import {
+  APP_PUSH,
   PUSH,
   SMS,
-  WHATSAPP,
+  type AppPushSender,
   type PushSender,
   type SmsSender,
-  type WhatsAppSender,
 } from '../providers/ports';
 import { PreferencesService } from '../preferences/preferences.service';
 import { AckService, OWNER_REPLIES, type ReplyLinks } from './ack.service';
 import { FairUseService } from './fair-use.service';
 import { channelOrder, type OrderableChannel } from './channel-order';
-import { pushText, REPLY_LABELS, REPLY_SENT, type PushKind } from './push-texts';
-import { smsPhotoText, smsText } from './sms-texts';
+import {
+  APP_ALERT_CATEGORY,
+  appPushText,
+  pushText,
+  REPLY_LABELS,
+  REPLY_SENT,
+  type PushKind,
+} from './push-texts';
+import { smsLinkText } from './sms-texts';
+
+/** GSM-7 safe hint for the SMS of an alert whose content is hidden (Protected Mode). */
+const SMS_HIDDEN = {
+  de: 'Nachricht von nicht bestaetigtem Absender',
+  en: 'Message from an unconfirmed sender',
+} as const;
 import { ViewTokenService } from '../alert-media/view-token.service';
 
-/** NT-06: a subscription is removed after HTTP 404/410 or this many consecutive failures. */
+/** NT-06: a subscription/device is removed after "gone" or this many consecutive failures. */
 export const PUSH_MAX_FAILURES = 5;
 const PUSH_TTL_SECONDS = 2 * 3600;
 const DONE = ['sent', 'delivered', 'read'] as const;
@@ -33,32 +47,43 @@ const DONE = ['sent', 'delivered', 'read'] as const;
 type AlertRow = NonNullable<Awaited<ReturnType<DispatchService['load']>>>;
 /** sent: delivered to the provider now; already: in an earlier attempt; unavailable: not set up. */
 type Outcome = 'sent' | 'already' | 'failed' | 'suppressed' | 'unavailable';
-type Kind = 'alert' | 'test' | 'followup';
+type Kind = 'alert' | 'test' | 'followup' | 'reminder';
+export type PlanChannels = readonly OrderableChannel[];
+
+/**
+ * The channel matrix (tiered notifications). Every alert goes to all channels of the plan at once:
+ * PLUS = push (app and browser) + e-mail, PREMIUM = push + e-mail + SMS. Without an active plan (the
+ * scanner page would not even offer the decal) push and e-mail, never a paid channel.
+ */
+export function planChannels(plan: 'plus' | 'premium' | null): PlanChannels {
+  return plan === 'premium'
+    ? ['native_push', 'webpush', 'email', 'sms']
+    : ['native_push', 'webpush', 'email'];
+}
 
 interface Message {
   kind: Kind;
   token: string;
   links: ReplyLinks;
-  /** false for reminders: they are sent again on purpose, so earlier deliveries do not count. */
-  dedupe: boolean;
   /**
-   * Phase 2: the one view link of an alert with photos (`/v/<token>`). Every channel carries this link
-   * only; no photo is ever attached or embedded.
+   * The view page of the alert (`/v/<token>`): type, time, message, photos, "Ich komme". Every e-mail
+   * and SMS carries this link only; no photo is ever attached or embedded.
    */
-  viewUrl?: string;
+  viewUrl: string;
+  /**
+   * Reminders are sent again on purpose: a delivery counts as "already" only when it was queued after
+   * this moment (the reminder's start).
+   */
+  since?: Date;
 }
 
-/** Order for the NT-09 reminder: fastest first, regardless of cost. */
-const FASTEST: OrderableChannel[] = ['webpush', 'whatsapp', 'sms', 'email'];
-
 /**
- * Delivers an alert to the owner (US-22, NT-01). Normal alerts go through the owner's channel order
- * (cheapest first by default) and stop at the first channel that worked; on failure the next one is
- * tried. Urgent alerts and tests go to every enabled channel at once. Kill switches (NT-12) suppress a
- * channel and move on. Every notification carries the reply buttons (NT-02, OW-16).
+ * Delivers an alert to the owner (US-22, NT-01, tiered notifications) and the owner reminder. Kill
+ * switches (NT-12) suppress a channel, quiet hours mute the owner (urgent alerts pass, US-26), fair use
+ * meters SMS (NT-05). Every notification carries the "Ich komme" action.
  *
- * Idempotent: a replayed outbox event never notifies a channel (or push device) twice. When nothing
- * could be delivered, the error is rethrown so the outbox retries with backoff.
+ * Idempotent: a replayed outbox event never notifies a channel (or push device) twice. When a channel
+ * failed, the error is rethrown so the outbox retries with backoff; delivered channels are skipped.
  */
 @Injectable()
 export class DispatchService {
@@ -69,13 +94,14 @@ export class DispatchService {
     @Inject(MailService) private readonly mail: MailService,
     @Inject(SettingsService) private readonly settings: SettingsService,
     @Inject(PUSH) private readonly push: PushSender,
-    @Inject(WHATSAPP) private readonly whatsapp: WhatsAppSender,
+    @Inject(APP_PUSH) private readonly appPush: AppPushSender,
     @Inject(SMS) private readonly sms: SmsSender,
     @Inject(LOGGER) private readonly logger: Logger,
     @Inject(AckService) private readonly ack: AckService,
     @Inject(PreferencesService) private readonly preferences: PreferencesService,
     @Inject(FairUseService) private readonly fairUse: FairUseService,
     @Inject(ViewTokenService) private readonly viewTokens: ViewTokenService,
+    @Inject(EntitlementService) private readonly entitlements: EntitlementService,
   ) {}
 
   private load(alertId: string) {
@@ -89,11 +115,15 @@ export class DispatchService {
         'a.status',
         'a.is_test',
         'a.severity',
+        'a.alert_type',
         'a.custom_message_enc',
         'a.content_hidden',
+        'a.created_at',
         'a.expires_at',
         'a.followup_sent_at',
         'a.scanner_waiting_at',
+        'a.owner_reply',
+        'a.reminded_at',
         'a.vehicle_id',
         'v.nickname',
         'u.id as userId',
@@ -116,13 +146,21 @@ export class DispatchService {
       .executeTakeFirst();
   }
 
+  /** The channels of the owner's plan, in the owner's order. */
+  private async channelsFor(userId: string): Promise<OrderableChannel[]> {
+    const ent = await this.entitlements.current(userId);
+    const allowed = planChannels(ent?.plan ?? null);
+    const order = await channelOrder(this.db, this.settings, userId);
+    return order.filter((c) => allowed.includes(c));
+  }
+
   async dispatch(alertId: string): Promise<void> {
     const alert = await this.load(alertId);
     if (!alert || !['dispatched', 'delivered'].includes(alert.status)) return;
     if (alert.expires_at < new Date()) return;
 
-    // US-26: quiet hours and "sensitive spot" mute the owner's notifications. The alert is kept and
-    // recorded as suppressed (it shows in the history); escalation to a contact still applies.
+    // US-26: quiet hours and "sensitive spot" mute the owner's notifications (urgent alerts pass). The
+    // alert is kept and recorded as suppressed (it shows in the history); escalation still applies.
     const muted = await this.preferences.muteReason({
       userId: alert.userId,
       vehicleId: alert.vehicle_id,
@@ -137,7 +175,7 @@ export class DispatchService {
         .where('suppressed_reason', '=', muted)
         .executeTakeFirst();
       if (!already) {
-        const [first] = await channelOrder(this.db, this.settings, alert.userId);
+        const [first] = await this.channelsFor(alert.userId);
         await this.record({
           alertId: alert.id,
           channel: first ?? 'email',
@@ -154,12 +192,13 @@ export class DispatchService {
       kind: alert.is_test ? 'test' : 'alert',
       token,
       links: this.ack.links(token),
-      dedupe: true,
-      ...(alert.hasPhotos ? { viewUrl: this.viewTokens.urlFor(alert.id) } : {}),
+      viewUrl: this.viewTokens.urlFor(alert.id),
     };
-    const everywhere = alert.severity === 'urgent' || alert.is_test;
-    const order = await channelOrder(this.db, this.settings, alert.userId);
-    const { outcomes, errors } = await this.deliver(alert, msg, order, everywhere);
+    const { outcomes, errors } = await this.deliver(
+      alert,
+      msg,
+      await this.channelsFor(alert.userId),
+    );
 
     if (outcomes.includes('sent')) {
       await this.db
@@ -169,25 +208,67 @@ export class DispatchService {
         .where('status', '=', 'dispatched')
         .execute();
     }
-    const reached = outcomes.some((o) => o === 'sent' || o === 'already');
-    // Retry when nothing reached the owner, or (urgent) when one channel still has to be retried.
-    if (errors.length && (everywhere || !reached)) throw errors[0];
-    if (!reached && !errors.length) {
-      this.logger.warn(
-        { outcomes },
-        'alert not delivered: every channel switched off or unavailable',
-      );
+    // Retry while one channel of the plan still has to be retried; delivered ones are skipped then.
+    if (errors.length) throw errors[0];
+    if (!outcomes.some((o) => o === 'sent' || o === 'already')) {
+      this.logger.warn({ outcomes }, 'alert not delivered: every channel off or unavailable');
     }
   }
 
-  /** NT-09: one reminder with fresh reply buttons on the fastest channel that works. */
+  /**
+   * Owner reminder (tiered notifications): the alert was not acknowledged after N minutes. "Seen" does
+   * not count, only an answer. A second push to every device (all plans) and, for PREMIUM, a second SMS
+   * (at most `reminder.max_owner_sms` SMS per alert). Without any push device: e-mail with a hint that
+   * no app with notifications is set up.
+   */
+  async remind(alertId: string): Promise<void> {
+    const alert = await this.load(alertId);
+    if (!alert?.reminded_at || alert.owner_reply !== null || alert.is_test) return;
+    if (!['dispatched', 'delivered', 'escalated'].includes(alert.status)) return;
+    if (alert.expires_at < new Date()) return;
+    const muted = await this.preferences.muteReason({
+      userId: alert.userId,
+      vehicleId: alert.vehicle_id,
+      severity: alert.severity,
+      isTest: alert.is_test,
+    });
+    if (muted) return;
+
+    const token = await this.ack.tokenFor(alert.id, alert.expires_at);
+    const msg: Message = {
+      kind: 'reminder',
+      token,
+      links: this.ack.links(token),
+      viewUrl: this.viewTokens.urlFor(alert.id),
+      since: alert.reminded_at,
+    };
+    const channels = await this.channelsFor(alert.userId);
+    // Push (app and browser) for everyone, SMS for PREMIUM (already in `channels`); e-mail only when the
+    // owner has no push device at all.
+    const hasDevice = await this.hasPushDevice(alert.userId);
+    const wanted = channels.filter((c) => c !== 'email' || !hasDevice);
+    const { errors } = await this.deliver(alert, msg, wanted);
+    if (errors.length) throw errors[0];
+  }
+
+  /** NT-09: one reminder with fresh reply buttons after "Ich warte noch", fastest channel first. */
   async followup(alertId: string): Promise<void> {
     const alert = await this.load(alertId);
     if (!alert || alert.followup_sent_at || !alert.scanner_waiting_at) return;
     if (alert.status !== 'acknowledged' || alert.expires_at < new Date()) return;
     const token = await this.ack.renew(alert.id, alert.expires_at);
-    const msg: Message = { kind: 'followup', token, links: this.ack.links(token), dedupe: false };
-    const { outcomes, errors } = await this.deliver(alert, msg, FASTEST, false);
+    const msg: Message = {
+      kind: 'followup',
+      token,
+      links: this.ack.links(token),
+      viewUrl: this.viewTokens.urlFor(alert.id),
+      since: alert.scanner_waiting_at,
+    };
+    const allowed = await this.channelsFor(alert.userId);
+    const fastest = (['native_push', 'webpush', 'sms', 'email'] as const).filter((c) =>
+      allowed.includes(c),
+    );
+    const { outcomes, errors } = await this.deliver(alert, msg, fastest, true);
     if (!outcomes.includes('sent') && errors.length) throw errors[0];
     await this.db
       .updateTable('alerts')
@@ -197,11 +278,58 @@ export class DispatchService {
       .execute();
   }
 
+  /** Push for a new chat message from the scanner (the app is closed or in the background). */
+  async chatMessage(alertId: string): Promise<void> {
+    const alert = await this.load(alertId);
+    if (!alert) return;
+    const devices = await this.db
+      .selectFrom('user_devices')
+      .select(['id', 'fcm_token', 'locale', 'failed_count'])
+      .where('user_id', '=', alert.userId)
+      .execute();
+    await Promise.all(
+      devices.map(async (d) => {
+        const lang = d.locale ?? alert.preferred_lang;
+        const text = appPushText(lang, 'chat', '');
+        const r = await this.appPush.send({
+          token: d.fcm_token,
+          ...text,
+          data: { alertId: alert.id, type: alert.alert_type, kind: 'chat' },
+          urgent: true,
+          ttlSeconds: 600,
+          collapseKey: `chat-${alert.id}`,
+        });
+        if (!r.ok) await this.deviceFailed(alert, d, r.invalidToken);
+      }),
+    );
+  }
+
+  /** Whether the owner can be reached by push at all (app device or browser subscription). */
+  async hasPushDevice(userId: string): Promise<boolean> {
+    const [app, web] = await Promise.all([
+      this.db
+        .selectFrom('user_devices')
+        .select('id')
+        .where('user_id', '=', userId)
+        .executeTakeFirst(),
+      this.db
+        .selectFrom('push_subscriptions')
+        .select('id')
+        .where('user_id', '=', userId)
+        .executeTakeFirst(),
+    ]);
+    return Boolean(app ?? web);
+  }
+
+  /**
+   * Sends on every channel in `order`. With `firstOnly` (the NT-09 follow-up) it stops at the first
+   * channel that worked; otherwise every channel gets the message (tiered notifications: at once).
+   */
   private async deliver(
     alert: AlertRow,
     msg: Message,
-    order: OrderableChannel[],
-    everywhere: boolean,
+    order: readonly OrderableChannel[],
+    firstOnly = false,
   ) {
     const outcomes: Outcome[] = [];
     const errors: unknown[] = [];
@@ -209,19 +337,19 @@ export class DispatchService {
       let outcome: Outcome;
       try {
         outcome =
-          channel === 'webpush'
-            ? await this.sendPush(alert, msg)
-            : channel === 'email'
-              ? await this.sendEmail(alert, msg)
-              : channel === 'sms'
-                ? await this.sendSms(alert, msg)
-                : await this.sendWhatsApp(alert, msg);
+          channel === 'native_push'
+            ? await this.sendAppPush(alert, msg)
+            : channel === 'webpush'
+              ? await this.sendPush(alert, msg)
+              : channel === 'email'
+                ? await this.sendEmail(alert, msg)
+                : await this.sendSms(alert, msg);
       } catch (err) {
         errors.push(err);
         outcome = 'failed';
       }
       outcomes.push(outcome);
-      if (!everywhere && (outcome === 'sent' || outcome === 'already')) break;
+      if (firstOnly && (outcome === 'sent' || outcome === 'already')) break;
     }
     return { outcomes, errors };
   }
@@ -233,7 +361,13 @@ export class DispatchService {
     return v === true || v === 'true';
   }
 
-  private async alreadySent(alertId: string, channel: ChannelType, providerMessageId?: string) {
+  /** A delivery of this message on this channel (and device) exists already. */
+  private async alreadySent(
+    alertId: string,
+    channel: ChannelType,
+    msg: Message,
+    providerMessageId?: string,
+  ) {
     let q = this.db
       .selectFrom('alert_deliveries')
       .select('id')
@@ -242,6 +376,7 @@ export class DispatchService {
       .where('channel', '=', channel)
       .where('status', 'in', [...DONE]);
     if (providerMessageId) q = q.where('provider_message_id', '=', providerMessageId);
+    if (msg.since) q = q.where('queued_at', '>=', msg.since);
     return Boolean(await q.executeTakeFirst());
   }
 
@@ -320,7 +455,7 @@ export class DispatchService {
 
   private async sendEmail(alert: AlertRow, msg: Message): Promise<Outcome> {
     const provider = fakeProviders(this.env).mail ? 'dev' : this.env.MAIL_PROVIDER;
-    if (msg.dedupe && (await this.alreadySent(alert.id, 'email'))) return 'already';
+    if (await this.alreadySent(alert.id, 'email', msg)) return 'already';
     if (!(await this.enabled('email'))) {
       await this.record({
         alertId: alert.id,
@@ -337,46 +472,139 @@ export class DispatchService {
       provider,
       status: 'queued',
     });
-    const template = {
-      alert: 'alert_received',
-      test: 'alert_test',
-      followup: 'alert_followup',
-    } as const;
-    const values = (({ hidden: _hidden, ...v }) => v)(this.alertValues(alert));
+    const { hidden: _hidden, ...values } = this.alertValues(alert);
+    const template =
+      msg.kind === 'test'
+        ? 'alert_test'
+        : msg.kind === 'followup'
+          ? 'alert_followup'
+          : msg.kind === 'reminder'
+            ? 'alert_reminder'
+            : alert.hasPhotos
+              ? 'alert_received_photos'
+              : 'alert_received';
     try {
-      // Phase 2: with photos the main button opens the view page ("Fotos ansehen"); no attachment and
-      // no embedded image. "Missbrauch melden" is a plain link to the same page.
-      await this.mail.send(
-        msg.viewUrl
-          ? {
-              to: alert.email,
-              template: 'alert_received_photos',
-              locale: alert.preferred_lang,
-              values,
-              actionUrl: msg.viewUrl,
-              replies: this.replyButtons(alert, msg.links),
-              links: [
-                {
-                  label: alert.preferred_lang === 'en' ? 'Report abuse' : 'Missbrauch melden',
-                  url: `${msg.viewUrl}?melden=1`,
-                },
-              ],
-            }
-          : {
-              to: alert.email,
-              template: template[msg.kind],
-              locale: alert.preferred_lang,
-              values,
-              actionUrl: `${this.env.WEB_BASE_URL}/konto`,
-              replies: this.replyButtons(alert, msg.links),
-            },
-      );
+      // The main button opens the view page ("Details & Fotos ansehen"): no attachment and no embedded
+      // image. "Missbrauch melden" is a plain link to the same page.
+      await this.mail.send({
+        to: alert.email,
+        template,
+        locale: alert.preferred_lang,
+        values: {
+          ...values,
+          at: alert.created_at,
+          noApp:
+            msg.kind === 'reminder' && !(await this.hasPushDevice(alert.userId)) ? 'yes' : 'no',
+        },
+        actionUrl: msg.viewUrl,
+        replies: this.replyButtons(alert, msg.links),
+        links: alert.hasPhotos
+          ? [
+              {
+                label: alert.preferred_lang === 'en' ? 'Report abuse' : 'Missbrauch melden',
+                url: `${msg.viewUrl}?melden=1`,
+              },
+            ]
+          : [],
+      });
     } catch (err) {
       await this.finish(delivery.id, { ok: false, error: String(err) });
       throw err;
     }
     await this.finish(delivery.id, { ok: true });
     return 'sent';
+  }
+
+  /**
+   * Native app (FCM, iOS via APNs). The payload carries a generic text and ids only: no scanner text, no
+   * photo, no plate, no nickname, no name (FCM is a Google service). The app loads the rest from our API.
+   */
+  private async sendAppPush(alert: AlertRow, msg: Message): Promise<Outcome> {
+    const devices = await this.db
+      .selectFrom('user_devices')
+      .select(['id', 'fcm_token', 'locale', 'failed_count'])
+      .where('user_id', '=', alert.userId)
+      .execute();
+    if (!devices.length) return 'unavailable';
+    const provider = fakeProviders(this.env).fcm ? 'dev' : 'fcm';
+    if (!(await this.enabled('native_push'))) {
+      await this.record({
+        alertId: alert.id,
+        channel: 'native_push',
+        provider,
+        status: 'suppressed',
+        reason: 'kill_switch',
+      });
+      return 'suppressed';
+    }
+    const type = alert.preferred_lang === 'en' ? alert.label_en : alert.label_de;
+    const results = await Promise.all(
+      devices.map(async (d): Promise<Outcome> => {
+        // The device id marks the delivery, so each device is notified at most once per message.
+        const marker = `dev:${d.id}`;
+        if (await this.alreadySent(alert.id, 'native_push', msg, marker)) return 'already';
+        const delivery = await this.record({
+          alertId: alert.id,
+          channel: 'native_push',
+          provider,
+          status: 'queued',
+          providerMessageId: marker,
+        });
+        const lang = d.locale ?? alert.preferred_lang;
+        const label =
+          lang === alert.preferred_lang ? type : lang === 'en' ? alert.label_en : alert.label_de;
+        const r = await this.appPush.send({
+          token: d.fcm_token,
+          ...appPushText(lang, msg.kind, label),
+          data: { alertId: alert.id, type: alert.alert_type, kind: msg.kind },
+          category: APP_ALERT_CATEGORY,
+          urgent: alert.severity === 'urgent' || msg.kind !== 'alert',
+          ttlSeconds: PUSH_TTL_SECONDS,
+          collapseKey: `alert-${alert.id}`,
+        });
+        if (r.ok) {
+          // The marker stays the provider message id: it is what makes a replay skip this device.
+          await this.finish(delivery.id, { ok: true });
+          await this.db
+            .updateTable('user_devices')
+            .set({ failed_count: 0 })
+            .where('id', '=', d.id)
+            .execute();
+          return 'sent';
+        }
+        await this.finish(delivery.id, { ok: false, error: r.error });
+        await this.deviceFailed(alert, d, r.invalidToken);
+        return 'failed';
+      }),
+    );
+    // Push errors are counted per device (NT-06) and never thrown: a retry would count them twice.
+    if (results.includes('sent')) return 'sent';
+    if (results.includes('already')) return 'already';
+    return 'failed';
+  }
+
+  /** NT-06 for app devices: FCM said the token is gone, or too many failures in a row. */
+  private async deviceFailed(
+    alert: Pick<AlertRow, 'userId'>,
+    d: { id: string; failed_count: number },
+    invalidToken: boolean,
+  ) {
+    if (invalidToken || d.failed_count + 1 >= PUSH_MAX_FAILURES) {
+      const removed = await this.db
+        .deleteFrom('user_devices')
+        .where('id', '=', d.id)
+        .executeTakeFirst();
+      if (Number(removed.numDeletedRows)) {
+        this.logger.info({ why: invalidToken ? 'gone' : 'failures' }, 'app device removed');
+      }
+      return;
+    }
+    await this.db
+      .updateTable('user_devices')
+      .set({ failed_count: sql`failed_count + 1` })
+      .where('id', '=', d.id)
+      .where('user_id', '=', alert.userId)
+      .execute();
   }
 
   private async sendPush(alert: AlertRow, msg: Message): Promise<Outcome> {
@@ -406,10 +634,11 @@ export class DispatchService {
       values.hidden,
     );
     const labels = REPLY_LABELS[alert.preferred_lang];
+    // Web Push payloads are end-to-end encrypted (RFC 8291): the browser's push service cannot read them.
     const payload = JSON.stringify({
       ...text,
       lang: alert.preferred_lang,
-      url: msg.viewUrl ?? msg.links.page,
+      url: msg.viewUrl,
       tag: `alert-${alert.id}`,
       // The service worker posts the reply directly when an action button is tapped (OW-16).
       token: msg.token,
@@ -420,13 +649,13 @@ export class DispatchService {
       })),
       replied: REPLY_SENT[alert.preferred_lang],
     });
-    const urgent = alert.severity === 'urgent' || msg.kind === 'followup';
+    const urgent = alert.severity === 'urgent' || msg.kind !== 'alert';
 
     const results = await Promise.all(
       devices.map(async (d): Promise<Outcome> => {
-        // The subscription id marks the device, so each device is notified at most once per alert.
+        // The subscription id marks the device, so each device is notified at most once per message.
         const marker = `sub:${d.id}`;
-        if (msg.dedupe && (await this.alreadySent(alert.id, 'webpush', marker))) return 'already';
+        if (await this.alreadySent(alert.id, 'webpush', msg, marker)) return 'already';
         const delivery = await this.record({
           alertId: alert.id,
           channel: 'webpush',
@@ -461,7 +690,6 @@ export class DispatchService {
         return 'failed';
       }),
     );
-    // Push errors are counted per device (NT-06) and never thrown: a retry would count them twice.
     if (results.includes('sent')) return 'sent';
     if (results.includes('already')) return 'already';
     return 'failed';
@@ -496,77 +724,10 @@ export class DispatchService {
       .catch((err: unknown) => this.logger.warn({ err: String(err) }, 'push_removed mail failed'));
   }
 
-  private async sendWhatsApp(alert: AlertRow, msg: Message): Promise<Outcome> {
-    if (this.env.WHATSAPP_PROVIDER === 'off') return 'unavailable';
-    const channel = await this.db
-      .selectFrom('contact_channels')
-      .select(['address_enc'])
-      .where('user_id', '=', alert.userId)
-      .where('type', '=', 'whatsapp')
-      .where('is_enabled', '=', true)
-      .where('verified_at', 'is not', null)
-      .where('opted_in_at', 'is not', null)
-      .executeTakeFirst();
-    if (!channel?.address_enc) return 'unavailable';
-    const provider = fakeProviders(this.env).whatsapp ? 'dev' : this.env.WHATSAPP_PROVIDER;
-    if (msg.dedupe && (await this.alreadySent(alert.id, 'whatsapp'))) return 'already';
-    if (!(await this.enabled('whatsapp'))) {
-      await this.record({
-        alertId: alert.id,
-        channel: 'whatsapp',
-        provider,
-        status: 'suppressed',
-        reason: 'kill_switch',
-      });
-      return 'suppressed';
-    }
-    // US-27: above the monthly fair-use limit, skip WhatsApp; the alert falls through to Push and e-mail.
-    const owner = { id: alert.userId, email: alert.email, lang: alert.preferred_lang };
-    if (!(await this.fairUse.reserve(owner, 'whatsapp'))) {
-      await this.record({
-        alertId: alert.id,
-        channel: 'whatsapp',
-        provider,
-        status: 'suppressed',
-        reason: 'fair_use',
-      });
-      return 'suppressed';
-    }
-    const cost = Number(await this.settings.get('whatsapp.cost_micros', 55_000));
-    const delivery = await this.record({
-      alertId: alert.id,
-      channel: 'whatsapp',
-      provider,
-      status: 'queued',
-      costMicros: cost,
-    });
-    const values = this.alertValues(alert);
-    const template = { alert: 'ps_alert', test: 'ps_test', followup: 'ps_followup' } as const;
-    // Phase 2: an approved template with a URL button to /v/{{token}}. No mediaUrl: photos stay on our
-    // server. Without that template (not approved yet) the alert goes out as before.
-    const withPhotos =
-      Boolean(msg.viewUrl) && this.whatsapp.supports('ps_alert_photos', alert.preferred_lang);
-    try {
-      const { messageId } = await this.whatsapp.sendTemplate({
-        to: this.crypto.decrypt(channel.address_enc).replace(/^\+/, ''),
-        template: withPhotos ? 'ps_alert_photos' : template[msg.kind],
-        lang: alert.preferred_lang,
-        params:
-          msg.kind === 'test' && !withPhotos ? [values.nickname] : [values.type, values.nickname],
-        // Quick-reply buttons in template order: Ich komme · In ca. 30 Min · Bin nicht in der Nähe.
-        buttons: OWNER_REPLIES.map((r) => `ack:${msg.token}:${r}`),
-        ...(withPhotos ? { urlButton: msg.viewUrl!.split('/v/')[1]! } : {}),
-      });
-      await this.finish(delivery.id, { ok: true, messageId });
-      return 'sent';
-    } catch (err) {
-      await this.finish(delivery.id, { ok: false, error: String(err) });
-      await this.fairUse.release(alert.userId, 'whatsapp');
-      throw err;
-    }
-  }
-
-  /** NT-07: plain-text SMS with the reply-page link (no buttons). Metered like WhatsApp (US-27). */
+  /**
+   * NT-07: one GSM-7 segment with the view link (the page has the details, photos and "Ich komme").
+   * PREMIUM only (the matrix above) and metered (US-27). At most `reminder.max_owner_sms` SMS per alert.
+   */
   private async sendSms(alert: AlertRow, msg: Message): Promise<Outcome> {
     const channel = await this.db
       .selectFrom('contact_channels')
@@ -579,7 +740,7 @@ export class DispatchService {
       .executeTakeFirst();
     if (!channel?.address_enc) return 'unavailable';
     const provider = fakeProviders(this.env).sms ? 'dev' : 'twilio';
-    if (msg.dedupe && (await this.alreadySent(alert.id, 'sms'))) return 'already';
+    if (await this.alreadySent(alert.id, 'sms', msg)) return 'already';
     if (!(await this.enabled('sms'))) {
       await this.record({
         alertId: alert.id,
@@ -590,6 +751,16 @@ export class DispatchService {
       });
       return 'suppressed';
     }
+    const maxPerAlert = Number(await this.settings.get('reminder.max_owner_sms', 2));
+    const { n } = await this.db
+      .selectFrom('alert_deliveries')
+      .select((eb) => eb.fn.countAll<string>().as('n'))
+      .where('alert_id', '=', alert.id)
+      .where('recipient', '=', 'owner')
+      .where('channel', '=', 'sms')
+      .where('status', 'in', ['queued', ...DONE])
+      .executeTakeFirstOrThrow();
+    if (Number(n) >= maxPerAlert) return 'suppressed';
     const owner = { id: alert.userId, email: alert.email, lang: alert.preferred_lang };
     if (!(await this.fairUse.reserve(owner, 'sms'))) {
       await this.record({
@@ -610,20 +781,15 @@ export class DispatchService {
       costMicros: cost,
     });
     const values = this.alertValues(alert);
+    const kind = msg.kind === 'alert' ? (alert.hasPhotos ? 'photos' : 'alert') : msg.kind;
+    // Abuse protection §4: never the free text of an unconfirmed sender, only that there is one.
+    const subject = values.hidden
+      ? `${values.type}. ${SMS_HIDDEN[alert.preferred_lang]}`
+      : values.type;
     try {
       const { messageId } = await this.sms.send({
         to: this.crypto.decrypt(channel.address_enc),
-        // Phase 2: with photos one GSM-7 segment with the view link (the page also has the replies).
-        body: msg.viewUrl
-          ? smsPhotoText(alert.preferred_lang, values.type, values.nickname, msg.viewUrl)
-          : smsText(
-              alert.preferred_lang,
-              msg.kind,
-              values.type,
-              values.nickname,
-              msg.links.page,
-              values.hidden,
-            ),
+        body: smsLinkText(alert.preferred_lang, kind, subject, values.nickname, msg.viewUrl),
         tag: `sms_${msg.kind}`,
       });
       await this.finish(delivery.id, { ok: true, messageId });

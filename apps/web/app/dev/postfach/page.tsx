@@ -31,17 +31,20 @@ interface Sms {
   messageId: string;
   sentAt: string;
 }
-interface WhatsApp {
-  to: string;
-  template: string;
-  lang: string;
-  params: string[];
-  buttons?: string[];
+/** What the fake FCM sender stored: the exact request body that would go to Google. */
+interface AppPush {
+  body: {
+    message: {
+      token: string;
+      notification: { title: string; body: string };
+      data: Record<string, string>;
+    };
+  };
   messageId: string;
   sentAt: string;
 }
 
-type Kind = 'email' | 'sms' | 'whatsapp';
+type Kind = 'email' | 'sms' | 'app';
 interface Item {
   key: string;
   kind: Kind;
@@ -50,15 +53,14 @@ interface Item {
   text: string;
   tag: string;
   sentAt: Date;
-  hasButtons?: boolean;
 }
 
-const KINDS: Kind[] = ['email', 'sms', 'whatsapp'];
-const ICON: Record<Kind, IconName> = { email: 'mail', sms: 'phone', whatsapp: 'phone' };
+const KINDS: Kind[] = ['email', 'sms', 'app'];
+const ICON: Record<Kind, IconName> = { email: 'mail', sms: 'phone', app: 'bell' };
 const KIND_KEY: Record<Kind, MessageKey> = {
   email: 'dev.kindEmail',
   sms: 'dev.kindSms',
-  whatsapp: 'dev.kindWhatsapp',
+  app: 'dev.kindAppPush',
 };
 
 // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored literal prefix, no backtracking; dev-only page
@@ -87,13 +89,13 @@ function links(text: string): { url: string; label: string }[] {
 
 /**
  * Local inbox for everything sent while the provider keys are empty: e-mails (Brevo/SendGrid fake),
- * SMS (Twilio fake) and WhatsApp (fake). One list, newest first, filterable by recipient and kind.
+ * SMS (Twilio fake) and app pushes (FCM fake). One list, newest first, filterable by recipient and kind.
  */
 export default function DevInbox() {
   const { t } = useI18n();
   const [mails, setMails] = useState<Mail[] | null>(null);
   const [sms, setSms] = useState<Sms[]>([]);
-  const [whatsapp, setWhatsapp] = useState<WhatsApp[]>([]);
+  const [pushes, setPushes] = useState<AppPush[]>([]);
   const [filter, setFilter] = useState('');
   const [kind, setKind] = useState<Kind | 'all'>('all');
 
@@ -108,9 +110,9 @@ export default function DevInbox() {
           (r) => setSms(r.messages),
           () => setSms([]),
         ),
-        api<{ messages: WhatsApp[] }>('/v1/dev/whatsapp').then(
-          (r) => setWhatsapp(r.messages),
-          () => setWhatsapp([]),
+        api<{ messages: AppPush[] }>('/v1/dev/app-push').then(
+          (r) => setPushes(r.messages),
+          () => setPushes([]),
         ),
       ]);
     void load();
@@ -138,19 +140,18 @@ export default function DevInbox() {
         tag: m.tag,
         sentAt: new Date(m.sentAt),
       })),
-      ...whatsapp.map((m) => ({
+      ...pushes.map((m) => ({
         key: m.messageId,
-        kind: 'whatsapp' as const,
-        to: `+${m.to}`,
-        title: t('dev.waTemplate', { template: m.template }),
-        text: m.params.join(' · '),
-        tag: `${m.template} (${m.lang})`,
+        kind: 'app' as const,
+        to: t('dev.appDevice', { token: `${m.body.message.token.slice(0, 12)}…` }),
+        title: `${m.body.message.notification.title}: ${m.body.message.notification.body}`,
+        text: JSON.stringify(m.body.message.data),
+        tag: m.body.message.data.kind ?? 'push',
         sentAt: new Date(m.sentAt),
-        hasButtons: Boolean(m.buttons?.some((b) => b.startsWith('ack:'))),
       })),
     ];
     return all.sort((a, b) => b.sentAt.getTime() - a.sentAt.getTime());
-  }, [mails, sms, whatsapp, t]);
+  }, [mails, sms, pushes, t]);
 
   const needle = filter.trim().toLowerCase().replace(/\s+/g, '');
   const byRecipient = items.filter(
@@ -226,13 +227,13 @@ export default function DevInbox() {
 
 function Message({ item }: { item: Item }) {
   const { t, locale } = useI18n();
-  const actions = item.kind === 'whatsapp' ? [] : links(item.text);
+  const actions = item.kind === 'app' ? [] : links(item.text);
   return (
     <article className="rounded-2xl border border-border bg-surface p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Badge tone={item.kind === 'email' ? 'info' : 'success'} className="gap-1">
           <Icon name={ICON[item.kind]} className="size-4" />
-          {t('channels.channelName', { channel: item.kind })}
+          {t('channels.channelName', { channel: item.kind === 'app' ? 'native_push' : item.kind })}
         </Badge>
         <span className="min-w-0 font-semibold wrap-anywhere">{t('dev.to', { to: item.to })}</span>
         <time dateTime={item.sentAt.toISOString()} className="text-sm text-muted">
@@ -243,12 +244,7 @@ function Message({ item }: { item: Item }) {
       {item.kind === 'sms' && (
         <p className="mt-2 whitespace-pre-wrap wrap-anywhere">{linkify(item.text)}</p>
       )}
-      {item.kind === 'whatsapp' && (
-        <>
-          {item.text && <p className="mt-2 wrap-anywhere">{item.text}</p>}
-          {item.hasButtons && <p className="mt-1 text-sm text-muted">{t('dev.waButtons')}</p>}
-        </>
-      )}
+      {item.kind === 'app' && <p className="mt-2 font-mono text-sm wrap-anywhere">{item.text}</p>}
       {actions.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
           {actions.map((a) => (

@@ -19,10 +19,14 @@ export const BREAK_GLASS_MINUTES = 15;
 export const TARGETS = {
   'vehicles.plate': { de: 'Kennzeichen', en: 'licence plate' },
   'decal_orders.shipping_address': { de: 'Lieferadresse', en: 'shipping address' },
-  'contact_channels.whatsapp': { de: 'WhatsApp-Nummer', en: 'WhatsApp number' },
+  'contact_channels.sms': { de: 'SMS-Nummer', en: 'SMS number' },
   'emergency_contacts.email': {
     de: 'E-Mail-Adresse Ihres Notfallkontakts',
     en: 'your emergency contact’s e-mail address',
+  },
+  'emergency_contacts.phone': {
+    de: 'Telefonnummer Ihres Notfallkontakts',
+    en: 'your emergency contact’s phone number',
   },
 } as const;
 export type Target = keyof typeof TARGETS;
@@ -68,12 +72,12 @@ export class BreakGlassService {
           ? { enc: r.shipping_address_enc, ownerId: r.user_id }
           : null;
       }
-      case 'contact_channels.whatsapp': {
+      case 'contact_channels.sms': {
         const r = await db
           .selectFrom('contact_channels')
           .select(['address_enc', 'user_id'])
           .where('id', '=', id)
-          .where('type', '=', 'whatsapp')
+          .where('type', '=', 'sms')
           .executeTakeFirst();
         return r?.address_enc ? { enc: r.address_enc, ownerId: r.user_id } : null;
       }
@@ -83,7 +87,15 @@ export class BreakGlassService {
           .select(['address_enc', 'user_id'])
           .where('id', '=', id)
           .executeTakeFirst();
-        return r ? { enc: r.address_enc, ownerId: r.user_id } : null;
+        return r?.address_enc ? { enc: r.address_enc, ownerId: r.user_id } : null;
+      }
+      case 'emergency_contacts.phone': {
+        const r = await db
+          .selectFrom('emergency_contacts')
+          .select(['phone_enc', 'user_id'])
+          .where('id', '=', id)
+          .executeTakeFirst();
+        return r?.phone_enc ? { enc: r.phone_enc, ownerId: r.user_id } : null;
       }
     }
   }

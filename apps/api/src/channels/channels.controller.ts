@@ -8,7 +8,6 @@ import {
   Headers,
   HttpCode,
   Inject,
-  NotFoundException,
   Param,
   ParseUUIDPipe,
   Post,
@@ -16,9 +15,8 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { twilioWebhookUrl, validTwilioSignature } from '../providers/twilio-whatsapp';
+import { validTwilioSignature } from '../providers/twilio-signature';
 import { twilioSmsWebhookUrl } from '../providers/twilio-sms';
-import { createHash, timingSafeEqual } from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { CurrentUser, SessionGuard, SkipCsrf } from '../auth/guards';
@@ -27,7 +25,7 @@ import type { Env } from '../config/env';
 import { ENV } from '../core/tokens';
 import { ZodPipe } from '../core/zod.pipe';
 import { ORDERABLE } from '../notifications/channel-order';
-import { WhatsAppWebhookService } from '../notifications/whatsapp-webhook.service';
+import { SmsStatusService } from '../notifications/sms-status.service';
 import { ChannelsService } from './channels.service';
 
 const PushSubscription = z.object({
@@ -35,25 +33,18 @@ const PushSubscription = z.object({
   keys: z.object({ p256dh: z.string().min(20).max(200), auth: z.string().min(8).max(100) }),
   label: z.string().max(60).optional(),
 });
-const WhatsAppStart = z.object({
+// NT-07: explicit opt-in before anything is sent by SMS; SMS are service messages only, never advertising.
+const SmsStart = z.object({
   phone: z.string().min(5).max(30),
-  // Explicit opt-in before anything is sent over WhatsApp (US-21, §7 UWG not affected: service messages).
   consent: z.literal(true),
 });
-const WhatsAppVerify = z.object({ code: z.string().regex(/^\d{6}$/) });
-// NT-07: same opt-in as WhatsApp; SMS are service messages only, never advertising.
-const SmsStart = WhatsAppStart;
-const SmsVerify = WhatsAppVerify;
-// One number for SMS and WhatsApp: one code, then each chosen channel is linked (NT-07, US-21).
+const SmsVerify = z.object({ code: z.string().regex(/^\d{6}$/) });
+// One number, one code (NT-07). Only SMS since WhatsApp was removed; kept for the portal's phone set-up.
 const PhoneStart = z.object({
   phone: z.string().min(5).max(30),
-  channels: z
-    .array(z.enum(['sms', 'whatsapp']))
-    .min(1)
-    .max(2),
+  channels: z.array(z.literal('sms')).min(1).max(1),
   consent: z.literal(true),
 });
-const PhoneAdd = z.object({ channel: z.enum(['sms', 'whatsapp']), consent: z.literal(true) });
 const ChannelOrder = z.object({ order: z.array(z.enum(ORDERABLE)).length(ORDERABLE.length) });
 
 @Controller('v1')
@@ -99,32 +90,6 @@ export class ChannelsController {
     return { ok: true };
   }
 
-  @Post('channels/whatsapp')
-  @HttpCode(200)
-  startWhatsApp(
-    @CurrentUser() user: AuthContext,
-    @Body(new ZodPipe(WhatsAppStart)) body: z.infer<typeof WhatsAppStart>,
-  ) {
-    return this.channels.startWhatsApp(user, body.phone);
-  }
-
-  @Post('channels/whatsapp/verify')
-  @HttpCode(200)
-  async verifyWhatsApp(
-    @CurrentUser() user: AuthContext,
-    @Body(new ZodPipe(WhatsAppVerify)) body: z.infer<typeof WhatsAppVerify>,
-  ) {
-    await this.channels.verifyWhatsApp(user, body.code);
-    return { ok: true };
-  }
-
-  @Delete('channels/whatsapp')
-  @HttpCode(200)
-  async unlinkWhatsApp(@CurrentUser() user: AuthContext) {
-    await this.channels.unlinkWhatsApp(user.userId);
-    return { ok: true };
-  }
-
   @Post('channels/sms')
   @HttpCode(200)
   async startSms(
@@ -163,16 +128,6 @@ export class ChannelsController {
     return this.channels.verifyPhone(user, body.code);
   }
 
-  @Post('channels/phone/add')
-  @HttpCode(200)
-  async addPhoneChannel(
-    @CurrentUser() user: AuthContext,
-    @Body(new ZodPipe(PhoneAdd)) body: z.infer<typeof PhoneAdd>,
-  ) {
-    await this.channels.addPhoneChannel(user, body.channel);
-    return { ok: true };
-  }
-
   @Delete('channels/sms')
   @HttpCode(200)
   async unlinkSms(@CurrentUser() user: AuthContext) {
@@ -181,68 +136,16 @@ export class ChannelsController {
   }
 }
 
-/** Delivery statuses from 360dialog (Meta Cloud API format). The path carries a shared secret. */
-@Controller('v1/webhooks')
-@SkipCsrf()
-export class WhatsAppWebhookController {
-  constructor(
-    @Inject(WhatsAppWebhookService) private readonly webhook: WhatsAppWebhookService,
-    @Inject(ENV) private readonly env: Env,
-  ) {}
-
-  @Post('whatsapp/:secret')
-  @HttpCode(200)
-  async receive(@Param('secret') secret: string, @Body() body: unknown) {
-    // Constant-time comparison of SHA-256 digests (equal length, no timing leak; ASVS 6.2.x).
-    const expected = this.env.D360_WEBHOOK_SECRET;
-    if (
-      !expected ||
-      !timingSafeEqual(
-        createHash('sha256').update(secret).digest(),
-        createHash('sha256').update(expected).digest(),
-      )
-    )
-      throw new NotFoundException();
-    await this.webhook.handle(body);
-    return { received: true };
-  }
-}
-
-/**
- * Twilio WhatsApp: status callbacks and quick-reply taps (both form-encoded) on one URL. Every request
- * must carry a valid X-Twilio-Signature (HMAC-SHA1 with the auth token over URL + parameters).
- */
+/** Twilio SMS status callbacks (NT-04). Every request must carry a valid X-Twilio-Signature. */
 @Controller('v1/webhooks')
 @SkipCsrf()
 export class TwilioWebhookController {
   constructor(
-    @Inject(WhatsAppWebhookService) private readonly webhook: WhatsAppWebhookService,
+    @Inject(SmsStatusService) private readonly status: SmsStatusService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
-  @Post('twilio/whatsapp')
-  @HttpCode(200)
-  @Header('content-type', 'text/xml; charset=utf-8')
-  async receive(
-    @Body() body: unknown,
-    @Headers('x-twilio-signature') signature: string | undefined,
-  ) {
-    const params = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-    if (
-      !validTwilioSignature(
-        this.env.TWILIO_AUTH_TOKEN,
-        twilioWebhookUrl(this.env),
-        params,
-        signature,
-      )
-    )
-      throw new ForbiddenException();
-    await this.webhook.handleTwilio(params);
-    // Empty TwiML: acknowledge without sending an automatic reply to the owner.
-    return EMPTY_TWIML;
-  }
-
-  /** SMS status callbacks (NT-04). Replies by SMS are not used: the text links to the reply page. */
+  /** Replies by SMS are not used: the text links to the alert's view page. */
   @Post('twilio/sms')
   @HttpCode(200)
   @Header('content-type', 'text/xml; charset=utf-8')
@@ -260,7 +163,7 @@ export class TwilioWebhookController {
       )
     )
       throw new ForbiddenException();
-    await this.webhook.handleTwilio(params, 'sms');
+    await this.status.handleTwilio(params);
     return EMPTY_TWIML;
   }
 }
