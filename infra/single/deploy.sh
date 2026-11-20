@@ -60,15 +60,16 @@ trap 'ssh "$target" "rm -rf $lock" || true' EXIT
 
 echo "Deploying ${commit:0:7} \"$subject\" as $who"
 
-# 4. Ship exactly that commit.
-tree="$(mktemp -d)"
-trap 'rm -rf "$tree"; ssh "$target" "rm -rf $lock" || true' EXIT
-git archive "$commit" | tar -x -C "$tree"
+# 4. Ship exactly that commit: as a tar stream into a staging folder on the server, then the server's
+# own rsync mirrors it into place. No rsync needed on this computer (Git Bash on Windows has none).
+stage=/opt/parkshield/deploy-stage
+trap 'ssh "$target" "rm -rf $lock $stage" || true' EXIT
+git archive --format=tar "$commit" | gzip | ssh "$target" "rm -rf $stage && mkdir -p $stage && tar -xz -C $stage"
 
 # DEPLOYED_COMMIT is written on the server only after a successful start (end of the script).
-rsync -az --delete --exclude /DEPLOYED_COMMIT \
+ssh "$target" "rsync -a --delete --exclude /DEPLOYED_COMMIT \
   --exclude /infra/single/.env --exclude /infra/single/server.env --exclude /infra/single/data \
-  "$tree/" "$target:$remote/"
+  $stage/ $remote/ && rm -rf $stage"
 
 # ssh joins its arguments into one remote command line: quote them so names and subjects survive.
 ssh "$target" "bash -s -- $(printf '%q ' "$who" "$commit" "$subject")" <<'EOF'
