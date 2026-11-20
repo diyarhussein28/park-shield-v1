@@ -382,6 +382,8 @@ async function poll() {
 // the fragment. Wake Lock keeps the screen on while waiting; the socket reconnects when the page is
 // visible again or the network returns.
 let io = null, sock = null, chatState = 'locked', wake = null, ioLoading = null, typingTimer = null, closedShown = false;
+// The person at the vehicle has a message limit (the owner none): what is left, and of how many.
+let chatLeft = null, chatMax = null;
 function loadIo() {
   if (window.io) return Promise.resolve(window.io);
   if (ioLoading) return ioLoading;
@@ -400,7 +402,16 @@ async function wakeOn() {
 }
 function wakeOff() { if (wake) { wake.release().catch(() => {}); wake = null; } }
 function chatErr(k) { const e = $('chat-err'); e.textContent = k ? t(k) : ''; e.hidden = !k; }
-function chatCount() { $('chat-count').textContent = t('chatCounter', { count: $('chat-msg').value.length }); }
+function chatCount() {
+  const chars = t('chatCounter', { count: $('chat-msg').value.length });
+  $('chat-count').textContent = chatLeft == null ? chars : chars + ' · ' + t('chatRemaining', { count: chatLeft, max: chatMax });
+  $('chat-send').disabled = chatLeft === 0;
+}
+function chatLimits(st) {
+  if (typeof st.remaining === 'number') chatLeft = st.remaining;
+  if (st.limits && typeof st.limits.maxPerSide === 'number') chatMax = st.limits.maxPerSide;
+  chatCount();
+}
 function addMsg(m) {
   if (document.getElementById('m-' + m.id)) return;
   const li = document.createElement('li');
@@ -415,6 +426,7 @@ function addMsg(m) {
 }
 function chatShow(st) {
   chatState = st.status;
+  chatLimits(st);
   if (st.status === 'locked') { $('chat').hidden = true; return; }
   if (st.status === 'closed') { chatClosed(); (st.messages || []).forEach(addMsg); if ((st.messages || []).length) $('chat').hidden = false; $('chat-form').hidden = true; return; }
   $('chat').hidden = false;
@@ -448,7 +460,10 @@ async function chatStart() {
   sock.on('chat:message', (m) => { addMsg(m); if (m.from === 'owner') { $('chat-typing').hidden = true; if (document.visibilityState === 'visible') sock.emit('chat:seen'); } });
   sock.on('chat:typing', (x) => { if (x.from !== 'owner') return; $('chat-typing').hidden = !x.typing; clearTimeout(typingTimer); if (x.typing) typingTimer = setTimeout(() => { $('chat-typing').hidden = true; }, 6000); });
   sock.on('chat:closed', () => chatClosed());
-  sock.on('chat:error', (x) => chatErr({ filtered: 'chatFiltered', limit_reached: 'chatLimit', too_long: 'chatTooLong', chat_not_active: 'chatNotActive', rate_limited: 'chatRate' }[x.error] || 'chatError'));
+  sock.on('chat:error', (x) => {
+    if (x.error === 'limit_reached') { chatLeft = 0; chatCount(); }
+    chatErr({ filtered: 'chatFiltered', limit_reached: 'chatLimit', too_long: 'chatTooLong', chat_not_active: 'chatNotActive', rate_limited: 'chatRate' }[x.error] || 'chatError');
+  });
   sock.on('alert:changed', () => { clearTimeout(timer); poll(); });
   sock.on('connect_error', () => {});
 }
@@ -466,6 +481,8 @@ $('chat-form').addEventListener('submit', (e) => {
   sock.timeout(10000).emit('chat:message', { text: v }, (err, r) => {
     $('chat-send').disabled = false;
     if (err) return chatErr('chatError');
+    if (r && r.ok && chatLeft != null) chatLeft = Math.max(0, chatLeft - 1);
+    chatCount();
     // Only clear what was sent: text typed while the acknowledgement was on its way stays.
     if (r && r.ok && $('chat-msg').value.trim() === v) { $('chat-msg').value = ''; chatCount(); sock.emit('chat:typing', { typing: false }); }
   });

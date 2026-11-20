@@ -392,7 +392,7 @@ const en: typeof de = {
     chatLabel: 'Your reply',
     chatHint: 'Please no phone numbers, links or e-mail addresses. At most 500 characters.',
     chatCounter: '{count} of 500 characters',
-    chatRemaining: '{count} messages left',
+    chatRemaining: '{count} of {max} messages left',
     chatSend: 'Send',
     chatYou: 'You',
     chatOwner: 'Vehicle owner',

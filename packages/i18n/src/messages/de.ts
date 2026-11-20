@@ -404,7 +404,7 @@ const de = {
     chatLabel: 'Ihre Antwort',
     chatHint: 'Bitte keine Telefonnummern, Links oder E-Mail-Adressen. Höchstens 500 Zeichen.',
     chatCounter: '{count} von 500 Zeichen',
-    chatRemaining: 'Noch {count} Nachrichten',
+    chatRemaining: 'Noch {count} von {max} Nachrichten',
     chatSend: 'Senden',
     chatYou: 'Sie',
     chatOwner: 'Fahrzeughalter',
