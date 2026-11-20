@@ -2,7 +2,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  AppState,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -34,7 +36,21 @@ export default function Chat() {
   const active = status === 'active';
   const max = chat.state?.limits.maxChars ?? 500;
   const mine = chat.messages.filter((m) => m.from === 'owner').length;
-  const remaining = Math.max(0, (chat.state?.limits.maxPerSide ?? 20) - mine);
+  // Only the person at the vehicle has a limit by default; the owner one only if ops sets it.
+  const cap = chat.state?.limits.maxOwnerMessages ?? 0;
+  const remaining = cap > 0 ? Math.max(0, cap - mine) : null;
+
+  // iOS: returning from the background with the keyboard open, KeyboardAvoidingView measures the
+  // keyboard wrongly (the list collapses, the composer overlaps itself). So the keyboard closes when
+  // the app leaves, and the layout is rebuilt once when it comes back; the typed text stays.
+  const [layoutKey, setLayoutKey] = useState(0);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'background') Keyboard.dismiss();
+      else if (st === 'active') setLayoutKey((k) => k + 1);
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (chat.messages.length) {
@@ -42,7 +58,7 @@ export default function Chat() {
       chat.seen();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chat.messages.length]);
+  }, [chat.messages.length, layoutKey]);
 
   const deliver = async (value: string) => {
     setBusy(true);
@@ -79,12 +95,15 @@ export default function Chat() {
   return (
     <SafeAreaView style={[s.flex, { backgroundColor: c.bg }]} edges={['bottom', 'left', 'right']}>
       <KeyboardAvoidingView
+        key={layoutKey}
         style={s.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={90}
       >
         <FlatList
           ref={list}
+          // The list gives way to the keyboard; the composer below never shrinks.
+          style={s.flex}
           contentInsetAdjustmentBehavior="automatic"
           data={chat.messages}
           keyExtractor={(m) => m.id}
@@ -157,7 +176,8 @@ export default function Chat() {
               testID="chat-input"
             />
             <Text style={{ color: c.muted }}>
-              {text.length} / {max} · {t('chatRemaining', { count: remaining })}
+              {text.length} / {max}
+              {remaining !== null ? ` · ${t('chatRemaining', { count: remaining })}` : ''}
             </Text>
             <Button
               label={t('chatSend')}
@@ -179,7 +199,7 @@ const s = StyleSheet.create({
   log: { padding: 16, gap: 8 },
   bubble: { maxWidth: '85%', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8, gap: 2 },
   footer: { gap: 8, marginTop: 8 },
-  composer: { borderTopWidth: 1, padding: 12, gap: 8 },
+  composer: { borderTopWidth: 1, padding: 12, gap: 8, flexShrink: 0 },
   quick: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
     borderWidth: 1.5,

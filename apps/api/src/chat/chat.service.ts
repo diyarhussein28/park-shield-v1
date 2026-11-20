@@ -57,15 +57,19 @@ export class ChatService {
   ) {}
 
   async limits() {
-    const [maxChars, maxPerSide, inactivity, maxMinutes] = await Promise.all([
+    const [maxChars, maxPerSide, maxOwner, inactivity, maxMinutes] = await Promise.all([
       this.settings.get('chat.max_message_chars', 500),
       this.settings.get('chat.max_messages_per_side', 20),
+      this.settings.get('chat.max_owner_messages', 0),
       this.settings.get('chat.inactivity_minutes', 20),
       this.settings.get('chat.max_minutes', 180),
     ]);
     return {
       maxChars: Number(maxChars),
+      /** Messages the person at the vehicle may send (the anonymous side, against spam). */
       maxPerSide: Number(maxPerSide),
+      /** Messages the owner may send; 0 = no limit. */
+      maxOwnerMessages: Number(maxOwner),
       inactivityMinutes: Number(inactivity),
       maxMinutes: Number(maxMinutes),
     };
@@ -177,13 +181,15 @@ export class ChatService {
       this.online(alertId),
     ]);
     const mine = role === 'owner' ? s.owner_msg_count : s.scanner_msg_count;
+    // null = no limit for this side (the owner by default).
+    const cap = role === 'owner' ? limits.maxOwnerMessages : limits.maxPerSide;
     return {
       status: s.status,
       openedAt: s.opened_at,
       closedAt: s.closed_at,
       closeReason: s.close_reason,
       purged: s.purged_at !== null,
-      remaining: Math.max(0, limits.maxPerSide - mine),
+      remaining: cap > 0 ? Math.max(0, cap - mine) : null,
       limits,
       scanner: { online, lastSeenAt: s.scanner_seen_at },
       readByOther: role === 'owner' ? s.scanner_read_at : s.owner_read_at,
@@ -282,15 +288,16 @@ export class ChatService {
       if (!verdict.ok) return { ok: false, error: 'filtered' };
     }
     const counter = role === 'owner' ? 'owner_msg_count' : 'scanner_msg_count';
+    // The person at the vehicle always has a limit; the owner only when ops sets one (0 = none).
+    const cap = role === 'owner' ? limits.maxOwnerMessages : limits.maxPerSide;
     return this.db.transaction().execute(async (trx) => {
-      const s = await trx
+      let update = trx
         .updateTable('chat_sessions')
         .set({ [counter]: sql`${sql.ref(counter)} + 1`, last_message_at: sql`now()` })
         .where('alert_id', '=', alertId)
-        .where('status', '=', 'active')
-        .where(sql.ref(counter), '<', limits.maxPerSide)
-        .returning('status')
-        .executeTakeFirst();
+        .where('status', '=', 'active');
+      if (cap > 0) update = update.where(sql.ref(counter), '<', cap);
+      const s = await update.returning('status').executeTakeFirst();
       if (!s) {
         const cur = await trx
           .selectFrom('chat_sessions')

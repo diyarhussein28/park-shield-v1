@@ -42,8 +42,17 @@ export interface ChatState {
   closedAt: string | null;
   closeReason: 'owner' | 'inactivity' | 'max_duration' | 'alert_deleted' | null;
   purged: boolean;
-  remaining: number;
-  limits: { maxChars: number; maxPerSide: number; inactivityMinutes: number; maxMinutes: number };
+  /** Messages this side may still send; null = no limit (the owner, unless ops sets one). */
+  remaining: number | null;
+  limits: {
+    maxChars: number;
+    /** The person at the vehicle's limit. */
+    maxPerSide: number;
+    /** The owner's limit; 0 = none. */
+    maxOwnerMessages?: number;
+    inactivityMinutes: number;
+    maxMinutes: number;
+  };
   scanner: { online: boolean; lastSeenAt: string | null };
   readByOther: string | null;
   messages: ChatMessage[];

@@ -1,5 +1,5 @@
-import { StyleSheet } from 'react-native';
-import { render, screen } from '@testing-library/react-native';
+import { AppState, Keyboard, StyleSheet } from 'react-native';
+import { act, render, screen } from '@testing-library/react-native';
 import Chat from '@/app/chat/[id]';
 
 jest.mock('expo-router', () => ({
@@ -39,4 +39,26 @@ it('quick replies are full touch targets and the input has the strong outline', 
     >;
   expect(flat(quick).minHeight).toBeGreaterThanOrEqual(48);
   expect(flat(screen.getByTestId('chat-input')).borderColor).toBe('#64748b');
+});
+
+it('the owner has no message limit by default: no „messages left“ counter', async () => {
+  await render(<Chat />);
+  expect(screen.queryByText(/Noch \d+ Nachrichten/)).toBeNull();
+  expect(screen.getByText('0 / 500')).toBeTruthy();
+});
+
+it('closes the keyboard in the background and rebuilds the layout on return', async () => {
+  let onChange: ((s: string) => void) | undefined;
+  const spy = jest.spyOn(AppState, 'addEventListener').mockImplementation((_t, handler) => {
+    onChange = handler as (s: string) => void;
+    return { remove: jest.fn() } as unknown as ReturnType<typeof AppState.addEventListener>;
+  });
+  const dismiss = jest.spyOn(Keyboard, 'dismiss');
+  await render(<Chat />);
+  await act(async () => onChange!('background'));
+  expect(dismiss).toHaveBeenCalled();
+  await act(async () => onChange!('active'));
+  // Rebuilt, still usable.
+  expect(screen.getByTestId('chat-input')).toBeTruthy();
+  spy.mockRestore();
 });

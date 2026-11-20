@@ -49,7 +49,11 @@ export const SETTINGS: Record<string, Def> = {
   'chat.inactivity_minutes': { group: 'chat', schema: int(5, 120), default: 20 },
   'chat.max_minutes': { group: 'chat', schema: int(30, 720), default: 180 },
   'chat.max_message_chars': { group: 'chat', schema: int(50, 1000), default: 500 },
+  // The person at the vehicle (anonymous, the spam risk). The key keeps its old name.
   'chat.max_messages_per_side': { group: 'chat', schema: int(1, 100), default: 20 },
+  // The owner (a paying, signed-in customer): 0 = no limit. The chat still ends after inactivity or
+  // its longest duration.
+  'chat.max_owner_messages': { group: 'chat', schema: int(0, 1000), default: 0 },
   'chat.quick_replies': {
     group: 'chat',
     schema: z.object({

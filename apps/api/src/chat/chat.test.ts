@@ -145,7 +145,8 @@ describe('owner-initiated live chat (Socket.io /chat)', () => {
 
     const opened = await openChat(alert.alertId, app);
     expect(opened.statusCode).toBe(200);
-    expect(opened.json()).toMatchObject({ status: 'active', remaining: 20 });
+    // The owner has no message limit by default (chat.max_owner_messages = 0).
+    expect(opened.json()).toMatchObject({ status: 'active', remaining: null });
     expect(await sc.next('chat:opened')).toMatchObject({ status: 'active' });
 
     const ow = owner(alert.alertId, session);
@@ -234,6 +235,21 @@ describe('owner-initiated live chat (Socket.io /chat)', () => {
     expect((await sc.send('eins')).ok).toBe(true);
     expect((await sc.send('zwei')).ok).toBe(true);
     expect(await sc.send('drei')).toEqual({ ok: false, error: 'limit_reached' });
+  });
+
+  it('only the person at the vehicle has a message limit; the owner none unless ops sets one', async () => {
+    await setSetting(h, 'chat.max_messages_per_side', 2);
+    const { alert, app, session } = await setup();
+    await openChat(alert.alertId, app);
+    const ow = owner(alert.alertId, session);
+    expect(await ow.next('chat:state')).toMatchObject({ remaining: null });
+    for (const text of ['eins', 'zwei', 'drei', 'vier'])
+      expect((await ow.send(text)).ok).toBe(true);
+
+    // Ops can still set one (counted from the start of the chat). Five sends stay within the
+    // per-connection burst limit, so this is the message limit, not the rate limit.
+    await setSetting(h, 'chat.max_owner_messages', 4);
+    expect(await ow.send('fünf')).toEqual({ ok: false, error: 'limit_reached' });
   });
 
   it('a blocked sender: the chat cannot be opened', async () => {
