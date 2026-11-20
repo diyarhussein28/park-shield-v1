@@ -287,3 +287,53 @@ Code: `apps/mobile` (Expo app), `apps/api/src/{app,chat,contacts,notifications}`
   „StoreKit External Purchase Link“ entitlement (link to the website checkout, Apple fee), or in-app
   purchase. The printed decal (a physical good) may stay on Stripe either way.
 - The Stripe return goes through `/app/zurueck`, which only redirects to the app's own scheme.
+
+## 8. Sign-up with name and address, Face ID app lock (2026-11-20)
+
+Code: `apps/api/src/profile/`, migration `db/migrations/20261205000000_user_profiles.sql`, app screens
+`apps/mobile/src/app/{willkommen,registrieren,profil,app-sperre,tarif}.tsx`, web form `ProfileForm` in
+`apps/web/app/konto/parts.tsx`. Background: owner decisions in `docs/app-redesign.md` §7.
+
+### New personal data
+
+| Data                                             | Required?                      | Purpose                                                                | Stored                                                                                          |
+| ------------------------------------------------ | ------------------------------ | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| First and last name                              | yes, before the first checkout | contract, invoices, welcome letter                                     | `user_profiles`, AES-256-GCM per field                                                          |
+| Street and house number, postcode, city, country | yes, before the first checkout | welcome letter (always this address), invoices (prefilled into Stripe) | as above                                                                                        |
+| Mobile number                                    | optional                       | SMS alerts (Premium)                                                   | only as the verified SMS channel (`contact_channels`, encrypted), with the existing SMS consent |
+
+- Deleted with the account (`ON DELETE CASCADE`), contained in the data export (JSON and PDF).
+- The name and address are sent to Stripe as the customer's name and billing address before
+  checkout (`Payments.updateCustomer`); Stripe already received the billing address before (entered
+  on its page), so the recipient is not new, but the data now reaches Stripe one step earlier.
+- Accounts from before this change must complete name and address on the next app start (blocking)
+  or before the next checkout on the website. They get no automatic welcome letter afterwards.
+
+TODO [LEGAL REVIEW]:
+
+- **Legal basis:** Art. 6(1)(b) GDPR (contract: name and address for the contract and the invoices)
+  and Art. 6(1)(c) (§ 14 UStG invoice data) — to confirm. The welcome letter by post: part of the
+  contract or Art. 6(1)(f)? Is the address of customers who never pay (sign-up without checkout)
+  deleted after a period? (Currently only with the account; proposal: delete profiles of accounts
+  without any contract after 90 days, like other unused accounts — needs a decision.)
+- **Data minimisation:** the product promises minimal data. Making name and address mandatory for
+  everyone needs a justification per field in the privacy policy. Draft for `/datenschutz`
+  (to be written by the lawyer, not final):
+  > _Entwurf:_ „Bei der Registrierung erheben wir Ihren Vor- und Nachnamen und Ihre Anschrift. Wir
+  > benötigen sie für den Vertrag, die Rechnungen und den Willkommensbrief, den wir Ihnen per Post
+  > schicken. Die Person, die Ihren Aufkleber scannt, sieht diese Angaben nie. Ihre Handynummer ist
+  > freiwillig und wird nur für Warnungen per SMS verwendet.“
+- **Welcome letter address:** always the sign-up address, even if the decal goes to another address
+  (owner decision). Fine under the contract, or does the customer need to be told?
+- **Face ID / fingerprint:** biometric data never leaves the device and the app never receives it
+  (`expo-local-authentication` only returns success or failure). The `NSFaceIDUsageDescription`
+  text is in `apps/mobile/app.config.ts` (German): „ParkShield nutzt Face ID nur, um die App auf
+  diesem Gerät zu entsperren. Ihr Gesicht verlässt das Gerät nie.“ — wording to confirm. Art. 9 GDPR
+  should not apply (no processing by us), to confirm for the privacy notice.
+- **Store privacy labels** (App Store „App Privacy“, Google Play „Data safety“), additions to §7:
+  name and physical address (contact info, app functionality, linked to the user, not used for
+  tracking); phone number stays optional. Face ID: nothing to declare (on-device only) — to confirm.
+- **Checkout presentation (§ 312j BGB):** in the app the price, term and renewal rule and the
+  immediate-start declaration stay visible directly above „Zahlungspflichtig bestellen“; only the
+  withdrawal notice with its link, the AGB/privacy links and the voucher field are folded under
+  „Vertrag, Verlängerung und Widerruf“. Is folding these acceptable?

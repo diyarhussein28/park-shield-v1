@@ -7,7 +7,7 @@ Product specs live in [`docs/`](docs/README.md); this file is the practical map.
 **The current go-live state, decisions, test-only relaxations and team rules are in
 [`docs/status.md`](docs/status.md).** Read it too, and update it when you finish a step.
 
-_Last updated: 10 November 2026 (after the Phase 1 MVP, the US-45 hardening and the website redesign)._
+_Last updated: 21 November 2026 (app redesign: onboarding, sign-up with address, Face ID lock, new tabs)._
 
 ---
 
@@ -376,11 +376,30 @@ Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
   `LEGAL_REVIEW.md` §7): the app sends `appReturn` (its own `parkshield://zurueck`, Expo Go's `exp://`
   only in test environments), Stripe returns to the website's bounce page `/app/zurueck`, which
   redirects into the app, and the app confirms the checkout at once. Passkeys are added on the website.
-  Navigation: four tabs in `src/app/(tabs)` (Warnungen · Fahrzeuge · Konto · Mehr) with the branded
-  `BrandTabBar` (`src/components/tab-bar.tsx`, open-alert badge from `src/lib/alerts-store.tsx`);
-  every other screen is pushed above the tabs. Colours, spacing and type come from
-  `src/theme/tokens.ts`, a 1:1 copy of `packages/ui/src/theme.css` (a test checks it); icons and the
-  logo are the website's SVG paths (`src/components/icons.tsx`, via react-native-svg).
+  Navigation (redesign 2026-11-20, `docs/app-redesign.md`): four tabs in `src/app/(tabs)` —
+  **Start** (`index`: open alerts first with „Ich komme“ on the card, the car's protection status, one
+  set-up step), **Warnungen** (`alerts`: list + 90-day history, open-alert badge), **Fahrzeuge**,
+  **Konto** (grouped list: plan → `/abo`, notifications, trusted contacts, „Ihre Angaben“, Face ID
+  switch, delivery help, data, help, sign-out) — with the branded `BrandTabBar`; every other screen is
+  pushed above the tabs. The routing rules are the pure `gateTarget()` in `src/app/_layout.tsx`: first
+  launch → `/willkommen` (three onboarding scenes) → `/registrieren` (e-mail + 6-digit code) →
+  `/profil?flow=signup` (name, address, optional phone with SMS code) → `/app-sperre` (Face ID offer) →
+  `/tarif` (paywall) → `/erfolg` (success moments) → add the car; accounts without a profile get the
+  blocking `/profil?flow=complete` (alerts are never blocked). **Profile gate:** the API answers
+  `profile_incomplete` (409) on checkout and renewal until `PUT /v1/me/profile` was done (app and
+  website `/konto` show the form); `GET /v1/me/profile` also says `newAccount` (never had a contract).
+  **App lock** (`src/lib/lock.tsx`, `expo-local-authentication`): opt-in under Konto, Face ID / Touch ID
+  / Android biometrics with the device code as fallback, on cold start and after
+  `app.lock_after_seconds` (setting, default 300, from `GET /v1/app/config`) in the background; an
+  alert opened from its notification (and its chat) shows without unlocking (`allowedWhileLocked`).
+  The session stays `THIS_DEVICE_ONLY`; Face ID does not work in Expo Go (iOS falls back to the
+  passcode there), test it in a development build. **Welcome letter:** always the sign-up address;
+  automatic letters only for profiles with source `signup` (old accounts that complete later get
+  none; ops „Neu erstellen“ works for everyone). Colours, spacing and type come from
+  `src/theme/tokens.ts`, a 1:1 copy of `packages/ui/src/theme.css` incl. the yellow `accent*` tokens (a
+  test checks values and contrast); headings use Plus Jakarta Sans (`assets/fonts`, OFL), body text
+  the system font; illustrations in `src/components/art.tsx`; icons and the logo are the website's SVG
+  paths plus a few app-only ones (`src/components/icons.tsx`, via react-native-svg).
   Start Metro from `apps/mobile`, never from the repo root.
   Push needs a development or store build with Firebase (Expo Go shows the UI only).
 

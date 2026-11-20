@@ -10,7 +10,7 @@ on one laptop, so **everyone (and every AI agent) on every machine reads the sam
 > The repository is **public**. Never write secrets, keys, passwords, customer data, phone numbers
 > or e-mail addresses of real customers here. Names of env vars are fine; their values are not.
 
-_Last updated: 2026-11-20._
+_Last updated: 2026-11-21._
 
 ---
 
@@ -83,6 +83,14 @@ records. Old SendGrid and Brevo records stay but are unused.
 
 ## 3. Decisions
 
+- **App redesign, sign-up with address, Face ID lock (2026-11-20/21).** Implemented as decided in
+  `docs/app-redesign.md` §7 (tabs Start · Warnungen · Fahrzeuge · Konto, onboarding, sign-up before
+  payment with name and address, blocking „Konto vervollständigen“ for old accounts, welcome letter
+  always to the sign-up address and only automatic for new sign-ups, Face ID lock after
+  `app.lock_after_seconds` = 300 s, alerts from notifications open unlocked). Checkout and renewal
+  need the profile (API `profile_incomplete`), on the website too. New table `user_profiles`
+  (migration `20261205000000_user_profiles`, every field encrypted). QA report:
+  `docs/app-redesign-qa.md`; open legal points: `LEGAL_REVIEW.md` §8. Not deployed yet.
 - **Alert photos in both plans (2026-11-20).** „Fotos bei Warnungen“ is part of Plus and Premium:
   `photos.plans` defaults to `["plus","premium"]` (migration `20261203000000_photos_all_plans`) and
   both plans list it on the pricing page. The feature itself stays behind `ALERT_PHOTOS_ENABLED`
@@ -146,6 +154,11 @@ Relaxed only for testing on the test server. Restore every item before step 5:
    Caddyfile and `OPS_DOMAIN` from `.env`, point `OPS_BASE_URL` at the VPN-only address, invite
    staff again (passkeys bind to that host) and delete the `ops.test` DNS record
    (`infra/single/README.md`, "Test server: ops app on its own subdomain").
+
+8. **Before deploying the redesign** to the test server: run the migration; existing test accounts
+   will be asked for name and address on the next app start and before any website checkout.
+   Before go-live: the privacy policy needs the new section on name/address (`LEGAL_REVIEW.md` §8),
+   and the store privacy labels must list name and address.
 
 ## 4a. Launch checklist
 
