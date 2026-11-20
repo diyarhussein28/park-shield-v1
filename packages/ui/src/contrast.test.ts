@@ -40,6 +40,8 @@ const PAIRS: [string, string, number][] = [
   ['success-fg', 'success-bg', 4.5],
   ['warning-fg', 'warning-bg', 4.5],
   ['danger-text', 'danger-bg', 4.5],
+  ['accent-fg', 'accent', 4.5],
+  ['accent-subtle-fg', 'accent-subtle', 4.5],
   ['border-strong', 'bg', 3],
   ['focus', 'bg', 3],
 ];

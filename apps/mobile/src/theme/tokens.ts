@@ -4,6 +4,8 @@ import { useColorScheme, type TextStyle } from 'react-native';
  * Design tokens of the app: the website's colour roles 1:1 (packages/ui/src/theme.css, light and dark;
  * tokens.test.ts checks both the values and their WCAG AA contrast), plus spacing, radius, type and
  * touch sizes. `urgent` is the website's `danger`; `brandYellow` is the logo's QR square, never text.
+ * The accent tokens make the logo's yellow a real second colour: `accent` fills carry `accentFg`, and
+ * `accentSubtle` surfaces carry `accentSubtleFg` (both pairs WCAG AA).
  */
 export interface Theme {
   bg: string;
@@ -30,6 +32,10 @@ export interface Theme {
   dangerText: string;
   urgent: string;
   brandYellow: string;
+  accent: string;
+  accentFg: string;
+  accentSubtle: string;
+  accentSubtleFg: string;
 }
 
 export const light: Theme = {
@@ -57,6 +63,10 @@ export const light: Theme = {
   dangerText: '#7f1d1d',
   urgent: '#b91c1c',
   brandYellow: '#facc15',
+  accent: '#facc15',
+  accentFg: '#422006',
+  accentSubtle: '#fefce8',
+  accentSubtleFg: '#713f12',
 };
 
 export const dark: Theme = {
@@ -84,6 +94,10 @@ export const dark: Theme = {
   dangerText: '#fee2e2',
   urgent: '#f87171',
   brandYellow: '#facc15',
+  accent: '#facc15',
+  accentFg: '#422006',
+  accentSubtle: '#2b2410',
+  accentSubtleFg: '#fde68a',
 };
 
 export const useTheme = (): Theme => (useColorScheme() === 'dark' ? dark : light);
@@ -91,15 +105,29 @@ export const useTheme = (): Theme => (useColorScheme() === 'dark' ? dark : light
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 } as const;
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
 
+/**
+ * Heading typeface: Plus Jakarta Sans (SIL Open Font License), the website's typeface, bundled in
+ * assets/fonts and loaded at start (root layout). Titles only; body text stays the system font so
+ * Dynamic Type and the system's legibility features apply unchanged.
+ */
+export const HEADING_FONT = 'PlusJakartaSans_800ExtraBold';
+export const HEADING_FONT_BOLD = 'PlusJakartaSans_700Bold';
+
 const t = (fontSize: number, lineHeight: number, fontWeight: TextStyle['fontWeight']) => ({
   fontSize,
   lineHeight,
   fontWeight,
 });
+/** A custom family carries its own weight; no fontWeight (Android would look for a variant). */
+const h = (fontSize: number, lineHeight: number, fontFamily: string): TextStyle => ({
+  fontSize,
+  lineHeight,
+  fontFamily,
+});
 export const type = {
-  display: t(30, 36, '800'),
-  title: t(24, 30, '800'),
-  heading: t(19, 25, '700'),
+  display: h(30, 38, HEADING_FONT),
+  title: h(24, 31, HEADING_FONT),
+  heading: h(19, 25, HEADING_FONT_BOLD),
   body: t(17, 24, '400'),
   label: t(15, 20, '600'),
   caption: t(13, 18, '500'),

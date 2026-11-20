@@ -24,6 +24,11 @@
   --ps-warning-fg: #78350f;
   --ps-danger-bg: #fef2f2;
   --ps-danger-text: #7f1d1d;
+  /* The logo's yellow as a real second colour: fills (with accent-fg on top) and subtle surfaces. */
+  --ps-accent: #facc15;
+  --ps-accent-fg: #422006;
+  --ps-accent-subtle: #fefce8;
+  --ps-accent-subtle-fg: #713f12;
   color-scheme: light;
 }
 
@@ -51,6 +56,10 @@
     --ps-warning-fg: #fef3c7;
     --ps-danger-bg: #450a0a;
     --ps-danger-text: #fee2e2;
+    --ps-accent: #facc15;
+    --ps-accent-fg: #422006;
+    --ps-accent-subtle: #2b2410;
+    --ps-accent-subtle-fg: #fde68a;
     color-scheme: dark;
   }
 }
@@ -78,6 +87,10 @@
   --color-warning-fg: var(--ps-warning-fg);
   --color-danger-bg: var(--ps-danger-bg);
   --color-danger-text: var(--ps-danger-text);
+  --color-accent: var(--ps-accent);
+  --color-accent-fg: var(--ps-accent-fg);
+  --color-accent-subtle: var(--ps-accent-subtle);
+  --color-accent-subtle-fg: var(--ps-accent-subtle-fg);
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 

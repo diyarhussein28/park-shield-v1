@@ -55,6 +55,8 @@ const PAIRS: [keyof Theme, keyof Theme][] = [
   ['successFg', 'successBg'],
   ['warningFg', 'warningBg'],
   ['dangerText', 'dangerBg'],
+  ['accentFg', 'accent'],
+  ['accentSubtleFg', 'accentSubtle'],
 ];
 
 it('every text/background pair meets WCAG AA in both themes', () => {
