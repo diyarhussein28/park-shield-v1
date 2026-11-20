@@ -16,6 +16,7 @@ import {
   type Harness,
   type Session,
 } from '../test/harness';
+import { completeProfile } from '../test/harness';
 import { DEFAULT_COMPANY, fill } from './company';
 import { GEOMETRY, letterContent, type LetterSnapshot } from './letter';
 import { renderLetterPdf, winAnsi } from './letter-pdf';
@@ -156,32 +157,27 @@ describe('trigger', () => {
 });
 
 describe('snapshot and content', () => {
-  it('is frozen: a corrected address only changes the next version', async () => {
+  it('is frozen: a corrected sign-up address only changes the next version', async () => {
     const s = await subscribe(h, 'kunde@example.de');
     const id = await userId('kunde@example.de');
     const v = await addVehicle(s);
     await drain();
     const [v1] = await lettersOf(id);
     const before = await letters.snapshot(v1!.id);
-    // Fake Stripe billing address while no decal order exists.
-    expect(before.customer.address).toMatchObject({ name: 'Erika Mustermann', city: 'Köln' });
+    // The sign-up address (harness SAMPLE_PROFILE).
+    expect(before.customer.address).toMatchObject({
+      name: 'Erika Mustermann',
+      line1: 'Musterstraße 12',
+      city: 'Köln',
+    });
     const pdfBefore = (await letters.pdf(v1!.id, { download: false })).file;
 
-    const order = await h.app.inject({
-      method: 'POST',
-      url: `/v1/vehicles/${v.id}/order-included`,
-      headers: s.headers,
-      payload: {
-        address: {
-          name: 'Erika Neu',
-          line1: 'Neue Straße 5',
-          postalCode: '10115',
-          city: 'Berlin',
-          country: 'DE',
-        },
-      },
+    await completeProfile(h, s, {
+      lastName: 'Neu',
+      street: 'Neue Straße 5',
+      postalCode: '10115',
+      city: 'Berlin',
     });
-    expect(order.statusCode).toBeLessThan(300);
     await h.db.updateTable('vehicles').set({ color: 'Rot' }).where('id', '=', v.id).execute();
     const v2 = await letters.recreate(id, (await staffAs('a@parkshield.de', ['admin'])).userId);
 
@@ -190,6 +186,64 @@ describe('snapshot and content', () => {
     const after = await letters.snapshot(v2.id);
     expect(after.customer.address).toMatchObject({ name: 'Erika Neu', city: 'Berlin' });
     expect(after.vehicle).toEqual({ plate: 'K-AB 1234', description: 'VW Golf, Rot' });
+  });
+
+  it('always uses the sign-up address, even when the decal goes elsewhere', async () => {
+    const s = await subscribe(h, 'kunde@example.de');
+    const id = await userId('kunde@example.de');
+    const v = await addVehicle(s);
+    const order = await h.app.inject({
+      method: 'POST',
+      url: `/v1/vehicles/${v.id}/order-included`,
+      headers: s.headers,
+      payload: {
+        address: {
+          name: 'Firma Beispiel',
+          line1: 'Werkstraße 1',
+          postalCode: '80331',
+          city: 'München',
+          country: 'DE',
+        },
+      },
+    });
+    expect(order.statusCode).toBeLessThan(300);
+    expect(await drain()).toEqual(['created', 'exists']); // checkout and first vehicle
+    const [l] = await lettersOf(id);
+    expect((await letters.snapshot(l!.id)).customer.address).toMatchObject({
+      name: 'Erika Mustermann',
+      city: 'Köln',
+    });
+  });
+
+  it('accounts that complete their profile later get no automatic letter; ops can still create one', async () => {
+    // An account from before the sign-up: paid without a profile (inserted like the old flow).
+    const s = await subscribe(h, 'alt@example.de');
+    const id = await userId('alt@example.de');
+    await h.db.deleteFrom('user_profiles').where('user_id', '=', id).execute();
+    await completeProfile(h, s); // completed after the update: it already has a contract
+    const p = await h.db
+      .selectFrom('user_profiles')
+      .select('source')
+      .where('user_id', '=', id)
+      .executeTakeFirstOrThrow();
+    expect(p.source).toBe('completed_later');
+    await addVehicle(s);
+    expect(await drain()).toEqual(['skipped', 'skipped']);
+    expect(await lettersOf(id)).toHaveLength(0);
+    const admin = await staffAs('admin@parkshield.de', ['admin']);
+    const res = await post(admin, `/ops/v1/customers/${id}/welcome-letters`);
+    expect(res.statusCode).toBe(201);
+    const [l] = await lettersOf(id);
+    expect((await letters.snapshot(l!.id)).customer.address).toMatchObject({ city: 'Köln' });
+  });
+
+  it('an account without any profile waits and gets no automatic letter', async () => {
+    const s = await subscribe(h, 'ohne@example.de');
+    const id = await userId('ohne@example.de');
+    await h.db.deleteFrom('user_profiles').where('user_id', '=', id).execute();
+    await addVehicle(s);
+    expect(await drain()).toEqual(['waiting', 'waiting']);
+    expect(await lettersOf(id)).toHaveLength(0);
   });
 
   it('stores the snapshot encrypted (plate and address are not readable in the row)', async () => {

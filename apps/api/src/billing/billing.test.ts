@@ -5,6 +5,7 @@ import { WithdrawalsService } from '../legal/withdrawals.service';
 import { isAllowedAppReturn } from './app-return';
 import { BillingService } from './billing.service';
 import {
+  completeProfile,
   createHarness,
   lastMail,
   mailbox,
@@ -23,6 +24,7 @@ afterAll(() => h.close());
 beforeEach(() => resetState(h));
 
 async function checkout(s: Session, payload: Record<string, unknown>) {
+  await completeProfile(h, s);
   return h.app.inject({ method: 'POST', url: '/v1/billing/checkout', headers: s.headers, payload });
 }
 

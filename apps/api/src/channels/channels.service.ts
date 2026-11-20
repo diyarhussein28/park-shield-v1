@@ -49,7 +49,7 @@ export function normalizePhone(input: string): string | null {
   return p.number;
 }
 
-const maskPhone = (e164: string) => `${e164.slice(0, 3)} ••• ${e164.slice(-4)}`;
+export const maskPhone = (e164: string) => `${e164.slice(0, 3)} ••• ${e164.slice(-4)}`;
 
 @Injectable()
 export class ChannelsService {

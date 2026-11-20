@@ -25,6 +25,7 @@ import { TokensService } from '../vehicles/tokens.service';
 import { legalDoc, LEGAL_DOC_VERSION, renewalRule, type LegalSlug } from '@parkshield/shared';
 import { PAYMENTS, type BillingEvent, type PaidPlan, type Payments } from '../providers/ports';
 import { queueWelcomeLetterCheck } from '../letters/trigger';
+import { ProfileService } from '../profile/profile.service';
 import { returnUrls } from './app-return';
 
 const LIVE = ['active', 'past_due'] as const;
@@ -68,6 +69,7 @@ export class BillingService {
     @Inject(LegalTextsService) private readonly legalTexts: LegalTextsService,
     @Inject(TagsService) private readonly tags: TagsService,
     @Inject(TokensService) private readonly tokens: TokensService,
+    @Inject(ProfileService) private readonly profiles: ProfileService,
   ) {}
 
   async plans() {
@@ -185,6 +187,9 @@ export class BillingService {
       throw new BadRequestException({ error: 'plan_unavailable' });
     if (await this.liveSubscription(user.userId))
       throw new ConflictException({ error: 'already_subscribed' });
+    // Sign-up before payment (docs/app-redesign.md §7): name and postal address first.
+    const address = await this.profiles.postalAddress(user.userId);
+    if (!address) throw new ConflictException({ error: 'profile_incomplete' });
 
     let promo = null;
     if (input.promoCode) {
@@ -218,6 +223,9 @@ export class BillingService {
         .where('id', '=', user.userId)
         .execute();
     }
+    // Prefill Stripe with the sign-up name and address, so nobody types them twice. Checkout still
+    // asks for the billing address (customer_update: auto keeps any change made there).
+    await this.payments.updateCustomer(customerId, address);
 
     // Proof of exactly what was agreed (§ 356 Abs. 4, § 357a BGB): the text versions shown, before
     // the payment. The subscription links to the immediate-start consent once it exists.

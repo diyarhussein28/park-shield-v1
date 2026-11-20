@@ -21,6 +21,7 @@ import {
   type Harness,
   type Session,
 } from '../test/harness';
+import { completeProfile } from '../test/harness';
 import { DispatchService } from '../notifications/dispatch.service';
 import { WithdrawalsService } from '../legal/withdrawals.service';
 import { AuditStreamService } from './audit.service';
@@ -595,6 +596,7 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
       (await post(finance, `/ops/v1/promo-codes/${extra.json().id}/deactivate`)).statusCode,
     ).toBe(200);
     const s = await signIn(h, 'spaet@example.de');
+    await completeProfile(h, s);
     const res = await pub(s, 'POST', '/v1/billing/checkout', {
       plan: 'plus',
       immediateStart: true,

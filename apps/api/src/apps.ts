@@ -43,6 +43,8 @@ import { StaffGuard } from './ops/staff.guard';
 import { StaffService } from './ops/staff.service';
 import { PrivacyController } from './privacy/privacy.controller';
 import { PrivacyService } from './privacy/privacy.service';
+import { ProfileController } from './profile/profile.controller';
+import { ProfileService } from './profile/profile.service';
 import { SessionService } from './auth/session.service';
 import { BillingController, StripeWebhookController } from './billing/billing.controller';
 import { BillingService } from './billing/billing.service';
@@ -162,6 +164,7 @@ const domainProviders = [
   SessionService,
   HistoryService,
   PrivacyService,
+  ProfileService,
   WordListsService,
   RefundsService,
   CompanyService,
@@ -220,6 +223,7 @@ export class PublicAppModule {
         AlertViewController,
         PortalAlertMediaController,
         PrivacyController,
+        ProfileController,
         ClaimController,
         SupportController,
         PortalDocumentsController,

@@ -145,6 +145,19 @@ export class StripePayments implements Payments {
     return c.id;
   }
 
+  async updateCustomer(customerId: string, a: PostalAddress): Promise<void> {
+    await this.stripe.customers.update(customerId, {
+      name: a.name,
+      address: {
+        line1: a.line1,
+        ...(a.line2 ? { line2: a.line2 } : {}),
+        postal_code: a.postalCode,
+        city: a.city,
+        country: a.country,
+      },
+    });
+  }
+
   /** Checkout saves name and billing address on the customer (customer_update: auto). */
   async billingAddress(customerId: string): Promise<PostalAddress | null> {
     const c = await this.stripe.customers.retrieve(customerId);

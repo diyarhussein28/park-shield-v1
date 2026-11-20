@@ -94,6 +94,7 @@ export class PrivacyService {
       rules,
       sessions,
       passkeys,
+      profile,
     ] = await Promise.all([
       db.selectFrom('subscriptions').selectAll().where('user_id', '=', userId).execute(),
       db.selectFrom('vehicles').selectAll().where('owner_user_id', '=', userId).execute(),
@@ -167,6 +168,7 @@ export class PrivacyService {
         .select(['label', 'created_at', 'last_used_at'])
         .where('user_id', '=', userId)
         .execute(),
+      db.selectFrom('user_profiles').selectAll().where('user_id', '=', userId).executeTakeFirst(),
     ]);
     return {
       exportedAt: new Date().toISOString(),
@@ -180,6 +182,19 @@ export class PrivacyService {
         escalationMinutes: u.escalation_minutes,
         createdAt: fmt(u.created_at),
       },
+      // Sign-up name and postal address (contract, invoices, welcome letter).
+      profile: profile
+        ? {
+            firstName: this.dec(profile.first_name_enc),
+            lastName: this.dec(profile.last_name_enc),
+            street: this.dec(profile.street_enc),
+            postalCode: this.dec(profile.postal_code_enc),
+            city: this.dec(profile.city_enc),
+            country: this.dec(profile.country_enc),
+            completedAt: fmt(profile.completed_at),
+            updatedAt: fmt(profile.updated_at),
+          }
+        : null,
       subscriptions: subs.map((s) => ({
         plan: s.plan,
         status: s.status,

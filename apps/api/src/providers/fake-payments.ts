@@ -37,9 +37,24 @@ export class FakePayments implements Payments {
     return { reference: `fake-deleted:${customerId}` };
   }
 
-  /** The fake checkout collects no address; a fixed sample stands in for Stripe's billing address. */
+  /** Stored like Stripe's customer record, so tests can check the prefill. */
+  async updateCustomer(customerId: string, address: PostalAddress): Promise<void> {
+    await this.valkey.set(key('customer', customerId), JSON.stringify(address), 'EX', 86_400);
+  }
+
+  async customer(customerId: string): Promise<PostalAddress | null> {
+    const raw = await this.valkey.get(key('customer', customerId));
+    return raw ? (JSON.parse(raw) as PostalAddress) : null;
+  }
+
+  /**
+   * The fake checkout collects no address: the prefilled one, else a fixed sample stands in for
+   * Stripe's billing address.
+   */
   async billingAddress(customerId: string): Promise<PostalAddress | null> {
     if (!customerId.startsWith('cus_fake_')) return null;
+    const stored = await this.customer(customerId);
+    if (stored) return stored;
     return {
       name: 'Erika Mustermann',
       line1: 'Musterstraße 12',

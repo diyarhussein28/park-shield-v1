@@ -245,6 +245,8 @@ export interface Payments {
   /** Stops new redemptions; existing discounts stay. */
   deleteCoupon(couponId: string): Promise<void>;
   ensureCustomer(input: { email: string; userId: string; locale: 'de' | 'en' }): Promise<string>;
+  /** Prefills name and billing address from the sign-up profile before checkout. */
+  updateCustomer(customerId: string, address: PostalAddress): Promise<void>;
   /** Name and billing address the customer entered at checkout (required there); null if none. */
   billingAddress(customerId: string): Promise<PostalAddress | null>;
   /** Account deletion: removes the customer and cancels subscriptions immediately. Idempotent. */

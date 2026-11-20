@@ -341,9 +341,35 @@ export async function requestLink(h: Harness, email: string, ua = UA_WINDOWS_CHR
   });
 }
 
-/** Signs in and buys Plus through the fake checkout. */
+/** The sign-up sample profile (same person as the fake Stripe billing address). */
+export const SAMPLE_PROFILE = {
+  firstName: 'Erika',
+  lastName: 'Mustermann',
+  street: 'Musterstraße 12',
+  postalCode: '50667',
+  city: 'Köln',
+  country: 'DE',
+};
+
+/** Name and address, required before checkout (PUT /v1/me/profile). */
+export async function completeProfile(
+  h: Harness,
+  s: Session,
+  profile: Partial<typeof SAMPLE_PROFILE> = {},
+): Promise<void> {
+  const res = await h.app.inject({
+    method: 'PUT',
+    url: '/v1/me/profile',
+    headers: s.headers,
+    payload: { ...SAMPLE_PROFILE, ...profile },
+  });
+  if (res.statusCode !== 200) throw new Error(`profile failed: ${res.body}`);
+}
+
+/** Signs in, completes the profile and buys Plus through the fake checkout. */
 export async function subscribe(h: Harness, email: string, promoCode?: string): Promise<Session> {
   const s = await signIn(h, email);
+  await completeProfile(h, s);
   const res = await h.app.inject({
     method: 'POST',
     url: '/v1/billing/checkout',

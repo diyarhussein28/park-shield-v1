@@ -77,6 +77,8 @@ export type PlanAvailability = "available" | "coming_soon" | "retired";
 
 export type PlanCode = "plus" | "premium";
 
+export type ProfileSource = "completed_later" | "signup";
+
 export type PromoKind = "amount_off" | "extra_months" | "percent_off";
 
 export type RecipientKind = "co_driver" | "emergency_contact" | "org_member" | "owner";
@@ -832,6 +834,20 @@ export interface UserDevices {
   user_id: string;
 }
 
+export interface UserProfiles {
+  city_enc: Buffer;
+  completed_at: Generated<Timestamp>;
+  country_enc: Buffer;
+  first_name_enc: Buffer;
+  key_version: Generated<number>;
+  last_name_enc: Buffer;
+  postal_code_enc: Buffer;
+  source: ProfileSource;
+  street_enc: Buffer;
+  updated_at: Generated<Timestamp>;
+  user_id: string;
+}
+
 export interface Users {
   activation_reminders: Generated<number>;
   created_at: Generated<Timestamp>;
@@ -1022,6 +1038,7 @@ export interface DB {
   token_batches: TokenBatches;
   usage_counters: UsageCounters;
   user_devices: UserDevices;
+  user_profiles: UserProfiles;
   users: Users;
   vehicle_members: VehicleMembers;
   vehicle_modes: VehicleModes;

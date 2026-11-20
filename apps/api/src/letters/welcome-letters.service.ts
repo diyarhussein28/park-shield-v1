@@ -15,6 +15,7 @@ import {
   type PostalAddress,
   type ShippingAddress,
 } from '../providers/ports';
+import { ProfileService } from '../profile/profile.service';
 import { CompanyService } from './company.service';
 import type { LetterSnapshot } from './letter';
 import { renderLetterPdf, renderLettersPdf, type RenderInput } from './letter-pdf';
@@ -62,11 +63,19 @@ export class WelcomeLettersService {
     @Inject(BillingService) private readonly billing: BillingService,
     @Inject(CompanyService) private readonly company: CompanyService,
     @Inject(SettingsService) private readonly settings: SettingsService,
+    @Inject(ProfileService) private readonly profiles: ProfileService,
   ) {}
 
-  /** Outbox handler. Idempotent: at most one automatic letter per customer, ever. */
-  async check(userId: string): Promise<'created' | 'exists' | 'waiting'> {
+  /**
+   * Outbox handler. Idempotent: at most one automatic letter per customer, ever, and only for
+   * accounts that signed up with their address (`signup`); accounts that completed their profile
+   * later get none (owner decision 2026-11-20; ops can still use „Neu erstellen“).
+   */
+  async check(userId: string): Promise<'created' | 'exists' | 'waiting' | 'skipped'> {
     if (await this.exists(userId)) return 'exists';
+    const profile = await this.profiles.get(userId);
+    if (profile?.source === 'completed_later') return 'skipped';
+    if (!profile) return 'waiting';
     if (!(await this.ready(userId))) return 'waiting';
     const built = await this.build(userId);
     if (!built) return 'waiting';
@@ -378,13 +387,17 @@ export class WelcomeLettersService {
   }
 
   /**
-   * Where the letter goes: the shipping address of the customer's latest decal order, otherwise
-   * the billing address entered at checkout (Stripe). Kept only inside the encrypted snapshot.
+   * Where the letter goes: always the sign-up address when the customer has a profile (owner
+   * decision 2026-11-20; the decal shipping address is for decal orders only). Accounts without a
+   * profile: the shipping address of the latest decal order, otherwise the billing address entered
+   * at checkout (Stripe). Kept only inside the encrypted snapshot.
    */
   private async address(
     userId: string,
     stripeCustomerId: string | null,
   ): Promise<PostalAddress | null> {
+    const signup = await this.profiles.postalAddress(userId);
+    if (signup) return signup;
     const order = await this.db
       .selectFrom('decal_orders')
       .select('shipping_address_enc')

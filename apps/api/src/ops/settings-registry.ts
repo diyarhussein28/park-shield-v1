@@ -166,6 +166,8 @@ export const SETTINGS: Record<string, Def> = {
   'welcome_letter.in_portal': { group: 'general', schema: bool, default: false },
   // Short URL as text under downloaded QR codes (SVG and PDF).
   'qr.caption': { group: 'general', schema: bool, default: true },
+  // App lock (Face ID / fingerprint): asked again after this many seconds in the background.
+  'app.lock_after_seconds': { group: 'general', schema: int(0, 3600), default: 300 },
 };
 
 export const SETTING_KEYS = Object.keys(SETTINGS);
