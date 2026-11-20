@@ -47,6 +47,10 @@ export function fcmBody(msg: AppPushMessage) {
             ...(msg.category ? { category: msg.category } : {}),
             ...(msg.collapseKey ? { 'thread-id': msg.collapseKey } : {}),
           },
+          // expo-notifications on iOS reads a remote notification's data only from `body` (the Expo
+          // push format), not from the top-level keys FCM puts `data` in. Without it a tap and the
+          // „Ich komme" action do not know the alert. The same ids, nothing more.
+          body: msg.data,
         },
       },
     },

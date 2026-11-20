@@ -13,6 +13,8 @@ interface Live {
   messages: ChatMessage[];
   typing: boolean;
   connected: boolean;
+  /** The last reason the connection failed (Socket.io connect_error), until it connects. */
+  connectError: string | null;
   error: ChatError | null;
   readAt: string | null;
 }
@@ -28,6 +30,7 @@ export function useChat(alertId: string, enabled: boolean) {
     messages: [],
     typing: false,
     connected: false,
+    connectError: null,
     error: null,
     readAt: null,
   });
@@ -44,12 +47,19 @@ export function useChat(alertId: string, enabled: boolean) {
         path: '/v1/socket.io',
         addTrailingSlash: false,
         auth: { role: 'owner', alertId, session },
-        transports: ['websocket'],
+        // WebSocket first; if it does not come up on this network or device, long polling over plain
+        // HTTPS (the session stays in the handshake payload either way, never in the URL).
+        transports: ['websocket', 'polling'],
+        tryAllTransports: true,
         reconnection: true,
         reconnectionDelayMax: 10_000,
       });
       socket.current = s;
-      s.on('connect', () => setLive((l) => ({ ...l, connected: true })));
+      s.on('connect', () => setLive((l) => ({ ...l, connected: true, connectError: null })));
+      // Shown next to „Keine Verbindung“, so a screenshot says why (e.g. unauthorized, timeout).
+      s.on('connect_error', (e: Error) =>
+        setLive((l) => ({ ...l, connectError: e.message || 'error' })),
+      );
       s.on('disconnect', () => setLive((l) => ({ ...l, connected: false })));
       s.on('chat:state', (st: ChatState) =>
         setLive((l) => ({ ...l, state: st, messages: st.messages, readAt: st.readByOther })),

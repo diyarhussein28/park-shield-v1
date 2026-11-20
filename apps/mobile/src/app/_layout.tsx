@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Loading } from '@/components/ui';
 import { AlertsProvider } from '@/lib/alerts-store';
@@ -40,9 +41,15 @@ function Gate() {
     if (signedIn && first === 'anmelden') router.replace('/' as Href);
   }, [signedIn, segments, router]);
 
-  // Every start refreshes the device registration (last seen, token rotation, locale).
+  // Every start refreshes the device registration (last seen, token rotation, locale), and so does
+  // every return to the foreground: notifications switched on in the iOS settings count at once.
   useEffect(() => {
-    if (signedIn) void registerDevice().catch(() => false);
+    if (!signedIn) return;
+    void registerDevice().catch(() => false);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void registerDevice().catch(() => false);
+    });
+    return () => sub.remove();
   }, [signedIn]);
 
   // A tap on a notification, or its „Ich komme" action (also when it launched the app).

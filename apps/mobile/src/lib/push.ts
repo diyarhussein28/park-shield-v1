@@ -46,13 +46,23 @@ export async function permission(): Promise<PushPermission> {
   return p.canAskAgain ? 'undetermined' : 'denied';
 }
 
-/** The system prompt, only after our own explanation screen (see app/push-erlauben.tsx). */
+/**
+ * The system prompt, after our own explanation screen (app/push-erlauben.tsx) or the button on
+ * „Benachrichtigungen“. A grant registers this device at once, so the owner does not have to restart
+ * the app before „App“ counts as set up.
+ */
 export async function requestPermission(): Promise<PushPermission> {
   const p = await Notifications.requestPermissionsAsync({
     ios: { allowAlert: true, allowSound: true, allowBadge: false },
   });
-  if (p.granted) return 'granted';
-  // The banner stays in the app; the API sends one e-mail hint a day.
+  if (p.granted) {
+    await registerDevice().catch(() => false);
+    return 'granted';
+  }
+  // iOS can answer without showing its dialog (the status stays „not determined“, e.g. when the app
+  // was not fully in the foreground yet). That is no refusal: the „Erlauben“ button stays.
+  if (p.canAskAgain) return 'undetermined';
+  // A real refusal: the banner stays in the app; the API sends one e-mail hint a day.
   await api('/v1/app/push-denied', {
     body: { platform: Platform.OS === 'ios' ? 'ios' : 'android' },
   }).catch(() => undefined);
@@ -116,8 +126,13 @@ export async function unregisterDevice(): Promise<void> {
 
 /** Data of a ParkShield push: { alertId, type, kind } (strings). */
 export function alertIdOf(response: Notifications.NotificationResponse): string | null {
-  const data = response.notification.request.content.data as Record<string, unknown> | undefined;
-  const id = typeof data?.alertId === 'string' ? data.alertId : null;
+  const { content, trigger } = response.notification.request;
+  // iOS: expo-notifications fills `data` of a remote notification only from the payload's `body` key
+  // (our API sends it). Older pushes carry the ids at the top level: read the raw payload then.
+  const raw = (trigger as { payload?: Record<string, unknown> } | null)?.payload;
+  const fromData = (content.data as Record<string, unknown> | null | undefined)?.alertId;
+  const fromRaw = raw?.alertId ?? (raw?.body as Record<string, unknown> | undefined)?.alertId;
+  const id = typeof fromData === 'string' ? fromData : typeof fromRaw === 'string' ? fromRaw : null;
   return id && /^[0-9a-f-]{36}$/i.test(id) ? id : null;
 }
 

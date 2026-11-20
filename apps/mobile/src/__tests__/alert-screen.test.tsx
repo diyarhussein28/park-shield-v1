@@ -204,3 +204,29 @@ it('cancelling the report deletes nothing; deleted photos say why they are gone'
   ).toBeTruthy();
   expect(screen.queryByTestId('report-abuse')).toBeNull();
 });
+
+it('„In ca. 30 Min“ and „Bin nicht in der Nähe“ confirm what the person at the vehicle now sees', async () => {
+  let current = detail();
+  global.fetch = jest.fn((url: string, init?: RequestInit) => {
+    if (url.endsWith('/ack')) {
+      const { reply } = JSON.parse(String(init?.body)) as { reply: 'in_30_min' | 'not_nearby' };
+      current = detail({ reply });
+      return respond({ reply, escalating: reply === 'not_nearby' });
+    }
+    if (url.endsWith('/seen')) return respond({ seenAt: '2026-11-19T12:02:00Z' });
+    return respond(current);
+  }) as unknown as typeof fetch;
+
+  await render(<AlertScreen />);
+  fireEvent.press(await screen.findByLabelText(t('in30')));
+  expect(
+    await screen.findByText('Danke! Die Person sieht, dass Sie in etwa 30 Minuten da sind.'),
+  ).toBeTruthy();
+  // „Ich komme“ is still possible afterwards.
+  expect(screen.getByTestId('ack')).toBeTruthy();
+
+  fireEvent.press(screen.getByLabelText(t('notNearby')));
+  expect(
+    await screen.findByText('Danke! Wir benachrichtigen jetzt Ihren Notfallkontakt.'),
+  ).toBeTruthy();
+});

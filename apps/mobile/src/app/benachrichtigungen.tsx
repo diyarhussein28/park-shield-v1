@@ -17,7 +17,7 @@ import {
   type Usage,
 } from '@/lib/portal';
 import { pt, type MessageKey } from '@/lib/portal-i18n';
-import { permission, requestPermission, type PushPermission } from '@/lib/push';
+import { permission, registerDevice, requestPermission, type PushPermission } from '@/lib/push';
 
 /**
  * „Benachrichtigungen“ (web: /konto/benachrichtigungen): mobile number for SMS, this app's push and the
@@ -55,7 +55,7 @@ export default function Notifications() {
       <P muted>{pt('channels.intro')}</P>
       {error && <Banner tone="err">{error}</Banner>}
       {data && <PhoneSetup overview={data} usage={usage} onChange={reload} />}
-      {data && <AppPushCard devices={data.app.devices} />}
+      {data && <AppPushCard devices={data.app.devices} reload={reload} />}
       {data && <BrowserPushCard devices={data.push.devices} reload={reload} />}
       {data && (
         <Card>
@@ -80,16 +80,37 @@ export default function Notifications() {
   );
 }
 
-/** This app's notifications: system permission, and the phones signed in to the app. */
-function AppPushCard({ devices }: { devices: ChannelsOverview['app']['devices'] }) {
+/**
+ * This app's notifications: system permission, and the phones signed in to the app. Allowed but not
+ * registered yet (e.g. switched on in the iOS settings): registers this device and reloads, so „App“
+ * in the order below counts as set up without restarting the app.
+ */
+function AppPushCard({
+  devices,
+  reload,
+}: {
+  devices: ChannelsOverview['app']['devices'];
+  reload: () => Promise<void>;
+}) {
   const [push, setPush] = useState<PushPermission | null>(null);
+  const none = devices.length === 0;
   useFocusEffect(
     useCallback(() => {
       void permission()
-        .then(setPush)
+        .then(async (p) => {
+          setPush(p);
+          if (p === 'granted' && none && (await registerDevice().catch(() => false))) {
+            await reload();
+          }
+        })
         .catch(() => setPush(null));
-    }, []),
+    }, [none, reload]),
   );
+  const allow = async () => {
+    const p = await requestPermission().catch(() => 'undetermined' as const);
+    setPush(p);
+    if (p === 'granted') await reload();
+  };
   const date = (iso: string) => new Date(iso);
   return (
     <Card>
@@ -102,7 +123,7 @@ function AppPushCard({ devices }: { devices: ChannelsOverview['app']['devices'] 
         <>
           <Banner tone="warn">{t('pushDeniedBanner')}</Banner>
           {push === 'undetermined' ? (
-            <Button label={t('pushAllow')} onPress={() => void requestPermission().then(setPush)} />
+            <Button label={t('pushAllow')} onPress={() => void allow()} />
           ) : (
             <Button
               label={t('pushOpenSettings')}

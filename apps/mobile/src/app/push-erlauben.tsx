@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Banner, Button, P, Screen, Title } from '@/components/ui';
 import { t } from '@/lib/i18n';
-import { registerDevice, requestPermission } from '@/lib/push';
+import { requestPermission } from '@/lib/push';
 
 /** Our explanation first, then the system prompt (asked only once by iOS). */
 export default function AllowPush() {
@@ -12,11 +12,11 @@ export default function AllowPush() {
 
   const allow = async () => {
     setBusy(true);
-    const p = await requestPermission().catch(() => 'denied' as const);
-    if (p === 'granted') {
-      await registerDevice().catch(() => false);
-      router.back();
-    } else setDenied(true);
+    // A grant also registers this device (requestPermission). „undetermined“ means iOS did not show
+    // its dialog: the button stays, a second tap asks again.
+    const p = await requestPermission().catch(() => 'undetermined' as const);
+    if (p === 'granted') router.back();
+    else if (p === 'denied') setDenied(true);
     setBusy(false);
   };
 

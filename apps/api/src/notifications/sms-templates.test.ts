@@ -114,6 +114,8 @@ describe('app push payload (FCM is a Google service)', () => {
     expect(body.message.apns.headers['apns-priority']).toBe('10');
     expect(body.message.apns.payload.aps['interruption-level']).toBe('time-sensitive');
     expect(body.message.apns.payload.aps.category).toBe('PS_ALERT');
+    // iOS: expo-notifications reads a remote notification's data from `body` only (tap, „Ich komme").
+    expect(body.message.apns.payload.body).toEqual(body.message.data);
     // Critical alerts need an Apple entitlement and are never requested.
     expect(JSON.stringify(body)).not.toMatch(/critical/i);
   });

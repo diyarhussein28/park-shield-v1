@@ -29,6 +29,8 @@ export default function AlertScreen() {
   const [busy, setBusy] = useState<Reply | 'chat' | 'report' | null>(null);
   const [headers, setHeaders] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
+  // „Bin nicht in der Nähe“ can start the escalation to trusted contacts (the API says so).
+  const [escalating, setEscalating] = useState(false);
   // „Missbrauch melden“: a second tap confirms, because the photos are deleted for good.
   const [confirmReport, setConfirmReport] = useState(false);
   const [reportResult, setReportResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(
@@ -65,7 +67,10 @@ export default function AlertScreen() {
   const reply = async (r: Reply) => {
     setBusy(r);
     try {
-      await api(`/v1/app/alerts/${a.id}/ack`, { body: { reply: r } });
+      const res = await api<{ reply: Reply; escalating?: boolean }>(`/v1/app/alerts/${a.id}/ack`, {
+        body: { reply: r },
+      });
+      setEscalating(Boolean(res?.escalating));
     } catch (e) {
       if (!(e instanceof ApiError && e.status === 409)) setError(true);
     } finally {
@@ -194,6 +199,12 @@ export default function AlertScreen() {
         </Banner>
       ) : done ? (
         <Banner tone="ok">{t('comingDone')}</Banner>
+      ) : a.reply === 'in_30_min' ? (
+        <Banner tone="ok">{pt('reply.doneIn30')}</Banner>
+      ) : a.reply === 'not_nearby' ? (
+        <Banner tone="ok">
+          {pt(escalating ? 'reply.doneNotNearbyEscalating' : 'reply.doneNotNearby')}
+        </Banner>
       ) : null}
 
       {open && (

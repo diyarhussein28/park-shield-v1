@@ -121,7 +121,9 @@ export default function Chat() {
               {status === 'closed' && <Banner tone="info">{t('chatClosed')}</Banner>}
               {chat.error && <Banner tone="err">{t(errorKey(chat.error))}</Banner>}
               {!chat.connected && status !== 'closed' && (
-                <Banner tone="warn">{t('offline')}</Banner>
+                <Banner tone="warn">
+                  {chat.connectError ? `${t('offline')} (${chat.connectError})` : t('offline')}
+                </Banner>
               )}
             </View>
           }

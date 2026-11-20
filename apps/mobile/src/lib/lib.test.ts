@@ -91,6 +91,31 @@ describe('push responses', () => {
     expect(open).toHaveBeenCalledTimes(1);
   });
 
+  it('an iOS remote push without `body` still opens its alert (ids from the raw payload)', async () => {
+    const open = jest.fn();
+    const remote = {
+      actionIdentifier: Notifications.DEFAULT_ACTION_IDENTIFIER,
+      notification: {
+        request: {
+          content: { data: null },
+          trigger: { type: 'push', payload: { aps: {}, alertId: ALERT, type: 'blocking' } },
+        },
+      },
+    } as unknown as Notifications.NotificationResponse;
+    expect(await handleResponse(remote, open)).toBe('opened');
+    expect(open).toHaveBeenCalledWith(ALERT);
+  });
+
+  it('iOS answering without its dialog is no refusal: no e-mail hint, the button stays', async () => {
+    await setSession('session-token-0000000000000000000001');
+    (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({
+      granted: false,
+      canAskAgain: true,
+    });
+    expect(await requestPermission()).toBe('undetermined');
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it('a denied permission tells the API (e-mail hint) and keeps the banner state', async () => {
     await setSession('session-token-0000000000000000000001');
     expect(await requestPermission()).toBe('denied');
