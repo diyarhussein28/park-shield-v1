@@ -1,28 +1,35 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Linking,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AlertCard } from '@/components/alert-card';
-import { SetupGuide } from '@/components/setup-guide';
+import { CarArt } from '@/components/art';
+import { Icon } from '@/components/icons';
+import { isOpen, OpenAlertCard } from '@/components/open-alert-card';
 import { PastDue } from '@/components/subscription';
-import { Banner, Button, EmptyState, Section } from '@/components/ui';
+import { Banner, Button, Chip } from '@/components/ui';
 import { api } from '@/lib/api';
-import { useAlerts } from '@/lib/alerts-store';
+import { openAlertCount, useAlerts } from '@/lib/alerts-store';
 import { HAS_FIREBASE } from '@/lib/config';
 import { t } from '@/lib/i18n';
 import type { PortalVehicle, Protection, SubscriptionSummary } from '@/lib/portal';
-import { pt } from '@/lib/portal-i18n';
+import { getFlag, setFlag } from '@/lib/prefs';
 import { permission, type PushPermission } from '@/lib/push';
-import { space, type as typeScale, useTheme } from '@/theme/tokens';
-
-/** The explanation screen opens by itself once per app start, not on every return to the list. */
-let askedThisStart = false;
+import { setupSteps, setupSummary } from '@/lib/setup';
+import { radius, space, type as typeScale, useTheme } from '@/theme/tokens';
 
 /**
- * Warnungen: notices first (payment failed, push off), then the way in — the three start steps
- * without a plan, the set-up guide while protection is incomplete — then the alerts, newest first.
+ * Start (Home, §5.1): open alerts first, then the protection status with the car, then one compact
+ * set-up step with one button. The three-step explainer lives in the onboarding only (P9).
  */
-export default function Alerts() {
+export default function Home() {
   const c = useTheme();
   const router = useRouter();
   const { data, error, reload } = useAlerts();
@@ -30,10 +37,11 @@ export default function Alerts() {
   const [push, setPush] = useState<PushPermission | null>(null);
   const [sub, setSub] = useState<SubscriptionSummary | null | undefined>(undefined);
   const [protection, setProtection] = useState<Protection | null>(null);
-  const [vehicles, setVehicles] = useState<PortalVehicle[]>([]);
+  const [vehicles, setVehicles] = useState<PortalVehicle[] | null>(null);
+  const [hidden, setHidden] = useState(true);
 
   const load = useCallback(async () => {
-    await reload();
+    void reload();
     const s = await api<{ subscription: SubscriptionSummary | null }>('/v1/billing/subscription')
       .then((r) => r.subscription)
       .catch(() => undefined);
@@ -46,13 +54,10 @@ export default function Alerts() {
       setProtection(p);
       setVehicles(v.vehicles);
     }
-    const perm = await permission().catch(() => 'undetermined' as const);
-    setPush(perm);
-    if (perm === 'undetermined' && !askedThisStart) {
-      askedThisStart = true;
-      router.push('/push-erlauben');
-    }
-  }, [router, reload]);
+    setHidden(await getFlag('setupDismissed'));
+    // No automatic permission prompt here (P6): it is asked after the first QR code.
+    setPush(await permission().catch(() => null));
+  }, [reload]);
 
   useFocusEffect(
     useCallback(() => {
@@ -60,8 +65,10 @@ export default function Alerts() {
     }, [load]),
   );
 
-  const alerts = data?.alerts ?? [];
-  const guide = sub && protection && (protection.percent < 100 || vehicles.length === 0);
+  const open = (data?.alerts ?? []).filter(isOpen);
+  const steps = protection && vehicles ? setupSteps(protection, vehicles) : null;
+  const summary = steps ? setupSummary(steps) : null;
+  const first = vehicles?.[0] ?? null;
 
   return (
     <SafeAreaView style={[s.flex, { backgroundColor: c.bg }]} edges={['left', 'right']}>
@@ -79,8 +86,24 @@ export default function Alerts() {
           />
         }
       >
+        {error && <Banner tone="err">{t('offline')}</Banner>}
+
+        {open.length > 0 && (
+          <View style={s.section}>
+            <Text
+              accessibilityRole="header"
+              style={[typeScale.caption, s.kicker, { color: c.urgent }]}
+            >
+              {t('homeOpenAlerts', { count: openAlertCount(open) }).toUpperCase()}
+            </Text>
+            {open.map((a) => (
+              <OpenAlertCard key={a.id} alert={a} onAnswered={() => void reload()} />
+            ))}
+          </View>
+        )}
+
         {sub?.status === 'past_due' && <PastDue />}
-        {push === 'denied' && (
+        {push === 'denied' && sub && (
           <Banner tone="warn">
             <Text style={[typeScale.body, { color: c.warningFg }]}>{t('pushDeniedBanner')}</Text>
             <Button
@@ -90,51 +113,121 @@ export default function Alerts() {
             />
           </Banner>
         )}
-        {!HAS_FIREBASE && <Banner tone="info">{t('pushNoFirebase')}</Banner>}
-        {error && <Banner tone="err">{t('offline')}</Banner>}
 
         {sub === null && (
-          <Section title={pt('portal.startTitle')} intro={pt('portal.startIntro')}>
-            {([1, 2, 3] as const).map((i) => (
-              <View key={i} style={s.step}>
-                <View style={[s.num, { backgroundColor: c.primary }]}>
-                  <Text style={[typeScale.label, { color: c.primaryFg }]}>{i}</Text>
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[typeScale.body, { color: c.fg, fontWeight: '700' }]}>
-                    {pt(`portal.start${i}Title`)}
-                  </Text>
-                  <Text style={[typeScale.label, { color: c.muted, fontWeight: '400' }]}>
-                    {pt(`portal.start${i}Text`)}
-                  </Text>
-                </View>
-              </View>
-            ))}
-            <Button label={pt('portal.start1Go')} onPress={() => router.navigate('/konto')} />
-          </Section>
-        )}
-        {guide && (
-          <SetupGuide
-            protection={protection}
-            vehicles={vehicles}
-            onGo={(href) => router.push(href)}
-          />
+          <View
+            testID="home-no-plan"
+            style={[s.hero, { backgroundColor: c.surface, borderColor: c.border }]}
+          >
+            <CarArt width={260} />
+            <Text accessibilityRole="header" style={[typeScale.title, s.center, { color: c.fg }]}>
+              {t('homeNoPlanTitle')}
+            </Text>
+            <Text style={[typeScale.body, s.center, { color: c.muted }]}>
+              {t('homeNoPlanText')}
+            </Text>
+            <Button
+              label={t('homeNoPlanCta')}
+              onPress={() => router.push('/tarif')}
+              testID="home-plans"
+            />
+          </View>
         )}
 
-        {alerts.map((a) => (
-          <AlertCard
-            key={a.id}
-            alert={a}
-            onPress={() => router.push({ pathname: '/alerts/[id]', params: { id: a.id } })}
-          />
-        ))}
-        {sub && data && alerts.length === 0 && (
-          <EmptyState
-            illustration="empty-alerts"
-            title={t('emptyAlertsTitle')}
-            text={t('emptyAlertsText')}
-            action={{ label: t('emptyAlertsAction'), onPress: () => router.navigate('/fahrzeuge') }}
-          />
+        {sub && vehicles && vehicles.length === 0 && (
+          <View style={[s.hero, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <CarArt width={260} />
+            <Text accessibilityRole="header" style={[typeScale.title, s.center, { color: c.fg }]}>
+              {t('homeNoCarTitle')}
+            </Text>
+            <Text style={[typeScale.body, s.center, { color: c.muted }]}>{t('homeNoCarText')}</Text>
+            <Button label={t('addCarCta')} onPress={() => router.navigate('/fahrzeuge')} />
+          </View>
+        )}
+
+        {sub && vehicles && first && summary && (
+          <Pressable
+            testID="home-status"
+            accessibilityRole="button"
+            accessibilityLabel={`${
+              summary.complete
+                ? t('homeProtectedTitle', { nickname: first.nickname })
+                : t('homeAlmostTitle', { nickname: first.nickname })
+            }, ${summary.complete ? t('homeProtected') : t('homeStepsLeft', { count: summary.left })}`}
+            onPress={() => router.push({ pathname: '/fahrzeug/[id]', params: { id: first.id } })}
+            style={({ pressed }) => [
+              s.hero,
+              { backgroundColor: c.surface, borderColor: c.border, opacity: pressed ? 0.9 : 1 },
+            ]}
+          >
+            <CarArt width={260} protectedBadge={summary.complete} />
+            <Text style={[typeScale.title, s.center, { color: c.fg }]}>
+              {summary.complete
+                ? t('homeProtectedTitle', { nickname: first.nickname })
+                : t('homeAlmostTitle', { nickname: first.nickname })}
+            </Text>
+            {summary.complete ? (
+              <View style={[s.badge, { backgroundColor: c.successBg }]}>
+                <Icon name="shieldCheck" size={18} color={c.successFg} />
+                <Text style={[typeScale.label, { color: c.successFg }]}>{t('homeProtected')}</Text>
+              </View>
+            ) : (
+              <Chip tone="warn">{t('homeStepsLeft', { count: summary.left })}</Chip>
+            )}
+            {vehicles.length > 1 && (
+              <Text style={[typeScale.caption, { color: c.muted }]}>
+                {t('homeMoreCars', { count: vehicles.length - 1 })}
+              </Text>
+            )}
+          </Pressable>
+        )}
+
+        {sub && summary?.next && !hidden && (
+          <View testID="setup-strip" style={[s.strip, { backgroundColor: c.infoBg }]}>
+            <View style={s.stripHead}>
+              <Text style={[typeScale.caption, { color: c.infoFg, flex: 1 }]}>
+                {t('setupNext').toUpperCase()} ·{' '}
+                {t('setupProgress', { done: summary.done, total: summary.total })}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={10}
+                onPress={() => {
+                  setHidden(true);
+                  void setFlag('setupDismissed', true);
+                }}
+              >
+                <Text
+                  style={[typeScale.caption, { color: c.infoFg, textDecorationLine: 'underline' }]}
+                >
+                  {t('setupHide')}
+                </Text>
+              </Pressable>
+            </View>
+            <Text style={[typeScale.body, { color: c.infoFg, fontWeight: '700' }]}>
+              {summary.next.title}
+            </Text>
+            <Button
+              label={summary.next.go}
+              onPress={() => router.push(summary.next!.href)}
+              testID="setup-go"
+            />
+          </View>
+        )}
+
+        {sub && data && open.length === 0 && (
+          <View style={s.quiet}>
+            <Icon name="shieldCheck" size={20} color={c.muted} />
+            <Text style={[typeScale.label, { color: c.muted, fontWeight: '400' }]}>
+              {t('homeAllQuiet')}
+            </Text>
+          </View>
+        )}
+
+        {!HAS_FIREBASE && (
+          <Text testID="dev-note" style={[typeScale.caption, s.center, { color: c.muted }]}>
+            {t('footerDevNote', { text: t('pushNoFirebase') })}
+          </Text>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -143,14 +236,28 @@ export default function Alerts() {
 
 const s = StyleSheet.create({
   flex: { flex: 1 },
-  body: { padding: space.lg, gap: space.md },
-  step: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
-  num: {
-    minWidth: 28,
-    minHeight: 28,
-    paddingHorizontal: 4,
-    borderRadius: 999,
+  body: { padding: space.lg, gap: space.lg, paddingBottom: space.xxxl },
+  section: { gap: space.md },
+  kicker: { letterSpacing: 0.8, fontWeight: '800' },
+  alert: { borderWidth: 2, borderRadius: radius.lg, padding: space.lg, gap: space.md },
+  alertHead: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 44 },
+  hero: {
+    borderWidth: 1,
+    borderRadius: radius.lg + 4,
+    padding: space.xl,
+    gap: space.md,
     alignItems: 'center',
-    justifyContent: 'center',
   },
+  center: { textAlign: 'center' },
+  badge: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  strip: { borderRadius: radius.lg, padding: space.lg, gap: space.sm },
+  stripHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  quiet: { flexDirection: 'row', gap: space.sm, alignItems: 'center', justifyContent: 'center' },
 });

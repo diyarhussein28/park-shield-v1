@@ -10,9 +10,10 @@ import { setSession } from '@/lib/session';
 import Privacy from '@/app/daten';
 import VehicleDetail from '@/app/fahrzeug/[id]';
 import Vehicles from '@/app/(tabs)/fahrzeuge';
-import History from '@/app/verlauf';
+import { HistoryList as History } from '@/components/history-list';
 import Cancel from '@/app/kuendigen';
-import Account from '@/app/(tabs)/konto';
+import Account from '@/app/abo';
+import Plans from '@/app/tarif';
 
 const VEHICLE = '7c2e1f40-5b6a-4d3e-9f10-2a3b4c5d6e7f';
 const mockPush = jest.fn();
@@ -188,10 +189,11 @@ describe('vehicles', () => {
     await fireEvent.changeText(await screen.findByLabelText(pt('vehicles.nickname')), 'Der Blaue');
     await fireEvent.changeText(screen.getByLabelText(pt('vehicles.plate')), 'K-AB 123');
     await fireEvent.press(screen.getAllByLabelText(pt('vehicles.add')).at(-1)!);
+    // The first QR code is a success moment (P8).
     await waitFor(() =>
       expect(mockPush).toHaveBeenCalledWith({
-        pathname: '/fahrzeug/[id]',
-        params: { id: VEHICLE },
+        pathname: '/erfolg',
+        params: { kind: 'qr', vehicleId: VEHICLE, nickname: 'Der Blaue' },
       }),
     );
     expect(sent('POST', '/v1/vehicles')).toEqual({
@@ -233,15 +235,15 @@ describe('vehicles tab (redesign)', () => {
     expect(await screen.findByText(t('emptyVehiclesTitle'))).toBeTruthy();
   });
 
-  it('without a plan the notice leads to the Konto tab', async () => {
+  it('without a plan the notice leads to the plans', async () => {
     api({
       'GET /v1/vehicles': () => json({ vehicles: [] }),
       'GET /v1/billing/subscription': () => json({ subscription: null }),
     });
     await render(<Vehicles />);
     await screen.findByText(pt('vehicles.noSubscription'));
-    await fireEvent.press(screen.getByLabelText(pt('portal.planTitle')));
-    expect(mockNavigate).toHaveBeenCalledWith('/konto');
+    await fireEvent.press(screen.getByLabelText(t('homeNoPlanCta')));
+    expect(mockPush).toHaveBeenCalledWith('/tarif');
   });
 });
 
@@ -266,14 +268,20 @@ describe('vehicle detail', () => {
     expect(screen.getByText(pt('decalTest.never'))).toBeTruthy();
   });
 
-  it('the placement guide sits between the QR code and the design', async () => {
+  it('QR first with print and share; the guide is folded; the design is its own screen (P10)', async () => {
     routes();
     await render(<VehicleDetail />);
-    await screen.findAllByTestId('decal-image');
-    const headers = screen.getAllByRole('header').map((h) => h.props.children);
-    const at = (x: string) => headers.findIndex((h) => h === x);
-    expect(at(t('decalGuideTitle'))).toBeGreaterThan(at(pt('portal.qrHeroTitle')));
-    expect(at(t('decalGuideTitle'))).toBeLessThan(at(pt('decal.title')));
+    expect(await screen.findAllByTestId('decal-image')).toHaveLength(1); // one preview only
+    expect(screen.getByTestId('decal-print')).toBeTruthy();
+    expect(screen.getByTestId('decal-share')).toBeTruthy();
+    expect(screen.queryByText(t('decalGuideStep1'), { exact: false })).toBeNull();
+    await fireEvent.press(screen.getByTestId('decal-guide'));
+    expect(screen.getByText(`1. ${t('decalGuideStep1')}`)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('design-open'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/fahrzeug/design/[id]',
+      params: { id: VEHICLE },
+    });
   });
 
   it('„Aufkleber testen" opens the test window and the scan page', async () => {
@@ -383,13 +391,18 @@ describe('subscription and checkout in the app', () => {
       type: 'success',
       url: 'exp://192.168.178.25:8082/--/zurueck?to=checkout&result=success&session_id=cs_test_1',
     });
-    await render(<Account />);
+    await render(<Plans />);
     const pay = await screen.findByLabelText(pt('checkout.pay'));
     expect(pay.props.accessibilityState.disabled).toBe(true); // § 312j: only after the declaration
+    // Price, term and renewal stay visible next to the button (§ 312j BGB).
+    expect(screen.getByText(pt('checkout.priceLine'))).toBeTruthy();
+    expect(screen.getByText(texts.renewalRule, { exact: false })).toBeTruthy();
     await fireEvent.press(screen.getByLabelText(texts.immediateStart.text));
     await fireEvent.press(screen.getByLabelText(pt('checkout.pay')));
 
-    expect(await screen.findByText(pt('account.planName', { plan: 'Plus' }))).toBeTruthy();
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith({ pathname: '/erfolg', params: { kind: 'paid' } }),
+    );
     expect(sent('POST', '/v1/billing/checkout')).toEqual({
       plan: 'plus',
       immediateStart: true,
@@ -458,26 +471,62 @@ describe('subscription and checkout in the app', () => {
     await waitFor(() => expect(sent('PATCH', '/v1/me')).toEqual({ preferredLang: 'en' }));
   });
 
-  it('Konto without a plan: the three start steps above the checkout', async () => {
+  it('without a plan the subscription screen leads to the plans', async () => {
     api({
       'GET /v1/me': () => json(me),
       'GET /v1/billing/subscription': () => json({ subscription: null, hadSubscription: false }),
       'GET /v1/billing/invoices': () => json({ invoices: [] }),
       'GET /v1/billing/credit-notes': () => json({ creditNotes: [] }),
-      'GET /v1/legal/checkout-texts': () =>
-        json({
-          immediateStart: { version: 1, text: 'Sofort beginnen.' },
-          terms: { version: 1, text: 'AGB.' },
-          renewalRule: 'Monatlich.',
-        }),
     });
     await render(<Account />);
-    expect(await screen.findByText(pt('portal.startTitle'))).toBeTruthy();
-    expect(await screen.findByLabelText(pt('checkout.pay'))).toBeTruthy();
-    const headers = screen.getAllByRole('header').map((h) => h.props.children);
-    expect(headers.indexOf(pt('portal.startTitle'))).toBeLessThan(
-      headers.indexOf(pt('account.subscription')),
-    );
+    await fireEvent.press(await screen.findByLabelText(t('homeNoPlanCta')));
+    expect(mockPush).toHaveBeenCalledWith('/tarif');
+  });
+
+  it('the plans: Plus bookable, Premium from 9 Nov 2027; legal details folded (P7)', async () => {
+    api({
+      'GET /v1/billing/subscription': () => json({ subscription: null, hadSubscription: false }),
+      'GET /v1/legal/checkout-texts': () => json(texts),
+    });
+    await render(<Plans />);
+    await screen.findByLabelText(pt('checkout.pay'));
+    expect(screen.getByTestId('plan-plus')).toBeTruthy();
+    expect(screen.getByTestId('plan-premium').props.accessibilityLabel).toContain(t('paywallSoon'));
+    expect(screen.queryByText(pt('checkout.withdrawalLink'))).toBeNull();
+    await fireEvent.press(screen.getByTestId('pay-details'));
+    expect(screen.getByText(pt('checkout.withdrawalLink'))).toBeTruthy();
+  });
+
+  it('a cancelled or closed payment page never says „Danke“ (P3)', async () => {
+    let confirms = 0;
+    api({
+      'GET /v1/billing/subscription': () => json({ subscription: null, hadSubscription: false }),
+      'GET /v1/legal/checkout-texts': () => json(texts),
+      'POST /v1/billing/checkout': () =>
+        json({ url: 'https://checkout.stripe.com/c/pay/cs_test_1' }),
+      'POST /v1/billing/checkout/confirm': () => {
+        confirms += 1;
+        return json({ status: 'pending' });
+      },
+    });
+    (WebBrowser.openAuthSessionAsync as jest.Mock).mockResolvedValue({
+      type: 'success',
+      url: 'exp://192.168.178.25:8082/--/zurueck?to=checkout&result=canceled',
+    });
+    await render(<Plans />);
+    await fireEvent.press(await screen.findByLabelText(texts.immediateStart.text));
+    await fireEvent.press(screen.getByLabelText(pt('checkout.pay')));
+    expect(await screen.findByText(t('payCanceled'))).toBeTruthy();
+    expect(confirms).toBe(0);
+
+    // Closed by hand: one quiet check, then the same neutral message.
+    (WebBrowser.openAuthSessionAsync as jest.Mock).mockResolvedValue({ type: 'cancel' });
+    await fireEvent.press(screen.getByLabelText(pt('checkout.pay')));
+    await waitFor(() => expect(confirms).toBe(1));
+    expect(screen.getByText(t('payCanceled'))).toBeTruthy();
+    expect(screen.queryByText(pt('account.checkoutSuccess'), { exact: false })).toBeNull();
+    expect(screen.queryByText(t('payChecking'))).toBeNull();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('§ 312k: cancelling in the app shows the receipt', async () => {

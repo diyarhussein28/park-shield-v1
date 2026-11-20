@@ -66,14 +66,14 @@ it('pushed screens get the theme colours in dark mode (header, title, tint, back
 });
 
 it('tab labels and the badge cap their text growth; the badge has no fixed height', async () => {
-  const routes = ['index', 'fahrzeuge', 'konto', 'mehr'].map((name) => ({ key: name, name }));
+  const routes = ['index', 'alerts', 'fahrzeuge', 'konto'].map((name) => ({ key: name, name }));
   await render(
     <BrandTabBar
       state={{ index: 0, routes }}
       emitter={{ emit: () => ({ defaultPrevented: false }) }}
       navigateToTab={() => {}}
       insets={{ bottom: 0 }}
-      badges={{ index: 120 }}
+      badges={{ alerts: 120 }}
     />,
   );
   const label = screen.getByText(t('tabVehicles'));

@@ -52,13 +52,13 @@ it('the wordmark reads ParkShield, „Shield“ in the primary colour', async ()
   expect(screen.getByLabelText('ParkShield')).toBeTruthy();
 });
 
-it('illustration slots are decorative placeholders of 160 pt for every named slot', async () => {
+it('illustration slots are decorative artwork, at least 140 pt, for every named slot', async () => {
   const { Illustration } = require('./illustration') as typeof import('./illustration');
   for (const name of ['empty-alerts', 'empty-vehicles', 'decal-placement', 'alert-sent'] as const) {
     await render(<Illustration name={name} />);
     const root = screen.getByTestId(`illustration-${name}`, { includeHiddenElements: true });
     expect(root.props.accessibilityElementsHidden).toBe(true);
     expect(root.props.importantForAccessibility).toBe('no-hide-descendants');
-    expect(root.props.style).toEqual(expect.objectContaining({ height: 160 }));
+    expect(root.props.style).toEqual(expect.objectContaining({ minHeight: 140 }));
   }
 });

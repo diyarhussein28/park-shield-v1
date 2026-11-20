@@ -59,10 +59,17 @@ export default function Vehicles() {
   const add = async (v: VehicleInput) => {
     setError(null);
     try {
+      const firstCar = (vehicles?.length ?? 0) === 0;
       const created = await api<PortalVehicle>('/v1/vehicles', { body: v });
       setFormKey((k) => k + 1);
       await load();
-      router.push({ pathname: '/fahrzeug/[id]', params: { id: created.id } });
+      // The first QR code is a success moment (P8); further cars open their page directly.
+      if (firstCar)
+        router.push({
+          pathname: '/erfolg',
+          params: { kind: 'qr', vehicleId: created.id, nickname: created.nickname },
+        });
+      else router.push({ pathname: '/fahrzeug/[id]', params: { id: created.id } });
     } catch (err) {
       if (err instanceof ApiError && err.body?.error === 'vehicle_limit') {
         const body = err.body as { limit: number; plan: string };
@@ -122,7 +129,7 @@ export default function Vehicles() {
       {subscribed === false ? (
         <Section title={pt('vehicles.add')}>
           <Banner tone="info">{pt('vehicles.noSubscription')}</Banner>
-          <Button label={pt('portal.planTitle')} onPress={() => router.navigate('/konto')} />
+          <Button label={t('homeNoPlanCta')} onPress={() => router.push('/tarif')} />
         </Section>
       ) : (
         subscribed && (

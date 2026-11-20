@@ -1,22 +1,27 @@
+import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
-import { Stack, useRouter, useSegments, type Href } from 'expo-router';
+import { Stack, usePathname, useRouter, useSegments, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { LockScreen } from '@/components/lock-screen';
 import { Loading } from '@/components/ui';
 import { AlertsProvider } from '@/lib/alerts-store';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { t } from '@/lib/i18n';
+import { allowedWhileLocked, LockProvider, useLock } from '@/lib/lock';
 import { pt } from '@/lib/portal-i18n';
-import { stackOptions } from '@/theme/navigation';
-import { useTheme } from '@/theme/tokens';
+import { getFlag } from '@/lib/prefs';
+import { ProfileProvider, useProfile } from '@/lib/profile';
 import {
   configureNotifications,
   handleResponse,
   registerDevice,
   type PushTarget,
 } from '@/lib/push';
+import { stackOptions } from '@/theme/navigation';
+import { HEADING_FONT, HEADING_FONT_BOLD, useTheme } from '@/theme/tokens';
 
 /**
  * A deep link or Universal Link that starts the app on a pushed screen (e.g. /app/alerts/<id>) still
@@ -24,27 +29,67 @@ import {
  */
 export const unstable_settings = { anchor: '(tabs)' };
 
-/** Public routes: everything else needs a session. */
-const PUBLIC = new Set(['anmelden', 'app', 'auth']);
+/** Screens without a session: onboarding, sign-in, sign-up and the link landings. */
+const PUBLIC = new Set(['willkommen', 'anmelden', 'registrieren', 'app', 'auth']);
+/** Screens reachable while the profile is incomplete: the profile itself and alerts (never block those). */
+const PROFILE_FREE = new Set(['profil', 'alerts', 'chat', 'app', 'auth']);
+
+/**
+ * Where a session-less or half-set-up user belongs, or null to stay. Pure, so the routing rules are
+ * unit-tested: no session → onboarding (first launch) or sign-in; signed in without name and address
+ * → the profile steps (new sign-up) or the blocking „Konto vervollständigen“ (older accounts);
+ * signed in on a public screen → the Face ID offer (when the lock is off) or Start.
+ */
+export function gateTarget(s: {
+  signedIn: boolean;
+  first: string;
+  onboarded: boolean;
+  profileComplete: boolean | undefined;
+  lockEnabled: boolean | undefined;
+}): Href | null {
+  if (!s.signedIn) {
+    if (PUBLIC.has(s.first)) return null;
+    return s.onboarded ? '/anmelden' : '/willkommen';
+  }
+  if (s.profileComplete === undefined || s.lockEnabled === undefined) return null;
+  if (!s.profileComplete && !PROFILE_FREE.has(s.first)) {
+    return {
+      pathname: '/profil',
+      params: { flow: s.first === 'registrieren' ? 'signup' : 'complete' },
+    };
+  }
+  if (s.profileComplete && ['anmelden', 'registrieren', 'willkommen'].includes(s.first)) {
+    return s.lockEnabled ? ('/' as Href) : { pathname: '/app-sperre', params: { next: 'home' } };
+  }
+  return null;
+}
 
 function Gate() {
   const c = useTheme();
   const { signedIn } = useAuth();
+  const { complete } = useProfile();
+  const lock = useLock();
   const segments = useSegments();
+  const pathname = usePathname();
   const router = useRouter();
+  const [onboarded, setOnboarded] = useState<boolean | undefined>(undefined);
 
   useEffect(() => {
     void configureNotifications().catch(() => undefined);
+    void getFlag('onboarded').then(setOnboarded);
   }, []);
 
-  // Not signed in → sign-in; signed in on the sign-in screen → alerts.
   useEffect(() => {
-    if (signedIn === undefined) return;
-    const first = segments[0] ?? '';
-    if (!signedIn && !PUBLIC.has(first)) router.replace('/anmelden');
-    // The typed-routes generator of this expo-router version lists the home tab as /index, not /.
-    if (signedIn && first === 'anmelden') router.replace('/' as Href);
-  }, [signedIn, segments, router]);
+    if (signedIn === undefined || onboarded === undefined) return;
+    const target = gateTarget({
+      signedIn,
+      first: segments[0] ?? '',
+      onboarded,
+      profileComplete: complete,
+      lockEnabled: lock.enabled,
+    });
+    if (target) router.replace(target);
+  }, [signedIn, onboarded, complete, lock.enabled, segments, router]);
 
   // Every start refreshes the device registration (last seen, token rotation, locale), and so does
   // every return to the foreground: notifications switched on in the iOS settings count at once.
@@ -57,11 +102,15 @@ function Gate() {
     return () => sub.remove();
   }, [signedIn]);
 
-  // A tap on a notification, or its „Ich komme" action (also when it launched the app).
+  // A tap on a notification, or its „Ich komme" action (also when it launched the app). The alert it
+  // belongs to opens even while the app is locked (owner decision 2026-11-20).
+  const { allowAlert } = lock;
   useEffect(() => {
     if (!signedIn) return;
-    const open = (id: string, target: PushTarget) =>
+    const open = (id: string, target: PushTarget) => {
+      allowAlert(id);
       router.push({ pathname: target === 'chat' ? '/chat/[id]' : '/alerts/[id]', params: { id } });
+    };
     void Notifications.getLastNotificationResponseAsync().then((r) => {
       if (r) {
         void handleResponse(r, open);
@@ -72,46 +121,65 @@ function Gate() {
       void handleResponse(r, open);
     });
     return () => sub.remove();
-  }, [signedIn, router]);
+  }, [signedIn, router, allowAlert]);
 
-  if (signedIn === undefined) return <Loading />;
+  if (signedIn === undefined || onboarded === undefined) return <Loading />;
+  const showLock = Boolean(signedIn) && lock.locked && !allowedWhileLocked(pathname, lock.pass);
   return (
-    <Stack screenOptions={{ ...stackOptions(c), headerBackTitle: t('back') }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false, title: t('alertsTitle') }} />
-      <Stack.Screen
-        name="anmelden"
-        options={{ title: t('signInTitle'), headerBackVisible: false }}
-      />
-      <Stack.Screen
-        name="push-erlauben"
-        options={{ title: t('pushTitle'), presentation: 'modal' }}
-      />
-      <Stack.Screen name="alerts/[id]" options={{ title: t('alertTitle') }} />
-      <Stack.Screen name="chat/[id]" options={{ title: t('chatTitle') }} />
-      <Stack.Screen name="fahrzeug/[id]" options={{ title: pt('portal.vehicles') }} />
-      <Stack.Screen name="benachrichtigungen" options={{ title: pt('channels.title') }} />
-      <Stack.Screen name="einstellungen" options={{ title: pt('portal.contacts') }} />
-      <Stack.Screen name="verlauf" options={{ title: pt('history.title') }} />
-      <Stack.Screen name="zustellung" options={{ title: pt('deliveryHelp.title') }} />
-      <Stack.Screen name="kuendigen" options={{ title: pt('common.footer.cancelContract') }} />
-      <Stack.Screen name="widerrufen" options={{ title: pt('common.footer.withdrawContract') }} />
-      <Stack.Screen name="daten" options={{ title: pt('privacy.title') }} />
-      <Stack.Screen name="zurueck" options={{ headerShown: false }} />
-      <Stack.Screen name="hilfe" options={{ title: t('help') }} />
-      <Stack.Screen name="app/anmelden" options={{ headerShown: false }} />
-      <Stack.Screen name="app/alerts/[id]" options={{ headerShown: false }} />
-    </Stack>
+    <>
+      <Stack screenOptions={{ ...stackOptions(c), headerBackTitle: t('back') }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: t('homeTitle') }} />
+        <Stack.Screen name="willkommen" options={{ headerShown: false }} />
+        {/* The screen carries its own title; the header stays empty (P5). */}
+        <Stack.Screen name="anmelden" options={{ title: '', headerBackVisible: false }} />
+        <Stack.Screen name="registrieren" options={{ title: '', headerBackVisible: false }} />
+        <Stack.Screen name="profil" options={{ title: pt('profile.title') }} />
+        <Stack.Screen name="app-sperre" options={{ title: '' }} />
+        <Stack.Screen name="tarif" options={{ title: t('paywallTitle') }} />
+        <Stack.Screen name="erfolg" options={{ title: '' }} />
+        <Stack.Screen name="abo" options={{ title: t('planRow') }} />
+        <Stack.Screen
+          name="push-erlauben"
+          options={{ title: t('pushTitle'), presentation: 'modal' }}
+        />
+        <Stack.Screen name="alerts/[id]" options={{ title: t('alertTitle') }} />
+        <Stack.Screen name="chat/[id]" options={{ title: t('chatTitle') }} />
+        <Stack.Screen name="fahrzeug/[id]" options={{ title: pt('portal.vehicles') }} />
+        <Stack.Screen name="fahrzeug/design/[id]" options={{ title: t('designTitle') }} />
+        <Stack.Screen name="benachrichtigungen" options={{ title: pt('channels.title') }} />
+        <Stack.Screen name="einstellungen" options={{ title: pt('portal.contacts') }} />
+        <Stack.Screen name="zustellung" options={{ title: pt('deliveryHelp.title') }} />
+        <Stack.Screen name="kuendigen" options={{ title: pt('common.footer.cancelContract') }} />
+        <Stack.Screen name="widerrufen" options={{ title: pt('common.footer.withdrawContract') }} />
+        <Stack.Screen name="daten" options={{ title: pt('privacy.title') }} />
+        <Stack.Screen name="zurueck" options={{ headerShown: false }} />
+        <Stack.Screen name="hilfe" options={{ title: t('help') }} />
+        <Stack.Screen name="app/anmelden" options={{ headerShown: false }} />
+        <Stack.Screen name="app/alerts/[id]" options={{ headerShown: false }} />
+      </Stack>
+      {showLock && <LockScreen />}
+    </>
   );
 }
 
 export default function RootLayout() {
+  // Heading typeface (titles only), bundled; the app starts with the system font if loading fails.
+  const [fontsLoaded, fontError] = useFonts({
+    [HEADING_FONT]: require('../../assets/fonts/PlusJakartaSans_800ExtraBold.ttf'),
+    [HEADING_FONT_BOLD]: require('../../assets/fonts/PlusJakartaSans_700Bold.ttf'),
+  });
+  if (!fontsLoaded && !fontError) return null;
   return (
     <SafeAreaProvider>
       <AuthProvider>
         <StatusBar style="auto" />
-        <AlertsProvider>
-          <Gate />
-        </AlertsProvider>
+        <ProfileProvider>
+          <LockProvider>
+            <AlertsProvider>
+              <Gate />
+            </AlertsProvider>
+          </LockProvider>
+        </ProfileProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

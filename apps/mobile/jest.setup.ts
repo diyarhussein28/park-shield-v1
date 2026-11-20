@@ -60,3 +60,22 @@ jest.mock('react-native-svg', () => {
     ...Object.fromEntries(parts.map((p) => [p, host(p)])),
   };
 });
+
+// Face ID / fingerprint: an enrolled iPhone with Face ID; each test can change the answers.
+jest.mock('expo-local-authentication', () => ({
+  AuthenticationType: { FINGERPRINT: 1, FACIAL_RECOGNITION: 2, IRIS: 3 },
+  SecurityLevel: { NONE: 0, SECRET: 1, BIOMETRIC_WEAK: 2, BIOMETRIC_STRONG: 3 },
+  hasHardwareAsync: jest.fn(async () => true),
+  isEnrolledAsync: jest.fn(async () => true),
+  supportedAuthenticationTypesAsync: jest.fn(async () => [2]),
+  getEnrolledLevelAsync: jest.fn(async () => 3),
+  authenticateAsync: jest.fn(async () => ({ success: true })),
+}));
+
+jest.mock('expo-print', () => ({ printAsync: jest.fn(async () => undefined) }));
+
+jest.mock('expo-font', () => ({
+  useFonts: () => [true, null],
+  loadAsync: jest.fn(async () => undefined),
+  isLoaded: () => true,
+}));

@@ -39,7 +39,10 @@ it('counts open alerts: not acknowledged and not expired', () => {
   expect(openAlertCount([])).toBe(0);
 });
 
-const routes = ['index', 'fahrzeuge', 'konto', 'mehr'].map((name) => ({ key: `${name}-k`, name }));
+const routes = ['index', 'alerts', 'fahrzeuge', 'konto'].map((name) => ({
+  key: `${name}-k`,
+  name,
+}));
 const props = (index = 0) => ({
   state: { index, routes },
   emitter: { emit: jest.fn(() => ({ defaultPrevented: false })) },
@@ -53,12 +56,12 @@ describe('the tab bar', () => {
     await render(<BrandTabBar {...p} />);
     const tabs = screen.getAllByRole('tab');
     expect(tabs).toHaveLength(4);
-    for (const label of [t('tabAlerts'), t('tabVehicles'), t('tabAccount'), t('tabMore')]) {
+    for (const label of [t('tabHome'), t('tabAlerts'), t('tabVehicles'), t('tabAccount')]) {
       expect(screen.getByText(label)).toBeTruthy();
     }
     expect(tabs[0]!.props.accessibilityState.selected).toBe(true);
     expect(tabs[2]!.props.accessibilityState.selected).toBe(false);
-    await fireEvent.press(tabs[2]!);
+    await fireEvent.press(tabs[3]!);
     expect(p.emitter.emit).toHaveBeenCalledWith({
       type: 'tabPress',
       target: 'konto-k',
@@ -75,12 +78,12 @@ describe('the tab bar', () => {
   });
 
   it('the alerts badge shows the count, „99+“ above 99, nothing at 0', async () => {
-    const { rerender } = await render(<BrandTabBar {...props()} badges={{ index: 3 }} />);
+    const { rerender } = await render(<BrandTabBar {...props()} badges={{ alerts: 3 }} />);
     expect(screen.getByText('3')).toBeTruthy();
-    expect(screen.getAllByRole('tab')[0]!.props.accessibilityLabel).toContain('3');
-    await rerender(<BrandTabBar {...props()} badges={{ index: 120 }} />);
+    expect(screen.getAllByRole('tab')[1]!.props.accessibilityLabel).toContain('3');
+    await rerender(<BrandTabBar {...props()} badges={{ alerts: 120 }} />);
     expect(screen.getByText('99+')).toBeTruthy();
-    await rerender(<BrandTabBar {...props()} badges={{ index: 0 }} />);
+    await rerender(<BrandTabBar {...props()} badges={{ alerts: 0 }} />);
     expect(screen.queryByText('0')).toBeNull();
   });
 });
@@ -96,8 +99,11 @@ it('push targets stay outside the tab group; the old overview is gone', () => {
     expect([route, existsSync(join(app, route))]).toEqual([route, true]);
     expect([route, existsSync(join(app, '(tabs)', route))]).toEqual([route, false]);
   }
-  for (const tab of ['index.tsx', 'fahrzeuge.tsx', 'konto.tsx', 'mehr.tsx', '_layout.tsx']) {
+  // Start · Warnungen · Fahrzeuge · Konto (owner decision 2026-11-20); „Mehr“ and „Verlauf“ merged.
+  for (const tab of ['index.tsx', 'alerts.tsx', 'fahrzeuge.tsx', 'konto.tsx', '_layout.tsx']) {
     expect([tab, existsSync(join(app, '(tabs)', tab))]).toEqual([tab, true]);
   }
+  expect(existsSync(join(app, '(tabs)', 'mehr.tsx'))).toBe(false);
+  expect(existsSync(join(app, 'verlauf.tsx'))).toBe(false);
   expect(existsSync(join(app, 'uebersicht.tsx'))).toBe(false);
 });

@@ -114,10 +114,12 @@ export function Banner({
   tone = 'info',
   children,
   style,
+  testID,
 }: {
   tone?: 'info' | 'ok' | 'warn' | 'err';
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }) {
   const c = useTheme();
   const [bg, fg] = {
@@ -128,6 +130,7 @@ export function Banner({
   }[tone];
   return (
     <View
+      testID={testID}
       accessibilityRole={tone === 'err' ? 'alert' : 'summary'}
       accessibilityLiveRegion="polite"
       style={[s.banner, { backgroundColor: bg }, style]}

@@ -1,24 +1,17 @@
 import { ADDON_PRICES_CENTS } from '@parkshield/shared/plans';
-import {
-  CTA_MAX,
-  CTA_SUGGESTIONS,
-  DECAL_PRODUCTS,
-  DECAL_TEMPLATES,
-  type DecalProduct,
-  type DecalTemplate,
-} from '@parkshield/shared/alert-types';
 import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, StyleSheet, View } from 'react-native';
 import { Badge, Choice, Field, H3 } from '@/components/form';
-import { DecalGuide } from '@/components/decal-guide';
+import { WindscreenArt } from '@/components/art';
+import { Collapsible, Group, Row } from '@/components/list';
 import { AddressForm, VehicleForm } from '@/components/vehicle-forms';
 import { Banner, Button, Card, Loading, P, Screen, Title, useTheme } from '@/components/ui';
 import { api, ApiError, authHeaders } from '@/lib/api';
 import { API_URL } from '@/lib/config';
-import { shareDecalPdf } from '@/lib/decal';
-import { lang } from '@/lib/i18n';
+import { printDecalPdf, shareDecalPdf } from '@/lib/decal';
+import { lang, t } from '@/lib/i18n';
 import {
   errorText,
   euro,
@@ -110,9 +103,17 @@ export default function VehicleDetail() {
           headers={headers}
         />
       )}
-      {v.decal && <DecalGuide />}
       {v.decal && (
-        <Designer key={`d-${v.decal.tokenId}`} vehicle={v} headers={headers} onSaved={setV} />
+        <Group>
+          <Row
+            icon="palette"
+            iconTone="accent"
+            title={t('designOpen')}
+            detail={pt(`decal.template_${v.decal.template}` as MessageKey)}
+            onPress={() => router.push({ pathname: '/fahrzeug/design/[id]', params: { id: v.id } })}
+            testID="design-open"
+          />
+        </Group>
       )}
 
       <Orders
@@ -149,12 +150,15 @@ export default function VehicleDetail() {
   );
 }
 
-/** The vehicle's QR code first: what it is, the print PDF, and „Aufkleber testen“. */
+/**
+ * The vehicle's QR code first (P10): the decal, then „Drucken“ and „Teilen oder sichern“ right
+ * under it, how to put it on folded away, and „Aufkleber testen“.
+ */
 function QrHero({ vehicle, headers }: { vehicle: PortalVehicle; headers: Record<string, string> }) {
   const c = useTheme();
   const decal = vehicle.decal!;
   const [open, setOpen] = useState<{ until: string; scanUrl: string } | null>(null);
-  const [sharing, setSharing] = useState(false);
+  const [busy, setBusy] = useState<'print' | 'share' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const start = async () => {
@@ -168,15 +172,15 @@ function QrHero({ vehicle, headers }: { vehicle: PortalVehicle; headers: Record<
       setError(errorText(err));
     }
   };
-  const share = async () => {
-    setSharing(true);
+  const run = async (what: 'print' | 'share') => {
+    setBusy(what);
     setError(null);
     try {
-      await shareDecalPdf(vehicle.id);
+      await (what === 'print' ? printDecalPdf(vehicle.id) : shareDecalPdf(vehicle.id));
     } catch (err) {
       setError(errorText(err));
     } finally {
-      setSharing(false);
+      setBusy(null);
     }
   };
 
@@ -199,9 +203,34 @@ function QrHero({ vehicle, headers }: { vehicle: PortalVehicle; headers: Record<
           />
         </View>
       )}
-      <P>{pt('portal.qrHeroText', { nickname: vehicle.nickname })}</P>
-      <Button label={pt('decal.homePdf')} onPress={() => void share()} busy={sharing} />
+      <View style={s.actions}>
+        <View style={s.action}>
+          <Button
+            label={t('decalPrint')}
+            onPress={() => void run('print')}
+            busy={busy === 'print'}
+            testID="decal-print"
+          />
+        </View>
+        <View style={s.action}>
+          <Button
+            label={t('decalShare')}
+            variant="secondary"
+            onPress={() => void run('share')}
+            busy={busy === 'share'}
+            testID="decal-share"
+          />
+        </View>
+      </View>
       <P muted>{pt('decal.homePdfHint')}</P>
+      <Collapsible title={t('decalGuideTitle')} testID="decal-guide">
+        <WindscreenArt width={220} />
+        {(['decalGuideStep1', 'decalGuideStep2', 'decalGuideStep3'] as const).map((k, i) => (
+          <P key={k}>
+            {i + 1}. {t(k)}
+          </P>
+        ))}
+      </Collapsible>
       <H3>{pt('decalTest.title')}</H3>
       <P>{pt('decalTest.intro')}</P>
       <P muted>
@@ -222,111 +251,6 @@ function QrHero({ vehicle, headers }: { vehicle: PortalVehicle; headers: Record<
         <Button label={pt('decalTest.button')} variant="secondary" onPress={() => void start()} />
       )}
       {error && <Banner tone="err">{error}</Banner>}
-    </Card>
-  );
-}
-
-const CUSTOM = '__custom__';
-
-/** Template and header line of the decal, with a live preview from the API (OW-03). */
-function Designer({
-  vehicle,
-  headers,
-  onSaved,
-}: {
-  vehicle: PortalVehicle;
-  headers: Record<string, string>;
-  onSaved: (v: PortalVehicle) => void;
-}) {
-  const c = useTheme();
-  const saved = vehicle.decal!;
-  const savedIsSuggestion = (CTA_SUGGESTIONS as readonly string[]).includes(saved.cta);
-  const [template, setTemplate] = useState<DecalTemplate>(saved.template);
-  const [choice, setChoice] = useState<string>(savedIsSuggestion ? saved.cta : CUSTOM);
-  const [custom, setCustom] = useState(savedIsSuggestion ? '' : saved.cta);
-  const [product, setProduct] = useState<DecalProduct>('uv_vinyl_sticker');
-  const cta = choice === CUSTOM ? custom.trim() : choice;
-  const [previewCta, setPreviewCta] = useState(cta);
-  const [broken, setBroken] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  // Debounce typing so the preview is not re-rendered on every key stroke.
-  useEffect(() => {
-    const timer = setTimeout(() => setPreviewCta(cta), 350);
-    return () => clearTimeout(timer);
-  }, [cta]);
-
-  const src = svg(vehicle.id, { template, product, ...(previewCta ? { cta: previewCta } : {}) });
-
-  const save = async () => {
-    setBusy(true);
-    setMessage(null);
-    try {
-      onSaved(
-        await api<PortalVehicle>(`/v1/vehicles/${vehicle.id}/decal`, {
-          method: 'PUT',
-          body: { template, cta },
-        }),
-      );
-      setMessage({ tone: 'ok', text: pt('vehicles.saved') });
-    } catch (err) {
-      const blocked = err instanceof ApiError && err.body?.error === 'cta_not_allowed';
-      setMessage({ tone: 'err', text: blocked ? pt('decal.ctaNotAllowed') : errorText(err) });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Card>
-      <Title>{pt('decal.title')}</Title>
-      <P muted>{pt('portal.designIntro')}</P>
-      <Choice
-        legend={pt('decal.template')}
-        options={DECAL_TEMPLATES}
-        value={template}
-        onChange={setTemplate}
-        label={(o) => pt(`decal.template_${o}` as MessageKey)}
-      />
-      <Choice
-        legend={pt('decal.cta')}
-        options={[...CTA_SUGGESTIONS, CUSTOM]}
-        value={choice}
-        onChange={setChoice}
-        label={(o) => (o === CUSTOM ? pt('decal.ctaCustom') : o)}
-      />
-      {choice === CUSTOM && (
-        <Field
-          label={pt('decal.ctaCustomLabel')}
-          value={custom}
-          onChangeText={setCustom}
-          maxLength={CTA_MAX}
-        />
-      )}
-      <H3>{pt('decal.preview')}</H3>
-      <Choice
-        legend={pt('decal.product')}
-        options={DECAL_PRODUCTS}
-        value={product}
-        onChange={setProduct}
-        label={(o) => pt(`decal.product_${o}` as MessageKey)}
-      />
-      {broken === src ? (
-        <Banner tone="err">{pt('decal.ctaNotAllowed')}</Banner>
-      ) : (
-        <View style={[s.decal, { borderColor: c.border }]}>
-          <Image
-            source={{ uri: src, headers }}
-            contentFit="contain"
-            style={product === 'uv_vinyl_sticker' ? s.square : s.card}
-            onError={() => setBroken(src)}
-            accessibilityLabel={pt('decal.previewAlt', { cta: previewCta })}
-          />
-        </View>
-      )}
-      {message && <Banner tone={message.tone}>{message.text}</Banner>}
-      <Button label={pt('decal.save')} onPress={() => void save()} busy={busy} disabled={!cta} />
     </Card>
   );
 }
@@ -645,5 +569,6 @@ const s = StyleSheet.create({
     padding: 8,
   },
   square: { width: '100%', aspectRatio: 1 },
-  card: { width: '100%', aspectRatio: 105 / 148 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  action: { flexGrow: 1, flexBasis: 140 },
 });

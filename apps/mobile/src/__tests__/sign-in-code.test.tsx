@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { AuthProvider } from '@/lib/auth';
 import { t } from '@/lib/i18n';
 import { clearSession, getSession } from '@/lib/session';
@@ -66,7 +67,7 @@ describe('sign-in with the 6-digit code', () => {
     });
   });
 
-  it('the right code signs in and keeps the session in the Keychain', async () => {
+  it('six digits sign in by themselves (P17) and keep the session in the Keychain', async () => {
     api({
       '/v1/auth/email/request': () => ({ status: 202, body: { ok: true } }),
       '/v1/auth/email/verify-code': () => ({
@@ -75,13 +76,35 @@ describe('sign-in with the 6-digit code', () => {
     });
     await ask();
     await fireEvent.changeText(screen.getByLabelText(t('codeLabel')), '482913');
-    await fireEvent.press(screen.getByLabelText(t('codeSubmit')));
     await settle();
     expect(await getSession()).toBe('session-token-0000000000000000000009');
+    const verify = calls.filter((c) => c.path === '/v1/auth/email/verify-code');
+    expect(verify).toHaveLength(1);
+    expect(verify[0]!.body).toMatchObject({ email: 'kim@example.de', code: '482913' });
+  });
+
+  it('digits typed on an Arabic keyboard are converted, not dropped (P17)', async () => {
+    api({
+      '/v1/auth/email/request': () => ({ status: 202, body: { ok: true } }),
+      '/v1/auth/email/verify-code': () => ({
+        body: { token: 'session-token-0000000000000000000009' },
+      }),
+    });
+    await ask();
+    await fireEvent.changeText(screen.getByLabelText(t('codeLabel')), '٤٨٢ ۹۱۳');
+    await settle();
     expect(calls.find((c) => c.path === '/v1/auth/email/verify-code')!.body).toMatchObject({
-      email: 'kim@example.de',
       code: '482913',
     });
+  });
+
+  it('the e-mail field stays left-to-right whatever the keyboard (P16)', async () => {
+    await show(<SignIn />);
+    const style = StyleSheet.flatten(screen.getByLabelText(t('email')).props.style) as Record<
+      string,
+      unknown
+    >;
+    expect(style).toMatchObject({ writingDirection: 'ltr', textAlign: 'left' });
   });
 
   it('a wrong code says so; an expired one offers a new code', async () => {
@@ -92,11 +115,10 @@ describe('sign-in with the 6-digit code', () => {
     });
     await ask();
     await fireEvent.changeText(screen.getByLabelText(t('codeLabel')), '000000');
-    await fireEvent.press(screen.getByLabelText(t('codeSubmit')));
     expect(await screen.findByText(t('codeInvalid'))).toBeTruthy();
 
     answer = () => ({ status: 400, body: { error: 'code_expired' } });
-    await fireEvent.press(screen.getByLabelText(t('codeSubmit')));
+    await fireEvent.changeText(screen.getByLabelText(t('codeLabel')), '111111');
     expect(await screen.findByText(t('codeExpired'))).toBeTruthy();
     await fireEvent.press(screen.getByLabelText(t('codeNew')));
     await waitFor(() =>

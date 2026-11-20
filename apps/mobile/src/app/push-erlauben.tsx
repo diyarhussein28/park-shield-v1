@@ -1,14 +1,23 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ShieldArt } from '@/components/art';
 import { Banner, Button, P, Screen, Title } from '@/components/ui';
 import { t } from '@/lib/i18n';
+import { setFlag } from '@/lib/prefs';
 import { requestPermission } from '@/lib/push';
 
-/** Our explanation first, then the system prompt (asked only once by iOS). */
+/**
+ * Our explanation first, then the system prompt (asked only once by iOS). Shown after the first QR
+ * code, when the owner sees what it is for (P6), never by itself on Home.
+ */
 export default function AllowPush() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [denied, setDenied] = useState(false);
+
+  useEffect(() => {
+    void setFlag('pushAsked', true);
+  }, []);
 
   const allow = async () => {
     setBusy(true);
@@ -22,6 +31,7 @@ export default function AllowPush() {
 
   return (
     <Screen>
+      <ShieldArt size={112} />
       <Title>{t('pushTitle')}</Title>
       <P>{t('pushWhy')}</P>
       <P muted>{t('pushWhat')}</P>

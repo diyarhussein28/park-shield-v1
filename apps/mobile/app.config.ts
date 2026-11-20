@@ -17,6 +17,9 @@ const androidFirebase = process.env.GOOGLE_SERVICES_JSON ?? './firebase/google-s
 const iosFirebase = process.env.GOOGLE_SERVICE_PLIST ?? './firebase/GoogleService-Info.plist';
 const hasFirebase = existsSync(androidFirebase) || existsSync(iosFirebase);
 const DOMAIN = 'park-shield.de';
+/** iOS asks with this text before Face ID is used for the app lock (German, the source language). */
+const FACE_ID_TEXT =
+  'ParkShield nutzt Face ID nur, um die App auf diesem Gerät zu entsperren. Ihr Gesicht verlässt das Gerät nie.';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -39,6 +42,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // Photos are saved to the gallery only on the owner's explicit "Speichern".
       NSPhotoLibraryAddUsageDescription:
         'ParkShield speichert ein Foto zu einer Warnung nur, wenn Sie auf „Speichern“ tippen.',
+      // App lock (docs/app-redesign.md §6). TODO [LEGAL REVIEW] wording with the privacy labels.
+      NSFaceIDUsageDescription: FACE_ID_TEXT,
       ITSAppUsesNonExemptEncryption: false,
     },
     entitlements: {
@@ -77,6 +82,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-status-bar',
     'expo-secure-store',
     'expo-image',
+    // The heading typeface, embedded in the native build (Expo Go loads it at start instead).
+    [
+      'expo-font',
+      {
+        fonts: [
+          './assets/fonts/PlusJakartaSans_800ExtraBold.ttf',
+          './assets/fonts/PlusJakartaSans_700Bold.ttf',
+        ],
+      },
+    ],
+    ['expo-local-authentication', { faceIDPermission: FACE_ID_TEXT }],
     [
       'expo-notifications',
       { color: '#1D4ED8', defaultChannel: 'alerts', enableBackgroundRemoteNotifications: false },

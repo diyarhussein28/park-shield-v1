@@ -1,8 +1,8 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Badge, Choice, Field, H3 } from '@/components/form';
-import { Banner, Button, Card, P, Screen, useTheme } from '@/components/ui';
+import { Banner, Button, Card, P, useTheme } from '@/components/ui';
 import { api } from '@/lib/api';
 import { lang } from '@/lib/i18n';
 import { errorText, openInBrowser, type HistoryAlert } from '@/lib/portal';
@@ -10,8 +10,11 @@ import { pt, type MessageKey } from '@/lib/portal-i18n';
 
 const REASONS = ['harassment', 'spam', 'false_alarm', 'other'] as const;
 
-/** OW-08 / US-31 (web: /konto/verlauf): the last 90 days, muted alerts included, with blocking. */
-export default function History() {
+/**
+ * OW-08 / US-31 (web: /konto/verlauf): the last 90 days, muted alerts included, with blocking. Shown
+ * in the Warnungen tab under „Verlauf (90 Tage)“.
+ */
+export function HistoryList() {
   const router = useRouter();
   const [alerts, setAlerts] = useState<HistoryAlert[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +28,7 @@ export default function History() {
   );
 
   return (
-    <Screen>
+    <View style={hs.list}>
       <P muted>{pt('history.intro')}</P>
       <Button
         label={pt('deliveryHelp.link')}
@@ -45,9 +48,11 @@ export default function History() {
           }
         />
       ))}
-    </Screen>
+    </View>
   );
 }
+
+const hs = StyleSheet.create({ list: { gap: 12 } });
 
 function AlertCard({ alert: a, onReported }: { alert: HistoryAlert; onReported: () => void }) {
   const c = useTheme();

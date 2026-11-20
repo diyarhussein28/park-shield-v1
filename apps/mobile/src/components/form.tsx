@@ -4,15 +4,38 @@ import { type, useTheme } from '@/theme/tokens';
 import { Icon, type IconName } from './icons';
 import { Chip } from './ui';
 
-/** Label above the input, optional hint below, error in red (the website's Field). */
+/** Inputs whose content is always Latin left-to-right, whatever the keyboard language (P16). */
+const LTR_KEYBOARDS = new Set([
+  'email-address',
+  'number-pad',
+  'phone-pad',
+  'numeric',
+  'decimal-pad',
+]);
+const LTR_AUTOCOMPLETE = new Set(['email', 'tel', 'postal-code', 'one-time-code', 'sms-otp']);
+export const isLtrInput = (p: Pick<TextInputProps, 'keyboardType' | 'autoComplete'>) =>
+  LTR_KEYBOARDS.has(String(p.keyboardType)) || LTR_AUTOCOMPLETE.has(String(p.autoComplete));
+
+/**
+ * Label above the input, optional hint below, error in red (the website's Field). E-mail, codes,
+ * phone numbers, postcodes and plates (`ltr`) are always left-to-right and left-aligned.
+ */
 export function Field({
   label,
   hint,
   error,
   optional,
+  ltr,
   ...input
-}: TextInputProps & { label: string; hint?: string; error?: string | null; optional?: string }) {
+}: TextInputProps & {
+  label: string;
+  hint?: string;
+  error?: string | null;
+  optional?: string;
+  ltr?: boolean;
+}) {
   const c = useTheme();
+  const leftToRight = ltr ?? isLtrInput(input);
   return (
     <View style={s.field}>
       <Text style={[s.label, { color: c.fg }]}>
@@ -27,6 +50,7 @@ export function Field({
           s.input,
           { color: c.fg, borderColor: error ? c.urgent : c.borderStrong, backgroundColor: c.bg },
           input.multiline && s.multiline,
+          leftToRight && s.ltr,
         ]}
         {...input}
       />
@@ -251,6 +275,7 @@ const s = StyleSheet.create({
   field: { gap: 6 },
   label: { fontSize: 17, fontWeight: '700' },
   input: { minHeight: 50, borderWidth: 2, borderRadius: 14, paddingHorizontal: 12, fontSize: 17 },
+  ltr: { writingDirection: 'ltr', textAlign: 'left' },
   multiline: { minHeight: 110, paddingTop: 12, textAlignVertical: 'top' },
   hint: { fontSize: 15, lineHeight: 21 },
   option: {

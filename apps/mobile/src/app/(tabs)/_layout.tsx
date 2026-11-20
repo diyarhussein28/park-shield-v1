@@ -9,15 +9,15 @@ import { stackOptions } from '@/theme/navigation';
 import { useTheme } from '@/theme/tokens';
 
 /**
- * The four tabs (Warnungen · Fahrzeuge · Konto · Mehr) with the branded tab bar; the badge on
- * Warnungen counts open alerts. Everything else is pushed above the tabs by the root stack.
+ * The four tabs (owner decision 2026-11-20): Start · Warnungen · Fahrzeuge · Konto, with the branded
+ * tab bar; the badge on Warnungen counts open alerts. Everything else is pushed above the tabs.
  */
 export default function TabsLayout() {
   const c = useTheme();
   const { open } = useAlerts();
   return (
     <Tabs
-      tabBar={(props) => <BrandTabBar {...props} badges={{ index: open }} />}
+      tabBar={(props) => <BrandTabBar {...props} badges={{ alerts: open }} />}
       screenOptions={{
         ...stackOptions(c),
         sceneStyle: { backgroundColor: c.bg },
@@ -26,12 +26,12 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: t('alertsTitle'),
+          title: t('homeTitle'),
           // The website's header brand: the mark and „ParkShield“ (the screen title stays for VoiceOver).
           headerTitle: () => (
             <View
               accessibilityRole="header"
-              accessibilityLabel={`ParkShield, ${t('alertsTitle')}`}
+              accessibilityLabel={`ParkShield, ${t('homeTitle')}`}
               style={s.brand}
             >
               <LogoMark size={28} />
@@ -40,9 +40,9 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen name="alerts" options={{ title: t('alertsTitle') }} />
       <Tabs.Screen name="fahrzeuge" options={{ title: pt('portal.vehiclesTitle') }} />
-      <Tabs.Screen name="konto" options={{ title: pt('portal.planTitle') }} />
-      <Tabs.Screen name="mehr" options={{ title: t('tabMore') }} />
+      <Tabs.Screen name="konto" options={{ title: t('tabAccount') }} />
     </Tabs>
   );
 }

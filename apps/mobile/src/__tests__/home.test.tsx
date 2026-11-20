@@ -2,13 +2,21 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { AlertsProvider } from '@/lib/alerts-store';
+import { t } from '@/lib/i18n';
+import { pt } from '@/lib/portal-i18n';
 import { setSession } from '@/lib/session';
-import Alerts from '@/app/(tabs)/index';
+import Alerts from '@/app/(tabs)/alerts';
 
 const mockPush = jest.fn();
+const mockNavigate = jest.fn();
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn() }),
+  useRouter: () => ({
+    push: mockPush,
+    navigate: mockNavigate,
+    back: jest.fn(),
+    replace: jest.fn(),
+  }),
   useFocusEffect: (cb: () => void) => {
     const { useEffect } = jest.requireActual<typeof import('react')>('react');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -20,46 +28,74 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children: unknown }) => children,
 }));
 
-const ALERT = '3f1e6a3c-1b2d-4c5e-8f90-1a2b3c4d5e6f';
-
-beforeEach(async () => {
-  jest.clearAllMocks();
-  await setSession('session-token-0000000000000000000001');
-  global.fetch = jest.fn(async () => ({
-    ok: true,
-    status: 200,
-    json: async () => ({
-      alerts: [
-        {
-          id: ALERT,
-          type: { code: 'lights_on', de: 'Licht brennt noch', en: 'Lights are on' },
-          severity: 'normal',
-          status: 'delivered',
-          isTest: true,
-          createdAt: '2026-11-19T12:00:00Z',
-          seenAt: null,
-          acknowledged: false,
-          acknowledgedBy: null,
-          escalationStep: 0,
-          vehicle: { id: 'v1', nickname: 'Blue' },
-          photoCount: 0,
-          chatStatus: null,
-        },
-      ],
-      next: null,
-      pushReady: true,
-    }),
-  })) as unknown as typeof fetch;
+const OLD = '3f1e6a3c-1b2d-4c5e-8f90-1a2b3c4d5e6f';
+const NEW = '9a1e6a3c-1b2d-4c5e-8f90-1a2b3c4d5e6f';
+const item = (id: string, acknowledged: boolean, de: string) => ({
+  id,
+  type: { code: 'lights_on', de, en: de },
+  severity: 'normal',
+  status: 'delivered',
+  isTest: false,
+  createdAt: '2026-11-19T12:00:00Z',
+  seenAt: null,
+  acknowledged,
+  acknowledgedBy: null,
+  escalationStep: 0,
+  vehicle: { id: 'v1', nickname: 'Blue' },
+  photoCount: 0,
+  chatStatus: null,
 });
 
-it('a tap on an alert opens it', async () => {
-  await render(
+function api(alerts: object[]) {
+  global.fetch = jest.fn(async (url: string) => {
+    const path = url.replace('https://api.test', '');
+    const body =
+      path === '/v1/app/alerts'
+        ? { alerts, next: null, pushReady: true }
+        : path === '/v1/alerts'
+          ? { alerts: [] }
+          : {};
+    return { ok: true, status: 200, json: async () => body } as Response;
+  }) as unknown as typeof fetch;
+}
+
+const show = () =>
+  render(
     <AlertsProvider>
       <Alerts />
     </AlertsProvider>,
   );
-  await fireEvent.press(await screen.findByLabelText(/^Licht brennt noch, Blue,/));
-  expect(mockPush).toHaveBeenCalledWith({ pathname: '/alerts/[id]', params: { id: ALERT } });
+
+beforeEach(async () => {
+  jest.clearAllMocks();
+  await setSession('session-token-0000000000000000000001');
+});
+
+describe('the Warnungen tab', () => {
+  it('lists open alerts first; a tap opens the alert', async () => {
+    api([item(OLD, true, 'Licht brennt noch'), item(NEW, false, 'Fenster offen')]);
+    await show();
+    const cards = await screen.findAllByLabelText(/, Blue,/);
+    expect(cards[0]!.props.accessibilityLabel).toMatch(/^Fenster offen/);
+    await fireEvent.press(screen.getByLabelText(/^Licht brennt noch, Blue,/));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/alerts/[id]', params: { id: OLD } });
+  });
+
+  it('empty: a friendly state that leads to testing the decal', async () => {
+    api([]);
+    await show();
+    expect(await screen.findByText(t('emptyAlertsTitle'))).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText(t('emptyAlertsAction')));
+    expect(mockNavigate).toHaveBeenCalledWith('/fahrzeuge');
+  });
+
+  it('the 90-day history (the former „Verlauf“) is in the same tab', async () => {
+    api([]);
+    await show();
+    await fireEvent.press(await screen.findByLabelText(t('alertsHistory')));
+    expect(await screen.findByText(pt('history.intro'))).toBeTruthy();
+    expect(await screen.findByText(pt('history.none'))).toBeTruthy();
+  });
 });
 
 /**

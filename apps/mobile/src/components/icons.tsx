@@ -47,7 +47,25 @@ export const ICON_PATHS = {
   alert: 'M12 3 2 20h20L12 3Z M12 10v4 M12 17h.01',
 } as const;
 
-export type IconName = keyof typeof ICON_PATHS;
+/** App-only icons in the same 24 px grid and stroke 2 style (not on the website). */
+export const APP_ICON_PATHS = {
+  chevronRight: 'M9 6l6 6-6 6',
+  faceId:
+    'M4 8V6a2 2 0 0 1 2-2h2 M16 4h2a2 2 0 0 1 2 2v2 M20 16v2a2 2 0 0 1-2 2h-2 M8 20H6a2 2 0 0 1-2-2v-2 M9 9v1 M15 9v1 M12 9v4h-1 M9 15.5a4 4 0 0 0 6 0',
+  fingerprint:
+    'M12 11v3a8 8 0 0 0 1.5 4.6 M8.5 8.5A5 5 0 0 1 17 12v1 M7 12a5 5 0 0 0 .5 2.2 M5 9a8 8 0 0 1 14 2 M9 15.5a10 10 0 0 0 1.4 4 M16.5 16.5c-.2 1.3-.6 2.5-1.2 3.5',
+  share: 'M12 3v12 M7 8l5-5 5 5 M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7',
+  printer:
+    'M7 8V3h10v5 M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2 M7 14h10v7H7z',
+  palette:
+    'M12 3a9 9 0 1 0 0 18c1 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.4-4-7.8-9-7.8Z M7.5 11h.01 M10 7h.01 M14.5 7h.01',
+  user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z M4 21a8 8 0 0 1 16 0',
+  mapPin:
+    'M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11Z M12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z',
+} as const;
+
+const PATHS = { ...ICON_PATHS, ...APP_ICON_PATHS };
+export type IconName = keyof typeof PATHS;
 
 /** A decorative icon: the text next to it carries the meaning (hidden from screen readers). */
 export function Icon({ name, size = 24, color }: { name: IconName; size?: number; color: string }) {
@@ -64,7 +82,7 @@ export function Icon({ name, size = 24, color }: { name: IconName; size?: number
       accessible={false}
       importantForAccessibility="no-hide-descendants"
     >
-      <Path d={ICON_PATHS[name]} />
+      <Path d={PATHS[name]} />
     </Svg>
   );
 }

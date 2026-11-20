@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { api } from '@/lib/api';
-import { lang } from '@/lib/i18n';
+import { lang, t } from '@/lib/i18n';
 import { errorText, openInBrowser, payInApp, type SubscriptionSummary } from '@/lib/portal';
 import { pt } from '@/lib/portal-i18n';
-import { Badge, Check, Choice, Field, H3 } from './form';
+import { Badge, Check, Choice, Field } from './form';
+import { Collapsible } from './list';
 import { Banner, Button, P, useTheme } from './ui';
 
 export const PLAN_LABEL = { plus: 'Plus', premium: 'Premium' } as const;
@@ -61,11 +62,14 @@ interface CheckoutTexts {
   renewalRule: string;
 }
 
+export type CheckoutState = 'idle' | 'confirming' | 'failed' | 'canceled';
+
 /**
- * § 312j BGB checkout, exactly as on the website: summary with price, term and renewal rule, the
- * versioned immediate-start declaration, and „Zahlungspflichtig bestellen“, disabled until it is
- * ticked. After an ended subscription it first asks whether the old sticker is still on the car.
- * Payment runs on Stripe's page inside the app; afterwards the API confirms it at once.
+ * § 312j BGB checkout (P3, P7): price, term and renewal stay visible right above the button, together
+ * with the versioned immediate-start declaration (required, never pre-ticked) and „Zahlungspflichtig
+ * bestellen“. Withdrawal notice, AGB/privacy links and the voucher code fold away under „Details“.
+ * Stripe's page opens inside the app. Only a real success says „Zahlung erhalten“; a cancelled or
+ * closed payment page says that nothing was charged (after one quiet check that it really was not paid).
  */
 export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
   const c = useTheme();
@@ -77,7 +81,7 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
   const [resubscribe, setResubscribe] = useState(false);
   const [sticker, setSticker] = useState<'keep' | 'replace' | null>(null);
   const [stickerMissing, setStickerMissing] = useState(false);
-  const [state, setState] = useState<'idle' | 'confirming' | 'failed' | 'canceled'>('idle');
+  const [state, setState] = useState<CheckoutState>('idle');
 
   useEffect(() => {
     let live = true;
@@ -98,14 +102,16 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
     };
   }, []);
 
-  // Back from Stripe: confirm with Stripe right away instead of waiting for the webhook.
+  const check = (sessionId: string | null) =>
+    api<{ status: 'active' | 'pending' }>('/v1/billing/checkout/confirm', {
+      body: sessionId ? { sessionId } : {},
+    }).catch(() => ({ status: 'pending' as const }));
+
+  // Back from Stripe with success: confirm right away instead of waiting for the webhook.
   const confirm = async (sessionId: string | null) => {
     setState('confirming');
     for (let i = 0; i < 6; i++) {
-      const r = await api<{ status: 'active' | 'pending' }>('/v1/billing/checkout/confirm', {
-        body: sessionId ? { sessionId } : {},
-      }).catch(() => ({ status: 'pending' as const }));
-      if (r.status === 'active') {
+      if ((await check(sessionId)).status === 'active') {
         setState('idle');
         onPaid();
         return;
@@ -123,6 +129,7 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
     }
     setBusy(true);
     setError(null);
+    setState('idle');
     const body = {
       plan: 'plus',
       immediateStart: true,
@@ -138,9 +145,11 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
             })
           : api<{ url: string }>('/v1/billing/checkout', { body: { ...body, appReturn } }),
       );
-      if (r.result === 'canceled') setState('canceled');
-      // Closed by hand: maybe paid, maybe not; one confirmation round tells.
-      else await confirm(r.sessionId);
+      if (r.result === 'success') await confirm(r.sessionId);
+      else if (r.result === 'canceled') setState('canceled');
+      // Closed by hand: almost always not paid. One quiet check, no „thank you“ (P3).
+      else if ((await check(null)).status === 'active') onPaid();
+      else setState('canceled');
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -148,25 +157,24 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
     }
   };
 
-  if (state === 'confirming')
-    return (
-      <Banner tone="info">{`${pt('account.checkoutSuccess')} ${pt('account.confirming')}`}</Banner>
-    );
+  if (state === 'confirming') return <Banner tone="info">{t('payChecking')}</Banner>;
   if (texts === null) return <P muted>{pt('checkout.textsLoading')}</P>;
   if (texts === 'error') return <Banner tone="err">{pt('checkout.textsMissing')}</Banner>;
 
   return (
     <View style={s.form}>
       {state === 'failed' && <Banner tone="warn">{pt('account.confirmFailed')}</Banner>}
-      {state === 'canceled' && <Banner tone="warn">{pt('account.checkoutCanceled')}</Banner>}
-      <P muted>{pt('account.noSubscription')}</P>
-      <View style={s.info}>
-        <H3>{pt('checkout.summaryTitle')}</H3>
-        <Text style={{ color: c.fg, fontSize: 24, fontWeight: '800' }}>
+      {state === 'canceled' && (
+        <Banner tone="info" testID="pay-canceled">
+          {t('payCanceled')}
+        </Banner>
+      )}
+      <View style={[s.summary, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <Text style={{ color: c.fg, fontSize: 17, fontWeight: '700' }}>
           {pt('checkout.priceLine')}
         </Text>
-        <P>{pt('checkout.summaryTerm')}</P>
-        <P>
+        <P muted>{pt('checkout.summaryTerm')}</P>
+        <P muted>
           <Text style={{ fontWeight: '700' }}>{pt('checkout.summaryRenewal')}:</Text>{' '}
           {texts.renewalRule}
         </P>
@@ -187,47 +195,51 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
           {stickerMissing && <Banner tone="err">{pt('checkout.stickerRequired')}</Banner>}
         </>
       )}
-      <Field
-        label={pt('checkout.promoLabel')}
-        optional={pt('common.optional')}
-        value={promo}
-        onChangeText={setPromo}
-        autoCapitalize="characters"
-        autoCorrect={false}
-        maxLength={40}
-      />
       {/* TODO [LEGAL REVIEW: mandatory immediate-start consent] text comes from legal_texts */}
       <Check label={texts.immediateStart.text} checked={immediate} onChange={setImmediate} />
-      {!immediate && <P muted>{pt('checkout.immediateRequired')}</P>}
-      <P muted>
-        {pt('checkout.withdrawalNotice')}{' '}
-        <Text
-          style={s.link}
-          accessibilityRole="link"
-          onPress={() => void openInBrowser('/widerruf')}
-        >
-          {pt('checkout.withdrawalLink')}
-        </Text>
-        . {texts.terms.text}{' '}
-        <Text style={s.link} accessibilityRole="link" onPress={() => void openInBrowser('/agb')}>
-          {pt('common.footer.terms')}
-        </Text>{' '}
-        ·{' '}
-        <Text
-          style={s.link}
-          accessibilityRole="link"
-          onPress={() => void openInBrowser('/datenschutz')}
-        >
-          {pt('common.footer.privacy')}
-        </Text>
-      </P>
       {error && <Banner tone="err">{error}</Banner>}
       <Button
         label={pt('checkout.pay')}
         onPress={() => void submit()}
         busy={busy}
         disabled={!immediate}
+        testID="pay"
       />
+      {!immediate && <P muted>{pt('checkout.immediateRequired')}</P>}
+      <Collapsible title={t('paywallDetails')} testID="pay-details">
+        <P muted>
+          {pt('checkout.withdrawalNotice')}{' '}
+          <Text
+            style={s.link}
+            accessibilityRole="link"
+            onPress={() => void openInBrowser('/widerruf')}
+          >
+            {pt('checkout.withdrawalLink')}
+          </Text>
+          . {texts.terms.text}{' '}
+          <Text style={s.link} accessibilityRole="link" onPress={() => void openInBrowser('/agb')}>
+            {pt('common.footer.terms')}
+          </Text>{' '}
+          ·{' '}
+          <Text
+            style={s.link}
+            accessibilityRole="link"
+            onPress={() => void openInBrowser('/datenschutz')}
+          >
+            {pt('common.footer.privacy')}
+          </Text>
+        </P>
+        <Field
+          label={pt('checkout.promoLabel')}
+          optional={pt('common.optional')}
+          value={promo}
+          onChangeText={setPromo}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          maxLength={40}
+          ltr
+        />
+      </Collapsible>
     </View>
   );
 }
@@ -236,5 +248,6 @@ const s = StyleSheet.create({
   info: { gap: 4 },
   line: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
   form: { gap: 12 },
+  summary: { gap: 2, borderWidth: 1, borderRadius: 12, padding: 12 },
   link: { textDecorationLine: 'underline', fontWeight: '700' },
 });

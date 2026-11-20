@@ -3,7 +3,7 @@ import { t } from '@/lib/i18n';
 import { pt } from '@/lib/portal-i18n';
 import { setSession } from '@/lib/session';
 import SignIn from '@/app/anmelden';
-import More from '@/app/(tabs)/mehr';
+import Account from '@/app/(tabs)/konto';
 
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
@@ -22,6 +22,29 @@ jest.mock('expo-linking', () => ({ useURL: () => null, getInitialURL: async () =
 jest.mock('@/lib/auth', () => ({
   useAuth: () => ({ signOut: mockSignOut, requestLink: jest.fn(), consume: jest.fn() }),
   tokenFromLink: () => null,
+}));
+const mockSetEnabled = jest.fn(async () => true);
+jest.mock('@/lib/lock', () => ({
+  useLock: () => ({ enabled: false, lockAfterSeconds: 300, setEnabled: mockSetEnabled }),
+}));
+jest.mock('@/lib/profile', () => ({
+  useProfile: () => ({
+    data: {
+      email: 'kim@example.de',
+      complete: true,
+      phone: null,
+      profile: {
+        firstName: 'Kim',
+        lastName: 'Muster',
+        street: 'Ring 1',
+        postalCode: '50667',
+        city: 'Köln',
+        country: 'DE',
+        source: 'signup',
+        completedAt: '',
+      },
+    },
+  }),
 }));
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children: unknown }) => children,
@@ -58,24 +81,30 @@ beforeEach(async () => {
   })) as unknown as typeof fetch;
 });
 
-it('„Mehr“ leads to every other portal screen, then sign-out and the app version', async () => {
-  await render(<More />);
-  const rows: [string, string][] = [
-    [pt('portal.notifications'), '/benachrichtigungen'],
-    [pt('portal.contacts'), '/einstellungen'],
-    [pt('portal.history'), '/verlauf'],
-    [pt('deliveryHelp.link'), '/zustellung'],
-    [pt('portal.data'), '/daten'],
-    [t('help'), '/hilfe'],
+it('Konto has every former „Mehr“ item, the lock switch, and sign-out as the last row (P12)', async () => {
+  await render(<Account />);
+  expect(await screen.findByText('Kim Muster')).toBeTruthy();
+  const rows: [string, unknown][] = [
+    ['row-plan', '/abo'],
+    ['row-notifications', '/benachrichtigungen'],
+    ['row-contacts', '/einstellungen'],
+    ['row-profile', { pathname: '/profil', params: { flow: 'edit' } }],
+    ['row-delivery', '/zustellung'],
+    ['row-data', '/daten'],
+    ['row-help', '/hilfe'],
   ];
-  for (const [title, route] of rows) {
-    await fireEvent.press(
-      await screen.findByLabelText(new RegExp(`^${title.replace(/[?]/g, '\\?')}`)),
-    );
+  for (const [id, route] of rows) {
+    await fireEvent.press(screen.getByTestId(id));
     expect(mockPush).toHaveBeenLastCalledWith(route);
   }
+  // A native switch, not a checkbox (P14); switching on asks for Face ID inside setEnabled.
+  const lock = screen.getByTestId('lock-switch');
+  expect(lock.props.accessibilityLabel).toBe(t('lockSetting', { method: 'Face ID' }));
+  await fireEvent(lock, 'valueChange', true);
+  expect(mockSetEnabled).toHaveBeenCalledWith(true);
+
   expect(screen.getByText(t('appVersion', { version: '1.0.0' }))).toBeTruthy();
-  await fireEvent.press(screen.getByLabelText(t('signOut')));
+  await fireEvent.press(screen.getByTestId('sign-out'));
   expect(mockSignOut).toHaveBeenCalled();
 });
 
@@ -87,6 +116,10 @@ it('sign-in shows the website logo and wordmark', async () => {
       (p) => p.d === 'M16 2 4 6.5v8.6C4 22.4 9.1 28.2 16 30c6.9-1.8 12-7.6 12-14.9V6.5L16 2Z',
     ),
   ).toBe(true);
-  expect(screen.getByLabelText('ParkShield')).toBeTruthy();
+  // Text and button both speak of a code (P4); a way to a new account (P2).
+  expect(screen.getByText(t('signInIntro'))).toBeTruthy();
+  expect(t('signInIntro')).toMatch(/Code/);
   expect(screen.getByLabelText(t('sendCode'))).toBeTruthy();
+  await fireEvent.press(screen.getByTestId('to-signup'));
+  expect(mockReplace).toHaveBeenCalledWith('/registrieren');
 });

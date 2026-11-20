@@ -1,10 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AlertsProvider } from '@/lib/alerts-store';
 import { t } from '@/lib/i18n';
 import { pt } from '@/lib/portal-i18n';
 import { setSession } from '@/lib/session';
 import type { AlertListItem } from '@/lib/types';
-import Alerts from '@/app/(tabs)/index';
+import Home from '@/app/(tabs)/index';
 
 const mockPush = jest.fn();
 const mockNavigate = jest.fn();
@@ -33,7 +33,7 @@ const alert = (over: Partial<AlertListItem> = {}): AlertListItem => ({
   severity: 'urgent',
   status: 'delivered',
   isTest: false,
-  createdAt: '2026-11-19T12:00:00Z',
+  createdAt: new Date(Date.now() - 2 * 60_000).toISOString(),
   seenAt: null,
   acknowledged: false,
   acknowledgedBy: null,
@@ -62,13 +62,17 @@ const vehicle = {
   decal: null,
 };
 
+const calls: { path: string; body?: unknown }[] = [];
 function api({
   alerts = [] as AlertListItem[] | 'down',
   sub = subscription() as object | null,
-  percent = 100,
+  done = true,
+  vehicles = [vehicle] as object[],
 }) {
-  global.fetch = jest.fn(async (url: string) => {
+  calls.length = 0;
+  global.fetch = jest.fn(async (url: string, init?: { body?: string }) => {
     const path = url.replace('https://api.test', '');
+    calls.push({ path, body: init?.body ? JSON.parse(init.body) : undefined });
     const body =
       path === '/v1/app/alerts'
         ? alerts === 'down'
@@ -78,16 +82,11 @@ function api({
           ? { subscription: sub }
           : path === '/v1/me/protection'
             ? {
-                percent,
-                steps: {
-                  email: true,
-                  channel: percent >= 50,
-                  contact: null,
-                  decal: percent === 100,
-                },
+                percent: done ? 100 : 50,
+                steps: { email: true, channel: true, contact: null, decal: done },
               }
             : path === '/v1/vehicles'
-              ? { vehicles: [vehicle] }
+              ? { vehicles }
               : {};
     if (body === null) throw new Error('offline');
     return { ok: true, status: 200, json: async () => body } as Response;
@@ -97,7 +96,7 @@ function api({
 const show = () =>
   render(
     <AlertsProvider>
-      <Alerts />
+      <Home />
     </AlertsProvider>,
   );
 
@@ -106,45 +105,69 @@ beforeEach(async () => {
   await setSession('session-token-0000000000000000000001');
 });
 
-it('without a plan it leads to the checkout, not to „no alerts“', async () => {
-  api({ sub: null });
-  await show();
-  expect(await screen.findByText(pt('portal.startTitle'))).toBeTruthy();
-  expect(screen.queryByText(t('emptyAlertsTitle'))).toBeNull();
-  await fireEvent.press(screen.getByLabelText(pt('portal.start1Go')));
-  expect(mockNavigate).toHaveBeenCalledWith('/konto');
-});
+describe('Start (Home)', () => {
+  it('open alerts come first, with how long ago and „Ich komme“ right on the card (P1)', async () => {
+    api({ alerts: [alert(), alert({ id: 'a2', acknowledged: true })] });
+    await show();
+    const cards = await screen.findAllByTestId('open-alert');
+    expect(cards).toHaveLength(1);
+    expect(screen.getByText('„Blue“ · vor 2 Min.')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('home-coming'));
+    await waitFor(() =>
+      expect(calls).toContainEqual({ path: '/v1/app/alerts/a1/ack', body: { reply: 'coming' } }),
+    );
+  });
 
-it('with a plan and no alerts: a friendly empty state that leads to testing the decal', async () => {
-  api({});
-  await show();
-  expect(await screen.findByText(t('emptyAlertsTitle'))).toBeTruthy();
-  await fireEvent.press(screen.getByLabelText(t('emptyAlertsAction')));
-  expect(mockNavigate).toHaveBeenCalledWith('/fahrzeuge');
-});
+  it('without a plan: the car and one button to the plans, no three-step explainer (P9)', async () => {
+    api({ sub: null });
+    await show();
+    expect(await screen.findByText(t('homeNoPlanTitle'))).toBeTruthy();
+    expect(screen.queryByText(pt('portal.startTitle'))).toBeNull();
+    await fireEvent.press(screen.getByLabelText(t('homeNoPlanCta')));
+    expect(mockPush).toHaveBeenCalledWith('/tarif');
+  });
 
-it('shows the set-up guide while protection is incomplete', async () => {
-  api({ percent: 50 });
-  await show();
-  expect(await screen.findByText(pt('protection.percent', { percent: 50 }))).toBeTruthy();
-});
+  it('protected: the car with „Geschützt“ and „Alles ruhig“', async () => {
+    api({});
+    await show();
+    expect(await screen.findByText(t('homeProtectedTitle', { nickname: 'Blue' }))).toBeTruthy();
+    expect(screen.getByText(t('homeProtected'))).toBeTruthy();
+    expect(screen.getByText(t('homeAllQuiet'))).toBeTruthy();
+    expect(screen.queryByTestId('setup-strip')).toBeNull();
+  });
 
-it('a failed payment is shown on the alerts tab too', async () => {
-  api({ sub: subscription({ status: 'past_due' }) });
-  await show();
-  expect(await screen.findByText(pt('account.pastDueNotice'))).toBeTruthy();
-});
+  it('one step left: one compact strip with one primary button for the next step (P11)', async () => {
+    api({ done: false });
+    await show();
+    expect(await screen.findByText(t('homeStepsLeft', { count: 1 }))).toBeTruthy();
+    expect(screen.getByTestId('setup-strip')).toBeTruthy();
+    expect(screen.getByText(pt('protection.stepDecal'))).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('setup-go'));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/fahrzeug/[id]', params: { id: 'v1' } });
+  });
 
-it('urgent alerts carry the stripe; test alerts a „Test“ chip', async () => {
-  api({ alerts: [alert(), alert({ id: 'a2', severity: 'normal', isTest: true })] });
-  await show();
-  expect(await screen.findAllByLabelText(/^Fahrzeug versperrt Ausfahrt, Blue,/)).toHaveLength(2);
-  expect(screen.getAllByTestId('urgent-stripe')).toHaveLength(1);
-  expect(screen.getByText(t('test'))).toBeTruthy();
-});
+  it('a failed payment is shown on Home too', async () => {
+    api({ sub: subscription({ status: 'past_due' }) });
+    await show();
+    expect(await screen.findByText(pt('account.pastDueNotice'))).toBeTruthy();
+  });
 
-it('when the API is unreachable it says so and the screen stays usable', async () => {
-  api({ alerts: 'down' });
-  await show();
-  expect(await screen.findByText(t('offline'))).toBeTruthy();
+  it('the development notice is a small footer note, not a banner on top (P18)', async () => {
+    api({});
+    await show();
+    expect(await screen.findByTestId('dev-note')).toBeTruthy();
+  });
+
+  it('never opens the notification permission by itself (P6)', async () => {
+    api({});
+    await show();
+    await screen.findByText(t('homeAllQuiet'));
+    expect(mockPush).not.toHaveBeenCalledWith('/push-erlauben');
+  });
+
+  it('when the API is unreachable it says so and the screen stays usable', async () => {
+    api({ alerts: 'down' });
+    await show();
+    expect(await screen.findByText(t('offline'))).toBeTruthy();
+  });
 });

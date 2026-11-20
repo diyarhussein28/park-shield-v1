@@ -3,12 +3,12 @@ import { t, type Key } from '@/lib/i18n';
 import { space, type as typeScale, useTheme } from '@/theme/tokens';
 import { Icon, type IconName } from './icons';
 
-/** The four tabs, in order: route name → label and website icon. */
-const TABS: Record<string, { label: Key; icon: IconName }> = {
-  index: { label: 'tabAlerts', icon: 'bell' },
+/** The four tabs (owner decision 2026-11-20), in order: route name → label and icon. */
+export const TABS: Record<string, { label: Key; icon: IconName }> = {
+  index: { label: 'tabHome', icon: 'home' },
+  alerts: { label: 'tabAlerts', icon: 'bell' },
   fahrzeuge: { label: 'tabVehicles', icon: 'car' },
-  konto: { label: 'tabAccount', icon: 'card' },
-  mehr: { label: 'tabMore', icon: 'menu' },
+  konto: { label: 'tabAccount', icon: 'user' },
 };
 
 /** What expo-router 58 hands a custom tab bar (only the parts this bar uses). */

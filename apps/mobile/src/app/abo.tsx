@@ -2,13 +2,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Choice, H3, Segmented } from '@/components/form';
-import {
-  CheckoutForm,
-  PastDue,
-  SubscriptionInfo,
-  openPaymentPortal,
-} from '@/components/subscription';
-import { Banner, Button, Card, P, Screen, Section, Title, useTheme } from '@/components/ui';
+import { PastDue, SubscriptionInfo, openPaymentPortal } from '@/components/subscription';
+import { Banner, Button, Card, P, Screen, Title, useTheme } from '@/components/ui';
 import { api } from '@/lib/api';
 import { lang, t } from '@/lib/i18n';
 import {
@@ -24,11 +19,11 @@ import {
 import { pt } from '@/lib/portal-i18n';
 
 /**
- * „Abo & Konto“ (web: /konto/abo): subscription and checkout, upgrade, invoices and credit notes,
- * the summary e-mail, passkeys, withdrawal and cancellation, plus the app's profile and e-mail
- * language. Sign-out is on the „Mehr“ tab. Payment runs on Stripe's page inside the app.
+ * „Abo und Rechnungen“ (web: /konto/abo), pushed from the Konto tab: subscription, upgrade, invoices
+ * and credit notes, the summary e-mail, customer number and e-mail language, passkeys, withdrawal and
+ * cancellation. Without a plan it leads to the plans (/tarif), where Stripe's page opens in the app.
  */
-export default function Account() {
+export default function Subscription() {
   const c = useTheme();
   const router = useRouter();
   const [me, setMe] = useState<PortalMe | null>(null);
@@ -37,7 +32,6 @@ export default function Account() {
   const [credits, setCredits] = useState<CreditNote[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [welcome, setWelcome] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -102,21 +96,8 @@ export default function Account() {
   return (
     <Screen>
       <P muted>{pt('portal.planIntro')}</P>
-      {welcome && sub && (
-        <Banner tone="ok">{`${pt('account.welcomeTitle')} ${pt('account.welcomeText')}`}</Banner>
-      )}
       {sub?.status === 'past_due' && <PastDue />}
 
-      {sub === null && (
-        <Section title={pt('portal.startTitle')} intro={pt('portal.startIntro')}>
-          {([1, 2, 3] as const).map((i) => (
-            <P key={i}>
-              {i}. <Text style={{ fontWeight: '700' }}>{pt(`portal.start${i}Title`)}</Text> –{' '}
-              {pt(`portal.start${i}Text`)}
-            </P>
-          ))}
-        </Section>
-      )}
       <Card>
         <Title>{pt('account.subscription')}</Title>
         {sub === undefined ? null : sub ? (
@@ -129,12 +110,10 @@ export default function Account() {
             />
           </>
         ) : (
-          <CheckoutForm
-            onPaid={() => {
-              setWelcome(true);
-              void load();
-            }}
-          />
+          <>
+            <P muted>{pt('account.noSubscription')}</P>
+            <Button label={t('homeNoPlanCta')} onPress={() => router.push('/tarif')} />
+          </>
         )}
       </Card>
 

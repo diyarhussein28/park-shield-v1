@@ -2,6 +2,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 import { Check, Field, H3 } from '@/components/form';
+import { SwitchRow } from '@/components/list';
 import { PhoneSetup } from '@/components/phone-setup';
 import { Banner, Button, Card, P, Screen, Title, useTheme } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
@@ -14,6 +15,7 @@ import {
   type PushDevice,
   type QuietHours,
   type QuietRule,
+  type SubscriptionSummary,
   type Usage,
 } from '@/lib/portal';
 import { pt, type MessageKey } from '@/lib/portal-i18n';
@@ -27,15 +29,20 @@ export default function Notifications() {
   const [data, setData] = useState<ChannelsOverview | null>(null);
   const [usage, setUsage] = useState<Usage | undefined>(undefined);
   const [quiet, setQuiet] = useState<QuietHours | null>(null);
+  const [premium, setPremium] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
-      const [channels, used, q] = await Promise.all([
+      const [channels, used, q, sub] = await Promise.all([
         api<ChannelsOverview>('/v1/channels'),
         api<Usage>('/v1/me/usage').catch(() => undefined),
         api<QuietHours>('/v1/quiet-hours'),
+        api<{ subscription: SubscriptionSummary | null }>('/v1/billing/subscription').catch(() => ({
+          subscription: null,
+        })),
       ]);
+      setPremium(sub.subscription?.plan === 'premium');
       setData(channels);
       setUsage(used);
       setQuiet(q);
@@ -54,7 +61,17 @@ export default function Notifications() {
     <Screen>
       <P muted>{pt('channels.intro')}</P>
       {error && <Banner tone="err">{error}</Banner>}
-      {data && <PhoneSetup overview={data} usage={usage} onChange={reload} />}
+      {/* SMS is a PREMIUM feature (P15): Plus is not asked for a number as if SMS were included. */}
+      {data && (premium || data.sms) ? (
+        <PhoneSetup overview={data} usage={usage} onChange={reload} />
+      ) : (
+        data && (
+          <Card>
+            <Title>{pt('channels.phoneTitle')}</Title>
+            <P muted>{t('smsPremiumOnly')}</P>
+          </Card>
+        )
+      )}
       {data && <AppPushCard devices={data.app.devices} reload={reload} />}
       {data && <BrowserPushCard devices={data.push.devices} reload={reload} />}
       {data && (
@@ -355,7 +372,7 @@ function QuietHoursCard({ initial }: { initial: QuietHours }) {
         error={end && !TIME.test(end) ? 'HH:MM' : null}
       />
       <P muted>{`${pt('quiet.overnight')} ${pt('quiet.timezone', { timezone: data.timezone })}`}</P>
-      <Check label={pt('quiet.urgentBypass')} checked={urgentBypass} onChange={setUrgentBypass} />
+      <SwitchRow title={pt('quiet.urgentBypass')} value={urgentBypass} onChange={setUrgentBypass} />
       <P muted>{pt('quiet.urgentHint')}</P>
       {error && <Banner tone="err">{error}</Banner>}
       <Button
