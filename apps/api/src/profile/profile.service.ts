@@ -43,8 +43,10 @@ export const ProfileInput = z
   .superRefine((v, ctx) => {
     const ok =
       v.country === 'DE'
-        ? /^\d{5}$/.test(v.postalCode)
-        : /^[A-Za-z0-9 -]{3,10}$/.test(v.postalCode);
+        ? // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored, fixed length 5, input ≤ 10 chars
+          /^\d{5}$/.test(v.postalCode)
+        : // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored single class, ≤ 10 chars, linear
+          /^[A-Za-z0-9 -]{3,10}$/.test(v.postalCode);
     if (!ok) ctx.addIssue({ code: 'custom', path: ['postalCode'], message: 'postal_code_invalid' });
   });
 
