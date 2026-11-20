@@ -466,7 +466,8 @@ $('chat-form').addEventListener('submit', (e) => {
   sock.timeout(10000).emit('chat:message', { text: v }, (err, r) => {
     $('chat-send').disabled = false;
     if (err) return chatErr('chatError');
-    if (r && r.ok) { $('chat-msg').value = ''; chatCount(); sock.emit('chat:typing', { typing: false }); }
+    // Only clear what was sent: text typed while the acknowledgement was on its way stays.
+    if (r && r.ok && $('chat-msg').value.trim() === v) { $('chat-msg').value = ''; chatCount(); sock.emit('chat:typing', { typing: false }); }
   });
 });
 document.addEventListener('visibilitychange', () => {

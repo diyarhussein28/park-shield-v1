@@ -77,6 +77,21 @@ test('live chat: the owner opens it from the app, both write, the owner closes i
   const app = await appSession(request, email);
 
   const { ctx, page: scan } = await scannerPage(browser, url);
+  // The chat socket goes through this route, so the test can hold back the server's
+  // acknowledgement of one scanner message (Socket.io ACK frame `43/chat,<id>[…]`).
+  let holdNextAck = false;
+  let releaseAck: (() => void) | undefined;
+  await ctx.routeWebSocket(/\/v1\/socket\.io/, (ws) => {
+    const server = ws.connectToServer();
+    server.onMessage((m) => {
+      if (holdNextAck && typeof m === 'string' && m.startsWith('43/chat,')) {
+        holdNextAck = false;
+        releaseAck = () => ws.send(m);
+        return;
+      }
+      ws.send(m);
+    });
+  });
   await scan.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
   await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
@@ -135,13 +150,19 @@ test('live chat: the owner opens it from the app, both write, the owner closes i
   expect(ack).toMatchObject({ ok: true });
   await expect(scan.getByText('Ich bin in 2 Minuten am Fahrzeug.')).toBeVisible();
 
+  holdNextAck = true;
   await scan.getByLabel('Ihre Antwort').fill('Danke, ich warte hier.');
   await scan.getByRole('button', { name: 'Senden', exact: true }).click();
   await expect.poll(() => owner.received.some((m) => m.from === 'scanner')).toBe(true);
   expect(owner.received.find((m) => m.from === 'scanner')?.text).toBe('Danke, ich warte hier.');
 
-  // The text filter: no phone numbers from the scanner.
+  // The text filter: no phone numbers from the scanner. Typed while the first message's
+  // acknowledgement is still on its way: the late acknowledgement must not wipe the new text.
+  await expect.poll(() => releaseAck !== undefined).toBe(true);
   await scan.getByLabel('Ihre Antwort').fill('Ruf mich an: 0151 23456789');
+  releaseAck!();
+  await expect(scan.getByRole('button', { name: 'Senden', exact: true })).toBeEnabled();
+  await expect(scan.getByLabel('Ihre Antwort')).toHaveValue('Ruf mich an: 0151 23456789');
   await scan.getByRole('button', { name: 'Senden', exact: true }).click();
   await expect(scan.getByText(/Diese Nachricht kann nicht gesendet werden/)).toBeVisible();
   expect(owner.received.filter((m) => m.from === 'scanner')).toHaveLength(1);
