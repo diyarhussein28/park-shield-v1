@@ -9,7 +9,7 @@ export const REMIND_TOPIC = 'alert.remind';
 /**
  * Owner reminder (tiered notifications): an alert nobody answered within `reminder.after_minutes`
  * (default 3) gets a second push (all plans) and, for PREMIUM, a second SMS. "Seen" does not stop it,
- * only an answer does. `remind_at` is the source of truth; the sweeper marks due alerts (reminded_at)
+ * an answer does, and so does opening the chat (ChatService.open clears `remind_at`). `remind_at` is the source of truth; the sweeper marks due alerts (reminded_at)
  * and queues the reminder in one statement, so there is never a double reminder, also after a Valkey
  * restart or with several workers.
  */

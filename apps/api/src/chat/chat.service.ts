@@ -235,6 +235,15 @@ export class ChatService {
       if (!s) throw new NotFoundException({ error: 'chat_unavailable' });
       if (s.status === 'closed') throw new ConflictException({ error: 'chat_closed' });
     }
+    // The owner who opens the chat has clearly noticed the alert, so the reminder to them is
+    // pointless (owner decision 2026-11-20). Escalation to trusted contacts is untouched: the owner
+    // may write "I can't come", and only „Ich komme" acknowledges the alert.
+    await this.db
+      .updateTable('alerts')
+      .set({ remind_at: null })
+      .where('id', '=', alertId)
+      .where('reminded_at', 'is', null)
+      .execute();
     return this.state(alertId, 'owner');
   }
 

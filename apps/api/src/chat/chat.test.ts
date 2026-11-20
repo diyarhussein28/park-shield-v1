@@ -4,6 +4,7 @@ import { io as connect, type Socket } from 'socket.io-client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { FieldCrypto } from '../core/crypto';
 import { CRYPTO } from '../core/tokens';
+import { OwnerReminderService } from '../notifications/owner-reminder.service';
 import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
 import {
   appPushes,
@@ -173,6 +174,36 @@ describe('owner-initiated live chat (Socket.io /chat)', () => {
     const rows = await h.db.selectFrom('alert_messages').select(['sender', 'body_enc']).execute();
     expect(rows).toHaveLength(2);
     expect(rows.every((r) => !r.body_enc.toString('latin1').includes('warte'))).toBe(true);
+  });
+
+  it('opening the chat stops the owner reminder, but not the escalation', async () => {
+    const { alert, app } = await setup();
+    const before = await h.db
+      .selectFrom('alerts')
+      .select(['remind_at', 'escalate_at', 'status'])
+      .where('id', '=', alert.alertId)
+      .executeTakeFirstOrThrow();
+    expect(before.remind_at).not.toBeNull();
+
+    expect((await openChat(alert.alertId, app)).statusCode).toBe(200);
+
+    const after = await h.db
+      .selectFrom('alerts')
+      .select(['remind_at', 'escalate_at', 'status', 'owner_reply', 'acknowledged_by'])
+      .where('id', '=', alert.alertId)
+      .executeTakeFirstOrThrow();
+    expect(after.remind_at).toBeNull();
+    // Writing "I can't come" in the chat must still let the trusted contacts help: only
+    // „Ich komme" acknowledges the alert and stops the escalation.
+    expect(after).toMatchObject({
+      escalate_at: before.escalate_at,
+      status: before.status,
+      owner_reply: null,
+      acknowledged_by: null,
+    });
+    await sql`UPDATE alerts SET remind_at = now() - interval '1 second'
+      WHERE id = ${alert.alertId} AND remind_at IS NOT NULL`.execute(h.db);
+    expect(await h.app.get(OwnerReminderService).sweep()).toBe(0);
   });
 
   it('filters scanner text (links, numbers, addresses); owner text only gets a warning in the app', async () => {

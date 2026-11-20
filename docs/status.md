@@ -10,7 +10,7 @@ on one laptop, so **everyone (and every AI agent) on every machine reads the sam
 > The repository is **public**. Never write secrets, keys, passwords, customer data, phone numbers
 > or e-mail addresses of real customers here. Names of env vars are fine; their values are not.
 
-_Last updated: 2026-11-18._
+_Last updated: 2026-11-20._
 
 ---
 
@@ -83,6 +83,10 @@ records. Old SendGrid and Brevo records stay but are unused.
 
 ## 3. Decisions
 
+- **Opening the chat stops the owner reminder (2026-11-20).** An owner who opened the live chat had
+  clearly seen the alert, yet still got the 3-minute reminder ("You have not responded"). Now
+  `ChatService.open` clears `remind_at`. The escalation to trusted contacts is unchanged: the owner
+  may write "I can't come", so only „Ich komme" acknowledges the alert and stops the chain.
 - **E-mail → Mailjet (2026-11-15).** SendGrid has no free plan; Brevo rewrites links and adds an
   open pixel and turns that off only for Enterprise. Our privacy policy promises no tracking and
   magic links must not pass through a tracking redirect.

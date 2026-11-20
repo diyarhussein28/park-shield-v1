@@ -351,7 +351,8 @@ Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
   the reminder and the escalation chain.
 - **Owner reminder**: `remind_at` (default +3 min), swept by the worker like `escalate_at`; second push
   for all, second SMS for PREMIUM, at most `reminder.max_owner_sms` SMS per alert; without any push
-  device an e-mail with the „keine App“ hint.
+  device an e-mail with the „keine App“ hint. **Opening the chat cancels it** (`ChatService.open` clears
+  `remind_at`; owner decision 2026-11-20), but not the escalation: only „Ich komme“ stops that.
 - **Escalation chain** (PREMIUM, switched on by the owner, per vehicle override): contact 1 → 2 → 3,
   each after `users.escalation_minutes` (3–30, default 7). The sweeper advances `escalation_step`
   atomically; plan, switch, contact state and acknowledgement are checked at every step. Contacts
