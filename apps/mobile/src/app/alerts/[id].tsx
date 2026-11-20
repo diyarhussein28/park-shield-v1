@@ -9,6 +9,8 @@ import { api, ApiError, authHeaders, mediaUrl } from '@/lib/api';
 import { minutesSince } from '@/lib/chat';
 import { lang, t } from '@/lib/i18n';
 import { savePhoto } from '@/lib/photos';
+import { errorText } from '@/lib/portal';
+import { pt } from '@/lib/portal-i18n';
 import type { AlertDetail } from '@/lib/types';
 
 type Reply = 'coming' | 'in_30_min' | 'not_nearby';
@@ -24,9 +26,14 @@ export default function AlertScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [a, setA] = useState<AlertDetail | null>(null);
   const [error, setError] = useState(false);
-  const [busy, setBusy] = useState<Reply | 'chat' | null>(null);
+  const [busy, setBusy] = useState<Reply | 'chat' | 'report' | null>(null);
   const [headers, setHeaders] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
+  // „Missbrauch melden“: a second tap confirms, because the photos are deleted for good.
+  const [confirmReport, setConfirmReport] = useState(false);
+  const [reportResult, setReportResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(
+    null,
+  );
   // Large text: the two other replies stack instead of squeezing side by side.
   const stack = useWindowDimensions().fontScale > 1.3;
 
@@ -64,6 +71,24 @@ export default function AlertScreen() {
     } finally {
       setBusy(null);
       await load(a.revealed && a.contentHidden);
+    }
+  };
+
+  /**
+   * „Missbrauch melden“ (alert photos §5): deletes the photos and the message at once, blocks the
+   * sender for this vehicle and pauses photo uploads to it. The same endpoint as the app's history.
+   */
+  const reportPhotos = async () => {
+    setBusy('report');
+    try {
+      await api(`/v1/portal/alerts/${a.id}/report-abuse`, { method: 'POST' });
+      setConfirmReport(false);
+      setReportResult({ tone: 'ok', text: pt('alertView.reportDone') });
+    } catch (err) {
+      setReportResult({ tone: 'err', text: errorText(err) });
+    } finally {
+      setBusy(null);
+      await load();
     }
   };
 
@@ -226,6 +251,44 @@ export default function AlertScreen() {
         </View>
       ))}
       {saved && <Banner tone="ok">{t('photoSaved')}</Banner>}
+
+      {a.photoCount > 0 &&
+        (confirmReport ? (
+          <Card>
+            <Text accessibilityRole="header" style={[typeScale.label, { color: c.fg }]}>
+              {pt('alertView.abuseTitle')}
+            </Text>
+            <P>{pt('alertView.abuseConfirm')}</P>
+            <Button
+              label={pt('alertView.abuseSend')}
+              variant="danger"
+              onPress={() => void reportPhotos()}
+              busy={busy === 'report'}
+              testID="report-abuse-confirm"
+            />
+            <Button
+              label={pt('alertView.abuseCancel')}
+              variant="ghost"
+              onPress={() => setConfirmReport(false)}
+            />
+          </Card>
+        ) : (
+          <Button
+            label={pt('alertView.abuseButton')}
+            variant="secondary"
+            onPress={() => {
+              setReportResult(null);
+              setConfirmReport(true);
+            }}
+            testID="report-abuse"
+          />
+        ))}
+      {reportResult && <Banner tone={reportResult.tone}>{reportResult.text}</Banner>}
+      {!reportResult && a.photosGone && (
+        <P muted>
+          {pt(a.photosGone === 'abuse_report' ? 'alertView.goneAbuse' : 'alertView.goneRetention')}
+        </P>
+      )}
 
       {a.escalation.notified.map((n) => (
         <P key={n.step ?? 0} muted>

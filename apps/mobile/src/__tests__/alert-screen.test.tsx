@@ -44,6 +44,8 @@ const detail = (over: Partial<AlertDetail> = {}): AlertDetail => ({
   message: 'Bitte Auto wegfahren',
   photos: [],
   photoCount: 0,
+  photosGone: null,
+  reported: false,
   chat: {
     status: 'locked',
     openedAt: null,
@@ -141,4 +143,64 @@ it('urgent actions come first, in order: „Ich komme“, the chat, then the two
       : coming.props.style,
   );
   expect(flat.minHeight).toBe(56);
+});
+
+it('„Missbrauch melden“ under the photos asks once more, deletes them and says so', async () => {
+  const photos = [
+    { id: 'm1', position: 1, width: 1600, height: 1200 },
+    { id: 'm2', position: 2, width: 1600, height: 1200 },
+  ];
+  let current = detail({ photos, photoCount: 2 });
+  const calls: string[] = [];
+  global.fetch = jest.fn((url: string, init?: RequestInit) => {
+    calls.push(`${init?.method ?? 'GET'} ${url.replace('https://api.test', '')}`);
+    if (url.endsWith('/report-abuse')) {
+      current = detail({ photosGone: 'abuse_report', reported: true, message: null });
+      return respond({ deleted: 2, blocked: true });
+    }
+    if (url.endsWith('/seen')) return respond({ seenAt: '2026-11-19T12:02:00Z' });
+    return respond(current);
+  }) as unknown as typeof fetch;
+
+  await render(<AlertScreen />);
+  fireEvent.press(await screen.findByTestId('report-abuse'));
+  expect(
+    await screen.findByText(
+      'Die Fotos und die Nachricht werden sofort gelöscht, und der Absender kann Ihr Fahrzeug nicht mehr benachrichtigen. Fortfahren?',
+    ),
+  ).toBeTruthy();
+  // Nothing is deleted on the first tap.
+  expect(calls.some((c) => c.includes('report-abuse'))).toBe(false);
+  fireEvent.press(screen.getByTestId('report-abuse-confirm'));
+  expect(
+    await screen.findByText(
+      'Danke. Die Fotos wurden gelöscht und der Absender wurde für dieses Fahrzeug gesperrt.',
+    ),
+  ).toBeTruthy();
+  expect(calls).toContain(`POST /v1/portal/alerts/${ALERT}/report-abuse`);
+  await waitFor(() => expect(screen.queryByTestId('report-abuse')).toBeNull());
+});
+
+it('cancelling the report deletes nothing; deleted photos say why they are gone', async () => {
+  const calls: string[] = [];
+  global.fetch = jest.fn((url: string, init?: RequestInit) => {
+    calls.push(`${init?.method ?? 'GET'} ${url}`);
+    return respond(
+      detail({ photos: [{ id: 'm1', position: 1, width: 4, height: 3 }], photoCount: 1 }),
+    );
+  }) as unknown as typeof fetch;
+  await render(<AlertScreen />);
+  fireEvent.press(await screen.findByTestId('report-abuse'));
+  fireEvent.press(await screen.findByLabelText('Abbrechen'));
+  expect(await screen.findByTestId('report-abuse')).toBeTruthy();
+  expect(calls.some((c) => c.includes('report-abuse'))).toBe(false);
+
+  global.fetch = jest.fn(() =>
+    respond(detail({ photosGone: 'retention' })),
+  ) as unknown as typeof fetch;
+  await render(<AlertScreen />);
+  expect(
+    await screen.findByText('Die Fotos zu diesem Alarm wurden nach 30 Tagen automatisch gelöscht.'),
+  ).toBeTruthy();
+  expect(screen.queryByTestId('report-abuse')).toBeNull();
 });

@@ -30,6 +30,8 @@ export default async function globalSetup() {
     'support.ip',
     'auth.ip',
     'ops_auth.ip',
+    'scan.upload_ip',
+    'alert_view.ip',
   ]) {
     await db.query(
       `INSERT INTO app_settings (key, value) VALUES ($1, $2)

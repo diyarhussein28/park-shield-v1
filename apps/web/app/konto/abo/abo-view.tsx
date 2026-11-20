@@ -88,7 +88,8 @@ function UpgradeCard() {
     t('landing.premiumF2'),
     t('landing.premiumF3'),
     t('landing.premiumF4'),
-    t('landing.premiumF5'),
+    // F5 (photos with alerts) is part of Plus too, so it is no reason to upgrade.
+    t('landing.premiumF6'),
   ];
   return (
     <Section

@@ -109,7 +109,8 @@ export const SETTINGS: Record<string, Def> = {
   'photos.plans': {
     group: 'limits',
     schema: z.array(z.enum(['plus', 'premium'])).max(2),
-    default: ['premium'],
+    // Owner decision 2026-11-20: both plans (migration 20261203000000_photos_all_plans).
+    default: ['plus', 'premium'],
   },
   'photos.abuse_block_days': { group: 'abuse', schema: int(1, 30), default: 30 },
   'photos.abuse_upload_block_hours': { group: 'abuse', schema: int(1, 720), default: 24 },

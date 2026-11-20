@@ -122,7 +122,8 @@ over a silent ("shadow") block so that a person in real danger looks for other h
 
 Code: `apps/api/src/alert-media/`, scanner page `apps/web/lib/scanner/`, view page `apps/web/app/v/`,
 migration `db/migrations/20261128000000_alert_photos.sql`. Off by default; which plans get it is the
-setting `photos.plans` (default Premium). **Go-live blocker:** everything in this section, and the
+setting `photos.plans` (default Plus and Premium since migration `20261203000000_photos_all_plans`,
+owner decision 2026-11-20). **Go-live blocker:** everything in this section, and the
 privacy-notice anchor `/datenschutz#warnfotos` that the scanner page links to (it does not exist yet).
 
 ### What the feature does (facts for the review)
@@ -138,9 +139,11 @@ privacy-notice anchor `/datenschutz#warnfotos` that the scanner page links to (i
   AES-256-GCM key; the key is stored wrapped with the application key in PostgreSQL. Files are not in
   any backup. Deleting the key makes every copy unreadable (crypto-shredding).
 - The owner gets **one link** (`/v/<token>`, 256-bit token, only its hash stored) in every channel. No
-  photo is sent to Twilio, Meta, the e-mail provider or a push service; they only carry the link.
+  photo is sent to Twilio, the e-mail provider (Mailjet) or a push service (FCM); they only carry the
+  link. In the native app the owner loads the photos from our API with the app session.
 - Deleted automatically **30 days** after the alert (file, key, link), or **at once** when the owner
-  taps „Missbrauch melden“ (view page, portal history, e-mail link). The report also deletes the alert
+  taps „Missbrauch melden“ (view page, portal history, e-mail link, app alert screen and app
+  history). The report also deletes the alert
   text, blocks the sender for this vehicle (30 days, `photos.abuse_block_days`), stops photo uploads to
   this vehicle for 24 h (`photos.abuse_upload_block_hours`) and creates a review entry in ops. The
   report itself stores no photo and no free text.
@@ -168,7 +171,7 @@ Points the section has to cover (no wording proposed here on purpose):
   no metadata (removed), no location.
 - **Recipients:** only the vehicle owner (via the view link) and ParkShield staff in the abuse review
   (staff do not see photos; a report deletes them). Hosting: our own server in Germany. No transfer of
-  the images to Twilio, Meta or the e-mail provider.
+  the images to Twilio, the e-mail provider (Mailjet) or the push service (FCM).
 - **Retention:** 30 days, earlier on an abuse report; not in backups.
 - **Rights:** how a scanner (no account) can exercise access/erasure — they cannot be identified by us.
   **Question:** is pointing to the abuse/erasure path of the owner and a contact address enough?

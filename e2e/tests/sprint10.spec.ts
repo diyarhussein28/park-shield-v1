@@ -153,8 +153,8 @@ test('partner batch: the scanner offers set-up and the owner claims the decal (U
 test('settings: a switch is versioned with its reason; provider status and orders render (US-39, US-41)', async ({
   browser,
 }, info) => {
-  // Settings are global state; one project is enough. No other E2E test sends SMS alerts, so a
-  // short switch-off disturbs nobody.
+  // Settings are global state; one project is enough. The switch-off lasts about two seconds; the
+  // tests that send SMS (escalation, alert photos) do so at one moment each, so an overlap is unlikely.
   test.skip(info.project.name !== 'desktop-chrome', 'global settings: one project only');
   test.setTimeout(120_000);
   const admin = await staffBrowser(browser, 'admin', ['admin']);

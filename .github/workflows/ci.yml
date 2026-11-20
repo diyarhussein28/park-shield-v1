@@ -72,6 +72,9 @@ jobs:
         env:
           NODE_ENV: production
           APP_ENV: ci
+          # e2e/tests/alert-photos.spec.ts: the photo flow (the production default dir needs root).
+          ALERT_PHOTOS_ENABLED: 'true'
+          ALERT_MEDIA_DIR: ${{ runner.temp }}/alert-media
         run: |
           (cd apps/api && node dist/main.js > ../../api.log 2>&1 &)
           (cd apps/api && node dist/main-ops.js > ../../api-ops.log 2>&1 &)

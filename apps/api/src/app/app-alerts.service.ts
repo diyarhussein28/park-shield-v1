@@ -117,15 +117,28 @@ export class AppAlertsService {
       .where('a.id', '=', alertId)
       .executeTakeFirst();
     if (!a) throw new NotFoundException({ error: 'alert_not_found' });
-    const [media, contacts, chat, blocked] = await Promise.all([
+    const [allMedia, report, contacts, chat, blocked] = await Promise.all([
       this.db
         .selectFrom('alert_media')
-        .select(['id', 'position', 'width', 'height'])
+        .select([
+          'id',
+          'position',
+          'width',
+          'height',
+          'deleted_at',
+          'deleted_reason',
+          'wrapped_key',
+        ])
         .where('alert_id', '=', a.id)
-        .where('deleted_at', 'is', null)
-        .where('wrapped_key', 'is not', null)
         .orderBy('position')
         .execute(),
+      // „Missbrauch melden“ was used for this alert (app, portal, view page or e-mail link).
+      this.db
+        .selectFrom('abuse_reports')
+        .select('id')
+        .where('alert_id', '=', a.id)
+        .where('reason', '=', 'photo_abuse')
+        .executeTakeFirst(),
       // Who was notified in the chain, and who acknowledged ("Kim kommt").
       this.db
         .selectFrom('alert_deliveries as d')
@@ -140,6 +153,16 @@ export class AppAlertsService {
       this.chat.state(a.id, 'owner'),
       this.chat.senderBlocked(a.id),
     ]);
+    const media = allMedia
+      .filter((m) => !m.deleted_at && m.wrapped_key)
+      .map((m) => ({ id: m.id, position: m.position, width: m.width, height: m.height }));
+    // Why there are no photos any more (same rule as the view page): an abuse report or 30 days.
+    const photosGone =
+      allMedia.length && !media.length
+        ? allMedia.some((m) => m.deleted_reason === 'abuse_report')
+          ? 'abuse_report'
+          : 'retention'
+        : null;
     const shown = !a.content_hidden || reveal;
     const by = a.acknowledged_by;
     const contactStep = by?.startsWith('contact_') ? Number(by.slice(8)) : null;
@@ -175,6 +198,8 @@ export class AppAlertsService {
       message: shown && a.custom_message_enc ? this.crypto.decrypt(a.custom_message_enc) : null,
       photos: shown ? media : [],
       photoCount: media.length,
+      photosGone,
+      reported: Boolean(report),
       chat: chat
         ? { ...chat, canOpen: chat.status === 'locked' && !blocked, senderBlocked: blocked }
         : null,

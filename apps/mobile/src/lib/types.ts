@@ -74,6 +74,10 @@ export interface AlertDetail {
   message: string | null;
   photos: { id: string; position: number; width: number; height: number }[];
   photoCount: number;
+  /** Why the alert has no photos any more: an abuse report or the 30-day deletion. */
+  photosGone: 'abuse_report' | 'retention' | null;
+  /** „Missbrauch melden“ was used for this alert (here, on the website or from the e-mail link). */
+  reported: boolean;
   chat: (ChatState & { canOpen: boolean; senderBlocked: boolean }) | null;
 }
 

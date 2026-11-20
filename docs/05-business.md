@@ -20,6 +20,8 @@ For individual drivers.
 - Quiet hours and temporary modes
 - Protection score and reminders
 - 90-day history and abuse reporting
+- Photos with alerts („Fotos bei Warnungen“): up to 2 per alert, deleted after 30 days; behind
+  `ALERT_PHOTOS_ENABLED` until the legal review (owner decision 2026-11-20: Plus and Premium)
 - E-mail support within 48 h
 
 ### Premium — €15/year (incl. VAT) · from Phase 2 (9 Nov 2027)
@@ -32,7 +34,7 @@ For families and people whose driveway is blocked often. Everything in Plus, plu
 - Masked calls up to 10 min/month
 - Two-way anonymous chat with the scanner
 - Multi-level escalation up to 3 contacts
-- Scanner photo with automatic blurring
+- Automatic blurring of scanner photos (photos themselves are in Plus too, see above)
 - Apple Wallet and Google Wallet
 - Priority support within 24 h, incl. WhatsApp
 

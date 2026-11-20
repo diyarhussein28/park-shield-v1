@@ -147,7 +147,8 @@ export default function Account() {
               'landing.premiumF2',
               'landing.premiumF3',
               'landing.premiumF4',
-              'landing.premiumF5',
+              // F5 (photos with alerts) is part of Plus too, so it is no reason to upgrade.
+              'landing.premiumF6',
             ] as const
           ).map((k) => (
             <P key={k}>✓ {pt(k)}</P>

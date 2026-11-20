@@ -54,6 +54,8 @@ const PUBLIC: Record<string, Control> = {
       'alert.vehicle',
       'alert.phone_vehicle',
       'alert.phone_vehicle_day',
+      // Multipart (photos) only, before the body is read.
+      'scan.upload_ip',
     ],
     captcha: true,
   },

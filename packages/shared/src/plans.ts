@@ -34,7 +34,7 @@ export const PLAN_LIMIT_DEFAULTS: Record<'plus' | 'premium', PlanLimits> = {
  * Plan catalog: how many feature lines each plan has on the pricing page (i18n keys
  * landing.<plan>F1 … F<n>). The welcome letter lists the same lines, so both always match.
  */
-export const PLAN_FEATURE_COUNTS = { plus: 6, premium: 5 } as const;
+export const PLAN_FEATURE_COUNTS = { plus: 7, premium: 6 } as const;
 
 /** Consumer prices in euro cents, VAT included (PAngV). */
 export const PLAN_PRICES_CENTS = { plus: 1000, premium: 1500 } as const;

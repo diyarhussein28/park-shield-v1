@@ -187,6 +187,42 @@ export async function ownerWithActiveDecal(
   return url;
 }
 
+/** The native app's sign-in (magic link with app=true → bearer token), as the app does it. */
+export async function appSession(request: APIRequestContext, email: string) {
+  const r = await request.post(`${API_URL}/v1/app/auth/magic-link`, {
+    data: { email, locale: 'de' },
+  });
+  expect(r.status()).toBe(202);
+  let token: string | undefined;
+  await expect
+    .poll(
+      async () => {
+        const { mails } = (await (await request.get(`${API_URL}/v1/dev/mailbox`)).json()) as {
+          mails: Mail[];
+        };
+        const m = mails.find(
+          (x) => x.to === email && x.tag === 'magic_link' && x.text.includes('/app/anmelden#t='),
+        );
+        token = m ? /\/app\/anmelden#t=([A-Za-z0-9_-]+)/.exec(m.text)?.[1] : undefined;
+        return Boolean(token);
+      },
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+  const consumed = await request.post(`${API_URL}/v1/app/auth/consume`, {
+    data: { token, platform: 'android' },
+  });
+  expect(consumed.status()).toBe(200);
+  const session = ((await consumed.json()) as { token: string }).token;
+  return { session, headers: { authorization: `Bearer ${session}` } };
+}
+
+/** The alert id from the scanner page's fragment (#a=<id>.<status token>.<chat token>). */
+export async function alertIdOf(scan: Page): Promise<string> {
+  await expect.poll(() => scan.evaluate(() => location.hash)).toMatch(/^#a=[0-9a-f-]{36}\./);
+  return /^#a=([0-9a-f-]{36})\./.exec(await scan.evaluate(() => location.hash))![1]!;
+}
+
 /** Signs up through the real UI and the e-mailed magic link; ends on /konto. */
 export async function signUp(page: Page, request: APIRequestContext, email: string) {
   // Wait for hydration: in `next dev` under a full parallel run, an early click can hit the static HTML.

@@ -12,6 +12,7 @@ import { DispatchService } from '../notifications/dispatch.service';
 import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
 import { DEV_SMS_KEY } from '../providers/twilio-sms';
 import {
+  appSignIn,
   createHarness,
   makePremium,
   lastMail,
@@ -45,8 +46,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await resetState(h);
   await rm(MEDIA_DIR, { recursive: true, force: true });
-  // The test owner buys Plus; photos are a per-plan setting (default Premium only).
-  await setSetting(h, 'photos.plans', ['premium']);
+  // Photos are a per-plan setting; its default (migration 20261203000000_photos_all_plans) is both plans.
 });
 
 const jpeg = (color = '#3366cc') =>
@@ -86,6 +86,7 @@ function multipart(alert: object, files: { name: string; type: string; data: Buf
 }
 
 interface Owner {
+  email: string;
   session: Session;
   userId: string;
   vehicleId: string;
@@ -93,10 +94,11 @@ interface Owner {
 }
 
 let n = 0;
-async function owner(): Promise<Owner> {
+/** A paying owner with one vehicle; Premium unless `plan` says otherwise (owner SMS need Premium). */
+async function owner(plan: 'plus' | 'premium' = 'premium'): Promise<Owner> {
   const email = `photos${n++}@example.de`;
   const session = await subscribe(h, email);
-  await makePremium(h, email);
+  if (plan === 'premium') await makePremium(h, email);
   const v = (
     await h.app.inject({
       method: 'POST',
@@ -115,7 +117,7 @@ async function owner(): Promise<Owner> {
     .select('id')
     .where('email', '=', email)
     .executeTakeFirstOrThrow();
-  return { session, userId: user.id, vehicleId: v.id, code: crypto.decrypt(t.code_enc) };
+  return { email, session, userId: user.id, vehicleId: v.id, code: crypto.decrypt(t.code_enc) };
 }
 
 async function phoneChannels(userId: string) {
@@ -156,7 +158,7 @@ const files = async () => (existsSync(MEDIA_DIR) ? await readdir(MEDIA_DIR) : []
 const VIEW = /\/v\/([A-Za-z0-9_-]{43})/;
 
 describe('alert photos (Phase 2)', () => {
-  it('scan → 2 photos → the same view link in e-mail, WhatsApp and SMS → report abuse → photos gone', async () => {
+  it('scan → 2 photos → the same view link in e-mail and SMS → report abuse → photos gone', async () => {
     const o = await owner();
     await phoneChannels(o.userId);
     const scanner = nextIp();
@@ -297,6 +299,31 @@ describe('alert photos (Phase 2)', () => {
     expect(other.json().photos).toEqual({ stored: 0, rejected: 1, reason: 'not_available' });
   });
 
+  it('both plans get photos by default (owner decision 2026-11-20); the setting can narrow it', async () => {
+    const setting = await h.db
+      .selectFrom('app_settings')
+      .select('value')
+      .where('key', '=', 'photos.plans')
+      .executeTakeFirstOrThrow();
+    expect(setting.value).toEqual(['plus', 'premium']);
+    for (const plan of ['plus', 'premium'] as const) {
+      const o = await owner(plan);
+      const page = (await h.app.inject({ method: 'GET', url: `/v1/scan/${o.code}` })).json();
+      expect(page.photos, plan).toBe(true);
+      const res = await scan(o.code, [{ name: 'a.jpg', type: 'image/jpeg', data: await jpeg() }]);
+      expect(res.statusCode, plan).toBe(201);
+      expect(res.json().photos, plan).toEqual({ stored: 1, rejected: 0 });
+    }
+    // Ops can still narrow it to one plan: a Plus owner then gets no photo box and no photos.
+    await setSetting(h, 'photos.plans', ['premium']);
+    const plus = await owner('plus');
+    const page = (await h.app.inject({ method: 'GET', url: `/v1/scan/${plus.code}` })).json();
+    expect(page.photos).toBe(false);
+    const res = await scan(plus.code, [{ name: 'a.jpg', type: 'image/jpeg', data: await jpeg() }]);
+    expect(res.statusCode).toBe(201);
+    expect(res.json().photos).toEqual({ stored: 0, rejected: 1, reason: 'not_available' });
+  });
+
   it('never blocks the alert: wrong plan, renamed files and invalid images only drop photos', async () => {
     const o = await owner();
     const page = (await h.app.inject({ method: 'GET', url: `/v1/scan/${o.code}` })).json();
@@ -333,6 +360,41 @@ describe('alert photos (Phase 2)', () => {
     expect(await files()).toEqual([]);
   });
 
+  it('counts photo uploads per network before the body is read; alerts without photos still work', async () => {
+    const o = await owner();
+    await setSetting(h, 'ratelimit.scan.upload_ip', { max: 1, windowSeconds: 600 });
+    const network = nextIp();
+    const first = await scan(
+      o.code,
+      [{ name: 'a.jpg', type: 'image/jpeg', data: await jpeg() }],
+      network,
+    );
+    expect(first.statusCode).toBe(201);
+    // Same /24, different host: refused before the multipart body (or its captcha) is looked at.
+    const sameNet = network.replace(/\.9$/, '.77');
+    const m = multipart({ type: 'damage', lang: 'de', captcha: 'not-a-captcha' }, [
+      { name: 'b.jpg', type: 'image/jpeg', data: await jpeg('#c33') },
+    ]);
+    const second = await h.app.inject({
+      method: 'POST',
+      url: `/v1/scan/${o.code}/alerts`,
+      remoteAddress: sameNet,
+      headers: { ...m.headers, 'user-agent': 'PhotoTest/1.0' },
+      payload: m.payload,
+    });
+    expect(second.statusCode).toBe(429);
+    expect(await files()).toHaveLength(1);
+    // The JSON path (an alert without photos) is not counted by this limit.
+    const plain = await h.app.inject({
+      method: 'POST',
+      url: `/v1/scan/${o.code}/alerts`,
+      remoteAddress: sameNet,
+      headers: { 'user-agent': 'PhotoTest/1.0' },
+      payload: { type: 'lights_on', lang: 'de', captcha: DEV_CAPTCHA_SOLUTION },
+    });
+    expect(plain.statusCode).toBe(201);
+  });
+
   it('the owner can report from the portal history', async () => {
     const o = await owner();
     const res = await scan(o.code, [{ name: 'a.jpg', type: 'image/jpeg', data: await jpeg() }]);
@@ -350,6 +412,57 @@ describe('alert photos (Phase 2)', () => {
       headers: other.session.headers,
     });
     expect(foreign.statusCode).toBe(404);
+  });
+
+  it('the app shows the photos with its session and „Missbrauch melden“ there deletes them', async () => {
+    const o = await owner('plus');
+    const res = await scan(o.code, [
+      { name: 'a.jpg', type: 'image/jpeg', data: await jpeg() },
+      { name: 'b.jpg', type: 'image/jpeg', data: await jpeg('#c33') },
+    ]);
+    const { alertId } = res.json();
+    const app = await appSignIn(h, o.email);
+    const detail = await h.app.inject({
+      method: 'GET',
+      url: `/v1/app/alerts/${alertId}`,
+      headers: app,
+    });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json()).toMatchObject({ photoCount: 2, photosGone: null, reported: false });
+    const [first] = detail.json().photos as { id: string }[];
+    const photo = await h.app.inject({
+      method: 'GET',
+      url: `/v1/app/alerts/${alertId}/media/${first!.id}`,
+      headers: app,
+    });
+    expect(photo.statusCode).toBe(200);
+    expect(photo.headers['cache-control']).toBe('no-store');
+    expect((await sharp(photo.rawPayload).metadata()).exif).toBeUndefined();
+
+    // The same endpoint the app calls from the alert screen (bearer session, no cookie, no CSRF).
+    const report = await h.app.inject({
+      method: 'POST',
+      url: `/v1/portal/alerts/${alertId}/report-abuse`,
+      headers: app,
+    });
+    expect(report.statusCode).toBe(200);
+    expect(report.json().deleted).toBe(2);
+    expect(await files()).toEqual([]);
+    const after = (
+      await h.app.inject({ method: 'GET', url: `/v1/app/alerts/${alertId}`, headers: app })
+    ).json();
+    expect(after).toMatchObject({
+      photos: [],
+      photoCount: 0,
+      photosGone: 'abuse_report',
+      reported: true,
+    });
+    const gone = await h.app.inject({
+      method: 'GET',
+      url: `/v1/app/alerts/${alertId}/media/${first!.id}`,
+      headers: app,
+    });
+    expect(gone.statusCode).toBe(404);
   });
 
   it('retention: photos and their link are deleted after 30 days (key, file, row), idempotently', async () => {

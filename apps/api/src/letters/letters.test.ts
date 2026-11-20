@@ -235,11 +235,14 @@ describe('snapshot and content', () => {
   it('plan benefits come from the pricing-page catalog for every plan', () => {
     const de = createTranslator('de');
     expect(planBenefits('plus')).toEqual(
-      [1, 2, 3, 4, 5, 6].map((i) => de(`landing.plusF${i}` as never)),
+      [1, 2, 3, 4, 5, 6, 7].map((i) => de(`landing.plusF${i}` as never)),
     );
     expect(planBenefits('premium')).toEqual(
-      [1, 2, 3, 4, 5].map((i) => de(`landing.premiumF${i}` as never)),
+      [1, 2, 3, 4, 5, 6].map((i) => de(`landing.premiumF${i}` as never)),
     );
+    // Owner decision 2026-11-20: alert photos are part of both plans.
+    expect(planBenefits('plus')).toContain('Fotos bei Warnungen');
+    expect(planBenefits('premium')).toContain('Fotos bei Warnungen');
     for (const line of [...planBenefits('plus'), ...planBenefits('premium')]) {
       expect(line).not.toMatch(/^landing\./);
     }

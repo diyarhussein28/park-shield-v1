@@ -83,6 +83,10 @@ export const RATE_LIMITS = {
   // view page with its photos and the "Missbrauch melden" button, per network.
   'photos.vehicle': { max: 6, windowSeconds: 3600 },
   'alert_view.ip': { max: 120, windowSeconds: 600 },
+  // Scanner alerts with photos (multipart, up to ~1 MB): counted per network before a single byte of
+  // the body is read, so large uploads cannot pile up in memory ahead of the captcha check. Alerts
+  // without photos (JSON) do not count. A refused upload can still be sent without photos.
+  'scan.upload_ip': { max: 30, windowSeconds: 600 },
 } as const;
 export type RateLimitName = keyof typeof RATE_LIMITS;
 

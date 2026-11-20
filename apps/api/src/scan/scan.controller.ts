@@ -91,11 +91,15 @@ export class ScanController {
 
   /**
    * JSON, or multipart/form-data with the same JSON in the field `alert` plus up to two `photos`
-   * (Phase 2, ALERT_PHOTOS_ENABLED). The captcha is verified before any photo is decoded.
+   * (Phase 2, ALERT_PHOTOS_ENABLED). A multipart request is counted per network before its body is
+   * read (the captcha solution travels inside that body); the captcha is verified before any photo is
+   * decoded.
    */
   @Post('scan/:code/alerts')
   async create(@Param('code') code: string, @Req() req: FastifyRequest) {
-    const raw = req.isMultipart() ? await readAlertMultipart(req) : { body: req.body, photos: [] };
+    const multipart = req.isMultipart();
+    if (multipart) await this.limits.enforce('scan.upload_ip', truncateIp(req.ip));
+    const raw = multipart ? await readAlertMultipart(req) : { body: req.body, photos: [] };
     const body: z.infer<typeof CreateAlert> = new ZodPipe(CreateAlert).transform(raw.body);
     if (!(await this.captcha.verify(body.captcha))) throw new BadRequestException(CAPTCHA_FAILED);
     const token = await this.resolve(code, req);

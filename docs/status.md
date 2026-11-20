@@ -83,6 +83,11 @@ records. Old SendGrid and Brevo records stay but are unused.
 
 ## 3. Decisions
 
+- **Alert photos in both plans (2026-11-20).** „Fotos bei Warnungen“ is part of Plus and Premium:
+  `photos.plans` defaults to `["plus","premium"]` (migration `20261203000000_photos_all_plans`) and
+  both plans list it on the pricing page. The feature itself stays behind `ALERT_PHOTOS_ENABLED`
+  until the launch checklist (§4a) is done. The owner can also report abuse from the app's alert
+  screen; photo uploads are limited per network (`ratelimit.scan.upload_ip`) before the upload is read.
 - **Opening the chat stops the owner reminder (2026-11-20).** An owner who opened the live chat had
   clearly seen the alert, yet still got the 3-minute reminder ("You have not responded"). Now
   `ChatService.open` clears `remind_at`. The escalation to trusted contacts is unchanged: the owner
@@ -128,7 +133,8 @@ Relaxed only for testing on the test server. Restore every item before step 5:
    `APP_ENV=production`, no basic auth, a real captcha and Stripe **live** keys.
 3. **Alert photos** are switched on for testing: `ALERT_PHOTOS_ENABLED=true` in `server.env` and
    `app_settings` key `photos.plans` = `["plus","premium"]`. For launch: off until the legal review
-   (`LEGAL_REVIEW.md` §5), then Premium only (`DELETE FROM app_settings WHERE key = 'photos.plans';`).
+   (`LEGAL_REVIEW.md` §5) and the launch checklist (§4a), then on for Plus and Premium (the default
+   since migration `20261203000000_photos_all_plans`; the setting needs no change).
 4. Impressum and legal pages reviewed by the lawyer; then remove `SITE_NOINDEX` on Vercel too.
 5. **WhatsApp removed** (2026-12): delete `WHATSAPP_PROVIDER`, `TWILIO_WHATSAPP_FROM`,
    `TWILIO_CONTENT_*` and `D360_*` from `server.env`; disconnect the WhatsApp sender in Twilio.
@@ -140,6 +146,17 @@ Relaxed only for testing on the test server. Restore every item before step 5:
    Caddyfile and `OPS_DOMAIN` from `.env`, point `OPS_BASE_URL` at the VPN-only address, invite
    staff again (passkeys bind to that host) and delete the `ops.test` DNS record
    (`infra/single/README.md`, "Test server: ops app on its own subdomain").
+
+## 4a. Launch checklist
+
+Tick each item (with the date) before go-live; alert photos stay off (`ALERT_PHOTOS_ENABLED=false`)
+until all three are done.
+
+- [ ] **Real captcha keys on production:** `FRIENDLY_CAPTCHA_SITEKEY`, `FRIENDLY_CAPTCHA_API_KEY`,
+      `NEXT_PUBLIC_FRIENDLY_CAPTCHA_SITEKEY` set, endpoint `eu`. No fake captcha in production.
+- [ ] **Privacy policy section `/datenschutz#warnfotos` exists** (text comes from the lawyer). The
+      scanner page's camera notice already links to it (`LEGAL_REVIEW.md` §5).
+- [ ] **DPIA decision documented** (a DPIA or a written threshold assessment, `LEGAL_REVIEW.md` §5).
 
 ## 5. Next steps
 
@@ -161,7 +178,10 @@ Relaxed only for testing on the test server. Restore every item before step 5:
   (`npm run dev` creates it and every provider falls back to a fake). Provider accounts (Stripe,
   Twilio, Mailjet, Contabo, Strato) invite each person as a team member with their own login.
 - **Local E2E with real keys in `.env`:** start dev with the provider keys emptied so the fakes are
-  used, e.g. `STRIPE_SECRET_KEY= STRIPE_WEBHOOK_SECRET= FRIENDLY_CAPTCHA_SITEKEY= FRIENDLY_CAPTCHA_API_KEY= NEXT_PUBLIC_FRIENDLY_CAPTCHA_SITEKEY= TWILIO_ACCOUNT_SID= TWILIO_AUTH_TOKEN= npm run dev`.
+  used, in Git Bash (PowerShell drops empty variables, and the real keys from `.env` come back):
+  `STRIPE_SECRET_KEY= STRIPE_WEBHOOK_SECRET= FRIENDLY_CAPTCHA_SITEKEY= FRIENDLY_CAPTCHA_API_KEY= NEXT_PUBLIC_FRIENDLY_CAPTCHA_SITEKEY= TWILIO_ACCOUNT_SID= TWILIO_AUTH_TOKEN= MAILJET_API_KEY= MAILJET_SECRET_KEY= ALERT_PHOTOS_ENABLED=true npm run dev`.
+  Without the two `MAILJET_*` the test e-mails go out through the real Mailjet; without
+  `ALERT_PHOTOS_ENABLED=true` the photo E2E (`e2e/tests/alert-photos.spec.ts`) is skipped.
 - **AI agents:** read `AGENTS.md` and this file first, verify facts on the server instead of
   trusting notes blindly, and update this file when a step is done. The owner wants answers in
   Arabic, one step at a time, asking before the next step.
