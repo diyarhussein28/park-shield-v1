@@ -548,10 +548,11 @@ const de = {
     smsLinkedNow: 'SMS ist eingerichtet. Wir haben Ihnen eine Bestätigung geschickt.',
     smsUnlink: 'SMS abschalten',
     smsUnlinked: 'SMS ist abgeschaltet. Wir schicken Ihnen keine SMS mehr.',
-    orderTitle: 'Reihenfolge bei normalen Warnungen',
+    orderTitle: 'Reihenfolge der Kanäle',
     orderIntro:
-      'Wir versuchen die Kanäle nacheinander und hören beim ersten auf, der funktioniert. Klappt einer nicht, nehmen wir sofort den nächsten.',
-    orderUrgent: 'Dringende Warnungen und Tests gehen immer an alle Kanäle gleichzeitig.',
+      'Jede Warnung geht gleichzeitig an alle Kanäle Ihres Tarifs. Die Reihenfolge legt nur fest, welchen Kanal wir zuerst ansprechen.',
+    orderNote:
+      'Kanäle, die noch nicht eingerichtet sind, überspringen wir. SMS gibt es im Premium-Tarif.',
     orderUp: '{channel} nach oben',
     orderDown: '{channel} nach unten',
     orderSaved: 'Reihenfolge gespeichert.',

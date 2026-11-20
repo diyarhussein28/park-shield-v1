@@ -229,7 +229,7 @@ function OrderCard({
         </View>
       ))}
       {status && <P muted>{status}</P>}
-      <P muted>{pt('channels.orderUrgent')}</P>
+      <P muted>{pt('channels.orderNote')}</P>
     </Card>
   );
 }

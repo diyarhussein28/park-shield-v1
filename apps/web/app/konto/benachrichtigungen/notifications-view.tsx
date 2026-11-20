@@ -140,7 +140,7 @@ function OrderCard({
           {status}
         </p>
         <Text muted className="text-sm">
-          {t('channels.orderUrgent')}
+          {t('channels.orderNote')}
         </Text>
       </Stack>
     </Card>

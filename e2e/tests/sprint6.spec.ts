@@ -162,7 +162,7 @@ test('without a contact, "Bin nicht in der Nähe" shows the scanner who can help
 test('owner changes the channel order (US-22, OW-05)', async ({ page, request }) => {
   await ownerWithActiveDecal(page, request, uniqueEmail('order'));
   await page.goto('/konto/benachrichtigungen');
-  const order = page.getByRole('list', { name: 'Reihenfolge bei normalen Warnungen' });
+  const order = page.getByRole('list', { name: 'Reihenfolge der Kanäle' });
   await expect(order.getByRole('listitem')).toHaveText([
     /1\. App/,
     /2\. Push/,

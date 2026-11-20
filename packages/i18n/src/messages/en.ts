@@ -525,10 +525,10 @@ const en: typeof de = {
     smsLinkedNow: 'SMS is set up. We sent you a confirmation.',
     smsUnlink: 'Turn off SMS',
     smsUnlinked: 'SMS is turned off. We will not text you any more.',
-    orderTitle: 'Order for normal alerts',
+    orderTitle: 'Order of channels',
     orderIntro:
-      'We try the channels one after another and stop at the first one that works. If one fails, we move straight to the next.',
-    orderUrgent: 'Urgent alerts and tests always go to all channels at once.',
+      'Every alert goes to all channels of your plan at the same time. The order only decides which channel we send to first.',
+    orderNote: 'Channels that are not set up yet are skipped. SMS is part of the Premium plan.',
     orderUp: 'Move {channel} up',
     orderDown: 'Move {channel} down',
     orderSaved: 'Order saved.',
