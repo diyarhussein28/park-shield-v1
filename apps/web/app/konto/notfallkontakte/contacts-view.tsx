@@ -13,7 +13,7 @@ import {
   Text,
   useI18n,
 } from '@parkshield/ui';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { KontoShell } from '@/components/konto-shell';
 import { api, ApiError, errorText } from '@/lib/api-client';
 import type { EmergencyContact, EmergencyContactList } from '@/lib/api-server';
@@ -94,6 +94,8 @@ export function ContactsView({
       {plan === 'premium' && (
         <>
           <EscalationCard
+            // A new server value (after a reload) starts the card fresh instead of syncing in an effect.
+            key={String(data.escalationEnabled)}
             enabled={data.escalationEnabled}
             confirmed={data.contacts.some((c) => c.status === 'confirmed')}
           />
@@ -113,7 +115,6 @@ function EscalationCard({ enabled, confirmed }: { enabled: boolean; confirmed: b
   const [on, setOn] = useState(enabled);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => setOn(enabled), [enabled]);
 
   async function toggle() {
     setBusy(true);
