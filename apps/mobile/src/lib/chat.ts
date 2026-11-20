@@ -99,8 +99,14 @@ export function useChat(alertId: string, enabled: boolean) {
       );
       s.on('chat:error', (e: { error: ChatError }) => setLive((l) => ({ ...l, error: e.error })));
     })();
+    // In the background the connection is closed on purpose: iOS keeps a paused app's socket open for
+    // a while, and while the owner counts as connected the server sends no push for new messages.
+    // Back in the foreground it reconnects and the server re-sends the whole state.
     const sub = AppState.addEventListener('change', (st) => {
-      if (st === 'active' && socket.current && !socket.current.connected) socket.current.connect();
+      const cur = socket.current;
+      if (!cur) return;
+      if (st === 'background') cur.disconnect();
+      else if (st === 'active' && !cur.connected) cur.connect();
     });
     return () => {
       cancelled = true;

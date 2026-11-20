@@ -11,7 +11,12 @@ import { t } from '@/lib/i18n';
 import { pt } from '@/lib/portal-i18n';
 import { stackOptions } from '@/theme/navigation';
 import { useTheme } from '@/theme/tokens';
-import { configureNotifications, handleResponse, registerDevice } from '@/lib/push';
+import {
+  configureNotifications,
+  handleResponse,
+  registerDevice,
+  type PushTarget,
+} from '@/lib/push';
 
 /**
  * A deep link or Universal Link that starts the app on a pushed screen (e.g. /app/alerts/<id>) still
@@ -55,7 +60,8 @@ function Gate() {
   // A tap on a notification, or its „Ich komme" action (also when it launched the app).
   useEffect(() => {
     if (!signedIn) return;
-    const open = (id: string) => router.push({ pathname: '/alerts/[id]', params: { id } });
+    const open = (id: string, target: PushTarget) =>
+      router.push({ pathname: target === 'chat' ? '/chat/[id]' : '/alerts/[id]', params: { id } });
     void Notifications.getLastNotificationResponseAsync().then((r) => {
       if (r) {
         void handleResponse(r, open);

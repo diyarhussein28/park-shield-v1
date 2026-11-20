@@ -124,25 +124,35 @@ export async function unregisterDevice(): Promise<void> {
   }
 }
 
-/** Data of a ParkShield push: { alertId, type, kind } (strings). */
-export function alertIdOf(response: Notifications.NotificationResponse): string | null {
+/**
+ * One field of a ParkShield push ({ alertId, type, kind }, all strings). iOS: expo-notifications fills
+ * `data` of a remote notification only from the payload's `body` key (our API sends it); older pushes
+ * carry the ids at the top level, so the raw payload is read as well.
+ */
+function pushField(response: Notifications.NotificationResponse, key: string): string | null {
   const { content, trigger } = response.notification.request;
-  // iOS: expo-notifications fills `data` of a remote notification only from the payload's `body` key
-  // (our API sends it). Older pushes carry the ids at the top level: read the raw payload then.
   const raw = (trigger as { payload?: Record<string, unknown> } | null)?.payload;
-  const fromData = (content.data as Record<string, unknown> | null | undefined)?.alertId;
-  const fromRaw = raw?.alertId ?? (raw?.body as Record<string, unknown> | undefined)?.alertId;
-  const id = typeof fromData === 'string' ? fromData : typeof fromRaw === 'string' ? fromRaw : null;
+  const fromData = (content.data as Record<string, unknown> | null | undefined)?.[key];
+  const fromRaw = raw?.[key] ?? (raw?.body as Record<string, unknown> | undefined)?.[key];
+  return typeof fromData === 'string' ? fromData : typeof fromRaw === 'string' ? fromRaw : null;
+}
+
+export function alertIdOf(response: Notifications.NotificationResponse): string | null {
+  const id = pushField(response, 'alertId');
   return id && /^[0-9a-f-]{36}$/i.test(id) ? id : null;
 }
 
+/** Where a tap leads: a chat push opens the chat, every other push its alert. */
+export type PushTarget = 'alert' | 'chat';
+
 /**
  * A tap on a notification or its „Ich komme" action. The action acknowledges at once (single use on the
- * server, a second tap changes nothing); either way the alert opens.
+ * server, a second tap changes nothing); either way the alert opens. A tap on a chat push (a new
+ * message from the person at the vehicle) opens the chat.
  */
 export async function handleResponse(
   response: Notifications.NotificationResponse,
-  open: (alertId: string) => void,
+  open: (alertId: string, target: PushTarget) => void,
 ): Promise<'acknowledged' | 'opened' | 'ignored'> {
   const alertId = alertIdOf(response);
   if (!alertId) return 'ignored';
@@ -150,9 +160,9 @@ export async function handleResponse(
     await api(`/v1/app/alerts/${alertId}/ack`, { body: { reply: 'coming' } }).catch(
       () => undefined,
     );
-    open(alertId);
+    open(alertId, 'alert');
     return 'acknowledged';
   }
-  open(alertId);
+  open(alertId, pushField(response, 'kind') === 'chat' ? 'chat' : 'alert');
   return 'opened';
 }

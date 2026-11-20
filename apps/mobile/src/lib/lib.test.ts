@@ -78,7 +78,7 @@ describe('push responses', () => {
     const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
     expect(url).toBe(`https://api.test/v1/app/alerts/${ALERT}/ack`);
     expect(JSON.parse(init.body)).toEqual({ reply: 'coming' });
-    expect(open).toHaveBeenCalledWith(ALERT);
+    expect(open).toHaveBeenCalledWith(ALERT, 'alert');
   });
 
   it('a tap opens the alert without acknowledging; foreign data is ignored', async () => {
@@ -103,7 +103,18 @@ describe('push responses', () => {
       },
     } as unknown as Notifications.NotificationResponse;
     expect(await handleResponse(remote, open)).toBe('opened');
-    expect(open).toHaveBeenCalledWith(ALERT);
+    expect(open).toHaveBeenCalledWith(ALERT, 'alert');
+  });
+
+  it('a tap on a chat push opens the chat, not the alert', async () => {
+    const open = jest.fn();
+    const chat = response(Notifications.DEFAULT_ACTION_IDENTIFIER, {
+      alertId: ALERT,
+      type: 'blocking',
+      kind: 'chat',
+    });
+    expect(await handleResponse(chat, open)).toBe('opened');
+    expect(open).toHaveBeenCalledWith(ALERT, 'chat');
   });
 
   it('iOS answering without its dialog is no refusal: no e-mail hint, the button stays', async () => {
