@@ -10,7 +10,7 @@ on one laptop, so **everyone (and every AI agent) on every machine reads the sam
 > The repository is **public**. Never write secrets, keys, passwords, customer data, phone numbers
 > or e-mail addresses of real customers here. Names of env vars are fine; their values are not.
 
-_Last updated: 2026-11-21._
+_Last updated: 2026-11-21 (single plan, app-only alerts, escalation — in progress, see `docs/handover.md`)._
 
 ---
 
@@ -83,6 +83,18 @@ records. Old SendGrid and Brevo records stay but are unused.
 
 ## 3. Decisions
 
+- **Single plan, app-only alerts, SMS escalation, Sperren, print (2026-11-21).** Task:
+  `docs/single-plan-update-prompt.md`; progress and design notes: `docs/handover.md`. One plan
+  „ParkShield“ 20 € / year incl. VAT for **one vehicle** (Plus/Premium removed; all test subscriptions
+  moved to it and to yearly renewal — lawyer approval of yearly renewal reported 2026-11-21). Mobile
+  number **required** and verified (Twilio Lookup + Verify). Alerts reach the owner **by app push only**
+  (no alert e-mail); reminder push after 10 min, **one** SMS after 30 min (never in quiet hours, never
+  for tests, cap 20 / month). **Trusted contacts removed** with their data. „Sperren“ creates no new
+  code; a new code is free; self-print free; printed and shipped decal free once (welcome print), then
+  3 €. „Absender blockieren“ ends the chat and the escalation. Scanner authenticity notice
+  „Nur echt auf park-shield.de“; production `SCANNER_BASE_URL=https://park-shield.de`.
+  Migrations `20261206000000_single_plan`, `20261206000100_owner_escalation`,
+  `20261206000200_block_sender`. **Not deployed yet.**
 - **App redesign, sign-up with address, Face ID lock (2026-11-20/21).** Implemented as decided in
   `docs/app-redesign.md` §7 (tabs Start · Warnungen · Fahrzeuge · Konto, onboarding, sign-up before
   payment with name and address, blocking „Konto vervollständigen“ for old accounts, welcome letter
@@ -161,6 +173,14 @@ Relaxed only for testing on the test server. Restore every item before step 5:
    accounts are asked for name and address on the next app start and before any website checkout.
    Before go-live: the privacy policy needs the new section on name/address (`LEGAL_REVIEW.md` §8),
    and the store privacy labels must list name and address.
+
+9. **Single plan (2026-11-21), before deploying it to the test server:** create a Stripe price
+   20.00 € / year, tax-inclusive, and set `STRIPE_PRICE_YEARLY` (the old `STRIPE_PRICE_PLUS_*` /
+   `STRIPE_PRICE_PREMIUM_*` variables are no longer read — remove them from `server.env`); set
+   `TWILIO_VERIFY_SERVICE_SID` so owners' numbers are checked with Lookup + Verify; set
+   `SCANNER_BASE_URL=https://park-shield.de` for production and, if decals with `pkshd.de` exist,
+   redirect `pkshd.de/s/*` (301) to `park-shield.de/s/*`. The new app build (EAS) is needed for the
+   new screens.
 
 ## 4a. Launch checklist
 

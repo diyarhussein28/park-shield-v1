@@ -7,7 +7,7 @@ Product specs live in [`docs/`](docs/README.md); this file is the practical map.
 **The current go-live state, decisions, test-only relaxations and team rules are in
 [`docs/status.md`](docs/status.md).** Read it too, and update it when you finish a step.
 
-_Last updated: 21 November 2026 (app redesign: onboarding, sign-up with address, Face ID lock, new tabs)._
+_Last updated: 21 November 2026 (single plan 20 €, app-only alerts with 10-min reminder and one SMS after 30 min, trusted contacts removed, Sperren without reissue, 3 € print; progress in `docs/handover.md`)._
 
 ---
 
@@ -16,14 +16,13 @@ _Last updated: 21 November 2026 (app redesign: onboarding, sign-up with address,
 A QR decal for cars. Anyone who sees a problem with a parked car (it blocks an exit, the lights are
 on, a window is open, it is about to be towed, there is damage) scans the decal with their phone
 camera, picks the problem on a web page and taps send. **No app, no account, and nobody sees the
-owner's phone number, name or licence plate.** The owner is notified in the ParkShield app (push), by e-mail and, with Premium, by SMS
+owner's phone number, name or licence plate.** The owner is notified in the ParkShield app (push only; no alert e-mail); without a reaction a reminder push follows after 10 minutes and one SMS to the owner's verified mobile number after 30 minutes
 and replies with one tap ("Ich komme", "In ca. 30 Min", "Bin nicht in der Nähe"); the person at
-the car sees the reply live. If the owner does not react, the alert escalates to an emergency
-contact (who must have consented).
+the car sees the reply live. Trusted/emergency contacts were removed on 2026-11-21: only the owner is escalated to.
 
 - Market: Germany first (German is the source language, English is the second UI language).
-- Model: paid yearly subscriptions only. **Plus** 10 € / year (live), **Premium** 15 € / year (from
-  9 Nov 2027), **Business** (waitlist only, built only if decision gate G3 passes).
+- Model: one paid yearly plan **„ParkShield“, 20 € / year incl. 19 % MwSt., one vehicle**, everything
+  included (owner decision 2026-11-21; Plus/Premium and Business were dropped).
 - Privacy is the product: servers in Germany/EU, no ads, no tracking, data minimisation by design.
 
 The full specification (requirements with IDs such as `SC-`, `OW-`, `NT-`, `AD-`, `US-`) is in
@@ -71,7 +70,7 @@ npm workspaces + Turborepo. Node.js 24+, TypeScript everywhere.
 ### Inside `apps/api/src`
 
 One folder per domain module: `auth` (magic link + passkeys), `billing` (Stripe, invoices, refunds,
-credit notes), `channels` (push, SMS, e-mail set-up), `contacts` (trusted contacts, escalation settings, the `/k/…` contact link), `app` (native app API: sign-in, devices, alerts, photos), `chat` (Socket.io gateway and live chat),
+credit notes), `channels` (push, SMS, e-mail set-up), `app` (native app API: sign-in, devices, alerts, photos), `chat` (Socket.io gateway and live chat),
 `decal` (layout, SVG and print PDF of the decal), `scan` (scanner page API, alert creation),
 `notifications` (dispatch, replies, escalation, follow-ups), `moderation` (text filter, word lists),
 `preferences` (quiet hours, channel order, vehicle modes), `history`, `orders` (decal print orders),
@@ -172,7 +171,7 @@ product works offline. Production refuses to start with fakes (unless `APP_ENV=c
 
 | Provider                       | Env vars                                                                                                | Fake behaviour                          |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| Stripe (payments)              | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PLUS_YEARLY`, `STRIPE_PRICE_PREMIUM_YEARLY` | `/dev/checkout` simulates payment       |
+| Stripe (payments)              | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_YEARLY` (20 €), `STRIPE_PRICE_MONTHLY` (fallback) | `/dev/checkout` simulates payment       |
 | E-mail: Mailjet (default)      | `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, `MAIL_FROM` (tracking off per message)                         | `/dev/postfach` inbox                   |
 | E-mail: Brevo (optional)       | `MAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `MAIL_FROM`                                                     | `/dev/postfach` inbox                   |
 | E-mail: SendGrid (optional)    | `MAIL_PROVIDER=sendgrid`, `SENDGRID_API_KEY`, `SENDGRID_REGION` (`global`/`eu`), `MAIL_FROM`            | `/dev/postfach` inbox                   |
@@ -213,8 +212,9 @@ Put the printed `whsec_…` into `STRIPE_WEBHOOK_SECRET`.
 Stripe account settings the code relies on (test mode and live, set once per account):
 
 - Use a test key (`sk_test_…`) locally, never a live or restricted live key (`rk_live_…`).
-- `STRIPE_PRICE_*` are **price** IDs (`price_…`), not product IDs (`prod_…`): yearly, EUR, Plus
-  10.00 and Premium 15.00, **tax behaviour inclusive** (checkout uses `automatic_tax`).
+- `STRIPE_PRICE_*` are **price** IDs (`price_…`), not product IDs (`prod_…`): `STRIPE_PRICE_YEARLY` =
+  yearly, EUR 20.00, **tax behaviour inclusive** (checkout uses `automatic_tax`); it must match the
+  setting `prices.plan_year_cents`. The 3 € print is a one-time payment without a price ID.
 - Stripe Tax active with the German head office and a **registration for Germany** (otherwise
   invoices show 0 € VAT instead of the included 19 %).
 - Customer portal saved, with payment method, billing details and invoice history on and
@@ -226,7 +226,7 @@ Stripe account settings the code relies on (test mode and live, set once per acc
 
 SMS (NT-07) go through the same Twilio account: `TWILIO_SMS_FROM` is an alphanumeric sender ID (max.
 11 characters, one-way, no registration needed in Germany), a Twilio number or a Messaging Service SID
-(`MG…`). SMS are PREMIUM only, one GSM-7 segment (≤ 160 characters) with the view link `/v/<token>`;
+(`MG…`). The only alert SMS is the escalation SMS (one per alert, after 30 min), one GSM-7 segment (≤ 160 characters) with the view link `/v/<token>`;
 each one counts against `limits.premium.sms_per_month` and costs `sms.cost_micros`. Status callbacks arrive
 signed at `https://<domain>/v1/webhooks/twilio/sms` (locally only through a tunnel and
 `TWILIO_WEBHOOK_BASE_URL`).
@@ -340,24 +340,25 @@ Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
 
 ### Notifications, escalation, chat and the app (2026-12)
 
-- **Channel matrix** (`planChannels` in `notifications/dispatch.service.ts`): every alert goes to all
-  channels of the plan at once. PLUS = app push (FCM) + browser push + e-mail; PREMIUM adds SMS. E-mail
-  and SMS carry only the view link `/v/<token>` (every alert has one now), never a photo.
-- **App push payload** is generic: title „ParkShield“, the alert type, and `{ alertId, type, kind }`.
-  Never the scanner's text, a photo, the plate, the nickname or a name (FCM is Google). The app loads
-  the rest from `/v1/app/*` with its bearer session.
-- **Seen ≠ acknowledged.** `POST /v1/app/alerts/:id/seen` sets `seen_at` (the scanner sees „gesehen“);
-  only „Ich komme“ (`owner_reply = 'coming'`, or a contact's `acknowledged_by = 'contact_n'`) stops
-  the reminder and the escalation chain.
-- **Owner reminder**: `remind_at` (default +3 min), swept by the worker like `escalate_at`; second push
-  for all, second SMS for PREMIUM, at most `reminder.max_owner_sms` SMS per alert; without any push
-  device an e-mail with the „keine App“ hint. **Opening the chat cancels it** (`ChatService.open` clears
-  `remind_at`; owner decision 2026-11-20), but not the escalation: only „Ich komme“ stops that.
-- **Escalation chain** (PREMIUM, switched on by the owner, per vehicle override): contact 1 → 2 → 3,
-  each after `users.escalation_minutes` (3–30, default 7). The sweeper advances `escalation_step`
-  atomically; plan, switch, contact state and acknowledgement are checked at every step. Contacts
-  get SMS + e-mail with one link `/k/<token>` („Ich komme“, opt-out). Downgrade → contacts
-  deactivated (30 days, then deleted).
+- **App-only alerts** (owner decision 2026-11-21, `planChannels` in `notifications/dispatch.service.ts`):
+  every alert goes to the app by FCM push only. No e-mail for alerts, ever; no browser push for alerts.
+  Mailjet is only for account and contract mails.
+- **App push payload** is generic: title „ParkShield“, a generic body (not even the alert type) and
+  `{ alertId, kind }`. Never the scanner's text, a photo, the plate, the nickname or a name (FCM is
+  Google). The app loads the rest from `/v1/app/*` with its bearer session.
+- **Escalation** (`notifications/owner-reminder.service.ts`): `remind_at` = +10 min
+  (`escalation.reminder_minutes`) → reminder push (`escalation_stage = reminder_sent`); `sms_due_at` =
+  +30 min (`escalation.sms_minutes`) → **one** SMS to the verified number (`sms_sent`, `sms_sent_at`).
+  The worker sweeps both every 5 s; one statement marks the step and queues its outbox event (no double
+  SMS). Never for tests (SMS), never in quiet hours (SMS, even urgent), cap `sms.monthly_cap` (20).
+- **Stop conditions** (`stopEscalation()` in `notifications/escalation.ts`): „Ich komme“, any other
+  reply, opening the chat, an owner chat message, „Absender blockieren“, „Erledigt“
+  (`POST /v1/app/alerts/:id/resolve`). **Seen ≠ reaction:** `POST /v1/app/alerts/:id/seen` sets
+  `seen_at` only.
+- **Trusted contacts are gone** (2026-11-21): module, pages (`/k/…`, `/notfallkontakt`) and data
+  removed; the empty `emergency_contacts` table stays until a clean-up migration.
+- **Block sender** (`HistoryService.block`, `POST /v1/app/alerts/:id/block`, `POST /v1/alerts/:id/block`):
+  chat closed at once (`close_reason = 'blocked'`), escalation stopped, existing abuse module report.
 - **Live chat**: Socket.io on the public API, namespace `/chat`, path `/v1/socket.io` **without a
   trailing slash** (Next.js would redirect `/v1/socket.io/`). Scanner auth = alert id + chat token
   (URL fragment, handshake payload only); owner auth = app session. Locked until the owner opens it;
@@ -484,7 +485,7 @@ Also:
 - [ ] **Lawyer review:** AGB, Datenschutzerklärung, Widerrufsbelehrung, and the withdrawal formula
       (Wertersatz per started day; printed decal valued via setting
       `refunds.custom_decal_cost_cents`, currently 2.50 €).
-- [ ] **Stripe:** live/test keys, the two yearly prices (Plus 10 €, Premium 15 €, tax-inclusive),
+- [ ] **Stripe:** live/test keys, the yearly price (20 €, tax-inclusive, `STRIPE_PRICE_YEARLY`),
       webhook secret.
 - [ ] **Friendly Captcha:** account, sitekey and API key.
 - [ ] **Twilio (SMS):** Twilio account, sender ID, status callback URL (needs hosting or a tunnel).

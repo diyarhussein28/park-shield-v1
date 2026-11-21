@@ -6,6 +6,11 @@ the table `legal_texts` (change = new version, no deploy); the legal pages are i
 
 ## 1. Renewal for consumers (§ 309 Nr. 9 BGB) — decide first
 
+> **Approved 2026-11-21:** the owner reports that the lawyer approved the yearly renewal
+> (`RENEWAL_MODE_B2C = ANNUAL`: year by year unless cancelled before the end of the term). All
+> existing subscriptions were moved to `annual` (migration `20261206000000_single_plan`). Keep the
+> written approval with the contract documents.
+
 - Setting `renewal.mode_b2c`: **`annual` (default, owner decision 2026-11-18)** or
   `monthly_after_first_term`. `annual` renews by 12 months and is charged once a year; a cancellation
   takes effect at the end of the running 12-month period, with no refund of the rest. **Risk:** for
@@ -337,3 +342,62 @@ TODO [LEGAL REVIEW]:
   immediate-start declaration stay visible directly above „Zahlungspflichtig bestellen“; only the
   withdrawal notice with its link, the AGB/privacy links and the voucher field are folded under
   „Vertrag, Verlängerung und Widerruf“. Is folding these acceptable?
+
+## 9. Single plan, app-only alerts, SMS escalation, Sperren, print (2026-11-21)
+
+Owner decisions of 2026-11-21 (`docs/handover.md` §1, task `docs/single-plan-update-prompt.md`).
+
+### Single plan (20 € / year incl. 19 % MwSt.)
+
+- One all-inclusive plan instead of Plus (10 €) and Premium (15 €): one vehicle, app push alerts,
+  reminder, SMS escalation, alert photos, chat, one free printed decal (welcome print).
+- **Price change of existing contracts:** every existing subscription (test subscriptions only, nobody
+  was live) was moved to the 20 € plan by the migration. For real customers a price increase needs
+  their consent (no unilateral price adjustment clause in the AGB) — do not repeat this after launch.
+- Texts: AGB § 1 and § 3, English summary (`packages/shared/src/legal-content.ts`), pricing page,
+  checkout, contract confirmation, welcome letter plan lines (`landing.planF1..6`).
+
+### Mobile number required (escalation SMS)
+
+- Required at sign-up, verified with an SMS code (Twilio Verify) and checked to be a mobile number
+  (Twilio Lookup), DE + EU by default (`owner_phone.countries`). Stored encrypted, shown masked;
+  changing it needs a new code; it cannot be removed while the account exists.
+- Legal basis proposed: Art. 6(1)(b) DSGVO (performance of the contract: the SMS escalation is part
+  of the service). Privacy policy §3 text drafted in `legal-content.ts` (`TODO [LEGAL REVIEW]`).
+- Twilio Lookup/Verify as processor: see §4.5; the owner's number now goes to Lookup and Verify too.
+
+### App-only alerts and the single SMS
+
+- No e-mail for alerts any more (Mailjet only for account and contract mails). App push payload: a
+  generic text and `{ alertId, kind }` only (FCM is a Google service).
+- Without a reaction: reminder push after 10 min, one SMS after 30 min (GSM-7, ≤ 160 characters, link
+  to the view page on park-shield.de). Never during quiet hours (owner decision), never for test
+  alerts, at most `sms.monthly_cap` (20) per month.
+- Trusted contacts („Vertrauenspersonen“) were removed completely; their data was deleted
+  (migration `20261206000100_owner_escalation`). Remove the section from the privacy policy and the
+  AGB; §7 „Trusted contacts“ above is obsolete.
+
+### Contract screen: withdrawal button (§ 356a BGB)
+
+- The app's and portal's contract card („Vertrag“) shows „Vertrag widerrufen“ prominently while the
+  withdrawal period runs (`withdrawalOpenUntil`), next to „Vertrag hier kündigen“; afterwards only the
+  cancellation part. The public `/widerruf` page and the footer link are unchanged. Please confirm this
+  meets „ständig verfügbar, hervorgehoben, leicht zugänglich“ for the app as the interface where the
+  contract was concluded.
+
+### Sperren and print orders
+
+- „Sperren“ deactivates the code at once and creates no replacement; a new code is free and explicit.
+- Self-printing is always free (PDF 80 × 80 mm with cut marks, PNG, SVG).
+- „Drucken und zusenden lassen“: free once (welcome print in the first year), then **3 € one-time**
+  incl. MwSt. (Stripe, setting `prices.print_shipped_cents`). **Open:** is there a right of withdrawal
+  for this order, or does § 312g Abs. 2 Nr. 1 BGB (goods made to the consumer's specifications — the
+  decal carries a personal code) exclude it? Until decided the order is treated like any other
+  one-time purchase (`TODO [LEGAL REVIEW]` in `apps/api/src/orders/orders.service.ts`).
+
+### Block sender
+
+- „Absender blockieren“ (alert card, detail, chat, history) ends the chat at once, cancels the
+  escalation and uses only the existing abuse module (server-side `scanner_ref`/`block_ref`, phone ban
+  for confirmed senders, Protected Mode); no fingerprinting, cookies or client-side storage. The
+  scanner only sees „Der Chat wurde beendet.“
