@@ -169,22 +169,22 @@ security key). Staff sign in with passkeys only; further staff are invited from 
 Every external provider has a **fake adapter** that is used while its key is empty, so the whole
 product works offline. Production refuses to start with fakes (unless `APP_ENV=ci`).
 
-| Provider                       | Env vars                                                                                                | Fake behaviour                          |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| Provider                       | Env vars                                                                                                      | Fake behaviour                          |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | Stripe (payments)              | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_YEARLY` (20 €), `STRIPE_PRICE_MONTHLY` (fallback) | `/dev/checkout` simulates payment       |
-| E-mail: Mailjet (default)      | `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, `MAIL_FROM` (tracking off per message)                         | `/dev/postfach` inbox                   |
-| E-mail: Brevo (optional)       | `MAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `MAIL_FROM`                                                     | `/dev/postfach` inbox                   |
-| E-mail: SendGrid (optional)    | `MAIL_PROVIDER=sendgrid`, `SENDGRID_API_KEY`, `SENDGRID_REGION` (`global`/`eu`), `MAIL_FROM`            | `/dev/postfach` inbox                   |
-| SMS (Twilio)                   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` (sender ID, number or `MG…`)               | SMS in `/dev/postfach`                  |
-| Scanner phone check (Twilio)   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` (`VA…`, Fraud Guard on)          | code in `/dev/postfach`; prod: off      |
-| App push (Firebase FCM)        | `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, `FCM_PRIVATE_KEY` (service account of the Firebase project)       | pushes in `/dev/postfach` (App-Push)    |
-| App links (website)            | `APP_IOS_TEAM_ID`, `APP_IOS_BUNDLE_ID`, `APP_ANDROID_PACKAGE`, `APP_ANDROID_SHA256` (web app env)       | empty `/.well-known/*` files            |
-| Friendly Captcha               | `FRIENDLY_CAPTCHA_SITEKEY`, `FRIENDLY_CAPTCHA_API_KEY`, `NEXT_PUBLIC_FRIENDLY_CAPTCHA_SITEKEY`          | "Sicherheitsprüfung: lokal simuliert"   |
-| Print partner                  | `PRINT_PARTNER` (`manual` until a partner adapter exists)                                               | orders written to `.local/print-outbox` |
-| Audit bucket (S3, Object Lock) | `AUDIT_BUCKET`, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`                            | files in `.local/audit-bucket`          |
-| Zammad (support desk)          | `ZAMMAD_URL`, `ZAMMAD_TOKEN`, `ZAMMAD_GROUP`                                                            | tickets stored locally                  |
-| Support by e-mail (instead)    | `SUPPORT_PROVIDER=email`, `SUPPORT_EMAIL`                                                               | tickets stored locally                  |
-| Better Stack heartbeat         | `HEARTBEAT_URL_WORKER`                                                                                  | no ping                                 |
+| E-mail: Mailjet (default)      | `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, `MAIL_FROM` (tracking off per message)                               | `/dev/postfach` inbox                   |
+| E-mail: Brevo (optional)       | `MAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `MAIL_FROM`                                                           | `/dev/postfach` inbox                   |
+| E-mail: SendGrid (optional)    | `MAIL_PROVIDER=sendgrid`, `SENDGRID_API_KEY`, `SENDGRID_REGION` (`global`/`eu`), `MAIL_FROM`                  | `/dev/postfach` inbox                   |
+| SMS (Twilio)                   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` (sender ID, number or `MG…`)                     | SMS in `/dev/postfach`                  |
+| Scanner phone check (Twilio)   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` (`VA…`, Fraud Guard on)                | code in `/dev/postfach`; prod: off      |
+| App push (Firebase FCM)        | `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, `FCM_PRIVATE_KEY` (service account of the Firebase project)             | pushes in `/dev/postfach` (App-Push)    |
+| App links (website)            | `APP_IOS_TEAM_ID`, `APP_IOS_BUNDLE_ID`, `APP_ANDROID_PACKAGE`, `APP_ANDROID_SHA256` (web app env)             | empty `/.well-known/*` files            |
+| Friendly Captcha               | `FRIENDLY_CAPTCHA_SITEKEY`, `FRIENDLY_CAPTCHA_API_KEY`, `NEXT_PUBLIC_FRIENDLY_CAPTCHA_SITEKEY`                | "Sicherheitsprüfung: lokal simuliert"   |
+| Print partner                  | `PRINT_PARTNER` (`manual` until a partner adapter exists)                                                     | orders written to `.local/print-outbox` |
+| Audit bucket (S3, Object Lock) | `AUDIT_BUCKET`, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`                                  | files in `.local/audit-bucket`          |
+| Zammad (support desk)          | `ZAMMAD_URL`, `ZAMMAD_TOKEN`, `ZAMMAD_GROUP`                                                                  | tickets stored locally                  |
+| Support by e-mail (instead)    | `SUPPORT_PROVIDER=email`, `SUPPORT_EMAIL`                                                                     | tickets stored locally                  |
+| Better Stack heartbeat         | `HEARTBEAT_URL_WORKER`                                                                                        | no ping                                 |
 
 WhatsApp and the Business plan were removed (2026-12, migration `20261201000000_app_notifications_chat`).
 Production without every provider account: `PRINT_PARTNER=manual` writes print
