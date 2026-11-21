@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { api, ApiError } from '@/lib/api';
+import { decalChanged } from '@/lib/decal';
 import { t } from '@/lib/i18n';
 import { errorText, type PortalVehicle } from '@/lib/portal';
 import { radius, space, type as typeScale, useTheme } from '@/theme/tokens';
@@ -28,6 +29,7 @@ export function NoCodeCard({
     setError(null);
     try {
       await onCreated(await api<PortalVehicle>(`/v1/vehicles/${vehicle.id}/tokens`, { body: {} }));
+      decalChanged();
     } catch (err) {
       // Created meanwhile (another device): just show the current state.
       if (err instanceof ApiError && err.body?.error === 'code_active') await onCreated(null);

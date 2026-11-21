@@ -9,17 +9,11 @@ import { NoCodeCard } from '@/components/no-code';
 import { VehicleForm, type VehicleInput } from '@/components/vehicle-forms';
 import { Banner, Button, Chip, EmptyState, P, Screen, Section, useTheme } from '@/components/ui';
 import { api, ApiError, authHeaders } from '@/lib/api';
-import { API_URL } from '@/lib/config';
+import { decalPreviewUrl, onDecalChange } from '@/lib/decal';
 import { t } from '@/lib/i18n';
 import { errorText, type PortalVehicle, type SubscriptionSummary } from '@/lib/portal';
 import { pt, type MessageKey } from '@/lib/portal-i18n';
 import { radius, space, type as typeScale } from '@/theme/tokens';
-
-const thumb = (v: PortalVehicle) =>
-  `${API_URL}/v1/vehicles/${v.id}/decal.svg?${new URLSearchParams({
-    template: v.decal!.template,
-    cta: v.decal!.cta,
-  })}`;
 
 /**
  * Fahrzeuge (web: /konto/fahrzeuge): one card per vehicle with its QR code (or „Kein aktiver Code“
@@ -59,6 +53,8 @@ export default function Vehicles() {
       void load();
     }, [load]),
   );
+  // A saved design, a blocked or a new code shows at once (Stage 4.3).
+  useEffect(() => onDecalChange(() => void load()), [load]);
 
   const add = async (v: VehicleInput) => {
     setError(null);
@@ -102,7 +98,7 @@ export default function Vehicles() {
           <View style={[s.thumb, { borderColor: c.border }]}>
             {v.decal && v.decal.status !== 'revoked' && headers ? (
               <Image
-                source={{ uri: thumb(v), headers }}
+                source={{ uri: decalPreviewUrl(v)!, headers }}
                 contentFit="contain"
                 style={s.thumbImage}
                 accessible={false}

@@ -14,6 +14,7 @@ import { Field, H3, Segmented } from '@/components/form';
 import { Banner, Button, Loading, P, Screen } from '@/components/ui';
 import { api, ApiError, authHeaders } from '@/lib/api';
 import { API_URL } from '@/lib/config';
+import { decalChanged } from '@/lib/decal';
 import { t } from '@/lib/i18n';
 import { errorText, type PortalVehicle } from '@/lib/portal';
 import { pt, type MessageKey } from '@/lib/portal-i18n';
@@ -84,6 +85,8 @@ export default function DecalDesign() {
         method: 'PUT',
         body: { template, cta },
       });
+      // Start, Fahrzeuge and the vehicle page reload now, not after a tab switch (Stage 4.3).
+      decalChanged();
       router.back();
     } catch (err) {
       const blocked = err instanceof ApiError && err.body?.error === 'cta_not_allowed';

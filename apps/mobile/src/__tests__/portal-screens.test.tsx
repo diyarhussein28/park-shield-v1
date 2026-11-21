@@ -307,7 +307,7 @@ describe('vehicle detail', () => {
     await render(<VehicleDetail />);
     const [hero] = await screen.findAllByTestId('decal-image');
     expect(hero!.props.children).toBe(
-      `https://api.test/v1/vehicles/${VEHICLE}/decal.svg?template=classic&cta=Bitte+scannen+bei+Problemen|Bearer ${SESSION}|${pt('portal.qrAlt', { nickname: 'Der Blaue' })}`,
+      `https://api.test/v1/vehicles/${VEHICLE}/decal.svg?template=classic&cta=Bitte+scannen+bei+Problemen&k=t1|Bearer ${SESSION}|${pt('portal.qrAlt', { nickname: 'Der Blaue' })}`,
     );
     expect(screen.getByText(pt('decalTest.never'))).toBeTruthy();
   });
@@ -341,8 +341,13 @@ describe('vehicle detail', () => {
   });
 
   it('„Sperren“ explains what happens, revokes the code and creates NO new one', async () => {
+    let current = vehicle();
     routes({
-      [`POST /v1/vehicles/${VEHICLE}/tokens/revoke`]: () => json(vehicle({ decal: null })),
+      [`GET /v1/vehicles/${VEHICLE}`]: () => json(current),
+      [`POST /v1/vehicles/${VEHICLE}/tokens/revoke`]: () => {
+        current = vehicle({ decal: null });
+        return json(current);
+      },
     });
     const ask = jest
       .spyOn(Alert, 'alert')

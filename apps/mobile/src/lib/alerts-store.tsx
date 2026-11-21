@@ -42,10 +42,7 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AlertList | null>(null);
   const [error, setError] = useState(false);
   const [blocked, setBlocked] = useState<ReadonlySet<string>>(new Set());
-  const markBlocked = useCallback(
-    (id: string) => setBlocked((b) => new Set([...b, id])),
-    [],
-  );
+  const markBlocked = useCallback((id: string) => setBlocked((b) => new Set([...b, id])), []);
 
   const reload = useCallback(async () => {
     try {

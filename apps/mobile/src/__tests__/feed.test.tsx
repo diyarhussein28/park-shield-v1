@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AlertsProvider } from '@/lib/alerts-store';
+import { decalChanged } from '@/lib/decal';
 import { t } from '@/lib/i18n';
 import { pt } from '@/lib/portal-i18n';
 import { setSession } from '@/lib/session';
@@ -26,6 +27,19 @@ jest.mock('@/lib/auth', () => ({ useAuth: () => ({ signedIn: true }) }));
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children: unknown }) => children,
 }));
+jest.mock('@/lib/profile', () => ({
+  useOptionalProfile: () => ({ data: { profile: { firstName: 'Kim' } } }),
+}));
+// No car photo stored on this device: the illustration.
+jest.mock('@/lib/vehicle-photo', () => ({ vehiclePhoto: () => null }));
+jest.mock('expo-image', () => {
+  const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    Image: (p: { testID?: string; source: { uri: string } }) => (
+      <Text testID={p.testID}>{p.source.uri}</Text>
+    ),
+  };
+});
 
 const alert = (over: Partial<AlertListItem> = {}): AlertListItem => ({
   id: 'a1',
@@ -125,18 +139,69 @@ beforeEach(async () => {
 });
 
 describe('Start (Home)', () => {
-  it('open alerts come first, with how long ago and „Ich komme“ right on the card (P1)', async () => {
+  it('no alert cards on Home (Stage 4.1): one link to the Warnungen tab with the count', async () => {
     api({ alerts: [alert(), alert({ id: 'a2', acknowledged: true })] });
     await show();
-    const cards = await screen.findAllByTestId('open-alert');
-    expect(cards).toHaveLength(1);
-    expect(screen.getByText('„Blue“ · vor 2 Min.')).toBeTruthy();
-    await fireEvent.press(screen.getByTestId('home-coming'));
-    await waitFor(() =>
-      expect(calls).toContainEqual({ path: '/v1/app/alerts/a1/ack', body: { reply: 'coming' } }),
+    const link = await screen.findByTestId('home-alerts-link');
+    expect(link.props.accessibilityLabel).toBe(t('homeOpenAlertsLink', { count: 1 }));
+    expect(screen.queryByTestId('open-alert')).toBeNull();
+    expect(screen.queryByTestId('home-coming')).toBeNull();
+    expect(screen.queryByText('Fahrzeug versperrt Ausfahrt')).toBeNull();
+    await fireEvent.press(link);
+    expect(mockNavigate).toHaveBeenCalledWith('/alerts');
+  });
+
+  it('greets by first name; the car card shows the decal with „Ansehen / Testen“ and „Design bearbeiten“', async () => {
+    api({});
+    await show();
+    expect(await screen.findByText('Hallo Kim')).toBeTruthy();
+    expect(screen.getByTestId('home-decal-image').props.children).toBe(
+      'https://api.test/v1/vehicles/v1/decal.svg?template=classic&cta=Bitte+scannen&k=t1',
     );
-    // QA: the card does not just vanish; the owner sees that „Ich komme“ was sent.
-    expect(await screen.findByTestId('coming-sent')).toBeTruthy();
+    expect(screen.getByText(pt('decal.template_classic'))).toBeTruthy();
+    expect(screen.getByText('„Bitte scannen“')).toBeTruthy();
+    expect(screen.getByText(pt('vehicles.status_assigned'))).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('home-view'));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/fahrzeug/[id]', params: { id: 'v1' } });
+    await fireEvent.press(screen.getByTestId('home-design'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/fahrzeug/design/[id]',
+      params: { id: 'v1' },
+    });
+  });
+
+  it('a tap on the car opens the photo picker screen', async () => {
+    api({});
+    await show();
+    await fireEvent.press(await screen.findByTestId('car'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/fahrzeug/foto/[id]',
+      params: { id: 'v1', nickname: 'Blue' },
+    });
+  });
+
+  it('a plan that ends shows its end date as the status', async () => {
+    api({ sub: subscription({ cancelAtPeriodEnd: true }) });
+    await show();
+    expect(await screen.findByText(t('homeEnding', { date: '19. November 2027' }))).toBeTruthy();
+  });
+
+  it('a saved design shows at once, without leaving Home (Stage 4.3)', async () => {
+    let current = vehicle;
+    api({});
+    const base = global.fetch as jest.Mock;
+    global.fetch = jest.fn((url: string, init?: object) =>
+      url.endsWith('/v1/vehicles')
+        ? Promise.resolve({ ok: true, status: 200, json: async () => ({ vehicles: [current] }) })
+        : base(url, init),
+    ) as unknown as typeof fetch;
+    await show();
+    await screen.findByText('„Bitte scannen“');
+    current = { ...vehicle, decal: { ...decal, template: 'bold', cta: 'Neu' } };
+    // What „Design speichern“ calls after the API accepted the new design.
+    await act(async () => decalChanged());
+    expect(await screen.findByText('„Neu“')).toBeTruthy();
+    expect(screen.getByTestId('home-decal-image').props.children).toContain('template=bold');
   });
 
   it('without a plan: the car and one button to the plans, no three-step explainer (P9)', async () => {
@@ -206,7 +271,9 @@ describe('Start (Home)', () => {
     api({ vehicles: [{ ...vehicle, decal: null }], done: false });
     await show();
     expect(await screen.findByText(t('noCodeTitle'))).toBeTruthy();
-    expect(screen.queryByTestId('home-status')).toBeNull();
+    // The status says so too; no decal preview without a code.
+    expect(screen.getByText(t('noCodeChip'))).toBeTruthy();
+    expect(screen.queryByTestId('home-decal')).toBeNull();
     await fireEvent.press(screen.getByTestId('new-code'));
     await waitFor(() => expect(calls).toContainEqual({ path: '/v1/vehicles/v1/tokens', body: {} }));
   });

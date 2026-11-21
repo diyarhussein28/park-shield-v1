@@ -1,6 +1,6 @@
 import { ADDON_PRICES_CENTS } from '@parkshield/shared/plans';
 import { Image } from 'expo-image';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, StyleSheet, View } from 'react-native';
 import { Badge, Choice, H3 } from '@/components/form';
@@ -11,7 +11,13 @@ import { VehicleForm } from '@/components/vehicle-forms';
 import { Banner, Button, Card, Loading, P, Screen, Title, useTheme } from '@/components/ui';
 import { api, authHeaders } from '@/lib/api';
 import { API_URL } from '@/lib/config';
-import { printDecalPdf, shareDecalPdf } from '@/lib/decal';
+import {
+  decalChanged,
+  decalPreviewUrl,
+  onDecalChange,
+  printDecalPdf,
+  shareDecalPdf,
+} from '@/lib/decal';
 import { lang, t } from '@/lib/i18n';
 import {
   errorText,
@@ -23,9 +29,6 @@ import {
   type VehicleProtection,
 } from '@/lib/portal';
 import { pt, type MessageKey } from '@/lib/portal-i18n';
-
-const svg = (id: string, q: Record<string, string>) =>
-  `${API_URL}/v1/vehicles/${id}/decal.svg?${new URLSearchParams(q)}`;
 
 /**
  * One vehicle, like the website's vehicle page: its QR code (print PDF, test) or „Kein aktiver Code“,
@@ -62,9 +65,15 @@ export default function VehicleDetail() {
   }, [id]);
 
   useEffect(() => {
-    void load();
     void authHeaders().then(setHeaders);
-  }, [load]);
+  }, []);
+  // Again when coming back from the design screen, and at once on any decal change (Stage 4.3).
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+  useEffect(() => onDecalChange(() => void load()), [load]);
 
   if (!v || !headers)
     return error ? (
@@ -218,7 +227,7 @@ function QrHero({ vehicle, headers }: { vehicle: PortalVehicle; headers: Record<
       {decal.status !== 'revoked' && (
         <View style={[s.decal, { borderColor: c.border }]}>
           <Image
-            source={{ uri: svg(vehicle.id, { template: decal.template, cta: decal.cta }), headers }}
+            source={{ uri: decalPreviewUrl(vehicle)!, headers }}
             contentFit="contain"
             style={s.square}
             accessibilityLabel={pt('portal.qrAlt', { nickname: vehicle.nickname })}
@@ -489,7 +498,10 @@ function RevokeCard({
             void api<PortalVehicle>(`/v1/vehicles/${vehicle.id}/tokens/revoke`, {
               body: { confirm: true, reason },
             })
-              .then(onRevoked)
+              .then((v) => {
+                onRevoked(v);
+                decalChanged();
+              })
               .catch((err) => setError(errorText(err))),
         },
       ],

@@ -52,29 +52,33 @@ export function AlertCard({
   const urgent = a.severity === 'urgent';
   const type = lang() === 'en' ? a.type.en : a.type.de;
   return (
-    <View style={[s.wrap, { backgroundColor: c.surface, borderColor: urgent ? c.urgent : c.border }]}>
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${type}, ${a.vehicle.nickname}, ${statusLabel(a)}`}
-      style={({ pressed }) => [s.card, { opacity: pressed ? 0.85 : 1 }]}
+    <View
+      style={[s.wrap, { backgroundColor: c.surface, borderColor: urgent ? c.urgent : c.border }]}
     >
-      {urgent && <View testID="urgent-stripe" style={[s.stripe, { backgroundColor: c.urgent }]} />}
-      <AlertTypeIcon code={a.type.code} urgent={urgent} size={24} />
-      <View style={s.text}>
-        <View style={s.head}>
-          <Text style={[typeScale.body, s.type, { color: c.fg }]}>{type}</Text>
-          <Text style={[typeScale.caption, { color: c.muted }]}>{time(a.createdAt)}</Text>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${type}, ${a.vehicle.nickname}, ${statusLabel(a)}`}
+        style={({ pressed }) => [s.card, { opacity: pressed ? 0.85 : 1 }]}
+      >
+        {urgent && (
+          <View testID="urgent-stripe" style={[s.stripe, { backgroundColor: c.urgent }]} />
+        )}
+        <AlertTypeIcon code={a.type.code} urgent={urgent} size={24} />
+        <View style={s.text}>
+          <View style={s.head}>
+            <Text style={[typeScale.body, s.type, { color: c.fg }]}>{type}</Text>
+            <Text style={[typeScale.caption, { color: c.muted }]}>{time(a.createdAt)}</Text>
+          </View>
+          <Text style={[typeScale.label, { color: c.muted, fontWeight: '400' }]}>
+            „{a.vehicle.nickname}“{a.photoCount ? ` · ${t('photos', { count: a.photoCount })}` : ''}
+          </Text>
+          <View style={s.chips}>
+            <Chip tone={statusTone(a)}>{statusLabel(a)}</Chip>
+            {a.isTest && <Chip tone="neutral">{t('test')}</Chip>}
+          </View>
         </View>
-        <Text style={[typeScale.label, { color: c.muted, fontWeight: '400' }]}>
-          „{a.vehicle.nickname}“{a.photoCount ? ` · ${t('photos', { count: a.photoCount })}` : ''}
-        </Text>
-        <View style={s.chips}>
-          <Chip tone={statusTone(a)}>{statusLabel(a)}</Chip>
-          {a.isTest && <Chip tone="neutral">{t('test')}</Chip>}
-        </View>
-      </View>
-    </Pressable>
+      </Pressable>
       {!a.isTest && (blocked || onBlocked) && (
         <View style={s.actions}>
           {blocked ? (

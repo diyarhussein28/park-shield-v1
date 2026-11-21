@@ -169,7 +169,7 @@ export async function ownerWithActiveDecal(
 ): Promise<string> {
   await signUp(page, request, email);
   await page.getByLabel(/Ich verlange ausdrücklich/).check();
-  await page.getByRole('button', { name: 'Zahlungspflichtig bestellen' }).click();
+  await page.getByRole('button', { name: /Zahlungspflichtig bestellen/ }).click();
   await page.getByRole('button', { name: 'Testzahlung ausführen' }).click();
   await expect(page.getByText(/^Vertragsnummer: PS-/)).toBeVisible({ timeout: 15_000 });
   await page.goto('/konto/fahrzeuge');
@@ -264,7 +264,35 @@ export async function completeProfile(page: Page) {
   await page.getByLabel('Postleitzahl').fill('50667');
   await page.getByLabel('Ort', { exact: true }).fill('Köln');
   await page.getByRole('button', { name: 'Speichern und weiter' }).click();
-  await expect(page.getByRole('button', { name: 'Zahlungspflichtig bestellen' })).toBeVisible({
+  await verifyPhone(page);
+}
+
+/**
+ * The mobile number is required before the checkout (2026-11-21): a unique German mobile number per
+ * call (tests run in parallel), the 6-digit code from the local SMS inbox (fake Twilio Verify).
+ */
+export async function verifyPhone(page: Page) {
+  const local = `2${String(Date.now()).slice(-6)}${Math.floor(Math.random() * 10)}`;
+  const e164 = `+49151${local}`;
+  const field = page.getByLabel('Handynummer', { exact: true });
+  await expect(field).toBeVisible({ timeout: 15_000 });
+  await field.fill(`0151 ${local}`);
+  await page.getByRole('button', { name: 'Code per SMS senden' }).click();
+  let code = '';
+  await expect
+    .poll(
+      async () => {
+        const res = await page.request.get(`${API_URL}/v1/dev/sms`);
+        const { messages } = (await res.json()) as { messages: { to: string; body: string }[] };
+        code = /(\d{6})/.exec(messages.find((m) => m.to === e164)?.body ?? '')?.[1] ?? '';
+        return code;
+      },
+      { timeout: 15_000 },
+    )
+    .not.toBe('');
+  await page.getByLabel('6-stelliger Code').fill(code);
+  await page.getByRole('button', { name: 'Bestätigen' }).click();
+  await expect(page.getByRole('button', { name: /Zahlungspflichtig bestellen/ })).toBeVisible({
     timeout: 15_000,
   });
 }

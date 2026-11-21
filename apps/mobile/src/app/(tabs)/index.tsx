@@ -1,43 +1,53 @@
+import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CarArt } from '@/components/art';
+import { CarPicture } from '@/components/car-picture';
 import { Icon } from '@/components/icons';
 import { NoCodeCard } from '@/components/no-code';
-import { isOpen, OpenAlertCard } from '@/components/open-alert-card';
+import { quoted } from '@/components/open-alert-card';
 import { PushOffBanner } from '@/components/push-warning';
 import { PastDue } from '@/components/subscription';
 import { Banner, Button, Chip } from '@/components/ui';
-import { api } from '@/lib/api';
-import { openAlertCount, useAlerts } from '@/lib/alerts-store';
+import { api, authHeaders } from '@/lib/api';
+import { useAlerts } from '@/lib/alerts-store';
 import { HAS_FIREBASE } from '@/lib/config';
+import { decalPreviewUrl, onDecalChange } from '@/lib/decal';
 import { t } from '@/lib/i18n';
-import type { PortalVehicle, Protection, SubscriptionSummary } from '@/lib/portal';
+import {
+  longDate,
+  type PortalVehicle,
+  type Protection,
+  type SubscriptionSummary,
+} from '@/lib/portal';
+import { pt, type MessageKey } from '@/lib/portal-i18n';
 import { getFlag, setFlag } from '@/lib/prefs';
+import { useOptionalProfile } from '@/lib/profile';
 import { setupSteps, setupSummary } from '@/lib/setup';
+import { vehiclePhoto } from '@/lib/vehicle-photo';
 import { radius, space, type as typeScale, useTheme } from '@/theme/tokens';
 
 /**
- * Start (Home, §5.1): open alerts first, then the protection status with the car, then one compact
- * set-up step with one button. The three-step explainer lives in the onboarding only (P9).
+ * Start (Home, Stage 4.1): „Hallo {Vorname}“, then the car (the owner's own photo or the
+ * illustration; a tap picks a photo) with its protection status (protected, steps left, no active
+ * code, plan ending), the current QR decal in small (style, headline, status) with „Ansehen /
+ * Testen“ and „Design bearbeiten“, and one set-up step. Alerts are not listed here any more: they
+ * live in the Warnungen tab with its badge; Home only links there.
  */
 export default function Home() {
   const c = useTheme();
   const router = useRouter();
-  const { data, error, reload } = useAlerts();
+  const { data, error, reload, open } = useAlerts();
+  const firstName = useOptionalProfile()?.data?.profile?.firstName?.trim();
   const [refreshing, setRefreshing] = useState(false);
   const [sub, setSub] = useState<SubscriptionSummary | null | undefined>(undefined);
   const [protection, setProtection] = useState<Protection | null>(null);
   const [vehicles, setVehicles] = useState<PortalVehicle[] | null>(null);
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [headers, setHeaders] = useState<Record<string, string> | null>(null);
   const [hidden, setHidden] = useState(true);
-  // „Ich komme“ from a card: a short confirmation instead of a card that silently disappears.
-  const [answered, setAnswered] = useState(false);
-  useEffect(() => {
-    if (!answered) return;
-    const id = setTimeout(() => setAnswered(false), 6000);
-    return () => clearTimeout(id);
-  }, [answered]);
 
   const load = useCallback(async () => {
     void reload();
@@ -52,20 +62,48 @@ export default function Home() {
       ]);
       setProtection(p);
       setVehicles(v.vehicles);
+      const car = v.vehicles[0];
+      setPhoto(car ? vehiclePhoto(car.id) : null);
     }
     setHidden(await getFlag('setupDismissed'));
   }, [reload]);
 
+  useEffect(() => {
+    void authHeaders().then(setHeaders);
+  }, []);
+  // On focus (back from the photo or design screen) and at once when a decal changes (Stage 4.3).
   useFocusEffect(
     useCallback(() => {
       void load();
     }, [load]),
   );
+  useEffect(() => onDecalChange(() => void load()), [load]);
 
-  const open = (data?.alerts ?? []).filter(isOpen);
   const steps = protection && vehicles ? setupSteps(protection, vehicles) : null;
   const summary = steps ? setupSummary(steps) : null;
   const first = vehicles?.[0] ?? null;
+  const decal = first?.decal ?? null;
+  const preview = first ? decalPreviewUrl(first) : null;
+  const ending = sub?.cancelAtPeriodEnd && sub.currentPeriodEnd ? sub.currentPeriodEnd : null;
+
+  // The status pill: no active code beats everything, then a plan that ends, then the set-up steps.
+  const status: { tone: 'ok' | 'warn' | 'urgent'; text: string } | null =
+    first && summary
+      ? !decal
+        ? { tone: 'urgent', text: t('noCodeChip') }
+        : ending
+          ? { tone: 'warn', text: t('homeEnding', { date: longDate(ending) }) }
+          : summary.complete
+            ? { tone: 'ok', text: t('homeProtected') }
+            : { tone: 'warn', text: t('homeStepsLeft', { count: summary.left }) }
+      : null;
+  const title = first
+    ? !decal
+      ? quoted(first.nickname)
+      : summary?.complete
+        ? t('homeProtectedTitle', { nickname: first.nickname })
+        : t('homeAlmostTitle', { nickname: first.nickname })
+    : '';
 
   return (
     <SafeAreaView style={[s.flex, { backgroundColor: c.bg }]} edges={['left', 'right']}>
@@ -84,40 +122,15 @@ export default function Home() {
           />
         }
       >
+        <Text accessibilityRole="header" style={[typeScale.title, { color: c.fg }]} testID="hello">
+          {firstName ? t('homeHello', { name: firstName }) : t('homeHelloNoName')}
+        </Text>
         {error && <Banner tone="err">{t('offline')}</Banner>}
-        {answered && (
-          <Banner tone="ok" testID="coming-sent">
-            {t('comingDone')}
-          </Banner>
-        )}
-
-        {open.length > 0 && (
-          <View style={s.section}>
-            <Text
-              accessibilityRole="header"
-              style={[typeScale.caption, s.kicker, { color: c.urgent }]}
-            >
-              {t('homeOpenAlerts', { count: openAlertCount(open) }).toUpperCase()}
-            </Text>
-            {open.map((a) => (
-              <OpenAlertCard
-                key={a.id}
-                alert={a}
-                onAnswered={(sent) => {
-                  if (sent) setAnswered(true);
-                  void reload();
-                }}
-              />
-            ))}
-          </View>
-        )}
 
         {sub?.status === 'past_due' && <PastDue />}
         {/* Alerts are push only: without it the first sign is the SMS after 30 minutes. No
             automatic permission prompt here (P6): the banner only asks on its button. */}
         {sub && <PushOffBanner pushReady={data?.pushReady} onChanged={reload} />}
-
-        {sub && first && !first.decal && <NoCodeCard vehicle={first} onCreated={() => load()} />}
 
         {sub === null && (
           <View
@@ -150,44 +163,107 @@ export default function Home() {
           </View>
         )}
 
-        {sub && vehicles && first?.decal && summary && (
-          <Pressable
+        {sub && first && !decal && <NoCodeCard vehicle={first} onCreated={() => load()} />}
+
+        {sub && first && status && (
+          <View
             testID="home-status"
-            accessibilityRole="button"
-            accessibilityLabel={`${
-              summary.complete
-                ? t('homeProtectedTitle', { nickname: first.nickname })
-                : t('homeAlmostTitle', { nickname: first.nickname })
-            }, ${summary.complete ? t('homeProtected') : t('homeStepsLeft', { count: summary.left })}`}
-            onPress={() => router.push({ pathname: '/fahrzeug/[id]', params: { id: first.id } })}
-            style={({ pressed }) => [
-              s.hero,
-              { backgroundColor: c.surface, borderColor: c.border, opacity: pressed ? 0.9 : 1 },
-            ]}
+            style={[s.hero, { backgroundColor: c.surface, borderColor: c.border }]}
           >
-            <CarArt width={260} protectedBadge={summary.complete} />
-            <Text style={[typeScale.title, s.center, { color: c.fg }]}>
-              {summary.complete
-                ? t('homeProtectedTitle', { nickname: first.nickname })
-                : t('homeAlmostTitle', { nickname: first.nickname })}
-            </Text>
-            {summary.complete ? (
+            <Pressable
+              testID="car"
+              accessibilityRole="button"
+              accessibilityLabel={t('carPhotoTitle')}
+              accessibilityHint={t('carPhotoHint')}
+              onPress={() =>
+                router.push({
+                  pathname: '/fahrzeug/foto/[id]',
+                  params: { id: first.id, nickname: first.nickname },
+                })
+              }
+              style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+            >
+              <CarPicture
+                uri={photo}
+                nickname={first.nickname}
+                protectedBadge={Boolean(decal) && summary?.complete && !ending}
+              />
+            </Pressable>
+            <Text style={[typeScale.title, s.center, { color: c.fg }]}>{title}</Text>
+            {status.tone === 'ok' ? (
               <View style={[s.badge, { backgroundColor: c.successBg }]}>
                 <Icon name="shieldCheck" size={18} color={c.successFg} />
-                <Text style={[typeScale.label, { color: c.successFg }]}>{t('homeProtected')}</Text>
+                <Text style={[typeScale.label, { color: c.successFg }]}>{status.text}</Text>
               </View>
             ) : (
-              <Chip tone="warn">{t('homeStepsLeft', { count: summary.left })}</Chip>
+              <Chip tone={status.tone}>{status.text}</Chip>
             )}
-            {vehicles.length > 1 && (
+            {first.plate && (
+              <Text style={[typeScale.caption, { color: c.muted }]}>
+                {[first.plate, first.makeModel].filter(Boolean).join(' · ')}
+              </Text>
+            )}
+
+            {decal && preview && (
+              <View testID="home-decal" style={[s.decal, { borderColor: c.border }]}>
+                <View style={[s.thumb, { borderColor: c.border }]}>
+                  {headers && (
+                    <Image
+                      testID="home-decal-image"
+                      source={{ uri: preview, headers }}
+                      contentFit="contain"
+                      style={s.thumbImage}
+                      accessible={false}
+                    />
+                  )}
+                </View>
+                <View style={s.decalText}>
+                  <Text style={[typeScale.label, { color: c.fg }]}>{t('homeDecalTitle')}</Text>
+                  <Text style={[typeScale.caption, { color: c.muted }]}>
+                    {pt(`decal.template_${decal.template}` as MessageKey)}
+                  </Text>
+                  <Text style={[typeScale.caption, { color: c.fg }]} numberOfLines={2}>
+                    {quoted(decal.cta)}
+                  </Text>
+                  <Chip tone={decal.status === 'assigned' ? 'ok' : 'info'}>
+                    {pt(`vehicles.status_${decal.status}` as MessageKey)}
+                  </Chip>
+                </View>
+              </View>
+            )}
+            {decal && (
+              <View style={s.actions}>
+                <View style={s.action}>
+                  <Button
+                    label={t('homeViewTest')}
+                    variant="secondary"
+                    onPress={() =>
+                      router.push({ pathname: '/fahrzeug/[id]', params: { id: first.id } })
+                    }
+                    testID="home-view"
+                  />
+                </View>
+                <View style={s.action}>
+                  <Button
+                    label={t('homeEditDesign')}
+                    variant="secondary"
+                    onPress={() =>
+                      router.push({ pathname: '/fahrzeug/design/[id]', params: { id: first.id } })
+                    }
+                    testID="home-design"
+                  />
+                </View>
+              </View>
+            )}
+            {vehicles && vehicles.length > 1 && (
               <Text style={[typeScale.caption, { color: c.muted }]}>
                 {t('homeMoreCars', { count: vehicles.length - 1 })}
               </Text>
             )}
-          </Pressable>
+          </View>
         )}
 
-        {sub && summary?.next && !hidden && (vehicles?.length ?? 0) > 0 && (
+        {sub && decal && summary?.next && !hidden && (
           <View testID="setup-strip" style={[s.strip, { backgroundColor: c.infoBg }]}>
             <View style={s.stripHead}>
               <Text style={[typeScale.caption, { color: c.infoFg, flex: 1 }]}>
@@ -220,7 +296,16 @@ export default function Home() {
           </View>
         )}
 
-        {sub && data && open.length === 0 && (
+        {/* No alert cards on Home (Stage 4.1): one line, and the badge on the Warnungen tab. */}
+        {sub && data && open > 0 && (
+          <Button
+            label={t('homeOpenAlertsLink', { count: open })}
+            variant="ghost"
+            onPress={() => router.navigate('/alerts')}
+            testID="home-alerts-link"
+          />
+        )}
+        {sub && data && open === 0 && (
           <View style={s.quiet}>
             <Icon name="shieldCheck" size={20} color={c.muted} />
             <Text style={[typeScale.label, { color: c.muted, fontWeight: '400' }]}>
@@ -242,10 +327,6 @@ export default function Home() {
 const s = StyleSheet.create({
   flex: { flex: 1 },
   body: { padding: space.lg, gap: space.lg, paddingBottom: space.xxxl },
-  section: { gap: space.md },
-  kicker: { letterSpacing: 0.8, fontWeight: '800' },
-  alert: { borderWidth: 2, borderRadius: radius.lg, padding: space.lg, gap: space.md },
-  alertHead: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 44 },
   hero: {
     borderWidth: 1,
     borderRadius: radius.lg + 4,
@@ -262,6 +343,27 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
   },
+  decal: {
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    gap: space.md,
+    borderTopWidth: 1,
+    paddingTop: space.md,
+  },
+  thumb: {
+    width: 84,
+    height: 84,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  thumbImage: { width: 76, height: 76 },
+  decalText: { flex: 1, gap: 4, alignItems: 'flex-start' },
+  actions: { alignSelf: 'stretch', flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  action: { flexGrow: 1, flexBasis: 140 },
   strip: { borderRadius: radius.lg, padding: space.lg, gap: space.sm },
   stripHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   quiet: { flexDirection: 'row', gap: space.sm, alignItems: 'center', justifyContent: 'center' },

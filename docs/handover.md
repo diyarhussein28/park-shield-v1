@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-21 19:40 UTC (5-hour limit was hit at ~18:00 and reset; API tests and app screens resumed). Latest WIP commit on main: e24195b._
+_Last updated: 2026-11-21 20:10 UTC. API tests green (505). Website and app stage 1–2 done. Real-user run on the local stack passed (see §4b). App stage 3–4 in progress; E2E suite being updated._
 
 ---
 
@@ -184,6 +184,19 @@ committed to this public repo). Ask the owner for them if you need the pixels. V
   cards + tab badge, on-device vehicle photo with expo-image-picker, design refresh after
   „Design speichern“), E2E updates for phone-before-checkout / Sperren dialog / removed pages, a full
   manual run of the stack as a real user.
+
+## 4b. Real-user run on the local stack (2026-11-21, Playwright script, 390 px)
+
+All passed: landing shows 20 €/Jahr and no Plus/Premium → sign-up by magic link → name/address →
+landline rejected („Festnetz- und Internetnummern können keine SMS empfangen“) → mobile number
+verified with the SMS code → „Zahlungspflichtig bestellen – 20 € / Jahr“ → subscription `standard`,
+`annual`, 365 days → `/konto/abo` shows „Vertrag widerrufen“ during the period, no Premium → one
+vehicle, add form hidden → test alert → real alert: `remind_at` +10 min, `sms_due_at` +30 min, no SMS
+and no e-mail at alert time → reminder stage → exactly one SMS (157 chars, GSM-7, view link) → still no
+alert e-mail → „Absender blockieren“ in the history: chat `closed|blocked`, stop reason `blocked`,
+scanner page shows „Der Chat wurde beendet.“ → Sperren dialog with the exact four facts → no active
+code, warning shown, old code scans as inactive → „Neuen Code erstellen“ → print section: self-print
+free (80 × 80 mm with cut marks), shipped „kostenlos (Willkommensdruck)“ → PDF/PNG/SVG downloads 200.
 
 ## 5. Next steps (in order)
 

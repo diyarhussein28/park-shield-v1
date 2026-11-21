@@ -105,6 +105,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         isAccessMediaLocationEnabled: false,
       },
     ],
+    // The car photo on Start (Stage 4.2): picked from the library, kept on the device only, never
+    // uploaded. No camera, no microphone.
+    [
+      'expo-image-picker',
+      {
+        photosPermission:
+          'ParkShield zeigt ein Foto Ihres Autos auf der Startseite. Das Foto bleibt nur auf diesem Gerät und wird nie hochgeladen.',
+        cameraPermission: false,
+        microphonePermission: false,
+      },
+    ],
     // React Native Firebase 27 resolves the Firebase iOS SDK through Swift Package Manager, which
     // only links with dynamic frameworks (static: duplicate symbols; `pod install` refuses it,
     // https://rnfirebase.io/ios-spm). Expo keeps its own modules static by itself.
