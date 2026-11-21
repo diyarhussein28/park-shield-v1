@@ -17,4 +17,6 @@ to-do list. Read it before changing anything. The live go-live state and team ru
   reached, what is still to do, and the designs and styles still to build, so another team member (or
   agent) can continue from there. An agent cannot see the usage meter, so it keeps
   `docs/handover.md` current with **every** commit instead of waiting for the limit.
-- Answers to the owner in Arabic, code and docs in English (German UI texts as specified).
+- **Always answer the owner in Arabic** — every reply, even when the owner's message or command
+  contains no Arabic at all (English text, a pasted error, a screenshot, a single command). Code,
+  commit messages and docs stay in English; German UI texts as specified.
