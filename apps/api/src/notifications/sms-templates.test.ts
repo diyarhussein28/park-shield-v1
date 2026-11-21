@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fcmBody } from '../providers/fcm';
 import { appPushText, APP_ALERT_CATEGORY } from './push-texts';
-import { isGsm7, SMS_SEGMENT_MAX, smsInviteText, smsLinkText, type LinkSmsKind } from './sms-texts';
+import { isGsm7, SMS_SEGMENT_MAX, smsLinkText, type LinkSmsKind } from './sms-texts';
 
 const LABELS = {
   de: [
@@ -27,8 +27,6 @@ const LABELS = {
 const T43 = 'AbC123dEf456gHi789jKl012mNo345pQr678sTu901v';
 const URLS = [
   `https://park-shield.de/v/${T43}`,
-  `https://park-shield.de/k/${T43}`,
-  `https://park-shield.de/notfallkontakt#t=${T43}`,
   `http://localhost:3000/v/${T43}`,
 ];
 const LABELS_VEHICLE = [
@@ -44,7 +42,6 @@ const KINDS: LinkSmsKind[] = [
   'followup',
   'test',
   'escalation',
-  'invite',
 ];
 
 describe('every SMS template: one GSM-7 segment, at most 160 characters including the link', () => {
@@ -68,17 +65,12 @@ describe('every SMS template: one GSM-7 segment, at most 160 characters includin
     expect(checked).toBe(2 * KINDS.length * 7 * LABELS_VEHICLE.length * URLS.length);
   });
 
-  it('the invitation names the owner by first name, transliterated, and fits too', () => {
-    for (const name of ['Jonas', 'Jürgen-Maximilian von Hohenzollern-Sigmaringen', '']) {
-      for (const lang of ['de', 'en'] as const) {
-        const t = smsInviteText(lang, name, `https://park-shield.de/notfallkontakt#t=${T43}`);
-        expect(t.length, t).toBeLessThanOrEqual(SMS_SEGMENT_MAX);
-        expect(isGsm7(t), t).toBe(true);
-      }
-    }
+  it('the escalation SMS says there was no reaction for 30 minutes', () => {
     expect(
-      smsInviteText('de', 'Jürgen', `https://park-shield.de/notfallkontakt#t=${T43}`),
-    ).toContain('Juergen moechte Sie als Vertrauensperson');
+      smsLinkText('de', 'escalation', 'Licht brennt noch', 'Der Blaue', `https://park-shield.de/v/${T43}`),
+    ).toBe(
+      `ParkShield, seit 30 Min keine Reaktion: Licht brennt noch (Der Blaue). Details: park-shield.de/v/${T43}`,
+    );
   });
 
   it('matches the example of the spec', () => {
@@ -99,7 +91,7 @@ describe('app push payload (FCM is a Google service)', () => {
     const body = fcmBody({
       token: 'device-token',
       ...appPushText('de', 'alert', 'Fahrzeug versperrt Ausfahrt'),
-      data: { alertId: '00000000-0000-4000-8000-000000000000', type: 'blocking', kind: 'alert' },
+      data: { alertId: '00000000-0000-4000-8000-000000000000', kind: 'alert' },
       category: APP_ALERT_CATEGORY,
       urgent: true,
       ttlSeconds: 7200,
@@ -107,9 +99,11 @@ describe('app push payload (FCM is a Google service)', () => {
     });
     expect(body.message.notification).toEqual({
       title: 'ParkShield',
-      body: 'Neuer Alarm für Ihr Fahrzeug: Fahrzeug versperrt Ausfahrt',
+      body: 'Neue Warnung zu Ihrem Fahrzeug. Tippen Sie für Details.',
     });
-    expect(Object.keys(body.message.data).sort()).toEqual(['alertId', 'kind', 'type']);
+    // Generic since 2026-11-21: not even the alert type.
+    expect(Object.keys(body.message.data).sort()).toEqual(['alertId', 'kind']);
+    expect(JSON.stringify(body)).not.toMatch(/versperrt|Ausfahrt|blocking/);
     expect(body.message.android.priority).toBe('HIGH');
     expect(body.message.apns.headers['apns-priority']).toBe('10');
     expect(body.message.apns.payload.aps['interruption-level']).toBe('time-sensitive');

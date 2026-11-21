@@ -12,6 +12,7 @@ import {
   resetState,
   signIn,
   subscribe as subscribeWith,
+  verifyPhone,
   type Harness,
   type Session,
 } from '../test/harness';
@@ -23,30 +24,24 @@ beforeAll(async () => {
 afterAll(() => h.close());
 beforeEach(() => resetState(h));
 
-async function checkout(s: Session, payload: Record<string, unknown>) {
+async function checkout(s: Session, payload: Record<string, unknown>, phone = true) {
   await completeProfile(h, s);
+  if (phone) await verifyPhone(h, s);
   return h.app.inject({ method: 'POST', url: '/v1/billing/checkout', headers: s.headers, payload });
 }
 
 const subscribe = (email: string, promoCode?: string) => subscribeWith(h, email, promoCode);
 
-describe('plans (US-04)', () => {
-  it('lists Plus €10 purchasable and Premium €15 shown but not yet purchasable; no Business plan', async () => {
+describe('plans (US-04, single plan since 2026-11-21)', () => {
+  it('lists the one plan at 20 € a year; no Plus, Premium or Business', async () => {
     const res = await h.app.inject({ method: 'GET', url: '/v1/plans' });
     expect(res.json()).toEqual([
       {
-        code: 'plus',
-        name: 'ParkShield Plus',
+        code: 'standard',
+        name: 'ParkShield',
         availability: 'available',
-        priceYearGrossCents: 1000,
+        priceYearGrossCents: 2000,
         purchasable: true,
-      },
-      {
-        code: 'premium',
-        name: 'ParkShield Premium',
-        availability: 'available',
-        priceYearGrossCents: 1500,
-        purchasable: false,
       },
     ]);
   });
@@ -59,21 +54,41 @@ describe('annual checkout (US-06)', () => {
     expect((await checkout(s, { plan: 'plus', immediateStart: false })).statusCode).toBe(400);
   });
 
-  it('does not sell Premium before Phase 2', async () => {
-    const s = await signIn(h, 'aylin@example.de');
-    const res = await checkout(s, {
-      plan: 'premium',
-      immediateStart: true,
-      immediateStartVersion: 1,
-      termsVersion: 1,
-    });
-    expect(res.json()).toMatchObject({ error: 'plan_unavailable' });
+  it('maps an old client’s plan „plus“ or „premium“ to the single plan at 20 €', async () => {
+    for (const [email, plan] of [
+      ['aylin@example.de', 'premium'],
+      ['old-client@example.de', 'plus'],
+    ] as const) {
+      const s = await signIn(h, email);
+      const res = await checkout(s, {
+        plan,
+        immediateStart: true,
+        immediateStartVersion: 1,
+        termsVersion: 1,
+      });
+      expect(res.statusCode, res.body).toBe(200);
+      const sessionId = new URL(res.json().url).searchParams.get('session')!;
+      const session = await h.app.inject({
+        method: 'GET',
+        url: `/v1/dev/payments/sessions/${sessionId}`,
+      });
+      expect(session.json().amountCents).toBe(2000);
+    }
+  });
+
+  it('needs a verified mobile number (409 phone_required)', async () => {
+    const s = await signIn(h, 'nophone@example.de');
+    const payload = { immediateStart: true, immediateStartVersion: 1, termsVersion: 1 };
+    const refused = await checkout(s, payload, false);
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json()).toEqual({ error: 'phone_required' });
+    expect((await checkout(s, payload)).statusCode).toBe(200);
   });
 
   it('gives no access before payment, then activates with a contract number and welcome mail', async () => {
     const s = await signIn(h, 'jonas@example.de');
     await checkout(s, {
-      plan: 'plus',
+      plan: 'standard',
       immediateStart: true,
       immediateStartVersion: 1,
       termsVersion: 1,
@@ -86,7 +101,7 @@ describe('annual checkout (US-06)', () => {
     expect(before.json()).toEqual({ subscription: null, hadSubscription: false });
 
     const res = await checkout(s, {
-      plan: 'plus',
+      plan: 'standard',
       immediateStart: true,
       immediateStartVersion: 1,
       termsVersion: 1,
@@ -96,7 +111,7 @@ describe('annual checkout (US-06)', () => {
       method: 'GET',
       url: `/v1/dev/payments/sessions/${sessionId}`,
     });
-    expect(amount.json().amountCents).toBe(1000);
+    expect(amount.json().amountCents).toBe(2000);
     await h.app.inject({
       method: 'POST',
       url: '/v1/dev/payments/complete',
@@ -109,7 +124,7 @@ describe('annual checkout (US-06)', () => {
       headers: { cookie: s.cookie },
     });
     const sub = after.json().subscription;
-    expect(sub).toMatchObject({ plan: 'plus', status: 'active', cancelAtPeriodEnd: false });
+    expect(sub).toMatchObject({ plan: 'standard', status: 'active', cancelAtPeriodEnd: false });
     expect(sub.contractNo).toMatch(/^PS-[0-9A-HJKMNP-TV-Z]{8}$/);
     const days = (new Date(sub.currentPeriodEnd).getTime() - Date.now()) / 86_400_000;
     expect(Math.round(days)).toBe(365); // annual only
@@ -146,7 +161,7 @@ describe('annual checkout (US-06)', () => {
     expect(
       (
         await checkout(s, {
-          plan: 'plus',
+          plan: 'standard',
           immediateStart: true,
           immediateStartVersion: 1,
           termsVersion: 1,
@@ -158,7 +173,7 @@ describe('annual checkout (US-06)', () => {
   it('applies billing events exactly once', async () => {
     const s = await signIn(h, 'twice@example.de');
     const res = await checkout(s, {
-      plan: 'plus',
+      plan: 'standard',
       immediateStart: true,
       immediateStartVersion: 1,
       termsVersion: 1,
@@ -191,7 +206,7 @@ describe('annual checkout (US-06)', () => {
     expect(
       (
         await checkout(s, {
-          plan: 'plus',
+          plan: 'standard',
           immediateStart: true,
           immediateStartVersion: 1,
           termsVersion: 1,
@@ -202,7 +217,7 @@ describe('annual checkout (US-06)', () => {
       error: 'promo_invalid',
     });
     const res = await checkout(s, {
-      plan: 'plus',
+      plan: 'standard',
       immediateStart: true,
       immediateStartVersion: 1,
       termsVersion: 1,
@@ -212,7 +227,7 @@ describe('annual checkout (US-06)', () => {
     expect(
       (await h.app.inject({ method: 'GET', url: `/v1/dev/payments/sessions/${sessionId}` })).json()
         .amountCents,
-    ).toBe(500);
+    ).toBe(1000);
     await h.app.inject({
       method: 'POST',
       url: '/v1/dev/payments/complete',
@@ -230,7 +245,7 @@ describe('annual checkout (US-06)', () => {
     expect(
       (
         await checkout(late, {
-          plan: 'plus',
+          plan: 'standard',
           immediateStart: true,
           immediateStartVersion: 1,
           termsVersion: 1,
@@ -248,7 +263,7 @@ describe('annual checkout (US-06)', () => {
       headers: { cookie: s.cookie },
     });
     const [invoice] = res.json().invoices;
-    expect(invoice).toMatchObject({ totalCents: 1000, pdfUrl: expect.stringMatching(/\.pdf$/) });
+    expect(invoice).toMatchObject({ totalCents: 2000, pdfUrl: expect.stringMatching(/\.pdf$/) });
     const pdf = await h.app.inject({ method: 'GET', url: invoice.pdfUrl });
     expect(pdf.headers['content-type']).toBe('application/pdf');
     expect(pdf.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');
@@ -466,7 +481,7 @@ describe('back from Checkout without the webhook (US-06)', () => {
     const payments = h.app.get<FakePayments>(PAYMENTS);
     const s = await signIn(h, 'return@example.de');
     const res = await checkout(s, {
-      plan: 'plus',
+      plan: 'standard',
       immediateStart: true,
       immediateStartVersion: 1,
       termsVersion: 1,
@@ -513,7 +528,7 @@ describe('back from Checkout without the webhook (US-06)', () => {
 
 describe('paying inside the native app (Stripe returns through /app/zurueck)', () => {
   const app = 'exp://192.168.178.25:8082/--/zurueck';
-  const consent = { plan: 'plus', immediateStart: true, immediateStartVersion: 1, termsVersion: 1 };
+  const consent = { plan: 'standard', immediateStart: true, immediateStartVersion: 1, termsVersion: 1 };
 
   it('sends Stripe back to the bounce page with the app address, the result and the session id', async () => {
     const payments = h.app.get<FakePayments>(PAYMENTS);

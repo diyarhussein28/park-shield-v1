@@ -1,4 +1,3 @@
-import { createECDH, randomBytes } from 'node:crypto';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import type { Redis } from 'ioredis';
 import { sql } from 'kysely';
@@ -10,11 +9,14 @@ import { createLogger } from '../core/logger';
 import { CRYPTO, VALKEY } from '../core/tokens';
 import { DispatchService } from '../notifications/dispatch.service';
 import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
-import { PUSH, type PushSender } from '../providers/ports';
 import { StaffService } from '../ops/staff.service';
 import {
+  appPushes,
   createHarness,
+  escalationDue,
   mailbox,
+  registerAppDevice,
+  runEscalation,
   resetState,
   setSetting,
   subscribe,
@@ -251,42 +253,9 @@ describe('Protected Mode (abuse protection §4)', () => {
   it('unconfirmed content never reaches any notification channel; the type goes out at once', async () => {
     const { s, v, code } = await owner();
     await setProtection(s, v.id, true);
-    // Every channel: push device, SMS number, WhatsApp is template-only, e-mail.
-    const ecdh = createECDH('prime256v1');
-    ecdh.generateKeys();
-    // SMS is PREMIUM only (channel matrix).
-    await h.db.updateTable('subscriptions').set({ plan: 'premium' }).execute();
-    const sub = await h.app.inject({
-      method: 'POST',
-      url: '/v1/push-subscriptions',
-      headers: s.headers,
-      payload: {
-        endpoint: 'http://127.0.0.1:9/ok/1',
-        keys: {
-          p256dh: ecdh.getPublicKey().toString('base64url'),
-          auth: randomBytes(16).toString('base64url'),
-        },
-      },
-    });
-    expect(sub.statusCode).toBeLessThan(300);
-    await h.db
-      .insertInto('contact_channels')
-      .values({
-        user_id: (await h.db.selectFrom('users').select('id').executeTakeFirstOrThrow()).id,
-        type: 'sms',
-        address_enc: crypto.encrypt('+4915199988877'),
-        address_bidx: crypto.blindIndex('+4915199988877'),
-        is_enabled: true,
-        verified_at: new Date(),
-        opted_in_at: new Date(),
-      } as never)
-      .execute();
-    const push = h.app.get<PushSender>(PUSH);
-    const pushed: string[] = [];
-    vi.spyOn(push, 'send').mockImplementation(async (_t, payload) => {
-      pushed.push(payload);
-      return { statusCode: 201 };
-    });
+    // Channels since 2026-11-21: app push at once, the escalation SMS after 30 minutes (subscribe()
+    // verified a number). No e-mail for alerts.
+    await registerAppDevice(h, 'owner@example.de');
 
     const res = await send(code, { type: 'custom', message: SECRET_TEXT });
     expect(res.statusCode).toBe(201);
@@ -298,22 +267,18 @@ describe('Protected Mode (abuse protection §4)', () => {
     expect(row.verified_phone_hash).toBeNull();
     expect(row.custom_message_enc).not.toBeNull(); // stored, only hidden
 
-    // Urgent, so the dispatcher uses every channel at once.
-    await sql`UPDATE alerts SET severity = 'urgent'`.execute(h.db);
     await h.app.get(DispatchService).dispatch(res.json().alertId);
+    await escalationDue(h);
+    expect(await runEscalation(h)).toEqual({ reminders: 1, sms: 1 });
 
-    const mails = (await mailbox(h)).filter((m) => m.tag === 'alert_received');
-    const sms = (await smsInbox()).filter((m) => m.tag === 'sms_alert');
-    expect(mails).toHaveLength(1);
+    const pushes = await appPushes(h);
+    const sms = (await smsInbox()).filter((m) => m.tag === 'sms_escalation');
+    expect(pushes.map((p) => p.body.message.data.kind).sort()).toEqual(['alert', 'reminder']);
     expect(sms).toHaveLength(1);
-    expect(pushed).toHaveLength(1);
-    const everything = JSON.stringify([mails, sms, pushed]);
-    expect(everything).not.toContain('Hausnummer 12');
-    expect(mails[0]!.text).toContain(
-      'Nachricht von nicht bestätigtem Absender – ansehen in ParkShield',
-    );
-    expect(sms[0]!.body).toContain('nicht bestaetigtem Absender');
-    expect(pushed[0]).toContain('nicht bestätigtem Absender');
+    expect((await mailbox(h)).filter((m) => m.tag.startsWith('alert_'))).toHaveLength(0);
+    expect(JSON.stringify([pushes, sms])).not.toContain('Hausnummer 12');
+    // The hint is shortened to fit one segment with the long local link (park-shield.de is shorter).
+    expect(sms[0]!.body).toContain('Nachricht von nicht best');
 
     // Portal: hidden behind "Anzeigen", which returns the text on request.
     const list = (
@@ -349,10 +314,11 @@ describe('Protected Mode (abuse protection §4)', () => {
     // Only the HMAC is stored, never the number.
     const dump = JSON.stringify(await sql`SELECT * FROM alerts`.execute(h.db));
     expect(dump).not.toMatch(/15111122233|0151/);
-    await h.app.get(DispatchService).dispatch(res.json().alertId);
-    expect((await mailbox(h)).find((m) => m.tag === 'alert_received')!.text).toContain(
-      'Hausnummer 12',
-    );
+    // A confirmed sender's text is shown in the app (never in the push itself).
+    const list = (
+      await h.app.inject({ method: 'GET', url: '/v1/alerts', headers: s.headers })
+    ).json();
+    expect(list.alerts[0]).toMatchObject({ message: SECRET_TEXT, hiddenContent: false });
   });
 
   it('a token for another decal or past its time counts as unconfirmed, the alert still goes out', async () => {

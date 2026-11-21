@@ -14,9 +14,10 @@ import { DEV_SMS_KEY } from '../providers/twilio-sms';
 import {
   appSignIn,
   createHarness,
-  makePremium,
-  lastMail,
+  escalationDue,
+  mailbox,
   resetState,
+  runEscalation,
   setSetting,
   subscribe,
   type Harness,
@@ -46,7 +47,6 @@ afterAll(async () => {
 beforeEach(async () => {
   await resetState(h);
   await rm(MEDIA_DIR, { recursive: true, force: true });
-  // Photos are a per-plan setting; its default (migration 20261203000000_photos_all_plans) is both plans.
 });
 
 const jpeg = (color = '#3366cc') =>
@@ -94,11 +94,10 @@ interface Owner {
 }
 
 let n = 0;
-/** A paying owner with one vehicle; Premium unless `plan` says otherwise (owner SMS need Premium). */
-async function owner(plan: 'plus' | 'premium' = 'premium'): Promise<Owner> {
+/** A paying owner (single plan, verified mobile number) with one vehicle. */
+async function owner(): Promise<Owner> {
   const email = `photos${n++}@example.de`;
   const session = await subscribe(h, email);
-  if (plan === 'premium') await makePremium(h, email);
   const v = (
     await h.app.inject({
       method: 'POST',
@@ -118,24 +117,6 @@ async function owner(plan: 'plus' | 'premium' = 'premium'): Promise<Owner> {
     .where('email', '=', email)
     .executeTakeFirstOrThrow();
   return { email, session, userId: user.id, vehicleId: v.id, code: crypto.decrypt(t.code_enc) };
-}
-
-async function phoneChannels(userId: string) {
-  for (const type of ['sms'] as const) {
-    const number = '+4915199988877';
-    await h.db
-      .insertInto('contact_channels')
-      .values({
-        user_id: userId,
-        type,
-        address_enc: crypto.encrypt(number),
-        address_bidx: crypto.blindIndex(number),
-        is_enabled: true,
-        verified_at: new Date(),
-        opted_in_at: new Date(),
-      } as never)
-      .execute();
-  }
 }
 
 const scan = (
@@ -158,9 +139,8 @@ const files = async () => (existsSync(MEDIA_DIR) ? await readdir(MEDIA_DIR) : []
 const VIEW = /\/v\/([A-Za-z0-9_-]{43})/;
 
 describe('alert photos (Phase 2)', () => {
-  it('scan → 2 photos → the same view link in e-mail and SMS → report abuse → photos gone', async () => {
+  it('scan → 2 photos → the view link in the escalation SMS → report abuse → photos gone', async () => {
     const o = await owner();
-    await phoneChannels(o.userId);
     const scanner = nextIp();
     const res = await scan(
       o.code,
@@ -195,15 +175,14 @@ describe('alert photos (Phase 2)', () => {
       (rows[0]!.expires_at.getTime() - rows[0]!.created_at.getTime()) / 86_400_000;
     expect(Math.round(expiresInDays)).toBe(30);
 
-    // Every channel carries the same view link, and only the link.
+    // No e-mail for alerts (2026-11-21); the escalation SMS after 30 minutes carries the view link only.
     await h.app.get(DispatchService).dispatch(alertId);
-    const mail = await lastMail(h, 'alert_received_photos');
-    expect(mail).toBeDefined();
-    const token = VIEW.exec(mail!.text)![1]!;
-    expect(mail!.html).not.toContain('<img');
-    expect(mail!.text).toContain(`/v/${token}?melden=1`);
+    await escalationDue(h, 'sms');
+    await runEscalation(h);
+    expect((await mailbox(h)).filter((m) => m.tag.startsWith('alert_'))).toHaveLength(0);
     const sms = JSON.parse((await h.valkey.lrange(DEV_SMS_KEY, 0, 0))[0]!);
-    expect(VIEW.exec(sms.body)![1]).toBe(token);
+    expect(sms.tag).toBe('sms_escalation');
+    const token = VIEW.exec(sms.body)![1]!;
     expect(sms.body.length).toBeLessThanOrEqual(160);
     // Only the hash of the token is stored.
     const tokenRow = await h.db
@@ -299,32 +278,16 @@ describe('alert photos (Phase 2)', () => {
     expect(other.json().photos).toEqual({ stored: 0, rejected: 1, reason: 'not_available' });
   });
 
-  it('both plans get photos by default (owner decision 2026-11-20); the setting can narrow it', async () => {
-    const setting = await h.db
-      .selectFrom('app_settings')
-      .select('value')
-      .where('key', '=', 'photos.plans')
-      .executeTakeFirstOrThrow();
-    expect(setting.value).toEqual(['plus', 'premium']);
-    for (const plan of ['plus', 'premium'] as const) {
-      const o = await owner(plan);
-      const page = (await h.app.inject({ method: 'GET', url: `/v1/scan/${o.code}` })).json();
-      expect(page.photos, plan).toBe(true);
-      const res = await scan(o.code, [{ name: 'a.jpg', type: 'image/jpeg', data: await jpeg() }]);
-      expect(res.statusCode, plan).toBe(201);
-      expect(res.json().photos, plan).toEqual({ stored: 1, rejected: 0 });
-    }
-    // Ops can still narrow it to one plan: a Plus owner then gets no photo box and no photos.
-    await setSetting(h, 'photos.plans', ['premium']);
-    const plus = await owner('plus');
-    const page = (await h.app.inject({ method: 'GET', url: `/v1/scan/${plus.code}` })).json();
-    expect(page.photos).toBe(false);
-    const res = await scan(plus.code, [{ name: 'a.jpg', type: 'image/jpeg', data: await jpeg() }]);
+  it('the single plan includes photos (no plan setting any more)', async () => {
+    const o = await owner();
+    const page = (await h.app.inject({ method: 'GET', url: `/v1/scan/${o.code}` })).json();
+    expect(page.photos).toBe(true);
+    const res = await scan(o.code, [{ name: 'a.jpg', type: 'image/jpeg', data: await jpeg() }]);
     expect(res.statusCode).toBe(201);
-    expect(res.json().photos).toEqual({ stored: 0, rejected: 1, reason: 'not_available' });
+    expect(res.json().photos).toEqual({ stored: 1, rejected: 0 });
   });
 
-  it('never blocks the alert: wrong plan, renamed files and invalid images only drop photos', async () => {
+  it('never blocks the alert: renamed files and invalid images only drop photos', async () => {
     const o = await owner();
     const page = (await h.app.inject({ method: 'GET', url: `/v1/scan/${o.code}` })).json();
     expect(page.photos).toBe(true);
@@ -335,13 +298,6 @@ describe('alert photos (Phase 2)', () => {
     ]);
     expect(mixed.statusCode).toBe(201);
     expect(mixed.json().photos).toEqual({ stored: 1, rejected: 1, reason: 'invalid' });
-
-    await setSetting(h, 'photos.plans', ['plus']);
-    const page2 = (await h.app.inject({ method: 'GET', url: `/v1/scan/${o.code}` })).json();
-    expect(page2.photos).toBe(false);
-    const res = await scan(o.code, [{ name: 'a.jpg', type: 'image/jpeg', data: await jpeg() }]);
-    expect(res.statusCode).toBe(201);
-    expect(res.json().photos).toEqual({ stored: 0, rejected: 1, reason: 'not_available' });
     expect(await files()).toHaveLength(1);
   });
 
@@ -415,7 +371,7 @@ describe('alert photos (Phase 2)', () => {
   });
 
   it('the app shows the photos with its session and „Missbrauch melden“ there deletes them', async () => {
-    const o = await owner('plus');
+    const o = await owner();
     const res = await scan(o.code, [
       { name: 'a.jpg', type: 'image/jpeg', data: await jpeg() },
       { name: 'b.jpg', type: 'image/jpeg', data: await jpeg('#c33') },

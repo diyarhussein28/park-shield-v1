@@ -47,8 +47,6 @@ const de = {
   reveal: 'Anzeigen',
   coming: 'Ich komme',
   comingDone: 'Sie haben „Ich komme“ gesendet. Die Person am Fahrzeug sieht das.',
-  comingByContact: '{name} kümmert sich darum.',
-  comingByContactNoName: 'Eine Vertrauensperson kümmert sich darum.',
   in30: 'In ca. 30 Min',
   notNearby: 'Bin nicht in der Nähe',
   savePhoto: 'Speichern',
@@ -61,7 +59,6 @@ const de = {
   senderOnline: 'Absender ist gerade online',
   senderOffline: 'Absender ist nicht mehr online (zuletzt vor {minutes} Min.)',
   senderOfflineNever: 'Absender ist nicht online',
-  escalationStep: 'Vertrauensperson {step} von 3 benachrichtigt: {name}',
   // chat
   chatTitle: 'Chat',
   chatClose: 'Erledigt / Chat schließen',
@@ -81,41 +78,14 @@ const de = {
   // settings
   notifications: 'Mitteilungen',
   notificationsOn: 'Mitteilungen sind eingeschaltet.',
-  escalationTitle: 'Eskalation an Vertrauenspersonen',
-  escalationLocked: 'Verfügbar im Premium-Tarif',
-  escalationText:
-    'Reagieren Sie nicht, benachrichtigen wir nacheinander bis zu 3 Vertrauenspersonen per SMS und E-Mail.',
-  escalationSuggest:
-    'Eine Vertrauensperson hat zugestimmt. Möchten Sie die Eskalation jetzt einschalten?',
-  escalationDelay: 'Wartezeit: {minutes} Minuten',
-  escalationVehicle: 'Für dieses Fahrzeug',
-  contacts: 'Vertrauenspersonen',
-  contactsEmpty: 'Noch keine Vertrauenspersonen.',
-  contactAdd: 'Vertrauensperson einladen',
-  contactName: 'Vorname',
-  contactPhone: 'Handynummer',
-  contactEmail: 'E-Mail-Adresse (optional)',
-  ownerName: 'Ihr Vorname (sieht die Person in der Einladung)',
-  contactInvite: 'Einladung senden',
-  contactRemove: 'Entfernen',
-  contactUp: 'Nach oben',
-  contactStatus_pending: 'Eingeladen',
-  contactStatus_confirmed: 'Bestätigt',
-  contactStatus_declined: 'Abgelehnt',
-  contactStatus_deactivated: 'Deaktiviert (Tarif)',
-  contactStatus_revoked: 'Zurückgezogen',
   help: 'Hilfe',
   helpText:
     'Fragen zu ParkShield beantwortet die Hilfe auf park-shield.de. Bei Problemen mit Mitteilungen prüfen Sie den Fokus-Modus und die Mitteilungen für ParkShield in den Einstellungen Ihres Handys.',
   helpOpen: 'Hilfe öffnen',
   vehiclesNone:
     'Noch keine Fahrzeuge. Legen Sie Ihr erstes Fahrzeug an, sein QR-Code wird sofort erstellt.',
-  decalNone:
-    'Für dieses Fahrzeug gibt es gerade keinen gültigen QR-Code. Einen neuen erhalten Sie im Kundenportal.',
   vehicleAddHint:
     'Spitzname und Kennzeichen genügen. Den Spitznamen sieht die Person am Fahrzeug, das Kennzeichen nie.',
-  vehicleNeedsPlan:
-    'Für ein Fahrzeug brauchen Sie ein Abo. Das schließen Sie im Kundenportal auf der Website ab.',
   vehicleInvalid:
     'Bitte prüfen Sie Spitzname und Kennzeichen (nur Buchstaben, Ziffern, Leerzeichen und Bindestrich).',
   decalSharePdfHint:
@@ -126,24 +96,14 @@ const de = {
     'Scannen Sie Ihren Aufkleber nach dem Anbringen einmal selbst. Während des Tests geht die Warnung nur an Sie.',
   decalTestOpen:
     'Der Test läuft bis {time} Uhr. Scannen Sie jetzt den Aufkleber mit der Handykamera.',
-  vehiclePortalHint:
-    'Design, Ersatz-Aufkleber, gedruckten Aufkleber bestellen oder Fahrzeug löschen: im Kundenportal.',
   accountProfile: 'Profil',
   accountCustomerNo: 'Kundennummer',
-  accountNoPlan:
-    'Sie haben noch kein Abo. Abschließen können Sie es im Kundenportal auf der Website.',
-  accountPastDue:
-    'Die letzte Zahlung ist fehlgeschlagen. Bitte aktualisieren Sie Ihre Zahlungsart im Kundenportal.',
   accountMailLang: 'Sprache der E-Mails',
   accountMailLangHint:
     'In dieser Sprache schicken wir Ihnen E-Mails und Benachrichtigungen. Die App folgt der Sprache Ihres Handys.',
-  accountPortalHint:
-    'Diese Seiten öffnen sich im Browser. Melden Sie sich dort mit derselben E-Mail-Adresse an.',
   appDevices: 'Handys mit dieser App',
   appDevicesNone: 'Noch kein Handy mit Mitteilungen angemeldet.',
   appDevice: '{platform}, App {version}, zuletzt aktiv am {date}',
-  browserPushHint:
-    'Browser-Mitteilungen richten Sie im Browser auf der Website ein. Hier sehen und entfernen Sie die Geräte.',
   passkeyAddOnWeb: 'Einen neuen Passkey legen Sie auf der Website an (Abo & Konto).',
   chatErr_filtered:
     'Diese Nachricht kann nicht gesendet werden. Bitte ohne Telefonnummern, Links, Adressen oder Beleidigungen.',
@@ -205,16 +165,10 @@ const de = {
     'Wir schicken Ihnen einen 6-stelligen Code. So wissen wir, dass die Adresse Ihnen gehört.',
   signUpNameTitle: 'Wie heißen Sie?',
   signUpAddressTitle: 'Wohin dürfen wir Ihnen schreiben?',
-  signUpPhoneTitle: 'Handynummer (optional)',
-  signUpPhoneIntro:
-    'Nur nötig für Warnungen per SMS (Premium). Sie können sie auch später unter „Benachrichtigungen“ eintragen.',
   signUpPhoneLabel: 'Handynummer',
   signUpPhoneSend: 'Code per SMS senden',
   signUpPhoneCode: 'Code aus der SMS',
   signUpPhoneDone: 'Ihre Nummer ist bestätigt.',
-  signUpPhoneInvalid:
-    'Bitte eine Handynummer mit Ländervorwahl eingeben, zum Beispiel +49 170 1234567.',
-  signUpPhoneWrong: 'Der Code stimmt nicht. Bitte prüfen Sie ihn.',
   skip: 'Überspringen',
   continue: 'Weiter',
   bioFaceId: 'Face ID',
@@ -270,8 +224,6 @@ const de = {
   paywallTitle: 'Wählen Sie Ihren Schutz',
   paywallIntro: 'Ein Jahr, ein fester Preis. Keine Werbung, kein Tracking, Server in Deutschland.',
   paywallPerYear: 'pro Jahr',
-  paywallAvailable: 'Jetzt verfügbar',
-  paywallSoon: 'Ab 9. November 2027',
   paywallDetails: 'Vertrag, Verlängerung und Widerruf',
   paywallPromo: 'Gutscheincode eingeben',
   payCanceled: 'Zahlung abgebrochen. Es wurde nichts berechnet.',
@@ -289,8 +241,6 @@ const de = {
   designTitle: 'Design des Aufklebers',
   designTemplates: 'Vorlage',
   designHeadline: 'Überschrift',
-  smsPremiumOnly:
-    'Warnungen per SMS gibt es mit Premium (ab 9. November 2027). Ihre Nummer brauchen Sie erst dann.',
   completeBlockingNote: 'Danach geht es direkt weiter.',
   footerDevNote: 'Hinweis für Tests: {text}',
 } as const;
@@ -338,8 +288,6 @@ const en: Record<Key, string> = {
   reveal: 'Show',
   coming: 'I’m coming',
   comingDone: 'You sent “I’m coming”. The person at the vehicle sees it.',
-  comingByContact: '{name} is taking care of it.',
-  comingByContactNoName: 'A trusted contact is taking care of it.',
   in30: 'In about 30 min',
   notNearby: 'I’m not nearby',
   savePhoto: 'Save',
@@ -352,7 +300,6 @@ const en: Record<Key, string> = {
   senderOnline: 'The sender is online right now',
   senderOffline: 'The sender is no longer online (last seen {minutes} min ago)',
   senderOfflineNever: 'The sender is not online',
-  escalationStep: 'Trusted contact {step} of 3 notified: {name}',
   chatTitle: 'Chat',
   chatClose: 'Done / close chat',
   chatClosed: 'The chat has ended.',
@@ -370,62 +317,27 @@ const en: Record<Key, string> = {
   chatRead: 'Read',
   notifications: 'Notifications',
   notificationsOn: 'Notifications are on.',
-  escalationTitle: 'Escalation to trusted contacts',
-  escalationLocked: 'Available with Premium',
-  escalationText:
-    'If you do not respond, we notify up to 3 trusted contacts one after another by SMS and e-mail.',
-  escalationSuggest: 'A trusted contact has agreed. Do you want to switch escalation on now?',
-  escalationDelay: 'Waiting time: {minutes} minutes',
-  escalationVehicle: 'For this vehicle',
-  contacts: 'Trusted contacts',
-  contactsEmpty: 'No trusted contacts yet.',
-  contactAdd: 'Invite a trusted contact',
-  contactName: 'First name',
-  contactPhone: 'Mobile number',
-  contactEmail: 'E-mail address (optional)',
-  ownerName: 'Your first name (shown in the invitation)',
-  contactInvite: 'Send invitation',
-  contactRemove: 'Remove',
-  contactUp: 'Move up',
-  contactStatus_pending: 'Invited',
-  contactStatus_confirmed: 'Confirmed',
-  contactStatus_declined: 'Declined',
-  contactStatus_deactivated: 'Deactivated (plan)',
-  contactStatus_revoked: 'Withdrawn',
   help: 'Help',
   helpText:
     'The help centre on park-shield.de answers questions about ParkShield. If notifications do not arrive, check Focus modes and the notification settings for ParkShield on your phone.',
   helpOpen: 'Open help',
   vehiclesNone: 'No vehicles yet. Add your first vehicle; its QR code is created at once.',
-  decalNone:
-    'This vehicle has no valid QR code right now. You get a new one in the customer portal.',
   vehicleAddHint:
     'A nickname and the licence plate are enough. The person at the car sees the nickname, never the plate.',
-  vehicleNeedsPlan:
-    'A vehicle needs a subscription. You take it out in the customer portal on the website.',
   vehicleInvalid: 'Please check the nickname and plate (letters, digits, spaces and hyphens only).',
   decalSharePdfHint: 'To print, save to Files or send on. Free, at any time.',
   decalShareFailed: 'The print file could not be opened. Please try again.',
   decalTestText:
     'Scan your decal once yourself after putting it on. During the test the alert goes only to you.',
   decalTestOpen: 'The test is open until {time}. Scan the decal with your phone camera now.',
-  vehiclePortalHint:
-    'Design, replacement decal, ordering a printed decal or deleting the vehicle: in the customer portal.',
   accountProfile: 'Profile',
   accountCustomerNo: 'Customer number',
-  accountNoPlan:
-    'You have no subscription yet. You can take one out in the customer portal on the website.',
-  accountPastDue:
-    'The last payment failed. Please update your payment method in the customer portal.',
   accountMailLang: 'E-mail language',
   accountMailLangHint:
     'We send you e-mails and notifications in this language. The app follows the language of your phone.',
-  accountPortalHint: 'These pages open in the browser. Sign in there with the same e-mail address.',
   appDevices: 'Phones with this app',
   appDevicesNone: 'No phone with notifications signed in yet.',
   appDevice: '{platform}, app {version}, last active on {date}',
-  browserPushHint:
-    'You set up browser notifications in the browser on the website. Here you see and remove the devices.',
   passkeyAddOnWeb: 'You add a new passkey on the website (Plan & account).',
   chatErr_filtered:
     'This message cannot be sent. Please leave out phone numbers, links, addresses and insults.',
@@ -483,16 +395,10 @@ const en: Record<Key, string> = {
   signUpEmailIntro: 'We send you a 6-digit code, so we know the address is yours.',
   signUpNameTitle: 'What is your name?',
   signUpAddressTitle: 'Where may we write to you?',
-  signUpPhoneTitle: 'Mobile number (optional)',
-  signUpPhoneIntro:
-    'Only needed for alerts by SMS (Premium). You can also add it later under “Notifications”.',
   signUpPhoneLabel: 'Mobile number',
   signUpPhoneSend: 'Send code by SMS',
   signUpPhoneCode: 'Code from the SMS',
   signUpPhoneDone: 'Your number is confirmed.',
-  signUpPhoneInvalid:
-    'Please enter a mobile number with country code, for example +49 170 1234567.',
-  signUpPhoneWrong: 'The code is not correct. Please check it.',
   skip: 'Skip',
   continue: 'Continue',
   bioFaceId: 'Face ID',
@@ -547,8 +453,6 @@ const en: Record<Key, string> = {
   paywallTitle: 'Choose your protection',
   paywallIntro: 'One year, one fixed price. No ads, no tracking, servers in Germany.',
   paywallPerYear: 'per year',
-  paywallAvailable: 'Available now',
-  paywallSoon: 'From 9 November 2027',
   paywallDetails: 'Contract, renewal and withdrawal',
   paywallPromo: 'Enter a voucher code',
   payCanceled: 'Payment cancelled. Nothing was charged.',
@@ -566,8 +470,6 @@ const en: Record<Key, string> = {
   designTitle: 'Decal design',
   designTemplates: 'Template',
   designHeadline: 'Headline',
-  smsPremiumOnly:
-    'Alerts by SMS come with Premium (from 9 November 2027). You only need your number then.',
   completeBlockingNote: 'Then you continue right away.',
   footerDevNote: 'Note for testing: {text}',
 };

@@ -78,8 +78,8 @@ describe('Stripe webhook mapping', () => {
   const payments = new StripePayments(
     'sk_test_dummy',
     secret,
-    { plus: 'price_p', premium: '' },
-    { plus: 'price_pm', premium: '' },
+    'price_p',
+    'price_pm',
     client,
   );
   const sign = (event: object) => {

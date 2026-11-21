@@ -51,7 +51,7 @@ const de = {
     heroTitle: 'Ihre Handynummer gehört nicht hinter die Windschutzscheibe.',
     heroText:
       'Mit dem ParkShield-Aufkleber erreicht man Sie in Sekunden, wenn Ihr Auto eine Ausfahrt blockiert, das Licht brennt oder etwas passiert ist. Ohne App, ohne Konto und ohne dass jemand Ihre Nummer sieht.',
-    heroCta: 'Plus für 10 € im Jahr',
+    heroCta: 'ParkShield für 20 € im Jahr',
     heroSecondary: "So funktioniert's",
     trust: 'Server in Deutschland · Keine Werbung · Kein Tracking',
     howTitle: 'In drei Schritten geschützt',
@@ -63,23 +63,33 @@ const de = {
       'Wer Ihr Auto sieht, scannt den Code und wählt mit einem Tipp das Problem. Ohne App.',
     step3Title: 'Sie antworten',
     step3Text:
-      'Sie bekommen eine Mitteilung in der ParkShield-App oder eine E-Mail und tippen „Ich komme“. Die Person vor Ort sieht das sofort.',
+      'Sie bekommen eine Mitteilung in der ParkShield-App und tippen „Ich komme“. Die Person vor Ort sieht das sofort.',
     featuresTitle: 'Warum ParkShield',
     feature1Title: '„Ich komme“ mit Live-Status',
     feature1Text:
       'Die Person vor Ort sieht, dass Ihre Warnung angekommen ist und dass Sie unterwegs sind.',
-    feature2Title: 'Notfallkontakt',
+    feature2Title: 'Erinnerung und SMS',
     feature2Text:
-      'Reagieren Sie nicht, geht die Warnung automatisch an eine Person Ihres Vertrauens, aber nur mit deren Zustimmung.',
+      'Reagieren Sie nicht, erinnert die App Sie nach 10 Minuten. Nach 30 Minuten ohne Reaktion schicken wir Ihnen eine SMS.',
     feature3Title: 'Ihre Nummer bleibt privat',
     feature3Text:
       'Niemand sieht Ihre Nummer, Ihren Namen oder Ihr Kennzeichen. Daten verschlüsselt, Server in Deutschland.',
     feature4Title: 'Schutz vor Missbrauch',
     feature4Text: 'Filter gegen Beleidigungen, Limits gegen Spam und Sperren mit einem Tipp.',
-    pricingTitle: 'Einfache Preise, jährlich',
+    pricingTitle: 'Ein Preis, alles inklusive',
     pricingNote:
-      'Alle Preise inkl. 19 % MwSt. Jährliche Zahlung, jederzeit zum Ende des Jahres kündbar.',
+      'Inkl. 19 % MwSt. Jährliche Zahlung, jederzeit zum Ende des bezahlten Jahres kündbar.',
     priceInclVat: '{price} / Jahr inkl. 19 % MwSt.',
+    planName: 'ParkShield',
+    planFor: 'Alles inklusive, für ein Fahrzeug',
+    // The welcome letter prints exactly these six lines (PLAN_FEATURE_COUNT in packages/shared).
+    planF1: 'Sofortige Mitteilung in der ParkShield-App, mit „Ich komme“ und Live-Status',
+    planF2: 'Erinnerung nach 10 Minuten, eine SMS nach 30 Minuten ohne Reaktion',
+    planF3: 'Fotos bei Warnungen',
+    planF4: 'Anonymer Chat mit der Person am Auto',
+    planF5: 'Ein gedruckter, UV-beständiger Aufkleber inklusive Versand',
+    planF6: 'Für 1 Fahrzeug',
+    planCta: 'Jetzt bestellen',
     plusName: 'Plus',
     plusFor: 'Für einzelne Fahrerinnen und Fahrer',
     plusF1: 'Bis zu 2 Fahrzeuge',
@@ -107,7 +117,7 @@ const de = {
       'Nein. Weder Ihre Nummer noch Ihren Namen oder Ihr Kennzeichen. Die Person sieht nur den Spitznamen und die Farbe Ihres Autos.',
     faq3Q: 'Was passiert, wenn ich nicht reagiere?',
     faq3A:
-      'Haben Sie einen Notfallkontakt hinterlegt, geht die Warnung nach einigen Minuten automatisch an diese Person.',
+      'Nach 10 Minuten erinnert Sie die App noch einmal. Reagieren Sie 30 Minuten lang nicht, schicken wir Ihnen eine SMS an Ihre bestätigte Handynummer, nur diese eine.',
     faq4Q: 'Kann ich jederzeit kündigen?',
     faq4A:
       'Ja, über „Verträge hier kündigen“, auch ohne Anmeldung. Das Abo läuft dann bis zum Ende des bezahlten Jahres.',
@@ -144,7 +154,8 @@ const de = {
     demoStep2: 'Problem wählen',
     demoStep2Text: 'Ein Tipp auf das Problem, optional mit kurzer Nachricht.',
     demoStep3: 'Sie werden benachrichtigt',
-    demoStep3Text: 'Per App, Push oder E-Mail, im Premium-Tarif auch per SMS.',
+    demoStep3Text:
+      'Sofort in der ParkShield-App. Reagieren Sie nicht, folgen eine Erinnerung und später eine SMS.',
     demoStep4: '„Ich komme“',
     demoStep4Text: 'Ein Tipp genügt. Die Person vor Ort sieht sofort, dass Sie unterwegs sind.',
     demoCar: 'Blauer Kombi „Bello“',
@@ -169,8 +180,13 @@ const de = {
     privacyNew: 'ParkShield-Aufkleber',
     privacyNewValue: 'Blauer Kombi „Bello“',
     privacyNewNote: 'Kein Name, keine Nummer, kein Kennzeichen.',
-    channelsTitle: 'Benachrichtigt, wie Sie es mögen',
-    channelsText: 'Sie bestimmen, auf welchem Weg und wann Sie Warnungen bekommen.',
+    channelsTitle: 'Sie erfahren es sofort',
+    channelsText:
+      'Warnungen kommen in der ParkShield-App an. Reagieren Sie nicht, haken wir nach, ohne Sie zu überhäufen.',
+    channelReminder: 'Erinnerung nach 10 Minuten',
+    channelReminderText: 'Noch keine Reaktion? Die App meldet sich ein zweites Mal.',
+    channelSms: 'SMS nach 30 Minuten',
+    channelSmsText: 'Eine einzige SMS an Ihre bestätigte Handynummer, auch ohne Internet.',
     channelPush: 'Push',
     channelPushText: 'Sofort auf Ihrem Handy, auch auf dem iPhone.',
     channelEmail: 'E-Mail',
@@ -241,12 +257,12 @@ const de = {
       'Die Handykamera öffnet die ParkShield-Seite Ihres Fahrzeugs. Dort wählt die Person das Problem, zum Beispiel „Licht brennt noch“. Ohne App, ohne Ihre Nummer zu sehen.',
     how3Title: 'Sie werden benachrichtigt',
     how3Text:
-      'Die Warnung kommt per App, E-Mail und im Premium-Tarif auch per SMS. Sie antworten mit einem Tipp, und die Person am Auto sieht Ihre Antwort sofort.',
+      'Die Warnung kommt sofort in der ParkShield-App, nach 10 Minuten ohne Reaktion kommt eine Erinnerung, nach 30 Minuten eine SMS. Sie antworten mit einem Tipp, und die Person am Auto sieht Ihre Antwort sofort.',
     startTitle: 'In drei Schritten geschützt',
     startIntro: 'Nach der Zahlung erstellen Sie Ihren QR-Code direkt hier im Konto.',
     start1Title: 'Abo abschließen',
     start1Go: 'Zur Bestellung',
-    start1Text: '10 € im Jahr, jederzeit zum Ende des Jahres kündbar.',
+    start1Text: '20 € im Jahr, alles inklusive, jederzeit zum Ende des Jahres kündbar.',
     start2Title: 'QR-Code erhalten',
     start2Text: 'Fahrzeug anlegen. Ihr QR-Code wird sofort erstellt und gespeichert.',
     start3Title: 'Anbringen und testen',
@@ -255,7 +271,7 @@ const de = {
     historyText: 'Alle Warnungen der letzten 90 Tage.',
     deliveryText: 'Prüfen Sie, warum eine Warnung nicht ankam.',
     dataText: 'Alles herunterladen, was wir speichern, oder das Konto löschen.',
-    vehiclesText: 'QR-Codes, Aufkleber bestellen, weiteres Fahrzeug hinzufügen.',
+    vehiclesText: 'QR-Code, Aufkleber drucken oder zusenden lassen, Code sperren.',
     vehiclesTitle: 'Fahrzeuge & QR-Codes',
     addIntro:
       'Für jedes Fahrzeug wird sofort ein eigener QR-Code erstellt und in Ihrem Konto gespeichert.',
@@ -269,8 +285,20 @@ const de = {
     planIntro: 'Ihr Vertrag, Zahlungen, Rechnungen und wie Sie sich anmelden.',
     lockedTitle: 'Erst das Abo, dann geht es hier weiter',
     lockedText:
-      'Fahrzeuge, Handynummer, Notfallkontakte und Verlauf richten Sie ein, sobald Ihr Abo läuft. Das dauert nur eine Minute: 10 € im Jahr, jederzeit zum Ende des Jahres kündbar.',
+      'Fahrzeug, Benachrichtigungen und Verlauf richten Sie ein, sobald Ihr Abo läuft. Das dauert nur eine Minute: 20 € im Jahr, jederzeit zum Ende des Jahres kündbar.',
     lockedButton: 'Zum Abo',
+    completeTitle: 'Konto vervollständigen',
+    completePhoneIntro:
+      'Bitte bestätigen Sie Ihre Handynummer. Reagieren Sie 30 Minuten lang nicht auf eine Warnung, schicken wir Ihnen eine SMS. Erst danach geht es hier weiter.',
+    completeBanner: 'Ihr Konto ist noch nicht vollständig: Bitte bestätigen Sie Ihre Handynummer.',
+    completeBannerLink: 'Jetzt vervollständigen',
+    noCodeTitle: 'Kein aktiver Code – Ihr Fahrzeug ist nicht geschützt',
+    noCodeText:
+      'Wer Ihren alten Aufkleber scannt, erreicht Sie nicht mehr. Erstellen Sie einen neuen Code (kostenlos) und bringen Sie den neuen Aufkleber an.',
+    newCode: 'Neuen Code erstellen',
+    newCodeDone:
+      'Neuer Code erstellt. Drucken Sie ihn selbst aus oder lassen Sie ihn drucken und zusenden.',
+    codeActive: 'Dieses Fahrzeug hat bereits einen aktiven Code.',
     upgradeTitle: 'Auf Premium wechseln',
     upgradeIntro: 'Für Familien und geteilte Autos. Ihr Plus-Jahr wird beim Wechsel angerechnet.',
     upgradeSoon:
@@ -314,6 +342,14 @@ const de = {
     noPasskeys: 'Noch kein Passkey.',
     cancelTitle: 'Kündigen',
     cancelText: 'Ihr Abo endet zum Ende des bezahlten Jahres. Bis dahin bleibt Ihr Schutz aktiv.',
+    planLine: 'ParkShield · {price} / Jahr',
+    planIncludes: 'Ihr Tarif enthält',
+    // TODO [LEGAL REVIEW] § 356a BGB: withdrawal stays on this card while the period runs.
+    contractTitle: 'Vertrag',
+    withdrawUntil: 'Sie können bis {date, date, long} ohne Angabe von Gründen widerrufen.',
+    cancelButton: 'Vertrag hier kündigen',
+    canceledText:
+      'Sie haben gekündigt. Ihr Vertrag endet am {date, date, long}, bis dahin bleibt Ihr Schutz aktiv.',
     paymentMethod: 'Zahlungsmethode ändern',
     pastDueNotice:
       'Die letzte Abbuchung hat nicht geklappt. Bitte prüfen Sie Ihre Zahlungsmethode, damit Ihr Schutz aktiv bleibt.',
@@ -465,7 +501,36 @@ const de = {
   channels: {
     title: 'Benachrichtigungen',
     intro:
-      'Hier legen Sie fest, wo Warnungen ankommen. Am schnellsten erreichen wir Sie mit der ParkShield-App. E-Mail ist immer dabei, SMS im Premium-Tarif.',
+      'Warnungen kommen nur über die ParkShield-App. Reagieren Sie nicht, erinnern wir Sie nach 10 Minuten und schicken nach 30 Minuten eine SMS an Ihre bestätigte Handynummer.',
+    summaryApp:
+      '{app, plural, =0 {Keine App verbunden} one {App auf # Gerät} other {App auf # Geräten}}{phone, select, yes {, Handynummer bestätigt} other {, Handynummer fehlt}}',
+    appTitle: 'Mitteilungen der ParkShield-App',
+    appIntro:
+      'Warnungen kommen nur als Mitteilung der ParkShield-App, nie per E-Mail. Installieren Sie die App, melden Sie sich an und erlauben Sie Mitteilungen.',
+    appActive: 'Aktiv',
+    appDevice:
+      '{platform, select, ios {iPhone oder iPad} android {Android} other {Handy}} · zuletzt aktiv {date, date, medium}',
+    appDevices: 'Verbundene Geräte',
+    appOffWarning:
+      'Mitteilungen sind aus. Sie erfahren von Warnungen erst nach 30 Minuten per SMS.',
+    appOffHelp:
+      'Installieren Sie die ParkShield-App, melden Sie sich mit Ihrer E-Mail-Adresse an und erlauben Sie Mitteilungen.',
+    phoneMandatoryTitle: 'Ihre Handynummer',
+    // TODO [LEGAL REVIEW] purpose of the mobile number (escalation SMS), privacy policy section.
+    phonePurpose: 'SMS nur, wenn Sie 30 Minuten nicht reagieren.',
+    phoneRequiredIntro:
+      'Ihre Handynummer ist Pflicht: Reagieren Sie 30 Minuten lang nicht auf eine Warnung, schicken wir Ihnen eine SMS. Wer scannt, sieht Ihre Nummer nie.',
+    phonePrivacy:
+      'Wir nutzen Ihre Nummer nur für diese SMS und für Hinweise zu Ihrem Konto, nie für Werbung. Sie wird verschlüsselt gespeichert.',
+    phoneVerified: 'Bestätigt',
+    phoneChangeNumber: 'Nummer ändern',
+    phoneChangeHint: 'Die neue Nummer gilt erst, wenn Sie sie mit dem SMS-Code bestätigt haben.',
+    phoneNotMobile:
+      'Bitte geben Sie eine Handynummer an. Festnetz- und Internetnummern können keine SMS empfangen.',
+    phoneCountry:
+      'Diese Ländervorwahl wird nicht unterstützt. Bitte nutzen Sie eine Handynummer aus Deutschland oder der EU.',
+    smsCapReached:
+      'Die SMS dieses Monats sind aufgebraucht ({used} von {limit}). Bis zum Monatsende erreichen Warnungen Sie nur über die App.',
     toAccount: '← Zum Konto',
     manage: 'Benachrichtigungen einstellen',
     summaryPhone:
@@ -637,7 +702,8 @@ const de = {
       'Ruhezeit aktiv. Prüfen Sie Ihre Ruhezeiten, wenn Sie diese Warnung bekommen wollten.',
     r_sensitive_spot: 'Modus „Sensibler Ort“ war an: nur dringende Warnungen kommen durch.',
     r_kill_switch: 'Dieser Kanal war bei uns kurz gestört. Wir haben Ihre anderen Kanäle genutzt.',
-    r_fair_use: 'SMS-Kontingent des Monats aufgebraucht. Wir haben App, Push und E-Mail genutzt.',
+    r_fair_use:
+      'Die SMS dieses Monats waren aufgebraucht. Die Warnung kam nur über die App.',
     r_http_404:
       'Das Gerät ist nicht mehr erreichbar und wurde entfernt. Schalten Sie Push dort neu ein.',
     r_http_410:
@@ -648,8 +714,8 @@ const de = {
     okApp: 'ParkShield-App auf {count, plural, one {# Gerät} other {# Geräten}} eingerichtet.',
     noApp:
       'Keine App mit aktivierten Mitteilungen. Ohne Mitteilungen erfahren Sie nicht sofort von Problemen an Ihrem Fahrzeug.',
-    okSms: 'SMS ist eingerichtet.',
-    noSms: 'Keine SMS-Nummer hinterlegt (SMS gibt es im Premium-Tarif).',
+    okSms: 'Handynummer bestätigt: SMS nach 30 Minuten ohne Reaktion.',
+    noSms: 'Handynummer nicht bestätigt.',
     smsUsage: 'SMS diesen Monat: {used} von {limit}.',
   },
   privacy: {
@@ -694,7 +760,7 @@ const de = {
       'In diesen Zeiten benachrichtigen wir Sie nicht. Die Warnungen sehen Sie trotzdem später im Verlauf.',
     none: 'Keine Ruhezeiten eingerichtet.',
     rule: '{days}: {start}–{end} Uhr',
-    ruleUrgent: 'dringende Warnungen kommen trotzdem',
+    ruleUrgent: 'dringende Warnungen kommen trotzdem per App',
     ruleAll: 'auch dringende Warnungen stumm',
     remove: 'Entfernen',
     removeLabel: 'Ruhezeit entfernen: {rule}',
@@ -702,8 +768,10 @@ const de = {
     days: 'Tage',
     from: 'Von',
     to: 'Bis',
-    urgentBypass: 'Dringende Warnungen trotzdem zustellen (empfohlen)',
+    urgentBypass: 'Dringende Warnungen trotzdem per App zustellen (empfohlen)',
     urgentHint: 'Dringend: Ausfahrt versperrt, Beschädigung, Abschleppen droht.',
+    smsNote:
+      'Während einer Ruhezeit schicken wir nie eine SMS, auch nicht bei dringenden Warnungen. Die Ausnahme für dringende Warnungen gilt nur für die App-Mitteilung.',
     overnight: 'Endet die Ruhezeit vor dem Beginn, läuft sie über Mitternacht.',
     timezone: 'Zeitzone: {timezone}',
     daysRequired: 'Bitte wählen Sie mindestens einen Tag.',
@@ -762,6 +830,9 @@ const de = {
     decalText:
       'Drucken Sie den QR-Code aus oder bestellen Sie Ihren inklusive Aufkleber per Post. Legen Sie ihn hinter die Windschutzscheibe und scannen Sie ihn einmal selbst. Dann wissen Sie sicher, dass Warnungen ankommen.',
     decalButton: 'Aufkleber bestellen und testen',
+    appText:
+      'Installieren Sie die ParkShield-App auf Ihrem Handy, melden Sie sich mit Ihrer E-Mail-Adresse an und erlauben Sie Mitteilungen. Nur so erfahren Sie sofort von Warnungen.',
+    appDone: 'Sobald die App verbunden ist, wird dieser Schritt automatisch abgehakt.',
     contactText:
       'Wenn Sie bei einer dringenden Warnung nicht reagieren, sagen wir einer Person Ihres Vertrauens Bescheid. Sie bestätigt das per E-Mail.',
     intro:
@@ -774,7 +845,10 @@ const de = {
     incomplete: 'Schutz unvollständig',
     complete: 'Vollständig geschützt',
     stepEmail: 'E-Mail bestätigt',
-    stepChannel: 'Handy verbinden: ParkShield-App, Push oder SMS',
+    stepChannel: 'ParkShield-App mit Mitteilungen verbinden',
+    stepPhone: 'Handynummer bestätigt',
+    goPhone: 'Handynummer bestätigen',
+    goApp: 'App einrichten',
     stepContact: 'Notfallkontakt bestätigt',
     stepDecal: 'Aufkleber angebracht und getestet',
     done: 'erledigt',
@@ -924,7 +998,7 @@ const de = {
     save: 'Speichern',
     saved: 'Gespeichert.',
     limitReached:
-      'Ihr Tarif {plan} erlaubt {limit, plural, one {# Fahrzeug} other {# Fahrzeuge}}. Mit Premium sind bis zu 5 möglich (ab 9. November 2027).',
+      'Ihr Tarif gilt für {limit, plural, one {# Fahrzeug} other {# Fahrzeuge}}. Für ein weiteres Fahrzeug brauchen Sie derzeit ein zweites Konto.',
     noSubscription: 'Fahrzeuge können Sie hinzufügen, sobald Ihr Abo aktiv ist.',
     toAccount: 'Zum Konto',
     open: 'Aufkleber und Details',
@@ -983,6 +1057,17 @@ const de = {
     button: 'Code sperren und neuen ausstellen',
     confirm: 'Der alte Aufkleber funktioniert danach nicht mehr. Fortfahren?',
     done: 'Neuer Code ausgestellt. Drucken Sie das PDF aus oder bestellen Sie einen Ersatzaufkleber.',
+    lockIntro:
+      'Wurde ein Foto Ihres Aufklebers geteilt, ist er beschädigt oder das Auto verkauft? Sperren Sie den Code. Der alte Aufkleber funktioniert dann sofort nicht mehr.',
+    lockButton: 'Sperren',
+    dialogTitle: 'Code wirklich sperren?',
+    dialogStop: 'Der alte Aufkleber funktioniert sofort nicht mehr.',
+    dialogNoNew: 'Es wird nicht automatisch ein neuer Code erstellt.',
+    dialogFree: 'Einen neuen Code erstellen Sie danach selbst, kostenlos.',
+    dialogPrint:
+      'Drucken und Zusenden lassen kostet {price} einmalig, selbst drucken ist kostenlos.',
+    dialogConfirm: 'Ja, Code jetzt sperren',
+    lockedDone: 'Der Code ist gesperrt. Der alte Aufkleber funktioniert nicht mehr.',
   },
   replacement: {
     title: 'Ersatzaufkleber',
@@ -1020,10 +1105,36 @@ const de = {
     status_refunded: 'erstattet',
     status_pending_payment: 'Zahlung offen',
     tracking: 'Sendungsnummer: {number}',
+    printTitle: 'Aufkleber drucken',
+    printIntro: 'Zwei Wege zu Ihrem Aufkleber. Der Preis steht bei jeder Möglichkeit.',
+    selfTitle: 'Selbst drucken – kostenlos',
+    selfText:
+      'Aufkleber 80 × 80 mm mit Schnittmarken. Jederzeit und so oft Sie möchten, immer kostenlos.',
+    selfPdf: 'PDF herunterladen',
+    selfPng: 'PNG herunterladen',
+    selfSvg: 'SVG herunterladen',
+    paperNotice:
+      'Normales Papier hält Sonne, Regen und Waschanlage nicht lange stand. Wir empfehlen wetterfeste Polyester-Etiketten für Laserdrucker.',
+    shippedTitle: 'Drucken und zusenden lassen',
+    shippedText:
+      'UV-beständiger Aufkleber mit Ihrem aktuellen Code und Ihrer Gestaltung, Versand innerhalb Deutschlands.',
+    priceWelcome: 'kostenlos (Willkommensdruck)',
+    priceFree: 'kostenlos',
+    // TODO [LEGAL REVIEW] withdrawal right for the 3 € print order (personalised code).
+    pricePaid: '{price} einmalig inkl. MwSt.',
+    submitFree: 'Kostenlos bestellen',
+    submitPaid: 'Weiter zur Zahlung ({price})',
+    paidNotice: 'Danke! Ihre Zahlung ist eingegangen, Ihr Aufkleber wird gedruckt.',
+    canceledNotice: 'Die Zahlung wurde abgebrochen. Sie können es jederzeit erneut versuchen.',
+    needsCode: 'Erstellen Sie zuerst einen neuen Code, dann können Sie ihn drucken.',
   },
   checkout: {
-    title: 'Plus abschließen',
-    priceLine: 'ParkShield Plus · 10 € / Jahr inkl. 19 % MwSt.',
+    title: 'ParkShield abschließen',
+    priceLine: 'ParkShield · 20 € / Jahr inkl. 19 % MwSt.',
+    pricePlan: 'ParkShield · {price} / Jahr inkl. 19 % MwSt.',
+    payPrice: 'Zahlungspflichtig bestellen – {price} / Jahr',
+    phoneRequired: 'Bitte bestätigen Sie zuerst Ihre Handynummer.',
+    phoneStepDone: 'Handynummer bestätigt: {phone}',
     promoLabel: 'Gutscheincode',
     promoInvalid: 'Dieser Gutscheincode ist ungültig oder abgelaufen.',
     immediateStart:
@@ -1938,18 +2049,16 @@ const de = {
     k_channels_webpush_enabled: 'Push',
     k_channels_email_enabled: 'E-Mail',
     k_channels_sms_enabled: 'SMS',
-    k_escalation_default_minutes: 'Eskalation an Notfallkontakt nach (Minuten)',
     k_followup_after_ack_minutes: '„Ich warte noch“ möglich nach (Minuten)',
-    k_followup_escalate_after_minutes: 'Eskalation nach Erinnerung (Minuten)',
-    k_limits_plus_vehicles: 'Plus: Fahrzeuge',
-    k_limits_plus_emergency_contacts: 'Plus: Notfallkontakte',
-    k_limits_plus_sms_per_month: 'Plus: SMS pro Monat',
-    k_limits_premium_vehicles: 'Premium: Fahrzeuge',
-    k_limits_premium_emergency_contacts: 'Premium: Notfallkontakte',
-    k_limits_premium_sms_per_month: 'Premium: SMS pro Monat',
+    k_limits_vehicles: 'Fahrzeuge pro Konto',
+    k_sms_monthly_cap: 'Eskalations-SMS pro Konto und Monat (Obergrenze)',
+    k_prices_plan_year_cents: 'Jahrespreis inkl. MwSt. (Cent, muss zum Stripe-Preis passen)',
+    k_prices_print_shipped_cents: 'Gedruckter Aufkleber mit Versand nach dem Willkommensdruck (Cent)',
+    k_escalation_reminder_minutes: 'Erinnerungs-Push an den Halter nach (Minuten)',
+    k_escalation_sms_minutes: 'Eine SMS an den Halter nach (Minuten ohne Reaktion)',
+    k_owner_phone_countries: 'Handynummer des Halters: erlaubte Länder (ISO-Codes, mit Komma)',
     k_fair_use_warn_percent: 'Hinweis an Kunden ab (% des Kontingents)',
     k_sms_cost_micros: 'Kosten pro SMS (Mikro-Euro)',
-    k_plans_premium_purchasable: 'Premium buchbar',
     k_abuse_code_alerts_per_hour: 'Muster: Warnungen pro Code und Stunde',
     k_abuse_scanner_vehicles_per_day: 'Muster: Fahrzeuge pro Scanner und Tag',
     k_abuse_scanner_reports_per_day: 'Muster: Meldungen pro Scanner und Tag',
@@ -1962,7 +2071,6 @@ const de = {
     k_abuse_phone_ban_vehicles: 'Globale Sperre prüfen ab gesperrten Fahrzeugen',
     k_abuse_phone_ban_window_days: 'Globale Sperre: Fahrzeuge gezählt in den letzten (Tagen)',
     k_abuse_valkey_timeout_ms: 'Rate-Limits: Valkey-Wartezeit vor Notbetrieb (ms)',
-    k_photos_plans: 'Fotos bei Warnungen: Tarife (plus, premium; mit Komma)',
     k_welcome_letter_in_portal: 'Willkommensbrief im Kundenportal unter „Dokumente“ anbieten',
     k_qr_caption: 'Kurz-URL als Text unter heruntergeladenen QR-Codes (SVG, PDF)',
     k_photos_abuse_block_days: 'Foto-Missbrauch: Absender für das Fahrzeug sperren (Tage, max. 30)',
@@ -1989,8 +2097,6 @@ const de = {
     k_staff_review_interval_days: 'Zugriffsprüfung alle (Tage)',
     k_channels_native_push_enabled: 'App-Push (FCM)',
     k_health_sms_failure_pct: 'SMS: kritisch ab Fehlerquote (%)',
-    k_reminder_after_minutes: 'Erinnerung an den Halter nach (Minuten)',
-    k_reminder_max_owner_sms: 'Höchstens SMS an den Halter pro Warnung',
     k_chat_inactivity_minutes: 'Chat: Ende nach Inaktivität (Minuten)',
     k_chat_max_minutes: 'Chat: längste Dauer (Minuten)',
     k_chat_max_message_chars: 'Chat: Zeichen pro Nachricht',

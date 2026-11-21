@@ -10,6 +10,12 @@ import { createLogger } from '../core/logger';
 import type { FieldCrypto } from '../core/crypto';
 import { SettingsService } from '../core/settings.service';
 import { CRYPTO, DB } from '../core/tokens';
+import { DispatchService } from '../notifications/dispatch.service';
+import {
+  OwnerReminderService,
+  REMIND_TOPIC,
+  SMS_ESCALATE_TOPIC,
+} from '../notifications/owner-reminder.service';
 import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
 
 export const UA_WINDOWS_CHROME =
@@ -110,6 +116,73 @@ export async function appSignIn(h: Harness, email: string): Promise<{ authorizat
   });
   if (consumed.statusCode !== 200) throw new Error(`app sign-in failed: ${consumed.body}`);
   return { authorization: `Bearer ${consumed.json().token}` };
+}
+
+/** Registers an app device for the owner (FCM fake: tokens starting with "invalid" are gone). */
+export async function registerAppDevice(
+  h: Harness,
+  email: string,
+  fcmToken = 'fcm-token-phone-0000000001',
+): Promise<{ authorization: string }> {
+  const app = await appSignIn(h, email);
+  const r = await h.app.inject({
+    method: 'POST',
+    url: '/v1/app/devices/register',
+    headers: app,
+    payload: { fcmToken, platform: 'ios', appVersion: '1.0.0', locale: 'de' },
+  });
+  if (r.statusCode !== 200) throw new Error(`device registration failed: ${r.body}`);
+  return app;
+}
+
+/** Moves the reminder (10 min) and/or SMS (30 min) due time of open alerts into the past. */
+export async function escalationDue(
+  h: Harness,
+  step: 'reminder' | 'sms' | 'both' = 'both',
+  alertId?: string,
+): Promise<void> {
+  const past = sql<Date>`now() - interval '1 second'`;
+  const cols = {
+    ...(step !== 'sms' ? { remind_at: past } : {}),
+    ...(step !== 'reminder' ? { sms_due_at: past } : {}),
+  };
+  for (const [col, value] of Object.entries(cols)) {
+    let q = h.db
+      .updateTable('alerts')
+      .set({ [col]: value })
+      .where(col as 'remind_at', 'is not', null);
+    if (alertId) q = q.where('id', '=', alertId);
+    await q.execute();
+  }
+}
+
+/**
+ * Runs the escalation like the worker: the sweepers, then every queued reminder / SMS outbox event
+ * (marked processed). Returns how many steps the sweepers queued.
+ */
+export async function runEscalation(h: Harness): Promise<{ reminders: number; sms: number }> {
+  const sweeper = h.app.get(OwnerReminderService);
+  const dispatch = h.app.get(DispatchService);
+  const reminders = await sweeper.sweep();
+  const sms = await sweeper.sweepSms();
+  const events = await h.db
+    .selectFrom('outbox_events')
+    .select(['id', 'topic', 'payload'])
+    .where('topic', 'in', [REMIND_TOPIC, SMS_ESCALATE_TOPIC])
+    .where('processed_at', 'is', null)
+    .orderBy('id')
+    .execute();
+  for (const e of events) {
+    const alertId = String((e.payload as { alertId: string }).alertId);
+    if (e.topic === REMIND_TOPIC) await dispatch.remind(alertId);
+    else await dispatch.escalateSms(alertId);
+    await h.db
+      .updateTable('outbox_events')
+      .set({ processed_at: new Date() })
+      .where('id', '=', e.id)
+      .execute();
+  }
+  return { reminders, sms };
 }
 
 export interface DevAppPush {
@@ -345,6 +418,16 @@ export async function subscribe(h: Harness, email: string, promoCode?: string): 
   return s;
 }
 
+/** The e-mail address each session from signIn belongs to (for verifyPhone). */
+const sessionEmails = new WeakMap<Session, string>();
+
+/** A verified mobile number for the session's owner (required before checkout since 2026-11-21). */
+export async function verifyPhone(h: Harness, s: Session, phone?: string): Promise<void> {
+  const email = sessionEmails.get(s);
+  if (!email) throw new Error('verifyPhone needs a session from signIn');
+  await linkSmsDirect(h, email, phone);
+}
+
 export async function signIn(h: Harness, email: string, ua = UA_WINDOWS_CHROME): Promise<Session> {
   await requestLink(h, email, ua);
   const mail = (await mailbox(h)).find((m) => m.tag === 'magic_link' && m.to === email)!;
@@ -355,5 +438,7 @@ export async function signIn(h: Harness, email: string, ua = UA_WINDOWS_CHROME):
     payload: { token: linkToken(mail) },
   });
   if (res.statusCode !== 200) throw new Error(`sign-in failed: ${res.statusCode} ${res.body}`);
-  return sessionFrom(res);
+  const session = sessionFrom(res);
+  sessionEmails.set(session, email);
+  return session;
 }

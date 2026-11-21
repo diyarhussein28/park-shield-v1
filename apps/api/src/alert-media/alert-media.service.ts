@@ -45,8 +45,8 @@ export interface PhotoOutcome {
 
 /**
  * Alert photos (Phase 2): validation, re-encoding, envelope encryption, storage, the view page data,
- * "Missbrauch melden" and the 30-day retention rule. Behind ALERT_PHOTOS_ENABLED and the plan setting
- * `photos.plans`.
+ * "Missbrauch melden" and the 30-day retention rule. Behind ALERT_PHOTOS_ENABLED and an active
+ * subscription.
  */
 @Injectable()
 export class AlertMediaService {
@@ -68,13 +68,10 @@ export class AlertMediaService {
     this.store = new MediaStore(alertMediaDir(env));
   }
 
-  /** Feature flag plus the owner's plan (setting `photos.plans`, default Plus and Premium). */
+  /** Feature flag plus an active subscription (single plan since 2026-11-21: photos included). */
   async available(ownerId: string | null): Promise<boolean> {
     if (!this.env.ALERT_PHOTOS_ENABLED || !ownerId) return false;
-    const plans = await this.settings.get<unknown>('photos.plans', ['plus', 'premium']);
-    if (!Array.isArray(plans) || !plans.length) return false;
-    const e = await this.entitlements.current(ownerId);
-    return Boolean(e && plans.includes(e.plan));
+    return Boolean(await this.entitlements.current(ownerId));
   }
 
   // --- upload -----------------------------------------------------------------------------------
