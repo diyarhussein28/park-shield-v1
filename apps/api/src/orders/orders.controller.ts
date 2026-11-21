@@ -55,7 +55,11 @@ export class OrdersController {
    * „Drucken und zusenden lassen“: free once (welcome print), then 3 € (Stripe one-time payment).
    * `order-included` and `order-replacement` are the old names of the same action.
    */
-  @Post(['vehicles/:id/order-print', 'vehicles/:id/order-included', 'vehicles/:id/order-replacement'])
+  @Post([
+    'vehicles/:id/order-print',
+    'vehicles/:id/order-included',
+    'vehicles/:id/order-replacement',
+  ])
   @HttpCode(200)
   print(
     @CurrentUser() user: AuthContext,

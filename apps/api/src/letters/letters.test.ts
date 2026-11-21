@@ -118,7 +118,12 @@ describe('trigger', () => {
     expect(await drain()).toEqual(['exists']);
     const rows = await lettersOf(id);
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ version: 1, status: 'new', plan: 'standard', created_by: null });
+    expect(rows[0]).toMatchObject({
+      version: 1,
+      status: 'new',
+      plan: 'standard',
+      created_by: null,
+    });
   });
 
   it('vehicle first, then the payment: the payment creates the letter', async () => {

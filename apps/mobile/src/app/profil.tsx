@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StepProgress } from '@/components/list';
 import { PhoneVerify } from '@/components/phone-setup';
 import {
@@ -35,10 +35,13 @@ export default function ProfileScreen() {
   const { flow: raw } = useLocalSearchParams<{ flow?: string }>();
   const flow: Flow = raw === 'signup' || raw === 'edit' ? raw : 'complete';
   const { data, save, reload } = useProfile();
-  const [step, setStep] = useState<Step>('name');
-  // Name and address were already there: only the phone is missing (decided once, so saving the
-  // address in this flow does not switch the layout half-way).
-  const [phoneOnly, setPhoneOnly] = useState(false);
+  // The gate opens this screen only once the profile is known. Name and address already saved but no
+  // verified number: straight to the phone step. Decided once at the start, so saving the address in
+  // this flow does not switch the layout half-way.
+  const missingPhoneOnly =
+    flow !== 'edit' && Boolean(data?.complete) && data?.phoneVerified === false;
+  const [step, setStep] = useState<Step>(missingPhoneOnly ? 'phone' : 'name');
+  const [phoneOnly] = useState(flow === 'complete' && missingPhoneOnly);
   const [value, setValue] = useState<ProfileData>(EMPTY_PROFILE);
   const [errors, setErrors] = useState<ProfileErrors>({});
   // A corrected field loses its error at once (not only on the next „Weiter“).
@@ -60,20 +63,6 @@ export default function ProfileScreen() {
       setValue({ firstName, lastName, street, postalCode, city, country });
     }
   }, [data?.profile]);
-
-  // Reopened with name and address saved but no verified number: straight to the phone step.
-  const missingPhoneOnly =
-    flow !== 'edit' && Boolean(data?.complete) && data?.phoneVerified === false;
-  const decided = useRef(false);
-  useEffect(() => {
-    // Only the first answer decides (see phoneOnly).
-    if (decided.current || !data) return;
-    decided.current = true;
-    if (missingPhoneOnly) {
-      setStep('phone');
-      if (flow === 'complete') setPhoneOnly(true);
-    }
-  }, [data, missingPhoneOnly, flow]);
 
   const done = () => {
     if (flow === 'edit') router.back();

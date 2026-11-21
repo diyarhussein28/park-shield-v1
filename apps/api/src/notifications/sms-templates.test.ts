@@ -25,24 +25,14 @@ const LABELS = {
 } as const;
 
 const T43 = 'AbC123dEf456gHi789jKl012mNo345pQr678sTu901v';
-const URLS = [
-  `https://park-shield.de/v/${T43}`,
-  `http://localhost:3000/v/${T43}`,
-];
+const URLS = [`https://park-shield.de/v/${T43}`, `http://localhost:3000/v/${T43}`];
 const LABELS_VEHICLE = [
   '',
   'Blauer Golf',
   'Größter Übermütiger Ölfass-Bus von Jürgen ♥',
   'x'.repeat(40),
 ];
-const KINDS: LinkSmsKind[] = [
-  'alert',
-  'photos',
-  'reminder',
-  'followup',
-  'test',
-  'escalation',
-];
+const KINDS: LinkSmsKind[] = ['alert', 'photos', 'reminder', 'followup', 'test', 'escalation'];
 
 describe('every SMS template: one GSM-7 segment, at most 160 characters including the link', () => {
   it('fits all kinds, alert types, languages, vehicle labels and link forms', () => {
@@ -67,7 +57,13 @@ describe('every SMS template: one GSM-7 segment, at most 160 characters includin
 
   it('the escalation SMS says there was no reaction for 30 minutes', () => {
     expect(
-      smsLinkText('de', 'escalation', 'Licht brennt noch', 'Der Blaue', `https://park-shield.de/v/${T43}`),
+      smsLinkText(
+        'de',
+        'escalation',
+        'Licht brennt noch',
+        'Der Blaue',
+        `https://park-shield.de/v/${T43}`,
+      ),
     ).toBe(
       `ParkShield, seit 30 Min keine Reaktion: Licht brennt noch (Der Blaue). Details: park-shield.de/v/${T43}`,
     );

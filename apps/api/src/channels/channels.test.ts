@@ -313,7 +313,11 @@ describe('SMS (NT-07): the owner’s verified mobile number', () => {
     expect(profile.phoneVerified).toBe(true);
 
     // The number is required (escalation SMS): removing it is refused, it stays linked.
-    const del = await h.app.inject({ method: 'DELETE', url: '/v1/channels/sms', headers: s.headers });
+    const del = await h.app.inject({
+      method: 'DELETE',
+      url: '/v1/channels/sms',
+      headers: s.headers,
+    });
     expect(del.statusCode).toBe(409);
     expect(del.json()).toEqual({ error: 'phone_required' });
     expect(await h.db.selectFrom('contact_channels').selectAll().execute()).toHaveLength(1);

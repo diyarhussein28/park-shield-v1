@@ -528,7 +528,12 @@ describe('back from Checkout without the webhook (US-06)', () => {
 
 describe('paying inside the native app (Stripe returns through /app/zurueck)', () => {
   const app = 'exp://192.168.178.25:8082/--/zurueck';
-  const consent = { plan: 'standard', immediateStart: true, immediateStartVersion: 1, termsVersion: 1 };
+  const consent = {
+    plan: 'standard',
+    immediateStart: true,
+    immediateStartVersion: 1,
+    termsVersion: 1,
+  };
 
   it('sends Stripe back to the bounce page with the app address, the result and the session id', async () => {
     const payments = h.app.get<FakePayments>(PAYMENTS);

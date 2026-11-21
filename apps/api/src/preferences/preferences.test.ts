@@ -267,9 +267,8 @@ describe('resilience (US-25)', () => {
     const a = await alert(code, 'blocking');
     await h.app.get(DispatchService).dispatch(a.alertId);
     const view = h.app.get(ViewTokenService).tokenFor(a.alertId);
-    const token = (
-      await h.app.inject({ method: 'GET', url: `/v1/alerts/view/${view}` })
-    ).json().replyToken as string;
+    const token = (await h.app.inject({ method: 'GET', url: `/v1/alerts/view/${view}` })).json()
+      .replyToken as string;
 
     await h.valkey.flushdb(); // what a restart without persistence looks like
 

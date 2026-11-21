@@ -1,5 +1,5 @@
-import { useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { NoCodeCard } from '@/components/no-code';
 import { AddressForm } from '@/components/vehicle-forms';
@@ -22,7 +22,7 @@ import { type as typeScale } from '@/theme/tokens';
 type OrderResult = { id?: string; url: string; free: boolean };
 
 /** The price of „Drucken und zusenden lassen“ as the owner sees it before confirming. */
-export function shipPriceText(o: PrintOptions): string {
+function shipPriceText(o: PrintOptions): string {
   if (o.shipped.free) return o.shipped.welcomePrint ? t('printShipWelcome') : t('printShipFree');
   return t('printShipPrice', { price: euro(o.shipped.priceCents, lang()) });
 }
@@ -55,9 +55,12 @@ export default function PrintScreen() {
     }
   }, [id]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  // Again on return from Stripe's page, so a paid order shows its new status.
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   if (!v || !options)
     return error ? (

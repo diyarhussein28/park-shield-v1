@@ -323,7 +323,7 @@ export default function AlertScreen() {
  * Where the owner's escalation stands (2026-11-21): reminder push after 10 min, one SMS after 30 min,
  * both cancelled once the owner reacted. Test alerts have neither planned (no card then).
  */
-export function EscalationState({ alert: a }: { alert: AlertDetail }) {
+function EscalationState({ alert: a }: { alert: AlertDetail }) {
   const c = useTheme();
   const e = a.escalation;
   const lines: string[] = [];

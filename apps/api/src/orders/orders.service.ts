@@ -213,7 +213,9 @@ export class OrdersService {
       customerId: user.stripe_customer_id,
       amountCents: amount,
       description:
-        locale === 'en' ? 'ParkShield decal, printed and shipped' : 'ParkShield-Aufkleber, Druck und Versand',
+        locale === 'en'
+          ? 'ParkShield decal, printed and shipped'
+          : 'ParkShield-Aufkleber, Druck und Versand',
       locale,
       successUrl: back.success,
       cancelUrl: back.cancel,

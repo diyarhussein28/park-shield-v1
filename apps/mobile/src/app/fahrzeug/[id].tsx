@@ -9,7 +9,7 @@ import { Collapsible, Group, Row } from '@/components/list';
 import { NoCodeCard } from '@/components/no-code';
 import { VehicleForm } from '@/components/vehicle-forms';
 import { Banner, Button, Card, Loading, P, Screen, Title, useTheme } from '@/components/ui';
-import { api, ApiError, authHeaders } from '@/lib/api';
+import { api, authHeaders } from '@/lib/api';
 import { API_URL } from '@/lib/config';
 import { printDecalPdf, shareDecalPdf } from '@/lib/decal';
 import { lang, t } from '@/lib/i18n';
@@ -456,7 +456,7 @@ const REASONS = ['leaked', 'car_sold', 'damaged', 'other'] as const;
  * exactly that, and what comes next costs: a new code is free, self-printing is free, printing and
  * shipping costs 3 € (after the free welcome print). Afterwards the vehicle shows „Kein aktiver Code“.
  */
-export function RevokeCard({
+function RevokeCard({
   vehicle,
   shipPriceCents,
   onRevoked,

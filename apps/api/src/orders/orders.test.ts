@@ -123,7 +123,11 @@ describe('printed decal orders (US-11, single plan since 2026-11-21)', () => {
     const printJobs = () =>
       h.db.selectFrom('outbox_events').select('id').where('topic', '=', PRINT_TOPIC).execute();
     expect(await printJobs()).toHaveLength(1);
-    await h.app.inject({ method: 'POST', url: '/v1/dev/payments/complete', payload: { sessionId } });
+    await h.app.inject({
+      method: 'POST',
+      url: '/v1/dev/payments/complete',
+      payload: { sessionId },
+    });
     expect(
       (
         await h.db
@@ -239,7 +243,12 @@ describe('printed decal orders (US-11, single plan since 2026-11-21)', () => {
       method: 'POST',
       url: '/v1/billing/checkout',
       headers: s.headers,
-      payload: { plan: 'standard', immediateStart: true, immediateStartVersion: 1, termsVersion: 1 },
+      payload: {
+        plan: 'standard',
+        immediateStart: true,
+        immediateStartVersion: 1,
+        termsVersion: 1,
+      },
     });
     const sessionId = new URL(again.json().url).searchParams.get('session')!;
     await h.app.inject({

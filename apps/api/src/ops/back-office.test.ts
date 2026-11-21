@@ -886,7 +886,9 @@ describe('US-43 metrics for Metabase (AD-18)', () => {
         }>`SELECT * FROM metrics.revenue_by_plan`.execute(trx)
       ).rows;
     });
-    expect(revenue).toEqual([expect.objectContaining({ plan: 'standard', mrr_gross_cents: '167' })]);
+    expect(revenue).toEqual([
+      expect.objectContaining({ plan: 'standard', mrr_gross_cents: '167' }),
+    ]);
     await expect(
       h.db.transaction().execute(async (trx) => {
         await sql`SET LOCAL ROLE metabase_ro`.execute(trx);

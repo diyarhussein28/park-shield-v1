@@ -3,13 +3,20 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { api } from '@/lib/api';
 import { lang, t, type Key } from '@/lib/i18n';
-import { errorText, euro, openInBrowser, payInApp, type SubscriptionSummary } from '@/lib/portal';
+import {
+  errorText,
+  euro,
+  longDate,
+  openInBrowser,
+  payInApp,
+  type SubscriptionSummary,
+} from '@/lib/portal';
 import { pt } from '@/lib/portal-i18n';
 import { type as typeScale } from '@/theme/tokens';
 import { Badge, Check, Choice, Field } from './form';
 import { Icon } from './icons';
 import { Collapsible } from './list';
-import { Banner, Button, P, useTheme } from './ui';
+import { Banner, Button, Card, P, Title, useTheme } from './ui';
 
 /** The one plan's price (20 € incl. VAT), formatted for the app's language. */
 export const planPrice = () => euro(PLAN_PRICE_CENTS, lang());
@@ -278,7 +285,64 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
   );
 }
 
+/**
+ * „Vertrag“ (owner decision 2026-11-21): one card instead of separate withdrawal and cancel cards.
+ * While the withdrawal period runs (`withdrawalOpenUntil` in the future) „Vertrag widerrufen“ stays on
+ * it, as visible as „Vertrag hier kündigen“ (§ 356a BGB: permanently available, prominently placed,
+ * on the interface where the contract was concluded); afterwards only the cancel part remains.
+ */
+export function ContractCard({
+  sub,
+  onWithdraw,
+  onCancel,
+  now = new Date(),
+}: {
+  sub: SubscriptionSummary;
+  onWithdraw: () => void;
+  onCancel: () => void;
+  now?: Date;
+}) {
+  const withdrawal =
+    sub.withdrawalOpenUntil && new Date(sub.withdrawalOpenUntil) > now
+      ? sub.withdrawalOpenUntil
+      : null;
+  return (
+    <Card>
+      <Title>{t('contractTitle')}</Title>
+      {/* TODO [LEGAL REVIEW] § 356a BGB withdrawal button wording, placement and the date shown. */}
+      {withdrawal && (
+        <View style={s.part} testID="contract-withdraw">
+          <P>{t('withdrawUntil', { date: longDate(withdrawal) })}</P>
+          <Button
+            variant="secondary"
+            label={t('withdrawButton')}
+            onPress={onWithdraw}
+            testID="withdraw"
+          />
+        </View>
+      )}
+      {/* TODO [LEGAL REVIEW] § 312k BGB cancellation text (annual renewal, end of the paid year). */}
+      {sub.cancelAtPeriodEnd ? (
+        sub.currentPeriodEnd && (
+          <P>{pt('account.endsOn', { date: new Date(sub.currentPeriodEnd) })}</P>
+        )
+      ) : (
+        <View style={s.part} testID="contract-cancel">
+          <P>{pt('account.cancelText')}</P>
+          <Button
+            variant="secondary"
+            label={t('cancelButton')}
+            onPress={onCancel}
+            testID="cancel"
+          />
+        </View>
+      )}
+    </Card>
+  );
+}
+
 const s = StyleSheet.create({
+  part: { gap: 8 },
   info: { gap: 4 },
   line: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
   form: { gap: 12 },

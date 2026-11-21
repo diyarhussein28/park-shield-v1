@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Choice, H3, Segmented } from '@/components/form';
 import {
+  ContractCard,
   PastDue,
   PlanFeatures,
   SubscriptionInfo,
@@ -15,7 +16,6 @@ import {
   downloadAndShare,
   errorText,
   euro,
-  longDate,
   openInBrowser,
   type CreditNote,
   type InvoiceSummary,
@@ -234,64 +234,7 @@ export default function Subscription() {
   );
 }
 
-/**
- * „Vertrag“ (owner decision 2026-11-21): one card instead of separate withdrawal and cancel cards.
- * While the withdrawal period runs (`withdrawalOpenUntil` in the future) „Vertrag widerrufen“ stays on
- * it, as visible as „Vertrag hier kündigen“ (§ 356a BGB: permanently available, prominently placed,
- * on the interface where the contract was concluded); afterwards only the cancel part remains.
- */
-export function ContractCard({
-  sub,
-  onWithdraw,
-  onCancel,
-  now = new Date(),
-}: {
-  sub: SubscriptionSummary;
-  onWithdraw: () => void;
-  onCancel: () => void;
-  now?: Date;
-}) {
-  const withdrawal =
-    sub.withdrawalOpenUntil && new Date(sub.withdrawalOpenUntil) > now
-      ? sub.withdrawalOpenUntil
-      : null;
-  return (
-    <Card>
-      <Title>{t('contractTitle')}</Title>
-      {/* TODO [LEGAL REVIEW] § 356a BGB withdrawal button wording, placement and the date shown. */}
-      {withdrawal && (
-        <View style={s.part} testID="contract-withdraw">
-          <P>{t('withdrawUntil', { date: longDate(withdrawal) })}</P>
-          <Button
-            variant="secondary"
-            label={t('withdrawButton')}
-            onPress={onWithdraw}
-            testID="withdraw"
-          />
-        </View>
-      )}
-      {/* TODO [LEGAL REVIEW] § 312k BGB cancellation text (annual renewal, end of the paid year). */}
-      {sub.cancelAtPeriodEnd ? (
-        sub.currentPeriodEnd && (
-          <P>{pt('account.endsOn', { date: new Date(sub.currentPeriodEnd) })}</P>
-        )
-      ) : (
-        <View style={s.part} testID="contract-cancel">
-          <P>{pt('account.cancelText')}</P>
-          <Button
-            variant="secondary"
-            label={t('cancelButton')}
-            onPress={onCancel}
-            testID="cancel"
-          />
-        </View>
-      )}
-    </Card>
-  );
-}
-
 const s = StyleSheet.create({
-  part: { gap: 8 },
   row: { gap: 2 },
   passkey: { gap: 6 },
 });

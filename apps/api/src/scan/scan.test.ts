@@ -376,8 +376,9 @@ describe('decal test and code replacement (US-12, US-13)', () => {
       await h.db.selectFrom('qr_tokens').select('id').where('status', '<>', 'revoked').execute(),
     ).toHaveLength(0);
     expect(
-      (await h.app.inject({ method: 'GET', url: `/v1/vehicles/${v.id}`, headers: s.headers })).json()
-        .decal,
+      (
+        await h.app.inject({ method: 'GET', url: `/v1/vehicles/${v.id}`, headers: s.headers })
+      ).json().decal,
     ).toBeNull();
     // Nothing left to block.
     expect((await revoke({ confirm: true })).statusCode).toBe(409);

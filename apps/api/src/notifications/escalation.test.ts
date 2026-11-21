@@ -236,9 +236,7 @@ describe('one SMS after 30 minutes', () => {
     ];
     expect(outcomes).toContainEqual({ status: 'sent', suppressed_reason: null });
     expect(outcomes).toContainEqual({ status: 'suppressed', suppressed_reason: 'fair_use' });
-    expect(await mailbox(h).then((m) => m.filter((x) => x.tag.startsWith('fair_use')))).toEqual(
-      [],
-    );
+    expect(await mailbox(h).then((m) => m.filter((x) => x.tag.startsWith('fair_use')))).toEqual([]);
     const usage = (
       await h.app.inject({ method: 'GET', url: '/v1/me/usage', headers: s.headers })
     ).json();
@@ -338,7 +336,11 @@ describe('stop conditions cancel the reminder and the SMS', () => {
       const a = await alert(x.code, 'blocking');
       await stop(x, a);
       const r = await row(a.alertId);
-      expect(r).toMatchObject({ remind_at: null, sms_due_at: null, escalation_stop_reason: reason });
+      expect(r).toMatchObject({
+        remind_at: null,
+        sms_due_at: null,
+        escalation_stop_reason: reason,
+      });
       expect(r.escalation_stopped_at).toBeInstanceOf(Date);
       // Even a due time written back (e.g. a racing writer) is ignored once stopped.
       await sql`UPDATE alerts SET remind_at = now() - interval '1 second',
@@ -466,7 +468,11 @@ describe('„Absender blockieren“ (Stage 3)', () => {
     expect(twice.json()).toMatchObject({ blocked: true, chatClosed: false });
     expect(await h.db.selectFrom('scanner_blocks').selectAll().execute()).toHaveLength(1);
     expect(
-      await h.db.selectFrom('abuse_reports').select('id').where('alert_id', '=', a.alertId).execute(),
+      await h.db
+        .selectFrom('abuse_reports')
+        .select('id')
+        .where('alert_id', '=', a.alertId)
+        .execute(),
     ).toHaveLength(1);
   });
 

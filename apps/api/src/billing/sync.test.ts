@@ -75,13 +75,7 @@ describe('Stripe webhook mapping', () => {
     webhooks: real.webhooks,
     subscriptions: { retrieve: async () => retrieved },
   } as unknown as Stripe;
-  const payments = new StripePayments(
-    'sk_test_dummy',
-    secret,
-    'price_p',
-    'price_pm',
-    client,
-  );
+  const payments = new StripePayments('sk_test_dummy', secret, 'price_p', 'price_pm', client);
   const sign = (event: object) => {
     const payload = JSON.stringify(event);
     return {
