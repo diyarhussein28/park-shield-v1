@@ -5,7 +5,6 @@ import {
   Badge,
   Button,
   Card,
-  Checkbox,
   Field,
   Heading,
   Input,
@@ -46,7 +45,6 @@ const EMPTY = {
   maxRedemptions: '',
   validUntil: '',
   partnerId: '',
-  plusOnly: false,
 };
 
 /** US-40 / AD-13: promo codes, synced to Stripe coupons, with the founders' price lock. */
@@ -86,7 +84,6 @@ export function PromosView({
           code: form.code,
           kind: form.kind,
           value,
-          ...(form.plusOnly ? { appliesTo: ['plus'] } : {}),
           ...(form.priceLockMonths ? { priceLockMonths: Number(form.priceLockMonths) } : {}),
           ...(form.maxRedemptions ? { maxRedemptions: Number(form.maxRedemptions) } : {}),
           ...(form.validUntil
@@ -251,11 +248,6 @@ export function PromosView({
                   </Select>
                 )}
               </Field>
-              <Checkbox
-                label={t('opsPromo.plusOnly')}
-                checked={form.plusOnly}
-                onChange={(e) => setForm({ ...form, plusOnly: e.target.checked })}
-              />
               <Button type="submit" className="w-fit md:col-span-2">
                 {t('opsPromo.create')}
               </Button>

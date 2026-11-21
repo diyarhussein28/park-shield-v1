@@ -277,34 +277,6 @@ export function Customer360({
               <p className="text-sm">–</p>
             )}
           </Section>
-          <Section title={t('opsCustomers.contacts')}>
-            <ul className="text-sm">
-              {data.emergencyContacts.length === 0 && <li>–</li>}
-              {data.emergencyContacts.map((e) => (
-                <li key={e.id}>
-                  {e.name} ·{' '}
-                  <span className="font-mono">
-                    {[e.phoneMasked, e.emailMasked].filter(Boolean).join(' · ')}
-                  </span>{' '}
-                  · {e.consent}
-                  {canRequest && e.emailMasked && (
-                    <RevealRequest
-                      target="emergency_contacts.email"
-                      targetId={e.id}
-                      label={`${t('opsCustomers.field_contact')} (${e.name})`}
-                    />
-                  )}
-                  {canRequest && e.phoneMasked && (
-                    <RevealRequest
-                      target="emergency_contacts.phone"
-                      targetId={e.id}
-                      label={`${t('opsCustomers.field_phone')} (${e.name})`}
-                    />
-                  )}
-                </li>
-              ))}
-            </ul>
-          </Section>
         </div>
 
         <Section title={t('opsCustomers.orders')}>
