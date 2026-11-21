@@ -10,7 +10,6 @@ import { NoCodeCard } from '@/components/no-code';
 import { VehicleForm } from '@/components/vehicle-forms';
 import { Banner, Button, Card, Loading, P, Screen, Title, useTheme } from '@/components/ui';
 import { api, authHeaders } from '@/lib/api';
-import { API_URL } from '@/lib/config';
 import {
   decalChanged,
   decalPreviewUrl,

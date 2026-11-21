@@ -1,3 +1,4 @@
+import type * as RN from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AlertsProvider } from '@/lib/alerts-store';
 import { decalChanged } from '@/lib/decal';
@@ -33,7 +34,7 @@ jest.mock('@/lib/profile', () => ({
 // No car photo stored on this device: the illustration.
 jest.mock('@/lib/vehicle-photo', () => ({ vehiclePhoto: () => null }));
 jest.mock('expo-image', () => {
-  const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
+  const { Text } = jest.requireActual<typeof RN>('react-native');
   return {
     Image: (p: { testID?: string; source: { uri: string } }) => (
       <Text testID={p.testID}>{p.source.uri}</Text>

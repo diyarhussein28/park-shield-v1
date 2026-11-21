@@ -1,3 +1,5 @@
+import type * as React from 'react';
+import type * as RN from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { t } from '@/lib/i18n';
@@ -43,7 +45,7 @@ jest.mock('expo-file-system', () => {
 });
 jest.mock('expo-image-picker', () => ({ launchImageLibraryAsync: jest.fn() }));
 jest.mock('expo-image', () => {
-  const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
+  const { Text } = jest.requireActual<typeof RN>('react-native');
   return {
     Image: (p: { testID?: string; source: { uri: string } }) => (
       <Text testID={p.testID}>{p.source.uri}</Text>
@@ -54,7 +56,7 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: '7c2e1f40-5b6a-4d3e-9f10-2a3b4c5d6e7f', nickname: 'Blue' }),
   useRouter: () => ({ push: jest.fn(), navigate: jest.fn(), back: jest.fn(), replace: jest.fn() }),
   useFocusEffect: (cb: () => void) => {
-    const { useEffect } = jest.requireActual<typeof import('react')>('react');
+    const { useEffect } = jest.requireActual<typeof React>('react');
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(cb, []);
   },
