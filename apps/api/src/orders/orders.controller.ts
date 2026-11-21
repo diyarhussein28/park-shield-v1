@@ -47,8 +47,8 @@ export class OrdersController {
 
   /** The print options screen: both prices before the owner confirms. */
   @Get('vehicles/:id/print-options')
-  printOptions(@CurrentUser() user: AuthContext, @Param('id', ParseUUIDPipe) _id: string) {
-    return this.orders.printOptions(user.userId);
+  printOptions(@CurrentUser() user: AuthContext, @Param('id', ParseUUIDPipe) id: string) {
+    return this.orders.printOptions(user.userId, id);
   }
 
   /**

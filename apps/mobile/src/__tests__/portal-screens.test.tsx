@@ -12,7 +12,9 @@ import VehicleDetail from '@/app/fahrzeug/[id]';
 import Vehicles from '@/app/(tabs)/fahrzeuge';
 import { HistoryList as History } from '@/components/history-list';
 import Cancel from '@/app/kuendigen';
-import Account from '@/app/abo';
+import Account, { ContractCard } from '@/app/abo';
+import Notifications from '@/app/benachrichtigungen';
+import PrintScreen from '@/app/fahrzeug/drucken/[id]';
 import Plans from '@/app/tarif';
 
 const VEHICLE = '7c2e1f40-5b6a-4d3e-9f10-2a3b4c5d6e7f';
@@ -119,14 +121,14 @@ const vehicle = (over: Partial<PortalVehicle> = {}): PortalVehicle => ({
 });
 
 const subscription = (over: Partial<SubscriptionSummary> = {}): SubscriptionSummary => ({
-  plan: 'plus',
+  plan: 'standard',
   status: 'active',
   contractNo: 'PS-7K3Q9X2M',
   currentPeriodEnd: '2027-11-19T12:00:00Z',
   cancelAtPeriodEnd: false,
   canceledAt: null,
   interval: 'year',
-  renewalMode: 'monthly_after_first_term',
+  renewalMode: 'annual',
   withdrawalOpenUntil: null,
   ...over,
 });
@@ -217,6 +219,30 @@ describe('vehicles', () => {
     expect(await screen.findByText(t('vehicleInvalid'))).toBeTruthy();
   });
 
+  it('one vehicle per plan: „Fahrzeug hinzufügen“ is hidden at the limit, no upgrade prompt', async () => {
+    api({
+      'GET /v1/vehicles': () => json({ vehicles: [vehicle()] }),
+      'GET /v1/billing/subscription': () => json({ subscription: subscription() }),
+    });
+    await render(<Vehicles />);
+    expect(await screen.findByText(t('vehicleLimitNote', { limit: 1 }))).toBeTruthy();
+    expect(screen.queryByLabelText(pt('vehicles.plate'))).toBeNull();
+    expect(screen.queryByText(/Premium|Plus/)).toBeNull();
+  });
+
+  it('a vehicle without an active code shows the warning with „Neuen Code erstellen“', async () => {
+    api({
+      'GET /v1/vehicles': () => json({ vehicles: [vehicle({ decal: null })] }),
+      'GET /v1/billing/subscription': () => json({ subscription: subscription() }),
+      [`POST /v1/vehicles/${VEHICLE}/tokens`]: () => json(vehicle()),
+    });
+    await render(<Vehicles />);
+    expect(await screen.findByText(t('noCodeTitle'))).toBeTruthy();
+    expect(screen.getByText(t('noCodeChip'))).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('new-code'));
+    await waitFor(() => expect(sent('POST', `/v1/vehicles/${VEHICLE}/tokens`)).toEqual({}));
+  });
+
   it('without a subscription the form is replaced by the website notice', async () => {
     api({
       'GET /v1/vehicles': () => json({ vehicles: [] }),
@@ -264,7 +290,11 @@ describe('vehicle detail', () => {
   const routes = (over: Record<string, Handler> = {}) =>
     api({
       [`GET /v1/vehicles/${VEHICLE}`]: () => json(vehicle()),
-      'GET /v1/orders': () => json({ orders: [], includedAvailable: true, freeReplacements: 0 }),
+      [`GET /v1/vehicles/${VEHICLE}/print-options`]: () =>
+        json({
+          selfPrint: { priceCents: 0 },
+          shipped: { priceCents: 300, free: false, welcomePrint: false },
+        }),
       [`GET /v1/vehicles/${VEHICLE}/mode`]: () => json({ mode: null }),
       [`GET /v1/vehicles/${VEHICLE}/protection`]: () =>
         json({ active: false, source: null, activeUntil: null }),
@@ -309,35 +339,59 @@ describe('vehicle detail', () => {
     expect(open).toHaveBeenCalledWith('https://pkshd.de/s/K3Q9ABCDEFGH');
   });
 
-  it('orders the included decal to an address in Germany', async () => {
+  it('„Sperren“ explains what happens, revokes the code and creates NO new one', async () => {
     routes({
-      [`POST /v1/vehicles/${VEHICLE}/order-included`]: () =>
-        json({
-          id: 'o1',
-          status: 'paid',
-          included: true,
-          trackingNumber: null,
-          createdAt: '2026-11-19T12:00:00Z',
-          product: 'uv_vinyl_sticker',
-          vehicleId: VEHICLE,
-          nickname: 'Der Blaue',
-        }),
+      [`POST /v1/vehicles/${VEHICLE}/tokens/revoke`]: () => json(vehicle({ decal: null })),
+    });
+    const ask = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation((_t, _m, buttons) => buttons?.[1]?.onPress?.());
+    await render(<VehicleDetail />);
+    await fireEvent.press(await screen.findByTestId('revoke'));
+    const [title, message] = ask.mock.calls[0]!;
+    expect(title).toBe(t('revokeConfirmTitle'));
+    for (const line of [
+      t('revokeConfirm1'),
+      t('revokeConfirm2'),
+      t('revokeConfirm3'),
+      t('revokeConfirm4', { price: '3,00 €' }),
+    ]) {
+      expect(message).toContain(line);
+    }
+    expect(await screen.findByText(t('noCodeTitle'))).toBeTruthy();
+    expect(screen.getByText(t('revokeDone'))).toBeTruthy();
+    expect(sent('POST', '/tokens/revoke')).toEqual({ confirm: true, reason: 'leaked' });
+    // No new code was requested: only the explicit button does that.
+    const posts = (global.fetch as jest.Mock).mock.calls
+      .filter(([, i]: [string, RequestInit | undefined]) => i?.method === 'POST')
+      .map(([u]: [string]) => u.replace('https://api.test', ''));
+    expect(posts).not.toContain(`/v1/vehicles/${VEHICLE}/tokens`);
+    expect(screen.queryAllByTestId('decal-image')).toHaveLength(0);
+  });
+
+  it('without a code: „Neuen Code erstellen“ (free) brings the QR code back', async () => {
+    let current = vehicle({ decal: null });
+    routes({
+      [`GET /v1/vehicles/${VEHICLE}`]: () => json(current),
+      [`POST /v1/vehicles/${VEHICLE}/tokens`]: () => {
+        current = vehicle();
+        return json(current);
+      },
     });
     await render(<VehicleDetail />);
-    await fireEvent.changeText(await screen.findByLabelText(pt('order.name')), 'Kim Muster');
-    await fireEvent.changeText(screen.getByLabelText(pt('order.line1')), 'Hauptstraße 1');
-    await fireEvent.changeText(screen.getByLabelText(pt('order.postalCode')), '50667');
-    await fireEvent.changeText(screen.getByLabelText(pt('order.city')), 'Köln');
-    await fireEvent.press(screen.getByLabelText(pt('order.submit')));
-    expect(await screen.findByText(pt('order.submitted'))).toBeTruthy();
-    expect(sent('POST', '/order-included')).toEqual({
-      address: {
-        name: 'Kim Muster',
-        line1: 'Hauptstraße 1',
-        postalCode: '50667',
-        city: 'Köln',
-        country: 'DE',
-      },
+    await fireEvent.press(await screen.findByTestId('new-code'));
+    expect(await screen.findByText(t('newCodeDone'))).toBeTruthy();
+    expect(screen.getAllByTestId('decal-image')).toHaveLength(1);
+    expect(screen.queryByTestId('no-code')).toBeNull();
+  });
+
+  it('leads to the print options', async () => {
+    routes();
+    await render(<VehicleDetail />);
+    await fireEvent.press(await screen.findByTestId('print-open'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/fahrzeug/drucken/[id]',
+      params: { id: VEHICLE },
     });
   });
 
@@ -405,19 +459,21 @@ describe('subscription and checkout in the app', () => {
       url: 'exp://192.168.178.25:8082/--/zurueck?to=checkout&result=success&session_id=cs_test_1',
     });
     await render(<Plans />);
-    const pay = await screen.findByLabelText(pt('checkout.pay'));
+    const pay = await screen.findByLabelText(t('payButton', { price: '20,00 €' }));
     expect(pay.props.accessibilityState.disabled).toBe(true); // § 312j: only after the declaration
     // Price, term and renewal stay visible next to the button (§ 312j BGB).
-    expect(screen.getByText(pt('checkout.priceLine'))).toBeTruthy();
+    expect(screen.getByTestId('price-line').props.children).toBe(
+      `ParkShield · ${t('planPriceLine', { price: '20,00 €' })}`,
+    );
     expect(screen.getByText(texts.renewalRule, { exact: false })).toBeTruthy();
     await fireEvent.press(screen.getByLabelText(texts.immediateStart.text));
-    await fireEvent.press(screen.getByLabelText(pt('checkout.pay')));
+    await fireEvent.press(screen.getByTestId('pay'));
 
     await waitFor(() =>
       expect(mockReplace).toHaveBeenCalledWith({ pathname: '/erfolg', params: { kind: 'paid' } }),
     );
     expect(sent('POST', '/v1/billing/checkout')).toEqual({
-      plan: 'plus',
+      plan: 'standard',
       immediateStart: true,
       immediateStartVersion: 3,
       termsVersion: 2,
@@ -462,8 +518,10 @@ describe('subscription and checkout in the app', () => {
     expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith('https://pay.stripe.com/invoice/x');
     await fireEvent.press(screen.getByLabelText(pt('summarySettings.weekly')));
     await waitFor(() => expect(sent('PATCH', '/v1/me')).toEqual({ summaryFrequency: 'weekly' }));
-    await fireEvent.press(screen.getByLabelText(pt('common.footer.cancelContract')));
+    await fireEvent.press(screen.getByLabelText(t('cancelButton')));
     expect(mockPush).toHaveBeenCalledWith('/kuendigen');
+    // After the withdrawal period: only the cancel part of the „Vertrag“ card.
+    expect(screen.queryByTestId('withdraw')).toBeNull();
   });
 
   it('Konto: the plan card comes first; the e-mail language is a segmented choice', async () => {
@@ -475,8 +533,13 @@ describe('subscription and checkout in the app', () => {
       'PATCH /v1/me': () => json({ ok: true }),
     });
     await render(<Account />);
-    await screen.findByText(pt('account.planName', { plan: 'Plus' }));
+    await screen.findByText(t('planName'));
     expect(screen.getAllByRole('header')[0]!.props.children).toBe(pt('account.subscription'));
+    // One plan: „ParkShield · Aktiv“ with what it includes; no upgrade, no Plus/Premium.
+    expect(screen.getByText(pt('account.statusActive'))).toBeTruthy();
+    expect(screen.getByText(t('planIncludes'))).toBeTruthy();
+    expect(screen.getByText(t('planF4'))).toBeTruthy();
+    expect(screen.queryByText(/Premium|Plus\b|Upgrade/)).toBeNull();
     expect(screen.getByLabelText(pt('account.paymentMethod'))).toBeTruthy();
     const english = screen.getByLabelText('English');
     expect(english.props.accessibilityRole).toBe('radio');
@@ -496,15 +559,24 @@ describe('subscription and checkout in the app', () => {
     expect(mockPush).toHaveBeenCalledWith('/tarif');
   });
 
-  it('the plans: Plus bookable, Premium from 9 Nov 2027; legal details folded (P7)', async () => {
+  it('the paywall: one plan, 20 € a year, everything included, no choice; legal details folded (P7)', async () => {
     api({
       'GET /v1/billing/subscription': () => json({ subscription: null, hadSubscription: false }),
       'GET /v1/legal/checkout-texts': () => json(texts),
     });
     await render(<Plans />);
-    await screen.findByLabelText(pt('checkout.pay'));
-    expect(screen.getByTestId('plan-plus')).toBeTruthy();
-    expect(screen.getByTestId('plan-premium').props.accessibilityLabel).toContain(t('paywallSoon'));
+    await screen.findByLabelText(t('payButton', { price: '20,00 €' }));
+    expect(t('payButton', { price: '20,00 €' })).toBe(
+      'Zahlungspflichtig bestellen – 20,00 € / Jahr',
+    );
+    expect(screen.getByTestId('plan-card')).toBeTruthy();
+    for (const k of ['planF1', 'planF2', 'planF3', 'planF4', 'planF5', 'planF6', 'planF7'] as const) {
+      expect(screen.getByText(t(k))).toBeTruthy();
+    }
+    expect(screen.queryByText(/Premium|Plus\b/)).toBeNull();
+    expect(screen.getByText(t('paySecure'))).toBeTruthy();
+    // The immediate-start declaration (§ 356 BGB) is kept.
+    expect(screen.getByLabelText(texts.immediateStart.text)).toBeTruthy();
     expect(screen.queryByText(pt('checkout.withdrawalLink'))).toBeNull();
     await fireEvent.press(screen.getByTestId('pay-details'));
     expect(screen.getByText(pt('checkout.withdrawalLink'))).toBeTruthy();
@@ -528,13 +600,13 @@ describe('subscription and checkout in the app', () => {
     });
     await render(<Plans />);
     await fireEvent.press(await screen.findByLabelText(texts.immediateStart.text));
-    await fireEvent.press(screen.getByLabelText(pt('checkout.pay')));
+    await fireEvent.press(screen.getByTestId('pay'));
     expect(await screen.findByText(t('payCanceled'))).toBeTruthy();
     expect(confirms).toBe(0);
 
     // Closed by hand: one quiet check, then the same neutral message.
     (WebBrowser.openAuthSessionAsync as jest.Mock).mockResolvedValue({ type: 'cancel' });
-    await fireEvent.press(screen.getByLabelText(pt('checkout.pay')));
+    await fireEvent.press(screen.getByTestId('pay'));
     await waitFor(() => expect(confirms).toBe(1));
     expect(screen.getByText(t('payCanceled'))).toBeTruthy();
     expect(screen.queryByText(pt('account.checkoutSuccess'), { exact: false })).toBeNull();

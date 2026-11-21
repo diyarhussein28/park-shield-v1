@@ -74,7 +74,9 @@ export class OrdersService {
    * The print options screen: self-printing is always free; printing and shipping is free once (the
    * welcome print or an ops-granted replacement), then it costs `prices.print_shipped_cents`.
    */
-  async printOptions(userId: string) {
+  async printOptions(userId: string, vehicleId: string) {
+    // Only for the owner's own vehicle (404 otherwise, like every other vehicle route).
+    await this.vehicles.get(userId, vehicleId);
     const [welcome, granted, price] = await Promise.all([
       this.includedAvailable(userId),
       this.freeReplacements(userId),
