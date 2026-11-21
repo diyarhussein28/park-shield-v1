@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-21 20:10 UTC. API tests green (505). Website and app stage 1–2 done. Real-user run on the local stack passed (see §4b). App stage 3–4 in progress; E2E suite being updated._
+_Last updated: 2026-11-21 20:40 UTC. API tests green (505), app Jest green (148), Expo export OK. Website + app stages 1–4 implemented. Real-user run passed (§4b). E2E suite being run and fixed._
 
 ---
 
@@ -81,7 +81,8 @@ Legend: ✅ done and tested · 🟡 code written, tests/UI open · ⬜ not start
 
 - 🟡 API: `HistoryService.block`, `POST /v1/app/alerts/:id/block`, `POST /v1/alerts/:id/block`,
   `ChatService.closeBlocked` (reason `blocked`, migration `20261206000200_block_sender`).
-- ⬜ App/web buttons „Absender blockieren“ on the alert card, detail, chat, history.
+- ✅ App: „Absender blockieren“ on the alert card, detail and chat (`components/block-sender.tsx`);
+  web history's existing „Absender blockieren“ now ends the chat and the escalation too.
 
 
 Existing: `HistoryService` „Absender blockieren“ (`history/history.service.ts` ~line 150, uses
@@ -92,7 +93,9 @@ beendet.“), `stopEscalation('blocked')`, existing abuse module only (no new id
 ### Stage 4 — home, vehicle photo, design refresh, scanner UI
 
 - ✅ Scanner page redesign (`apps/web/lib/scanner/*`, select card then „Warnung senden“, ~71 KB).
-- ⬜ App home, vehicle photo on device, design refresh bug, alerts tab badge.
+- ✅ App Home (greeting, status, decal preview, no alert cards, tab badge), vehicle photo on device
+  (`lib/vehicle-photo.ts`, `/fahrzeug/foto/[id]`, expo-image-picker ~58.0.10 — needs a new dev/EAS
+  build), design refresh after saving (listeners + `k=` cache key). Not tried on a real device.
 
 
 See §3 for the designs.
