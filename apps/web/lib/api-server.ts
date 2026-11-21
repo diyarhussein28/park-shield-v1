@@ -40,36 +40,9 @@ export interface PushDevice {
   lastOkAt: string | null;
 }
 
-export type OrderableChannel = 'native_push' | 'webpush' | 'email' | 'sms';
-
-export interface EmergencyContact {
-  id: string;
-  position: number;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  vehicleId: string | null;
-  vehicleNickname: string | null;
-  status: 'pending' | 'confirmed' | 'declined' | 'revoked' | 'deactivated';
-  requestedAt: string;
-  decidedAt: string | null;
-  expiresAt: string | null;
-}
-
-export interface EmergencyContactList {
-  /** Trusted contacts and escalation are PREMIUM only. */
-  premium: boolean;
-  escalationEnabled: boolean;
-  limit: number;
-  ownerName: string | null;
-  escalationMinutes: number | null;
-  defaultEscalationMinutes: number;
-  contacts: EmergencyContact[];
-}
-
 export interface ChannelsOverview {
-  order: OrderableChannel[];
   email: { address: string };
+  /** Browser push devices from before 2026-11-21; alerts no longer use web push. */
   push: { publicKey: string; devices: PushDevice[] };
   /** Devices of the native app (managed by the app: registered at sign-in, removed at sign-out). */
   app: {
@@ -109,8 +82,8 @@ export interface VehicleMode {
 
 export interface Protection {
   percent: number;
-  /** contact is null for PLUS (trusted contacts are PREMIUM only). */
-  steps: { email: boolean; channel: boolean; contact: boolean | null; decal: boolean };
+  /** channel = app push set up, phone = mobile number verified (escalation SMS). */
+  steps: { email: boolean; channel: boolean; phone: boolean; decal: boolean };
 }
 
 export interface HistoryAlert {
@@ -165,20 +138,35 @@ export interface DeliveryHelp {
 }
 
 export interface Usage {
-  sms: { used: number; limit: number };
+  sms: { used: number; limit: number; capReached?: boolean };
+}
+
+/** GET /v1/me/profile: name and address, and the verified mobile number (required since 2026-11-21). */
+export interface ProfileSummary {
+  email: string;
+  complete: boolean;
+  newAccount: boolean;
+  /** Masked, e.g. +49 151 ••• 89. */
+  phone: string | null;
+  phoneVerified: boolean;
+}
+
+/** GET /v1/vehicles/:id/print-options: both prices before the owner confirms. */
+export interface PrintOptions {
+  selfPrint: { priceCents: number };
+  shipped: { priceCents: number; free: boolean; welcomePrint: boolean };
 }
 
 export interface Me {
   email: string;
   preferredLang: 'de' | 'en';
   summaryFrequency: 'off' | 'weekly' | 'monthly';
-  escalationMinutes: number | null;
   timezone: string;
   passkeys: { id: string; label: string | null; createdAt: string; lastUsedAt: string | null }[];
 }
 
 export interface SubscriptionSummary {
-  plan: 'plus' | 'premium';
+  plan: 'standard';
   status: 'active' | 'past_due';
   contractNo: string | null;
   currentPeriodEnd: string | null;
