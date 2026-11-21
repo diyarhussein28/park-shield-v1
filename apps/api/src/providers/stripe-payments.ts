@@ -37,8 +37,8 @@ export class StripePayments implements Payments {
   constructor(
     secretKey: string,
     private readonly webhookSecret: string,
-    private readonly prices: Record<PaidPlan, string>,
-    private readonly monthlyPrices: Record<PaidPlan, string> = { plus: '', premium: '' },
+    private readonly yearlyPrice: string,
+    private readonly monthlyPrice: string = '',
     client?: Stripe,
   ) {
     this.stripe = client ?? new Stripe(secretKey);
@@ -190,7 +190,7 @@ export class StripePayments implements Payments {
   }
 
   async createCheckout(req: CheckoutRequest): Promise<{ id: string; url: string }> {
-    const price = this.prices[req.plan];
+    const price = req.plan === 'standard' ? this.yearlyPrice : '';
     if (!price) throw new Error(`No Stripe price configured for plan ${req.plan}`);
     const session = await this.stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -286,7 +286,7 @@ export class StripePayments implements Payments {
   }
 
   async scheduleMonthly(subscriptionId: string, plan: PaidPlan): Promise<void> {
-    const monthly = this.monthlyPrices[plan];
+    const monthly = plan === 'standard' ? this.monthlyPrice : '';
     if (!monthly) throw new Error(`No monthly Stripe price configured for plan ${plan}`);
     const sub = await this.stripe.subscriptions.retrieve(subscriptionId);
     // A schedule from the subscription keeps the current phase; the next phase bills monthly and is

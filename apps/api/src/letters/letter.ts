@@ -19,7 +19,7 @@ export interface LetterSnapshot {
   };
   contract: {
     contractNo: string;
-    plan: 'plus' | 'premium';
+    plan: 'standard';
     planName: string;
     startedAt: string;
     priceCents: number;

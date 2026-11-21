@@ -30,7 +30,11 @@ import { BillingService } from './billing.service';
 import { RefundsService } from './refunds.service';
 
 const Checkout = z.object({
-  plan: z.enum(['plus', 'premium']),
+  // One plan since 2026-11-21; older app builds still send plus/premium, which mean the same.
+  plan: z
+    .enum(['standard', 'plus', 'premium'])
+    .default('standard')
+    .transform((): 'standard' => 'standard'),
   promoCode: z.string().trim().min(1).max(40).optional(),
   // §356(4)/§357a BGB: the customer must expressly request the immediate start (US-06), and the
   // order carries the versions of the texts that were shown (consent_records).

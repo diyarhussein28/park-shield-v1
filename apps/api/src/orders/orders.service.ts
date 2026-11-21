@@ -23,7 +23,7 @@ import { returnUrls } from '../billing/app-return';
 
 export const PRINT_TOPIC = 'print.submit';
 
-/** US-11: the included decal, its print job and shipment tracking. */
+/** US-11: printed decals (welcome print, paid prints), print jobs and shipment tracking. */
 @Injectable()
 export class OrdersService {
   constructor(
@@ -39,16 +39,18 @@ export class OrdersService {
     @Inject(SettingsService) private readonly settings: SettingsService,
   ) {}
 
-  /** One decal is included at the first subscription only (OW-04), never again after a later re-subscription. */
+  /**
+   * The free welcome print (owner decision 2026-11-21): one printed and shipped decal is included in
+   * the first year's subscription, once per account (`users.free_welcome_print_used`).
+   */
   async includedAvailable(userId: string): Promise<boolean> {
     if (!(await this.entitlements.current(userId))) return false;
-    const used = await this.db
-      .selectFrom('decal_orders')
-      .select('id')
-      .where('user_id', '=', userId)
-      .where('included_in_plan', '=', true)
+    const u = await this.db
+      .selectFrom('users')
+      .select('free_welcome_print_used')
+      .where('id', '=', userId)
       .executeTakeFirst();
-    return !used;
+    return u ? !u.free_welcome_print_used : false;
   }
 
   /** Free replacements granted by ops (AD-08: code revoked on the owner's behalf). */
@@ -61,19 +63,72 @@ export class OrdersService {
     return u?.free_replacements ?? 0;
   }
 
-  async orderIncluded(userId: string, vehicleId: string, address: ShippingAddress) {
+  /** Price of a printed and shipped decal after the welcome print (setting, default 3 €). */
+  async printPrice(): Promise<number> {
+    return Number(
+      await this.settings.get('prices.print_shipped_cents', ADDON_PRICES_CENTS.printShipped),
+    );
+  }
+
+  /**
+   * The print options screen: self-printing is always free; printing and shipping is free once (the
+   * welcome print or an ops-granted replacement), then it costs `prices.print_shipped_cents`.
+   */
+  async printOptions(userId: string) {
+    const [welcome, granted, price] = await Promise.all([
+      this.includedAvailable(userId),
+      this.freeReplacements(userId),
+      this.printPrice(),
+    ]);
+    const free = welcome || granted > 0;
+    return {
+      selfPrint: { priceCents: 0 },
+      shipped: { priceCents: free ? 0 : price, free, welcomePrint: welcome },
+    };
+  }
+
+  /**
+   * „Drucken und zusenden lassen“: free once (the welcome print, or a replacement ops granted), after
+   * that a one-time Stripe payment (3 € incl. VAT by default) and printed once the payment arrives.
+   * Returns `{ id, url }` for a free order (url = where to go next) or the checkout `{ url }`.
+   */
+  async orderPrint(
+    userId: string,
+    vehicleId: string,
+    address: ShippingAddress,
+    locale: 'de' | 'en',
+    appReturn?: string,
+  ): Promise<{ id?: string; url: string; free: boolean }> {
     await this.entitlements.require(userId);
     const { token, vehicle } = await this.vehicles.currentToken(userId, vehicleId);
-    const orderId = await this.db.transaction().execute(async (trx) => {
+    const page = `${this.env.WEB_BASE_URL}/konto/fahrzeuge/${vehicleId}`;
+    // Website: back to the vehicle page; native app: through the bounce page into the app.
+    const back = returnUrls(this.env, 'order', appReturn, {
+      success: `${page}?order=paid`,
+      cancel: `${page}?order=canceled`,
+    });
+
+    const freeId = await this.db.transaction().execute(async (trx) => {
       await sql`SELECT pg_advisory_xact_lock(hashtext(${userId}))`.execute(trx);
-      const used = await trx
-        .selectFrom('decal_orders')
-        .select('id')
-        .where('user_id', '=', userId)
-        .where('included_in_plan', '=', true)
+      // The welcome print first (once per account), then a replacement ops granted (AD-08).
+      const welcome = await trx
+        .updateTable('users')
+        .set({ free_welcome_print_used: true })
+        .where('id', '=', userId)
+        .where('free_welcome_print_used', '=', false)
         .executeTakeFirst();
-      if (used) throw new ConflictException({ error: 'included_decal_used' });
-      const order = await trx
+      let kind: 'welcome' | 'granted' | null = Number(welcome.numUpdatedRows) ? 'welcome' : null;
+      if (!kind) {
+        const granted = await trx
+          .updateTable('users')
+          .set({ free_replacements: sql`free_replacements - 1` })
+          .where('id', '=', userId)
+          .where('free_replacements', '>', 0)
+          .executeTakeFirst();
+        if (Number(granted.numUpdatedRows)) kind = 'granted';
+      }
+      if (!kind) return null;
+      const o = await trx
         .insertInto('decal_orders')
         .values({
           user_id: userId,
@@ -81,14 +136,15 @@ export class OrdersService {
           shipping_address_enc: this.crypto.encrypt(JSON.stringify(address)),
           key_version: this.crypto.keyVersion,
           total_gross_cents: 0,
-          included_in_plan: true,
+          included_in_plan: kind === 'welcome',
+          is_replacement: kind === 'granted',
         })
         .returning('id')
         .executeTakeFirstOrThrow();
       await trx
         .insertInto('decal_order_items')
         .values({
-          order_id: order.id,
+          order_id: o.id,
           qr_token_id: token.id,
           product: 'uv_vinyl_sticker',
           unit_gross_cents: 0,
@@ -97,89 +153,33 @@ export class OrdersService {
       // Sent to the printer by the worker, so a printer outage never blocks or loses the order.
       await trx
         .insertInto('outbox_events')
-        .values({ topic: PRINT_TOPIC, payload: JSON.stringify({ orderId: order.id }) })
+        .values({ topic: PRINT_TOPIC, payload: JSON.stringify({ orderId: o.id }) })
         .execute();
-      return order.id;
+      return o.id;
     });
-    const user = await this.db
-      .selectFrom('users')
-      .select(['email', 'preferred_lang'])
-      .where('id', '=', userId)
-      .executeTakeFirstOrThrow();
-    await this.mail.send({
-      to: user.email,
-      template: 'order_received',
-      locale: user.preferred_lang,
-      values: { nickname: vehicle.nickname },
-      actionUrl: `${this.env.WEB_BASE_URL}/konto/fahrzeuge/${vehicleId}`,
-    });
-    return this.get(userId, orderId);
-  }
-
-  /** US-13: paid replacement decal (€5.90 incl. shipping), printed only after the payment arrives. */
-  async orderReplacement(
-    userId: string,
-    vehicleId: string,
-    address: ShippingAddress,
-    locale: 'de' | 'en',
-    appReturn?: string,
-  ) {
-    await this.entitlements.require(userId);
-    const { token } = await this.vehicles.currentToken(userId, vehicleId);
-    const user = await this.db
-      .selectFrom('users')
-      .select(['stripe_customer_id', 'free_replacements'])
-      .where('id', '=', userId)
-      .executeTakeFirstOrThrow();
-    const page = `${this.env.WEB_BASE_URL}/konto/fahrzeuge/${vehicleId}`;
-    // Website: back to the vehicle page; native app: through the bounce page into the app.
-    const back = returnUrls(this.env, 'order', appReturn, {
-      success: `${page}?order=paid`,
-      cancel: `${page}?order=canceled`,
-    });
-
-    // AD-08: after ops revoked a code on the owner's behalf, the replacement is free.
-    if (user.free_replacements > 0) {
-      const free = await this.db.transaction().execute(async (trx) => {
-        const claimed = await trx
-          .updateTable('users')
-          .set({ free_replacements: sql`free_replacements - 1` })
-          .where('id', '=', userId)
-          .where('free_replacements', '>', 0)
-          .executeTakeFirst();
-        if (!Number(claimed.numUpdatedRows)) return null;
-        const o = await trx
-          .insertInto('decal_orders')
-          .values({
-            user_id: userId,
-            status: 'paid',
-            shipping_address_enc: this.crypto.encrypt(JSON.stringify(address)),
-            key_version: this.crypto.keyVersion,
-            total_gross_cents: 0,
-            is_replacement: true,
-          })
-          .returning('id')
-          .executeTakeFirstOrThrow();
-        await trx
-          .insertInto('decal_order_items')
-          .values({
-            order_id: o.id,
-            qr_token_id: token.id,
-            product: 'uv_vinyl_sticker',
-            unit_gross_cents: 0,
-          })
-          .execute();
-        await trx
-          .insertInto('outbox_events')
-          .values({ topic: PRINT_TOPIC, payload: JSON.stringify({ orderId: o.id }) })
-          .execute();
-        return o;
+    if (freeId) {
+      const user = await this.db
+        .selectFrom('users')
+        .select(['email', 'preferred_lang'])
+        .where('id', '=', userId)
+        .executeTakeFirstOrThrow();
+      await this.mail.send({
+        to: user.email,
+        template: 'order_received',
+        locale: user.preferred_lang,
+        values: { nickname: vehicle.nickname },
+        actionUrl: page,
       });
-      if (free) return { id: free.id, url: back.success };
+      return { id: freeId, url: back.success, free: true };
     }
 
+    const user = await this.db
+      .selectFrom('users')
+      .select(['stripe_customer_id'])
+      .where('id', '=', userId)
+      .executeTakeFirstOrThrow();
     if (!user.stripe_customer_id) throw new ConflictException({ error: 'no_customer' });
-    const amount = ADDON_PRICES_CENTS.replacementDecal;
+    const amount = await this.printPrice();
     const order = await this.db.transaction().execute(async (trx) => {
       const o = await trx
         .insertInto('decal_orders')
@@ -190,6 +190,7 @@ export class OrdersService {
           key_version: this.crypto.keyVersion,
           total_gross_cents: amount,
           is_replacement: true,
+          paid_print: true,
         })
         .returning('id')
         .executeTakeFirstOrThrow();
@@ -204,15 +205,19 @@ export class OrdersService {
         .execute();
       return o;
     });
-    return this.payments.createPaymentCheckout({
+    // TODO [LEGAL REVIEW] Withdrawal right for the 3 € print order (personalised code, § 312g Abs. 2
+    // Nr. 1 BGB?). Until the lawyer decides, the order is treated like any other one-time purchase.
+    const checkout = await this.payments.createPaymentCheckout({
       customerId: user.stripe_customer_id,
       amountCents: amount,
-      description: locale === 'en' ? 'ParkShield replacement decal' : 'ParkShield-Ersatzaufkleber',
+      description:
+        locale === 'en' ? 'ParkShield decal, printed and shipped' : 'ParkShield-Aufkleber, Druck und Versand',
       locale,
       successUrl: back.success,
       cancelUrl: back.cancel,
       metadata: { orderId: order.id, userId },
     });
+    return { id: order.id, url: checkout.url, free: false };
   }
 
   /** Payment for an order arrived: queue it for printing (idempotent). */

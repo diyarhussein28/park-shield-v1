@@ -7,3 +7,14 @@ to-do list. Read it before changing anything. The live go-live state and team ru
 
 @AGENTS.md
 @docs/status.md
+
+## Standing instructions from the owner (2026-11-21, keep for every session)
+
+- **Commit and push to `main` after every finished part of the code** (a part that builds), without
+  asking. Small commits, clear messages.
+- **Usage limit:** before the 5-hour or weekly usage limit runs out (at about 98 %), commit and push
+  everything and update the handover prompt [docs/handover.md](docs/handover.md): the exact point
+  reached, what is still to do, and the designs and styles still to build, so another team member (or
+  agent) can continue from there. An agent cannot see the usage meter, so it keeps
+  `docs/handover.md` current with **every** commit instead of waiting for the limit.
+- Answers to the owner in Arabic, code and docs in English (German UI texts as specified).

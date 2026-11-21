@@ -1,47 +1,38 @@
-// Defaults for plans.limits; runtime overrides live in app_settings (docs/05-business.md §1).
-export type PlanCode = 'plus' | 'premium';
+// One all-inclusive plan (owner decision 2026-11-21, docs/05-business.md §1). Runtime overrides of
+// every limit and price live in app_settings; these are the defaults.
+export type PlanCode = 'standard';
+export const PLAN_CODE: PlanCode = 'standard';
 
 export interface PlanLimits {
   vehicles: number;
-  emergencyContacts: number;
-  coDrivers: number;
+  /** Safety cap for escalation SMS per account and calendar month (setting `sms.monthly_cap`). */
   smsPerMonth: number;
-  maskedCallMinutesPerMonth: number;
   includedDecals: number;
 }
 
-export const PLAN_LIMIT_DEFAULTS: Record<'plus' | 'premium', PlanLimits> = {
-  plus: {
-    vehicles: 2,
-    // Channel matrix: PLUS = push + e-mail; no SMS, no escalation to trusted contacts.
-    emergencyContacts: 0,
-    coDrivers: 0,
-    smsPerMonth: 0,
-    maskedCallMinutesPerMonth: 0,
-    includedDecals: 1,
-  },
-  premium: {
-    vehicles: 5,
-    emergencyContacts: 3,
-    coDrivers: 3,
-    smsPerMonth: 10,
-    maskedCallMinutesPerMonth: 10,
-    includedDecals: 1,
-  },
+export const PLAN_LIMIT_DEFAULTS: PlanLimits = {
+  // One vehicle per account for now; more need a second account (owner decision 2026-11-21).
+  vehicles: 1,
+  smsPerMonth: 20,
+  // The free welcome print (shipped once); self-printing is always free.
+  includedDecals: 1,
 };
 
 /**
- * Plan catalog: how many feature lines each plan has on the pricing page (i18n keys
- * landing.<plan>F1 … F<n>). The welcome letter lists the same lines, so both always match.
+ * Feature lines of the plan on the pricing page and in the welcome letter (i18n keys
+ * landing.planF1 … F<n>), so both always match.
  */
-export const PLAN_FEATURE_COUNTS = { plus: 7, premium: 6 } as const;
+export const PLAN_FEATURE_COUNT = 6;
 
-/** Consumer prices in euro cents, VAT included (PAngV). */
-export const PLAN_PRICES_CENTS = { plus: 1000, premium: 1500 } as const;
+/** Consumer price in euro cents per year, VAT included (PAngV). */
+export const PLAN_PRICE_CENTS = 2000;
 export const VAT_RATE_DE = 0.19;
 
-/** Paid add-ons, euro cents incl. VAT, shipping included (05-business §1). */
-export const ADDON_PRICES_CENTS = { replacementDecal: 590 } as const;
+/**
+ * Paid add-ons, euro cents incl. VAT (05-business §1). A printed and shipped decal: the first one is
+ * free (welcome print), every further one costs this (setting `prices.print_shipped_cents`).
+ */
+export const ADDON_PRICES_CENTS = { printShipped: 300 } as const;
 
 /** Owner self-test window after "Aufkleber testen" (US-12). */
 export const TEST_WINDOW_MINUTES = 10;

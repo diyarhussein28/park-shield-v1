@@ -291,7 +291,7 @@ const Promo = z.object({
     .regex(/^[A-Za-z0-9-]{3,40}$/),
   kind: z.enum(['percent_off', 'amount_off', 'extra_months']),
   value: z.number().int().min(1).max(100_000),
-  appliesTo: z.array(z.enum(['plus', 'premium'])).optional(),
+  appliesTo: z.array(z.enum(['standard'])).optional(),
   priceLockMonths: z.number().int().min(1).max(120).nullish(),
   maxRedemptions: z.number().int().min(1).max(1_000_000).nullish(),
   validUntil: z.coerce.date().nullish(),

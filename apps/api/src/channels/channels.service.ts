@@ -20,6 +20,8 @@ import {
 import { CRYPTO, DB, ENV, VALKEY } from '../core/tokens';
 import { smsLinkedText, smsOtpText } from '../notifications/sms-texts';
 import { SMS, type SmsSender } from '../providers/ports';
+import { PHONE_VERIFIER, type PhoneVerifier } from '../providers/phone-verify';
+import { DEFAULT_VERIFY_COUNTRIES } from '../abuse/phone';
 import { allowedPushEndpoint } from '../providers/push';
 
 const OTP_TTL = 600;
@@ -61,6 +63,7 @@ export class ChannelsService {
     @Inject(RateLimitService) private readonly limits: RateLimitService,
     @Inject(SMS) private readonly sms: SmsSender,
     @Inject(SettingsService) private readonly settings: SettingsService,
+    @Inject(PHONE_VERIFIER) private readonly verifier: PhoneVerifier,
   ) {}
 
   private async linkedPhone(userId: string, type: PhoneChannel) {
@@ -179,7 +182,12 @@ export class ChannelsService {
     return { sms: await on('sms') };
   }
 
-  /** Sends one code by SMS to the number; nothing is stored in PostgreSQL before it is confirmed. */
+  /**
+   * Sends one code by SMS to the number; nothing is stored in PostgreSQL before it is confirmed. The
+   * owner's number is required (escalation SMS): mobile numbers from the allowed countries only
+   * (setting `owner_phone.countries`, DE + EU by default). With Twilio Verify configured, Lookup checks
+   * the line type and Verify sends and checks the code; without it ParkShield sends its own code.
+   */
   async startPhone(
     user: AuthContext,
     channels: PhoneChannel | PhoneChannel[],
@@ -192,9 +200,29 @@ export class ChannelsService {
     if (!wanted.length || wanted.some((c) => !available[c])) {
       throw new BadRequestException({ error: 'channel_unavailable' });
     }
+    const countries = await this.settings.get<string[]>(
+      'owner_phone.countries',
+      DEFAULT_VERIFY_COUNTRIES,
+    );
+    const country = parsePhoneNumberFromString(phone)?.country ?? null;
+    if (!country || !countries.includes(country))
+      throw new BadRequestException({ error: 'phone_country' });
     const via: PhoneChannel = 'sms';
     await this.limits.enforce(`${via}.otp_user`, user.userId);
     await this.limits.enforce(`${via}.otp_phone`, this.crypto.blindIndex(phone).toString('hex'));
+    if (this.verifier.available) {
+      // Twilio Lookup: landlines and VoIP numbers cannot receive the escalation SMS reliably.
+      const { lineType } = await this.verifier.lookup(phone);
+      if (lineType !== 'mobile') throw new BadRequestException({ error: 'phone_not_mobile' });
+      await this.valkey.set(
+        `${OTP_KEY}:${user.userId}`,
+        JSON.stringify({ phone, channels: wanted, verify: true, attempts: 0 }),
+        'EX',
+        OTP_TTL,
+      );
+      await this.verifier.start(phone, user.preferredLang);
+      return { phone: maskPhone(phone), via };
+    }
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     await this.valkey.set(
       `${OTP_KEY}:${user.userId}`,
@@ -223,10 +251,13 @@ export class ChannelsService {
     const pending = JSON.parse(raw) as {
       phone: string;
       channels: PhoneChannel[];
-      codeHash: string;
+      codeHash?: string;
+      verify?: boolean;
       attempts: number;
     };
-    const ok = timingSafeEqual(Buffer.from(pending.codeHash, 'hex'), sha256(code.trim()));
+    const ok = pending.verify
+      ? /^\d{4,10}$/.test(code.trim()) && (await this.verifier.check(pending.phone, code.trim()))
+      : timingSafeEqual(Buffer.from(pending.codeHash ?? '', 'hex'), sha256(code.trim()));
     if (!ok) {
       pending.attempts += 1;
       if (pending.attempts >= OTP_ATTEMPTS) await this.valkey.del(key);

@@ -2,13 +2,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import { sql } from 'kysely';
 import type { Logger } from 'pino';
 import { EntitlementService } from '../billing/entitlements.service';
-import type { Env } from '../config/env';
 import type { Db } from '../core/core.module';
 import { SettingsService } from '../core/settings.service';
-import { DB, ENV, LOGGER } from '../core/tokens';
-import { MailService } from '../mail/mail.service';
+import { DB, LOGGER } from '../core/tokens';
 
-/** Paid channels with a monthly fair-use limit (NT-05). WhatsApp was removed; SMS is PREMIUM only. */
+/** Metered channels (NT-05): the escalation SMS, with a monthly safety cap (`sms.monthly_cap`). */
 export type MeteredChannel = 'sms';
 const CHANNEL_NAME: Record<MeteredChannel, string> = { sms: 'SMS' };
 
@@ -25,20 +23,17 @@ export function usagePeriod(now = new Date()): string {
 }
 
 /**
- * Monthly fair-use limits per paid channel (NT-05, US-27). Limits come from the plan, overridable in
- * app_settings (`limits.<plan>.<channel>_per_month`). The counter is reserved atomically before sending,
- * so concurrent alerts cannot overshoot; a failed send gives the unit back. At the warning threshold
- * and at the limit, the owner gets one e-mail per month; above the limit the channel is skipped and
- * the alert falls through to Push and e-mail.
+ * Monthly safety cap for the escalation SMS (NT-05, US-27, setting `sms.monthly_cap`, default 20). The
+ * counter is reserved atomically before sending, so concurrent alerts cannot overshoot; a failed send
+ * gives the unit back. Reaching the cap is logged and shown in the app (no e-mail); above it the SMS is
+ * skipped and recorded as suppressed (`fair_use`).
  */
 @Injectable()
 export class FairUseService {
   constructor(
     @Inject(DB) private readonly db: Db,
-    @Inject(ENV) private readonly env: Env,
     @Inject(SettingsService) private readonly settings: SettingsService,
     @Inject(EntitlementService) private readonly entitlements: EntitlementService,
-    @Inject(MailService) private readonly mail: MailService,
     @Inject(LOGGER) private readonly logger: Logger,
   ) {}
 
@@ -58,7 +53,8 @@ export class FairUseService {
           .where('period', '=', sql<Date>`${usagePeriod()}::date`)
           .where('metric', '=', channel)
           .executeTakeFirst();
-        return { used: row?.value ?? 0, limit };
+        const used = row?.value ?? 0;
+        return { used, limit, capReached: limit > 0 && used >= limit };
       }),
     );
     return { sms: sms! };
@@ -115,14 +111,11 @@ export class FairUseService {
       VALUES (${owner.id}, ${period}::date, ${marker}, 1)
       ON CONFLICT DO NOTHING RETURNING value`.execute(this.db);
     if (!marked.rows.length) return;
-    await this.mail
-      .send({
-        to: owner.email,
-        template,
-        locale: owner.lang,
-        values: { ...values, channel: CHANNEL_NAME[channel] },
-        actionUrl: `${this.env.WEB_BASE_URL}/konto/benachrichtigungen`,
-      })
-      .catch((err: unknown) => this.logger.warn({ err: String(err) }, 'fair-use mail failed'));
+    // 2026-11-21: no e-mail about alerts. The app shows the state (GET /v1/app/sms-usage); the log
+    // keeps counts only, no owner id.
+    this.logger.info(
+      { tag: template, channel: CHANNEL_NAME[channel], used: values.used, limit: values.limit },
+      'monthly SMS cap',
+    );
   }
 }

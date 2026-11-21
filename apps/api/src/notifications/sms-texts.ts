@@ -112,15 +112,12 @@ export const isGsm7 = (s: string) => [...s].every((c) => GSM7.has(c));
 
 /**
  * Every SMS with a link is one GSM-7 segment: `<lead>: <subject> (<label>). <link text>: <host>/<path>`.
- * The kinds below are all SMS the tiered notifications send (owner and emergency contacts).
- * - alert/reminder/followup/test: to the owner, link to the view page /v/<token> (details, photos,
- *   "Ich komme"). No photo, ever.
- * - escalation: to a confirmed emergency contact, link to /k/<token> ("Ich komme", opt-out). Only the
- *   alert type and the vehicle label the owner chose: no plate, no scanner text, no photo.
- * - invite: to a new emergency contact, link to the invitation (accept / decline).
+ * Since 2026-11-21 ParkShield sends exactly one kind of SMS for alerts:
+ * - escalation: to the owner's verified number, once, when an alert had no reaction for 30 minutes;
+ *   link to the view page /v/<token> on park-shield.de (details, photos, "Ich komme"). No photo, ever.
+ * The other kinds stay for templates that are still rendered in tests and old links.
  */
-export type LinkSmsKind =
-  'alert' | 'photos' | 'reminder' | 'followup' | 'test' | 'escalation' | 'invite';
+export type LinkSmsKind = 'alert' | 'photos' | 'reminder' | 'followup' | 'test' | 'escalation';
 
 const LINK_TEXTS = {
   de: {
@@ -129,8 +126,7 @@ const LINK_TEXTS = {
     reminder: { lead: 'ParkShield Erinnerung', link: 'Details' },
     followup: { lead: 'ParkShield Erinnerung, die Person wartet noch', link: 'Details' },
     test: { lead: 'ParkShield Test erfolgreich', link: 'Details' },
-    escalation: { lead: 'ParkShield Vertrauensperson', link: 'Ich komme / Abmelden' },
-    invite: { lead: 'ParkShield', link: 'Annehmen/Ablehnen' },
+    escalation: { lead: 'ParkShield, seit 30 Min keine Reaktion', link: 'Details' },
   },
   en: {
     alert: { lead: 'ParkShield', link: 'Details' },
@@ -138,8 +134,7 @@ const LINK_TEXTS = {
     reminder: { lead: 'ParkShield reminder', link: 'Details' },
     followup: { lead: 'ParkShield reminder, the person is still waiting', link: 'Details' },
     test: { lead: 'ParkShield test successful', link: 'Details' },
-    escalation: { lead: 'ParkShield trusted contact', link: 'I am coming / Opt out' },
-    invite: { lead: 'ParkShield', link: 'Accept/decline' },
+    escalation: { lead: 'ParkShield, no reaction for 30 min', link: 'Details' },
   },
 } as const;
 
@@ -180,12 +175,3 @@ export function smsLinkText(
 export const smsPhotoText = (lang: 'de' | 'en', type: string, nickname: string, viewUrl: string) =>
   smsLinkText(lang, 'photos', type, nickname, viewUrl);
 
-/** Invitation SMS to a new emergency contact: "<Vorname> moechte Sie als Vertrauensperson ...". */
-export function smsInviteText(lang: 'de' | 'en', ownerFirstName: string, url: string): string {
-  const owner = toGsm7(ownerFirstName).slice(0, 20) || (lang === 'de' ? 'Jemand' : 'Someone');
-  const subject =
-    lang === 'de'
-      ? `${owner} moechte Sie als Vertrauensperson hinterlegen`
-      : `${owner} would like you as a trusted contact`;
-  return smsLinkText(lang, 'invite', subject, '', url);
-}

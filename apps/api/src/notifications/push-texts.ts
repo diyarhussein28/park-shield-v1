@@ -45,25 +45,29 @@ const texts = {
  */
 const APP_TEXTS = {
   de: {
-    alert: (type: string) => `Neuer Alarm für Ihr Fahrzeug: ${type}`,
-    test: () => 'Testalarm angekommen. So erreichen Sie Warnungen.',
-    reminder: (type: string) => `Erinnerung: ${type}. Bitte reagieren Sie.`,
-    followup: (type: string) => `Die Person am Fahrzeug wartet noch: ${type}`,
-    chat: () => 'Neue Nachricht im Chat zu Ihrem Alarm',
+    alert: () => 'Neue Warnung zu Ihrem Fahrzeug. Tippen Sie für Details.',
+    test: () => 'Testwarnung angekommen. So erreichen Sie Warnungen.',
+    reminder: () => 'Erinnerung: Eine Warnung wartet auf Ihre Reaktion.',
+    followup: () => 'Die Person am Fahrzeug wartet noch auf Sie.',
+    chat: () => 'Neue Nachricht im Chat zu Ihrer Warnung.',
   },
   en: {
-    alert: (type: string) => `New alert for your vehicle: ${type}`,
+    alert: () => 'New alert for your vehicle. Tap for details.',
     test: () => 'Test alert received. This is how alerts reach you.',
-    reminder: (type: string) => `Reminder: ${type}. Please respond.`,
-    followup: (type: string) => `The person at the vehicle is still waiting: ${type}`,
-    chat: () => 'New message in the chat about your alert',
+    reminder: () => 'Reminder: an alert is waiting for your reaction.',
+    followup: () => 'The person at the vehicle is still waiting for you.',
+    chat: () => 'New message in the chat about your alert.',
   },
 } as const;
 
 export type AppPushKind = keyof (typeof APP_TEXTS)['de'];
 
-export function appPushText(lang: 'de' | 'en', kind: AppPushKind, type: string) {
-  return { title: 'ParkShield', body: APP_TEXTS[lang][kind](type) };
+/**
+ * Generic text only (owner decision 2026-11-21): not even the alert type. The payload's data carries the
+ * alert id and the kind of message (for routing in the app), nothing else.
+ */
+export function appPushText(lang: 'de' | 'en', kind: AppPushKind, _type = '') {
+  return { title: 'ParkShield', body: APP_TEXTS[lang][kind]() };
 }
 
 /** iOS notification category (Android click action) with the "Ich komme" action button. */

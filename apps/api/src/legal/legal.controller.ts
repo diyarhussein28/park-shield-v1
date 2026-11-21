@@ -56,7 +56,11 @@ const PublicCancel = CancelBase.extend({
 const Revoke = z.object({ token: z.string().min(20).max(100) });
 
 const Renew = z.object({
-  plan: z.enum(['plus', 'premium']),
+  // One plan since 2026-11-21; older app builds still send plus/premium, which mean the same.
+  plan: z
+    .enum(['standard', 'plus', 'premium'])
+    .default('standard')
+    .transform((): 'standard' => 'standard'),
   promoCode: z.string().trim().min(1).max(40).optional(),
   immediateStart: z.literal(true),
   immediateStartVersion: z.number().int().positive(),

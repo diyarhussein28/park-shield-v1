@@ -22,8 +22,8 @@ const plain = (min: number, max: number) =>
     );
 
 /**
- * The sign-up data (owner decisions 2026-11-20): name and postal address are required, the mobile
- * number is optional and set up separately (verified SMS channel). Germany is the default country;
+ * The sign-up data (owner decisions 2026-11-20/21): name and postal address are required; the mobile
+ * number is required too, but set up separately (verified SMS channel, `phoneVerified`). Germany is the default country;
  * a German postcode has exactly five digits.
  */
 export const ProfileInput = z
@@ -123,6 +123,21 @@ export class ProfileService {
         .execute();
     });
     return (await this.get(userId))!;
+  }
+
+  /**
+   * The owner's mobile number is verified (SMS channel linked after a code, owner decision
+   * 2026-11-21: required at sign-up for the escalation SMS).
+   */
+  async phoneVerified(userId: string): Promise<boolean> {
+    const row = await this.db
+      .selectFrom('contact_channels')
+      .select('id')
+      .where('user_id', '=', userId)
+      .where('type', '=', 'sms')
+      .where('verified_at', 'is not', null)
+      .executeTakeFirst();
+    return Boolean(row);
   }
 
   /** Name and postal address for Stripe and the welcome letter; null without a profile. */

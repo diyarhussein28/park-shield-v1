@@ -23,7 +23,7 @@ const hhmm = (t: string) => t.slice(0, 5);
 /**
  * Quiet hours and temporary modes (OW-06, OW-17, US-26), and the protection score (OW-14, US-28).
  * Muting never drops an alert: it is recorded as a suppressed delivery with its reason, so it shows in
- * the history, and escalation to an emergency contact still applies.
+ * the history. The escalation SMS is never sent during quiet hours.
  */
 @Injectable()
 export class PreferencesService {
@@ -163,6 +163,15 @@ export class PreferencesService {
       .execute();
   }
 
+  /**
+   * Quiet hours for the escalation SMS (owner decision 2026-11-21): no SMS ever during quiet hours, not
+   * even for urgent alerts (the urgent bypass applies to the app push only).
+   */
+  async quietHours(userId: string, vehicleId: string, now = new Date()): Promise<boolean> {
+    const r = await this.muteReason({ userId, vehicleId, severity: 'info', isTest: false, now });
+    return r === 'quiet_hours';
+  }
+
   /** Should this alert reach the owner right now? null = yes. Tests and reminders are never muted. */
   async muteReason(input: {
     userId: string;
@@ -207,46 +216,27 @@ export class PreferencesService {
   // --- protection score (OW-14) ------------------------------------------------------------------
 
   /**
-   * Computed from data, never stored (US-28). Four steps of 25 % for PREMIUM. Trusted contacts are
-   * PREMIUM only, so for PLUS that step does not apply (null) and the other three make up 100 %.
+   * Computed from data, never stored (US-28). Four steps of 25 % (single plan, 2026-11-21): e-mail
+   * confirmed, app push set up, mobile number verified (escalation SMS), decal tested.
    */
   async protection(userId: string) {
     const row = await sql<{
       email: boolean;
       channel: boolean;
-      contact: boolean;
+      phone: boolean;
       decal: boolean;
-      premium: boolean;
     }>`
       SELECT
         (u.email_verified_at IS NOT NULL) AS email,
-        (EXISTS (SELECT 1 FROM push_subscriptions p WHERE p.user_id = u.id)
-          OR EXISTS (SELECT 1 FROM user_devices d WHERE d.user_id = u.id)
-          OR EXISTS (SELECT 1 FROM contact_channels c WHERE c.user_id = u.id AND c.type = 'sms'
-                      AND c.verified_at IS NOT NULL AND c.is_enabled)) AS channel,
-        EXISTS (SELECT 1 FROM emergency_contacts e WHERE e.user_id = u.id AND e.consent = 'confirmed'
-                 AND e.deactivated_at IS NULL) AS contact,
+        EXISTS (SELECT 1 FROM user_devices d WHERE d.user_id = u.id) AS channel,
+        EXISTS (SELECT 1 FROM contact_channels c WHERE c.user_id = u.id AND c.type = 'sms'
+                 AND c.verified_at IS NOT NULL) AS phone,
         EXISTS (SELECT 1 FROM qr_tokens t JOIN vehicles v ON v.id = t.vehicle_id
-                 WHERE v.owner_user_id = u.id AND t.status <> 'revoked' AND t.last_test_at IS NOT NULL) AS decal,
-        EXISTS (SELECT 1 FROM subscriptions s WHERE s.user_id = u.id AND s.plan = 'premium'
-                 AND s.status IN ('active', 'past_due')) AS premium
+                 WHERE v.owner_user_id = u.id AND t.status <> 'revoked' AND t.last_test_at IS NOT NULL) AS decal
       FROM users u WHERE u.id = ${userId}`.execute(this.db);
-    const r = row.rows[0] ?? {
-      email: false,
-      channel: false,
-      contact: false,
-      decal: false,
-      premium: false,
-    };
-    const steps = {
-      email: r.email,
-      channel: r.channel,
-      contact: r.premium ? r.contact : null,
-      decal: r.decal,
-    };
-    const applicable = Object.values(steps).filter((v) => v !== null);
-    const done = applicable.filter(Boolean).length;
-    // On iOS, a push subscription exists only for the home-screen app, so any subscription counts.
-    return { percent: Math.round((done / applicable.length) * 100), steps };
+    const r = row.rows[0] ?? { email: false, channel: false, phone: false, decal: false };
+    const steps = { email: r.email, channel: r.channel, phone: r.phone, decal: r.decal };
+    const done = Object.values(steps).filter(Boolean).length;
+    return { percent: Math.round((done / 4) * 100), steps };
   }
 }

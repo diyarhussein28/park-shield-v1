@@ -5,6 +5,7 @@ import type { FieldCrypto } from '../core/crypto';
 import { CRYPTO, DB } from '../core/tokens';
 import { ChatService } from '../chat/chat.service';
 import { DispatchService } from '../notifications/dispatch.service';
+import { stopEscalation } from '../notifications/escalation';
 
 const PAGE = 30;
 
@@ -44,7 +45,7 @@ export class AppAlertsService {
         'a.seen_at',
         'a.owner_reply',
         'a.acknowledged_by',
-        'a.escalation_step',
+        'a.escalation_stage',
         'v.id as vehicleId',
         'v.nickname',
         't.label_de',
@@ -74,7 +75,7 @@ export class AppAlertsService {
         seenAt: r.seen_at,
         acknowledged: r.owner_reply === 'coming' || r.acknowledged_by !== null,
         acknowledgedBy: r.acknowledged_by,
-        escalationStep: r.escalation_step,
+        escalationStage: r.escalation_stage,
         vehicle: { id: r.vehicleId, nickname: r.nickname },
         photoCount: Number(r.photoCount ?? 0),
         chatStatus: r.chatStatus,
@@ -103,8 +104,13 @@ export class AppAlertsService {
         'a.owner_reply',
         'a.acknowledged_at',
         'a.acknowledged_by',
-        'a.escalation_step',
-        'a.escalated_at',
+        'a.escalation_stage',
+        'a.remind_at',
+        'a.reminded_at',
+        'a.sms_due_at',
+        'a.sms_sent_at',
+        'a.escalation_stopped_at',
+        'a.escalation_stop_reason',
         'a.custom_message_enc',
         'a.content_hidden',
         'v.id as vehicleId',
@@ -112,12 +118,11 @@ export class AppAlertsService {
         'v.owner_user_id',
         't.label_de',
         't.label_en',
-        't.escalates',
       ])
       .where('a.id', '=', alertId)
       .executeTakeFirst();
     if (!a) throw new NotFoundException({ error: 'alert_not_found' });
-    const [allMedia, report, contacts, chat, blocked] = await Promise.all([
+    const [allMedia, report, chat, blocked] = await Promise.all([
       this.db
         .selectFrom('alert_media')
         .select([
@@ -139,17 +144,6 @@ export class AppAlertsService {
         .where('alert_id', '=', a.id)
         .where('reason', '=', 'photo_abuse')
         .executeTakeFirst(),
-      // Who was notified in the chain, and who acknowledged ("Kim kommt").
-      this.db
-        .selectFrom('alert_deliveries as d')
-        .leftJoin('emergency_contacts as c', 'c.id', 'd.emergency_contact_id')
-        .select(['d.escalation_step', 'c.display_name'])
-        .where('d.alert_id', '=', a.id)
-        .where('d.recipient', '=', 'emergency_contact')
-        .where('d.escalation_step', 'is not', null)
-        .groupBy(['d.escalation_step', 'c.display_name'])
-        .orderBy('d.escalation_step')
-        .execute(),
       this.chat.state(a.id, 'owner'),
       this.chat.senderBlocked(a.id),
     ]);
@@ -165,7 +159,6 @@ export class AppAlertsService {
         : null;
     const shown = !a.content_hidden || reveal;
     const by = a.acknowledged_by;
-    const contactStep = by?.startsWith('contact_') ? Number(by.slice(8)) : null;
     return {
       id: a.id,
       type: { code: a.alert_type, de: a.label_de, en: a.label_en },
@@ -177,19 +170,16 @@ export class AppAlertsService {
       seenAt: a.seen_at,
       reply: a.owner_reply,
       acknowledgedAt: a.acknowledged_at,
-      acknowledgedBy: by
-        ? {
-            kind: contactStep ? 'contact' : 'owner',
-            name: contactStep
-              ? (contacts.find((c) => c.escalation_step === contactStep)?.display_name ?? null)
-              : null,
-          }
-        : null,
+      acknowledgedBy: by ? { kind: 'owner' as const, name: null } : null,
+      // Reminder push after 10 min, one SMS after 30 min, unless the owner reacted (2026-11-21).
       escalation: {
-        applies: a.escalates,
-        step: a.escalation_step,
-        escalatedAt: a.escalated_at,
-        notified: contacts.map((c) => ({ step: c.escalation_step, name: c.display_name })),
+        stage: a.escalation_stage,
+        reminderAt: a.remind_at,
+        remindedAt: a.reminded_at,
+        smsDueAt: a.sms_due_at,
+        smsSentAt: a.sms_sent_at,
+        stoppedAt: a.escalation_stopped_at,
+        stopReason: a.escalation_stop_reason,
       },
       vehicle: { id: a.vehicleId, nickname: a.nickname },
       contentHidden: a.content_hidden,
@@ -206,7 +196,34 @@ export class AppAlertsService {
     };
   }
 
-  /** Opening the alert in the app: "seen". Shown to the scanner; does not stop reminders or escalation. */
+  /**
+   * „Erledigt“: the owner marks the alert resolved. A stop condition: no reminder, no SMS any more.
+   * The alert keeps its status (the scanner sees what the owner answered, if anything).
+   */
+  async resolve(userId: string, alertId: string): Promise<{ resolvedAt: Date }> {
+    const row = await this.db
+      .updateTable('alerts')
+      .set({ resolved_at: sql`coalesce(resolved_at, now())`, ...stopEscalation('resolved') })
+      .where('id', '=', alertId)
+      .where((eb) =>
+        eb.exists(
+          eb
+            .selectFrom('vehicles as v')
+            .select('v.id')
+            .whereRef('v.id', '=', 'alerts.vehicle_id')
+            .where('v.owner_user_id', '=', userId),
+        ),
+      )
+      .returning(['resolved_at'])
+      .executeTakeFirst();
+    if (!row?.resolved_at) throw new NotFoundException({ error: 'alert_not_found' });
+    return { resolvedAt: row.resolved_at };
+  }
+
+  /**
+   * Opening the alert in the app: "seen". Shown to the scanner. NOT a stop condition: viewing alone
+   * does not stop the reminder or the SMS (owner decision 2026-11-21).
+   */
   async seen(userId: string, alertId: string): Promise<{ seenAt: Date; first: boolean }> {
     const row = await this.db
       .updateTable('alerts')

@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Delete,
   ForbiddenException,
@@ -128,11 +129,14 @@ export class ChannelsController {
     return this.channels.verifyPhone(user, body.code);
   }
 
+  /**
+   * The mobile number is required (escalation SMS, owner decision 2026-11-21): it can be changed (a new
+   * number replaces it after its code), never just removed. Account deletion removes it.
+   */
   @Delete('channels/sms')
-  @HttpCode(200)
-  async unlinkSms(@CurrentUser() user: AuthContext) {
-    await this.channels.unlinkPhone(user.userId, 'sms');
-    return { ok: true };
+  @HttpCode(409)
+  unlinkSms() {
+    throw new ConflictException({ error: 'phone_required' });
   }
 }
 

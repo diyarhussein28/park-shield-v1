@@ -22,14 +22,21 @@ import { MailService } from '../mail/mail.service';
 import { OrdersService } from '../orders/orders.service';
 import { TagsService } from '../vehicles/tags.service';
 import { TokensService } from '../vehicles/tokens.service';
-import { legalDoc, LEGAL_DOC_VERSION, renewalRule, type LegalSlug } from '@parkshield/shared';
+import {
+  legalDoc,
+  LEGAL_DOC_VERSION,
+  PLAN_PRICE_CENTS,
+  renewalRule,
+  type LegalSlug,
+} from '@parkshield/shared';
 import { PAYMENTS, type BillingEvent, type PaidPlan, type Payments } from '../providers/ports';
 import { queueWelcomeLetterCheck } from '../letters/trigger';
 import { ProfileService } from '../profile/profile.service';
 import { returnUrls } from './app-return';
 
 const LIVE = ['active', 'past_due'] as const;
-const PLAN_NAMES: Record<PaidPlan, string> = { plus: 'Plus', premium: 'Premium' };
+/** The single plan's name on contracts and confirmations (owner decision 2026-11-21). */
+const PLAN_NAME = 'ParkShield';
 
 const euro = (cents: number, locale: 'de' | 'en') =>
   new Intl.NumberFormat(locale === 'de' ? 'de-DE' : 'en-IE', {
@@ -72,28 +79,30 @@ export class BillingService {
     @Inject(ProfileService) private readonly profiles: ProfileService,
   ) {}
 
+  /** The one plan (kept as a list so old clients keep working). */
   async plans() {
     const rows = await this.db
       .selectFrom('plans')
-      .select(['code', 'name', 'availability', 'price_year_gross_cents'])
+      .select(['code', 'name', 'availability'])
       .where('is_public', '=', true)
-      .orderBy('price_year_gross_cents', (ob) => ob.asc().nullsLast())
       .execute();
-    return Promise.all(
-      rows.map(async (p) => ({
-        code: p.code,
-        name: p.name,
-        availability: p.availability,
-        priceYearGrossCents: p.price_year_gross_cents,
-        purchasable: await this.isPurchasable(p.code),
-      })),
-    );
+    const price = await this.yearPrice();
+    return rows.map((p) => ({
+      code: p.code,
+      name: p.name,
+      availability: p.availability,
+      priceYearGrossCents: price,
+      purchasable: p.code === 'standard',
+    }));
   }
 
-  private async isPurchasable(plan: string): Promise<boolean> {
-    if (plan === 'plus') return true;
-    if (plan === 'premium') return this.settings.get('plans.premium.purchasable', false);
-    return false;
+  /** Yearly gross price in cents (setting `prices.plan_year_cents`, default 20 €). */
+  async yearPrice(): Promise<number> {
+    return Number(await this.settings.get('prices.plan_year_cents', PLAN_PRICE_CENTS));
+  }
+
+  private isPurchasable(plan: string): boolean {
+    return plan === 'standard';
   }
 
   async liveSubscription(userId: string) {
@@ -160,12 +169,8 @@ export class BillingService {
 
   /** Gross price after an optional promo, in cents (used by the local fake checkout). */
   async priceFor(plan: PaidPlan, promoCodeId?: string): Promise<number> {
-    const p = await this.db
-      .selectFrom('plans')
-      .select('price_year_gross_cents')
-      .where('code', '=', plan)
-      .executeTakeFirstOrThrow();
-    const base = p.price_year_gross_cents ?? 0;
+    if (!this.isPurchasable(plan)) throw new BadRequestException({ error: 'plan_unavailable' });
+    const base = await this.yearPrice();
     if (!promoCodeId) return base;
     const promo = await this.db
       .selectFrom('promo_codes')
@@ -183,13 +188,16 @@ export class BillingService {
     input: { plan: PaidPlan; promoCode?: string; appReturn?: string } & CheckoutConsents,
     ipHash: Buffer | null = null,
   ): Promise<{ url: string }> {
-    if (!(await this.isPurchasable(input.plan)))
+    if (!this.isPurchasable(input.plan))
       throw new BadRequestException({ error: 'plan_unavailable' });
     if (await this.liveSubscription(user.userId))
       throw new ConflictException({ error: 'already_subscribed' });
     // Sign-up before payment (docs/app-redesign.md §7): name and postal address first.
     const address = await this.profiles.postalAddress(user.userId);
     if (!address) throw new ConflictException({ error: 'profile_incomplete' });
+    // The verified mobile number is required (escalation SMS, owner decision 2026-11-21).
+    if (!(await this.profiles.phoneVerified(user.userId)))
+      throw new ConflictException({ error: 'phone_required' });
 
     let promo = null;
     if (input.promoCode) {
@@ -347,7 +355,7 @@ export class BillingService {
   private async onCheckoutCompleted(e: Extract<BillingEvent, { kind: 'checkout_completed' }>) {
     const plan = e.metadata.plan as PaidPlan | undefined;
     const userId = e.metadata.userId;
-    if (!userId || (plan !== 'plus' && plan !== 'premium')) {
+    if (!userId || plan !== 'standard') {
       this.logger.error({ eventId: e.eventId }, 'checkout without ParkShield metadata');
       return;
     }
@@ -424,7 +432,7 @@ export class BillingService {
       template: 'contract_confirmation',
       locale,
       values: {
-        plan: PLAN_NAMES[plan],
+        plan: PLAN_NAME,
         contractNo,
         price: euro(price, locale),
         startedAt: e.periodStart,

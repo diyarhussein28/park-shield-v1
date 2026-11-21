@@ -15,7 +15,6 @@ import { SettingsService } from '../core/settings.service';
 import { CRYPTO, DB } from '../core/tokens';
 import { filterText } from '../moderation/text-filter';
 import { WordListsService } from '../moderation/word-lists.service';
-import { EscalationService } from '../notifications/escalation.service';
 import { OwnerReminderService } from '../notifications/owner-reminder.service';
 import { ChatService } from '../chat/chat.service';
 import { contractState, scannerDecision } from '../legal/rules';
@@ -51,7 +50,6 @@ export class ScanService {
     @Inject(ScannerRefService) private readonly refs: ScannerRefService,
     @Inject(RateLimitService) private readonly limits: RateLimitService,
     @Inject(GeoService) private readonly geo: GeoService,
-    @Inject(EscalationService) private readonly escalation: EscalationService,
     @Inject(WordListsService) private readonly wordLists: WordListsService,
     @Inject(ProtectionService) private readonly protection: ProtectionService,
     @Inject(PhoneBansService) private readonly phoneBans: PhoneBansService,
@@ -296,15 +294,8 @@ export class ScanService {
     const contentHidden =
       !isTest && !verifiedHash && (await this.protection.isActive(token.vehicleId));
     const statusToken = randomToken();
-    // 02-architecture §3 step 3: set only for escalating types with a confirmed emergency contact.
-    const escalateAt = await this.escalation.initialEscalateAt({
-      ownerId: token.ownerId,
-      vehicleId: token.vehicleId,
-      escalates: type.escalates,
-      isTest,
-    });
-    // Owner reminder after N minutes without an answer (tiered notifications).
-    const remindAt = await this.reminders.initialRemindAt(isTest);
+    // Escalation (2026-11-21): reminder push after 10 min, one SMS after 30 min (never for tests).
+    const { remindAt, smsDueAt } = await this.reminders.initialTimes(isTest);
     // Phase 2: photos are checked, re-encoded, encrypted and written only now, after every check above.
     // A photo problem drops the photo, never the alert.
     const prepared = await this.media.prepare({
@@ -323,8 +314,8 @@ export class ScanService {
             moderation: message ? 'passed' : 'not_required',
             status_view_hash: sha256(statusToken),
             dispatched_at: sql`now()`,
-            escalate_at: escalateAt,
             remind_at: remindAt,
+            sms_due_at: smsDueAt,
             verified_phone_hash: verifiedHash,
             content_hidden: contentHidden,
           })
@@ -462,7 +453,6 @@ export class ScanService {
     statusToken: string,
   ): Promise<'ok' | 'not_found' | 'not_yet' | 'used'> {
     const followupMinutes = Number(await this.settings.get('followup.after_ack_minutes', 15));
-    const escalateMinutes = Number(await this.settings.get('followup.escalate_after_minutes', 5));
     return this.db.transaction().execute(async (trx) => {
       const a = await trx
         .selectFrom('alerts')
@@ -491,24 +481,9 @@ export class ScanService {
       if (a.status !== 'acknowledged' || availableAt > Date.now() || a.expires_at < new Date()) {
         return 'not_yet';
       }
-      // SC-14: escalation at most N minutes later unless the owner replies to the reminder, but only
-      // for escalating types with a confirmed emergency contact (NT-03).
-      const applies =
-        a.escalates &&
-        !a.is_test &&
-        (await this.escalation.hasContact(a.owner_user_id, a.vehicle_id, trx));
       await trx
         .updateTable('alerts')
-        .set({
-          scanner_waiting_at: sql`now()`,
-          ...(applies
-            ? {
-                escalate_at: sql`CASE WHEN escalated_at IS NULL
-                  THEN least(coalesce(escalate_at, 'infinity'::timestamptz), now() + make_interval(mins => ${escalateMinutes}))
-                  ELSE escalate_at END`,
-              }
-            : {}),
-        })
+        .set({ scanner_waiting_at: sql`now()` })
         .where('id', '=', a.id)
         .execute();
       await trx

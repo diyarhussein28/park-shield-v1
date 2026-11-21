@@ -43,6 +43,8 @@ export type DsrStatus = "awaiting_identity" | "completed" | "in_progress" | "rec
 
 export type DsrType = "access_export" | "erasure" | "objection" | "rectification" | "restriction";
 
+export type EscalationStage = "none" | "reminder_sent" | "sms_sent";
+
 export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
   : ColumnType<T, T | undefined, T>;
@@ -75,7 +77,7 @@ export type PartnerKind = "dealer" | "driving_school" | "hausverwaltung" | "insu
 
 export type PlanAvailability = "available" | "coming_soon" | "retired";
 
-export type PlanCode = "plus" | "premium";
+export type PlanCode = "standard";
 
 export type ProfileSource = "completed_later" | "signup";
 
@@ -185,7 +187,10 @@ export interface Alerts {
   dispatched_at: Timestamp | null;
   escalate_at: Timestamp | null;
   escalated_at: Timestamp | null;
+  escalation_stage: Generated<EscalationStage>;
   escalation_step: Generated<number>;
+  escalation_stop_reason: string | null;
+  escalation_stopped_at: Timestamp | null;
   expires_at: Generated<Timestamp>;
   followup_sent_at: Timestamp | null;
   id: Generated<string>;
@@ -196,12 +201,15 @@ export interface Alerts {
   qr_token_id: string;
   remind_at: Timestamp | null;
   reminded_at: Timestamp | null;
+  resolved_at: Timestamp | null;
   scanner_country: string | null;
   scanner_lang: Generated<UiLang>;
   scanner_ref: Buffer | null;
   scanner_waiting_at: Timestamp | null;
   seen_at: Timestamp | null;
   severity: AlertSeverity;
+  sms_due_at: Timestamp | null;
+  sms_sent_at: Timestamp | null;
   status: Generated<AlertStatus>;
   status_view_hash: Buffer;
   vehicle_id: string;
@@ -387,6 +395,7 @@ export interface DecalOrders {
   key_version: Generated<number>;
   ops_note: string | null;
   organization_id: string | null;
+  paid_print: Generated<boolean>;
   print_partner_ref: string | null;
   reprint_of: string | null;
   returned_at: Timestamp | null;
@@ -859,6 +868,7 @@ export interface Users {
   escalation_enabled: Generated<boolean>;
   escalation_minutes: number | null;
   free_replacements: Generated<number>;
+  free_welcome_print_used: Generated<boolean>;
   id: Generated<string>;
   kind: Generated<UserKind>;
   last_login_at: Timestamp | null;

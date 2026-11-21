@@ -116,7 +116,7 @@ export class VehiclesService {
     return this.present(row);
   }
 
-  /** US-09: count limited by plan, with the limit returned so the UI can show the upgrade prompt. */
+  /** US-09: one vehicle per account for now (setting `limits.vehicles`). */
   async create(userId: string, input: VehicleInput) {
     const ent = await this.entitlements.require(userId);
     const id = await this.db.transaction().execute(async (trx) => {
@@ -200,9 +200,53 @@ export class VehiclesService {
   }
 
   /**
-   * US-13: revoke a leaked code and issue a new one in one step. The old decal immediately shows
-   * "inactive"; the new code keeps the saved design so a replacement can be printed or downloaded.
+   * „Sperren“ (owner decision 2026-11-21): the current code stops working at once and NO new code is
+   * created. The vehicle then shows „Kein aktiver Code“ until the owner creates one (free, explicit).
    */
+  async revoke(userId: string, vehicleId: string, reason: string) {
+    const v = await this.get(userId, vehicleId);
+    if (!v.decal) throw new ConflictException({ error: 'no_active_code' });
+    await this.db.transaction().execute(async (trx) => {
+      await this.tags.transition(trx, v.decal!.tokenId, 'revoked', 'owner', reason);
+    });
+    return this.get(userId, vehicleId);
+  }
+
+  /**
+   * „Neuen Code erstellen“: free, only while the vehicle has no active code. The new code keeps the
+   * design of the last one, so it can be printed or downloaded right away.
+   */
+  async createCode(userId: string, vehicleId: string) {
+    await this.entitlements.require(userId);
+    await this.get(userId, vehicleId);
+    await this.db.transaction().execute(async (trx) => {
+      await sql`SELECT pg_advisory_xact_lock(hashtext(${vehicleId}))`.execute(trx);
+      const active = await trx
+        .selectFrom('qr_tokens')
+        .select('id')
+        .where('vehicle_id', '=', vehicleId)
+        .where('status', '<>', 'revoked')
+        .executeTakeFirst();
+      if (active) throw new ConflictException({ error: 'code_active' });
+      const last = await trx
+        .selectFrom('qr_tokens')
+        .select(['cta_header', 'design_template_id'])
+        .where('vehicle_id', '=', vehicleId)
+        .orderBy('created_at', 'desc')
+        .executeTakeFirst();
+      const fresh = await this.tokens.issue(trx, vehicleId);
+      if (last) {
+        await trx
+          .updateTable('qr_tokens')
+          .set({ cta_header: last.cta_header, design_template_id: last.design_template_id })
+          .where('id', '=', fresh.id)
+          .execute();
+      }
+    });
+    return this.get(userId, vehicleId);
+  }
+
+  /** Ops and re-subscription: revoke and issue in one step (AD-08; not offered to owners any more). */
   async revokeAndReissue(userId: string, vehicleId: string, reason: string) {
     const { token } = await this.currentToken(userId, vehicleId);
     await this.db.transaction().execute(async (trx) => {

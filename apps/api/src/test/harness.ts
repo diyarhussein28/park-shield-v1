@@ -66,64 +66,6 @@ export async function setSetting(h: Harness, key: string, value: unknown): Promi
   h.app.get(SettingsService).invalidate();
 }
 
-/**
- * A confirmed emergency contact for the owner, as if they had accepted the invitation. Escalation also
- * needs PREMIUM and the owner's switch (makePremium, enableEscalation).
- */
-export async function addConfirmedContact(
-  h: Harness,
-  ownerEmail: string,
-  contactEmail: string | null = 'kontakt@example.de',
-  vehicleId: string | null = null,
-  opts: { name?: string; phone?: string | null; order?: number } = {},
-): Promise<string> {
-  const crypto = h.app.get<FieldCrypto>(CRYPTO);
-  const owner = await h.db
-    .selectFrom('users')
-    .select('id')
-    .where('email', '=', ownerEmail)
-    .executeTakeFirstOrThrow();
-  const phone = opts.phone ?? null;
-  const row = await h.db
-    .insertInto('emergency_contacts')
-    .values({
-      user_id: owner.id,
-      vehicle_id: vehicleId,
-      display_name: opts.name ?? 'Kim',
-      channel: phone ? 'sms' : 'email',
-      address_enc: contactEmail ? crypto.encrypt(contactEmail) : null,
-      address_bidx: contactEmail ? crypto.blindIndex(contactEmail) : null,
-      phone_enc: phone ? crypto.encrypt(phone) : null,
-      phone_bidx: phone ? crypto.blindIndex(phone) : null,
-      escalation_order: opts.order ?? 1,
-      consent: 'confirmed',
-      consent_decided_at: new Date(),
-    })
-    .returning('id')
-    .executeTakeFirstOrThrow();
-  return row.id;
-}
-
-/** Switches the owner's subscription to PREMIUM (the paid upgrade itself is tested in billing). */
-export async function makePremium(h: Harness, ownerEmail: string): Promise<void> {
-  await h.db
-    .updateTable('subscriptions')
-    .set({ plan: 'premium' })
-    .where('user_id', '=', (eb) =>
-      eb.selectFrom('users').select('id').where('email', '=', ownerEmail),
-    )
-    .execute();
-}
-
-/** The owner's escalation switch (PREMIUM only), as if set in the app. */
-export async function enableEscalation(h: Harness, ownerEmail: string, on = true): Promise<void> {
-  await h.db
-    .updateTable('users')
-    .set({ escalation_enabled: on })
-    .where('email', '=', ownerEmail)
-    .execute();
-}
-
 /** A verified SMS number for the owner, as after the SMS code (NT-07). */
 export async function linkSmsDirect(h: Harness, ownerEmail: string, phone = '+4915123456789') {
   const crypto = h.app.get<FieldCrypto>(CRYPTO);
@@ -132,6 +74,12 @@ export async function linkSmsDirect(h: Harness, ownerEmail: string, phone = '+49
     .select('id')
     .where('email', '=', ownerEmail)
     .executeTakeFirstOrThrow();
+  // Replaces the number (subscribe() links one already).
+  await h.db
+    .deleteFrom('contact_channels')
+    .where('user_id', '=', owner.id)
+    .where('type', '=', 'sms')
+    .execute();
   await h.db
     .insertInto('contact_channels')
     .values({
@@ -366,16 +314,20 @@ export async function completeProfile(
   if (res.statusCode !== 200) throw new Error(`profile failed: ${res.body}`);
 }
 
-/** Signs in, completes the profile and buys Plus through the fake checkout. */
+/**
+ * Signs in, completes the profile, verifies the mobile number (required since 2026-11-21) and buys the
+ * single plan through the fake checkout.
+ */
 export async function subscribe(h: Harness, email: string, promoCode?: string): Promise<Session> {
   const s = await signIn(h, email);
   await completeProfile(h, s);
+  await linkSmsDirect(h, email);
   const res = await h.app.inject({
     method: 'POST',
     url: '/v1/billing/checkout',
     headers: s.headers,
     payload: {
-      plan: 'plus',
+      plan: 'standard',
       immediateStart: true,
       immediateStartVersion: 1,
       termsVersion: 1,

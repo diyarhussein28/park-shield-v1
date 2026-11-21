@@ -139,7 +139,7 @@ export class DevController {
       title:
         s.kind === 'payment'
           ? s.description
-          : `ParkShield ${s.plan === 'plus' ? 'Plus' : 'Premium'}`,
+          : 'ParkShield',
       amountCents: await this.amount(s),
       cancelUrl: s.cancelUrl,
       successUrl: s.successUrl,

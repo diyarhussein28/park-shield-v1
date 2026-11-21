@@ -16,6 +16,7 @@ import type { DB as Schema } from '../db/types.generated';
 import { PhoneBansService } from '../abuse/phone-bans.service';
 import { filterText } from '../moderation/text-filter';
 import { WordListsService } from '../moderation/word-lists.service';
+import { stopEscalation } from '../notifications/escalation';
 
 export type ChatRole = 'owner' | 'scanner';
 export type CloseReason = 'owner' | 'inactivity' | 'max_duration' | 'alert_deleted';
@@ -241,14 +242,12 @@ export class ChatService {
       if (!s) throw new NotFoundException({ error: 'chat_unavailable' });
       if (s.status === 'closed') throw new ConflictException({ error: 'chat_closed' });
     }
-    // The owner who opens the chat has clearly noticed the alert, so the reminder to them is
-    // pointless (owner decision 2026-11-20). Escalation to trusted contacts is untouched: the owner
-    // may write "I can't come", and only „Ich komme" acknowledges the alert.
+    // Opening the chat is a stop condition (owner decision 2026-11-21): the owner clearly reacted, so
+    // the reminder push and the escalation SMS are cancelled.
     await this.db
       .updateTable('alerts')
-      .set({ remind_at: null })
+      .set(stopEscalation('chat_opened'))
       .where('id', '=', alertId)
-      .where('reminded_at', 'is', null)
       .execute();
     return this.state(alertId, 'owner');
   }
@@ -321,6 +320,15 @@ export class ChatService {
         })
         .returning(['id', 'created_at'])
         .executeTakeFirstOrThrow();
+      // An owner's message is a reply: a stop condition (the chat is open already, so this is a
+      // safety net for the same rule).
+      if (role === 'owner') {
+        await trx
+          .updateTable('alerts')
+          .set(stopEscalation('replied'))
+          .where('id', '=', alertId)
+          .execute();
+      }
       return { ok: true as const, message: { id: m.id, from: role, text, at: m.created_at } };
     });
   }

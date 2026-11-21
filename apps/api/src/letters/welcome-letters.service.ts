@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { createTranslator, type MessageKey } from '@parkshield/i18n';
-import { PLAN_FEATURE_COUNTS } from '@parkshield/shared';
+import { PLAN_FEATURE_COUNT } from '@parkshield/shared';
 import { sql } from 'kysely';
 import { BillingService } from '../billing/billing.service';
 import type { Env } from '../config/env';
@@ -23,14 +23,15 @@ import { renderLetterPdf, renderLettersPdf, type RenderInput } from './letter-pd
 type Plan = LetterSnapshot['contract']['plan'];
 const de = createTranslator('de');
 
-/** Plan catalog lines, the same i18n keys the pricing page renders (landing.<plan>F1 … Fn). */
-export function planBenefits(plan: Plan): string[] {
-  return Array.from({ length: PLAN_FEATURE_COUNTS[plan] }, (_, i) =>
-    de(`landing.${plan}F${i + 1}` as MessageKey),
+/** Plan catalog lines, the same i18n keys the pricing page renders (landing.planF1 … Fn). */
+export function planBenefits(_plan: Plan): string[] {
+  return Array.from({ length: PLAN_FEATURE_COUNT }, (_, i) =>
+    de(`landing.planF${i + 1}` as MessageKey),
   );
 }
 
-export const planName = (plan: Plan) => `ParkShield ${de(`landing.${plan}Name` as MessageKey)}`;
+/** One plan since 2026-11-21: its name is simply „ParkShield“. */
+export const planName = (_plan: Plan) => 'ParkShield';
 
 export const BATCH_MAX = 100;
 

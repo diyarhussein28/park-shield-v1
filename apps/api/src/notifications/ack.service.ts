@@ -12,7 +12,7 @@ import type { Db } from '../core/core.module';
 import { sha256 } from '../core/crypto';
 import { DB, ENV } from '../core/tokens';
 import type { OwnerReply } from '../db/types.generated';
-import { ESCALATE_TOPIC, EscalationService } from './escalation.service';
+import { stopEscalation } from './escalation';
 
 export const OWNER_REPLIES = [
   'coming',
@@ -53,7 +53,6 @@ export class AckService {
   constructor(
     @Inject(DB) private readonly db: Db,
     @Inject(ENV) env: Env,
-    @Inject(EscalationService) private readonly escalation: EscalationService,
   ) {
     // nosemgrep: ajinabraham.njsscan.generic.hardcoded_secrets.node_secret -- key comes from env.SESSION_SECRET
     this.key = createHmac('sha256', Buffer.from(env.SESSION_SECRET, 'base64'))
@@ -253,56 +252,31 @@ export class AckService {
   }
 
   /**
-   * NT-10: one atomic update decides status, reply, who acknowledged and escalate_at (02-architecture
-   * §3 step 6). "Ich komme" ends the escalation chain, even after it started; "In ca. 30 Min" postpones
-   * a chain that has not started; "Bin nicht in der Nähe" starts it now. Returns null when the guard
-   * did not match (answered in the meantime), else whether an escalation starts now.
+   * NT-10: one atomic update decides status, reply and who acknowledged. Any answer of the owner is a
+   * stop condition (owner decision 2026-11-21): the pending reminder and escalation SMS are cancelled in
+   * the same statement. Returns null when the guard did not match (answered in the meantime). There is
+   * no escalation to other people any more, so `escalating` is always false.
    */
   private async apply(
-    a: {
-      id: string;
-      is_test: boolean;
-      escalates: boolean;
-      escalated_at: Date | null;
-      owner_user_id: string | null;
-      vehicle_id: string;
-    },
+    a: { id: string },
     reply: OwnerReply,
     guard: ReturnType<typeof sql<boolean>>,
   ): Promise<boolean | null> {
-    const applies =
-      !a.is_test && a.escalates && (await this.escalation.applies(a.owner_user_id, a.vehicle_id));
-    const escalateAt =
-      reply === 'coming' || !applies
-        ? sql<Date | null>`NULL::timestamptz`
-        : reply === 'in_30_min'
-          ? sql<Date | null>`CASE WHEN escalated_at IS NULL THEN now() + interval '30 minutes' ELSE escalate_at END`
-          : sql<Date | null>`CASE WHEN escalated_at IS NULL THEN now() ELSE escalate_at END`;
-    const escalating = applies && reply === 'not_nearby' && a.escalated_at === null;
-
-    return this.db.transaction().execute(async (trx) => {
-      const row = await trx
-        .updateTable('alerts')
-        .set({
-          status: 'acknowledged',
-          owner_reply: reply,
-          acknowledged_at: sql`coalesce(acknowledged_at, now())`,
-          ...(reply === 'coming' ? { acknowledged_by: 'owner' } : {}),
-          ack_token_hash: null,
-          escalate_at: escalateAt,
-        })
-        .where('id', '=', a.id)
-        .where(guard)
-        .where('status', 'in', ['dispatched', 'delivered', 'acknowledged', 'escalated'])
-        .returning('id')
-        .executeTakeFirst();
-      if (row && escalating) {
-        await trx
-          .insertInto('outbox_events')
-          .values({ topic: ESCALATE_TOPIC, payload: JSON.stringify({ alertId: a.id }) })
-          .execute();
-      }
-      return row ? escalating : null;
-    });
+    const row = await this.db
+      .updateTable('alerts')
+      .set({
+        status: 'acknowledged',
+        owner_reply: reply,
+        acknowledged_at: sql`coalesce(acknowledged_at, now())`,
+        ...(reply === 'coming' ? { acknowledged_by: 'owner' } : {}),
+        ack_token_hash: null,
+        ...stopEscalation(reply === 'coming' ? 'acknowledged' : 'replied'),
+      })
+      .where('id', '=', a.id)
+      .where(guard)
+      .where('status', 'in', ['dispatched', 'delivered', 'acknowledged', 'escalated'])
+      .returning('id')
+      .executeTakeFirst();
+    return row ? false : null;
   }
 }

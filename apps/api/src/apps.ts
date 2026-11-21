@@ -85,14 +85,6 @@ import { ClaimController, VehiclesController } from './vehicles/vehicles.control
 import { VehiclesService } from './vehicles/vehicles.service';
 import { ChannelsController, TwilioWebhookController } from './channels/channels.controller';
 import { ChannelsService } from './channels/channels.service';
-import {
-  ContactLinkController,
-  EmergencyContactInvitationsController,
-  EmergencyContactsController,
-  EscalationSettingsController,
-} from './contacts/emergency-contacts.controller';
-import { EmergencyContactsService } from './contacts/emergency-contacts.service';
-import { ContactLinkService } from './contacts/contact-link.service';
 import { AppAuthController, AppController } from './app/app.controller';
 import { EmailAuthController } from './auth/email-auth.controller';
 import { AppAlertsService } from './app/app-alerts.service';
@@ -104,7 +96,6 @@ import { SmsStatusService } from './notifications/sms-status.service';
 import { AckController } from './notifications/ack.controller';
 import { AckService } from './notifications/ack.service';
 import { DispatchService } from './notifications/dispatch.service';
-import { EscalationService } from './notifications/escalation.service';
 import { FairUseService } from './notifications/fair-use.service';
 import { PreferencesController } from './preferences/preferences.controller';
 import { PreferencesService } from './preferences/preferences.service';
@@ -150,14 +141,11 @@ const domainProviders = [
   DispatchService,
   ChannelsService,
   SmsStatusService,
-  EscalationService,
   OwnerReminderService,
   ChatService,
-  ContactLinkService,
   AppAlertsService,
   DevicesService,
   AckService,
-  EmergencyContactsService,
   PreferencesService,
   FairUseService,
   RemindersService,
@@ -212,10 +200,6 @@ export class PublicAppModule {
         PreferencesController,
         TwilioWebhookController,
         AckController,
-        EmergencyContactsController,
-        EmergencyContactInvitationsController,
-        EscalationSettingsController,
-        ContactLinkController,
         AppAuthController,
         EmailAuthController,
         AppController,

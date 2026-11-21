@@ -39,12 +39,10 @@ export const SETTINGS: Record<string, Def> = {
   'channels.email.enabled': { group: 'channels', schema: bool, default: true, killSwitch: true },
   'channels.sms.enabled': { group: 'channels', schema: bool, default: true, killSwitch: true },
 
-  'escalation.default_minutes': { group: 'escalation', schema: int(1, 60), default: 7 },
+  // Escalation (owner decision 2026-11-21): reminder push, then ONE SMS (both counted from the alert).
+  'escalation.reminder_minutes': { group: 'escalation', schema: int(1, 60), default: 10 },
+  'escalation.sms_minutes': { group: 'escalation', schema: int(5, 240), default: 30 },
   'followup.after_ack_minutes': { group: 'escalation', schema: int(5, 120), default: 15 },
-  'followup.escalate_after_minutes': { group: 'escalation', schema: int(1, 60), default: 5 },
-  // Owner reminder (tiered notifications): second push, PREMIUM second SMS.
-  'reminder.after_minutes': { group: 'escalation', schema: int(1, 30), default: 3 },
-  'reminder.max_owner_sms': { group: 'escalation', schema: int(0, 5), default: 2 },
   // Owner-initiated live chat.
   'chat.inactivity_minutes': { group: 'chat', schema: int(5, 120), default: 20 },
   'chat.max_minutes': { group: 'chat', schema: int(30, 720), default: 180 },
@@ -76,16 +74,17 @@ export const SETTINGS: Record<string, Def> = {
     },
   },
 
-  'limits.plus.vehicles': { group: 'limits', schema: int(1, 20), default: 2 },
-  // PLUS has no SMS and no escalation (channel matrix); the keys stay so ops can see them.
-  'limits.plus.emergency_contacts': { group: 'limits', schema: int(0, 0), default: 0 },
-  'limits.plus.sms_per_month': { group: 'limits', schema: int(0, 0), default: 0 },
-  'limits.premium.vehicles': { group: 'limits', schema: int(1, 50), default: 5 },
-  'limits.premium.emergency_contacts': { group: 'limits', schema: int(0, 3), default: 3 },
-  'limits.premium.sms_per_month': { group: 'limits', schema: int(0, 100), default: 10 },
+  // One all-inclusive plan (owner decision 2026-11-21): one vehicle per account for now.
+  'limits.vehicles': { group: 'limits', schema: int(1, 20), default: 1 },
+  // Safety cap for escalation SMS per account and calendar month (NT-05).
+  'sms.monthly_cap': { group: 'limits', schema: int(0, 200), default: 20 },
   'fair_use.warn_percent': { group: 'limits', schema: int(50, 100), default: 80 },
   'sms.cost_micros': { group: 'limits', schema: int(0, 1_000_000), default: 100_000 },
-  'plans.premium.purchasable': { group: 'limits', schema: bool, default: false },
+  // Prices in euro cents incl. 19 % VAT. The yearly price must match the Stripe price
+  // (STRIPE_PRICE_YEARLY); it is what the app, the website and the fake checkout show.
+  'prices.plan_year_cents': { group: 'limits', schema: int(100, 100_000), default: 2000 },
+  // A printed and shipped decal after the free welcome print (one-time Stripe payment).
+  'prices.print_shipped_cents': { group: 'limits', schema: int(0, 5000), default: 300 },
 
   'abuse.code_alerts_per_hour': { group: 'abuse', schema: int(1, 1000), default: 10 },
   'abuse.scanner_vehicles_per_day': { group: 'abuse', schema: int(1, 100), default: 3 },
@@ -104,18 +103,21 @@ export const SETTINGS: Record<string, Def> = {
       .max(60),
     default: DEFAULT_VERIFY_COUNTRIES,
   },
+  // The owner's mobile number (required, escalation SMS): allowed countries, DE + EU by default.
+  'owner_phone.countries': {
+    group: 'abuse',
+    schema: z
+      .array(z.string().regex(/^[A-Z]{2}$/))
+      .min(1)
+      .max(60),
+    default: DEFAULT_VERIFY_COUNTRIES,
+  },
   'abuse.phone_ban_months': { group: 'abuse', schema: int(1, 12), default: 12 },
   'abuse.phone_ban_vehicles': { group: 'abuse', schema: int(2, 50), default: 3 },
   'abuse.phone_ban_window_days': { group: 'abuse', schema: int(7, 365), default: 90 },
   'abuse.valkey_timeout_ms': { group: 'abuse', schema: int(50, 5000), default: 300 },
-  // Phase 2 alert photos (ALERT_PHOTOS_ENABLED): which plans may receive photos, and what a photo
-  // abuse report does. The per-vehicle scanner block is capped at 30 days (OW-08).
-  'photos.plans': {
-    group: 'limits',
-    schema: z.array(z.enum(['plus', 'premium'])).max(2),
-    // Owner decision 2026-11-20: both plans (migration 20261203000000_photos_all_plans).
-    default: ['plus', 'premium'],
-  },
+  // Phase 2 alert photos (ALERT_PHOTOS_ENABLED): what a photo abuse report does. The per-vehicle
+  // scanner block is capped at 30 days (OW-08). Photos are part of the single plan.
   'photos.abuse_block_days': { group: 'abuse', schema: int(1, 30), default: 30 },
   'photos.abuse_upload_block_hours': { group: 'abuse', schema: int(1, 720), default: 24 },
 

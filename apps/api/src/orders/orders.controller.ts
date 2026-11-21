@@ -27,8 +27,7 @@ export const Address = z.object({
   city: z.string().trim().min(2).max(60),
   country: z.literal('DE'),
 });
-const OrderIncluded = z.object({ address: Address });
-const OrderReplacement = z.object({ address: Address, appReturn: AppReturn });
+const OrderPrint = z.object({ address: Address, appReturn: AppReturn });
 
 @Controller('v1')
 @UseGuards(SessionGuard)
@@ -37,32 +36,33 @@ export class OrdersController {
 
   @Get('orders')
   async list(@CurrentUser() user: AuthContext) {
-    const [orders, includedAvailable, freeReplacements] = await Promise.all([
+    const [orders, includedAvailable, freeReplacements, printPriceCents] = await Promise.all([
       this.orders.list(user.userId),
       this.orders.includedAvailable(user.userId),
       this.orders.freeReplacements(user.userId),
+      this.orders.printPrice(),
     ]);
-    return { orders, includedAvailable, freeReplacements };
+    return { orders, includedAvailable, freeReplacements, printPriceCents };
   }
 
-  @Post('vehicles/:id/order-included')
-  order(
-    @CurrentUser() user: AuthContext,
-    @Param('id', ParseUUIDPipe) vehicleId: string,
-    @Body(new ZodPipe(OrderIncluded)) body: z.infer<typeof OrderIncluded>,
-  ) {
-    return this.orders.orderIncluded(user.userId, vehicleId, body.address);
+  /** The print options screen: both prices before the owner confirms. */
+  @Get('vehicles/:id/print-options')
+  printOptions(@CurrentUser() user: AuthContext, @Param('id', ParseUUIDPipe) _id: string) {
+    return this.orders.printOptions(user.userId);
   }
 
-  /** US-13: paid replacement (€5.90); returns the checkout URL. */
-  @Post('vehicles/:id/order-replacement')
+  /**
+   * „Drucken und zusenden lassen“: free once (welcome print), then 3 € (Stripe one-time payment).
+   * `order-included` and `order-replacement` are the old names of the same action.
+   */
+  @Post(['vehicles/:id/order-print', 'vehicles/:id/order-included', 'vehicles/:id/order-replacement'])
   @HttpCode(200)
-  replacement(
+  print(
     @CurrentUser() user: AuthContext,
     @Param('id', ParseUUIDPipe) vehicleId: string,
-    @Body(new ZodPipe(OrderReplacement)) body: z.infer<typeof OrderReplacement>,
+    @Body(new ZodPipe(OrderPrint)) body: z.infer<typeof OrderPrint>,
   ) {
-    return this.orders.orderReplacement(
+    return this.orders.orderPrint(
       user.userId,
       vehicleId,
       body.address,

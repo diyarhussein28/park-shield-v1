@@ -23,7 +23,7 @@ export class ProfileController {
   ) {}
 
   private async view(user: AuthContext, profile: Profile | null) {
-    // The optional mobile number is the verified SMS channel (one copy only), shown masked.
+    // The mobile number (required since 2026-11-21) is the verified SMS channel, shown masked.
     const sms = await this.db
       .selectFrom('contact_channels')
       .select('address_enc')
@@ -54,6 +54,8 @@ export class ProfileController {
         completedAt: profile.completedAt,
       },
       phone: sms?.address_enc ? maskPhone(this.crypto.decrypt(sms.address_enc)) : null,
+      // Old accounts without a verified number must add one ("Konto vervollständigen").
+      phoneVerified: Boolean(sms),
     };
   }
 

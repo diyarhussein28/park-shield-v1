@@ -98,7 +98,8 @@ const de = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
         paragraphs: [
           'Für Ihr Konto verarbeiten wir E-Mail-Adresse, Kanäle, Fahrzeuge (Kennzeichen verschlüsselt) und Warnungen zur Erfüllung des Vertrags (Art. 6 Abs. 1 lit. b DSGVO). Für die Anmeldung setzen wir zwei technisch notwendige Cookies (Sitzung und Schutz vor Cross-Site-Request-Forgery). Wenn Sie auf der Website die Sprache wechseln, merken wir uns Ihre Wahl in einem Cookie (ps_lang, ein Jahr, ohne personenbezogene Daten, § 25 Abs. 2 TDDDG).',
           'Schalten Sie Push-Benachrichtigungen ein, speichern wir die vom Browser erzeugte Zustelladresse und den Gerätetyp. Die Nachrichten laufen Ende-zu-Ende-verschlüsselt über den Push-Dienst Ihres Browsers (Google, Apple, Mozilla oder Microsoft), der den Inhalt nicht lesen kann. Ein Gerät, das nicht mehr erreichbar ist, entfernen wir automatisch.',
-          'SMS nutzen wir nur mit Ihrer Einwilligung (Art. 6 Abs. 1 lit. a DSGVO). Vertrauenspersonen und Mitfahrende werden erst nach deren eigener Bestätigung genutzt; ohne Antwort löschen wir die Einladung nach 14 Tagen.',
+          // TODO [LEGAL REVIEW] Mandatory phone number for the escalation SMS (owner decision 2026-11-21).
+          'Ihre Handynummer ist bei der Registrierung Pflicht. Wir bestätigen sie mit einem SMS-Code (Twilio Verify) und prüfen, ob es eine Mobilfunknummer ist (Twilio Lookup). Wir nutzen sie ausschließlich, um Ihnen eine SMS zu senden, wenn Sie auf eine Warnung 30 Minuten lang nicht reagiert haben (Art. 6 Abs. 1 lit. b DSGVO, Vertragserfüllung). Wir speichern die Nummer verschlüsselt und zeigen sie im Konto nur gekürzt an.',
           'Rechnungen bewahren wir aufgrund gesetzlicher Pflichten auf (Art. 6 Abs. 1 lit. c DSGVO, § 147 AO, § 14b UStG).',
           'E-Mail-Adressen, die einen Anmeldelink angefordert, aber nie bestätigt haben, löschen wir nach 24 Stunden.',
         ],
@@ -129,7 +130,8 @@ const de = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
       {
         heading: '§ 1 Leistung',
         paragraphs: [
-          'ParkShield ermöglicht es Dritten, Sie über einen QR-Aufkleber an Ihrem Fahrzeug zu benachrichtigen, ohne dass Ihre Kontaktdaten sichtbar werden. Die Zustellung über App-Push, Browser-Push, E-Mail oder SMS hängt auch von Drittanbietern ab; eine bestimmte Zustellzeit können wir nicht garantieren.',
+          // TODO [LEGAL REVIEW] Single plan, app-only alerts with SMS escalation (owner decision 2026-11-21).
+          'ParkShield ermöglicht es Dritten, Sie über einen QR-Aufkleber an Ihrem Fahrzeug zu benachrichtigen, ohne dass Ihre Kontaktdaten sichtbar werden. Warnungen erhalten Sie als Mitteilung in der ParkShield-App; reagieren Sie nicht, erinnern wir Sie in der App und senden Ihnen einmal eine SMS an Ihre bestätigte Handynummer. Die Zustellung hängt auch von Drittanbietern ab; eine bestimmte Zustellzeit können wir nicht garantieren.',
         ],
       },
       {
@@ -141,7 +143,8 @@ const de = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
       {
         heading: '§ 3 Preise und Zahlung',
         paragraphs: [
-          'ParkShield Plus kostet 10 € pro Jahr inklusive 19 % Umsatzsteuer und wird für die erste Laufzeit im Voraus berechnet. Bei der ersten Buchung ist ein Aufkleber inklusive Versand enthalten; weitere Aufkleber sind kostenpflichtig, das PDF zum Selbstausdrucken ist jederzeit kostenlos.',
+          // TODO [LEGAL REVIEW] Price, welcome print and the 3 € print order (owner decision 2026-11-21).
+          'ParkShield kostet 20 € pro Jahr inklusive 19 % Umsatzsteuer für ein Fahrzeug und wird jährlich im Voraus berechnet. Enthalten sind App-Mitteilungen, Erinnerung, SMS-Eskalation, Fotos bei Warnungen, Chat und ein gedruckter Aufkleber inklusive Versand (Willkommensdruck). Jeder weitere gedruckte und zugesandte Aufkleber kostet einmalig 3 € inklusive Umsatzsteuer und Versand; das PDF zum Selbstausdrucken ist jederzeit kostenlos.',
         ],
       },
       {
@@ -287,7 +290,7 @@ const en = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
       {
         heading: 'Your account',
         paragraphs: [
-          'We process your e-mail address, channels, vehicles (licence plate encrypted) and alerts to provide the service. Push notifications travel end-to-end encrypted through your browser’s push service; unreachable devices are removed automatically. SMS only with your consent. Two strictly necessary cookies keep you signed in securely; if you switch the language, a third one (ps_lang, one year, no personal data) remembers your choice. Unverified sign-ups are deleted after 24 h; deleted data leaves our encrypted backups within 35 days.',
+          'We process your e-mail address, channels, vehicles (licence plate encrypted) and alerts to provide the service. Push notifications travel end-to-end encrypted through your browser’s push service; unreachable devices are removed automatically. Your mobile number is required: we verify it with an SMS code and use it only for one SMS when you have not reacted to an alert for 30 minutes; it is stored encrypted. Two strictly necessary cookies keep you signed in securely; if you switch the language, a third one (ps_lang, one year, no personal data) remembers your choice. Unverified sign-ups are deleted after 24 h; deleted data leaves our encrypted backups within 35 days.',
         ],
       },
       {
@@ -304,7 +307,8 @@ const en = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
       {
         heading: 'Summary',
         paragraphs: [
-          'ParkShield Plus costs €10 per year including 19% VAT, billed in advance for the first term.',
+          // TODO [LEGAL REVIEW] Single plan (owner decision 2026-11-21).
+          'ParkShield costs €20 per year including 19% VAT for one vehicle, billed yearly in advance. App notifications, the reminder, SMS escalation, alert photos, chat and one printed and shipped decal (welcome print) are included. Every further printed and shipped decal costs €3 once, VAT and shipping included; the PDF to print yourself is always free.',
           renewalRule('en', ctx),
           'Cancel any time via “Cancel contract here”, even without signing in. ParkShield does not replace emergency calls: in danger, call 110 or 112.',
         ],

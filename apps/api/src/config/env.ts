@@ -29,11 +29,10 @@ export const envSchema = z.object({
   APP_ENV: z.string().default('local'),
   STRIPE_SECRET_KEY: z.string().default(''),
   STRIPE_WEBHOOK_SECRET: z.string().default(''),
-  STRIPE_PRICE_PLUS_YEARLY: z.string().default(''),
-  STRIPE_PRICE_PREMIUM_YEARLY: z.string().default(''),
-  // Monthly prices for consumers after the first term (renewal.mode_b2c = monthly_after_first_term).
-  STRIPE_PRICE_PLUS_MONTHLY: z.string().default(''),
-  STRIPE_PRICE_PREMIUM_MONTHLY: z.string().default(''),
+  // The single plan: 20 € a year incl. VAT, tax behaviour inclusive (price ID, not product ID).
+  STRIPE_PRICE_YEARLY: z.string().default(''),
+  // Monthly price (annual / 12) only for renewal.mode_b2c = monthly_after_first_term (legal fallback).
+  STRIPE_PRICE_MONTHLY: z.string().default(''),
   // E-mail provider: Mailjet (EU, default; tracking switched off per message), Brevo or SendGrid.
   // Empty key: dev inbox. Brevo always rewrites links and adds an open pixel (only Enterprise can opt out).
   MAIL_PROVIDER: z.preprocess(
@@ -104,7 +103,7 @@ export const envSchema = z.object({
   // Live chat timeouts (inactivity, max. duration): how often the API checks. 0 = never (unit tests
   // call the sweep directly, so it cannot run into a test's database reset).
   CHAT_SWEEP_MS: z.coerce.number().int().min(0).default(10_000),
-  // Phase 2: optional photos with alerts. Off by default; which plans get it is the setting photos.plans.
+  // Phase 2: optional photos with alerts. Off by default; part of the single plan when on.
   ALERT_PHOTOS_ENABLED: z
     .enum(['true', 'false', '1', '0', ''])
     .default('false')

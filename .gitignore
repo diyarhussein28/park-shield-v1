@@ -39,3 +39,4 @@ infra/monitoring/*.tfvars
 !.env.example
 # Ansible collections installed by CI for ansible-lint
 infra/ansible/collections/
+dump.rdb

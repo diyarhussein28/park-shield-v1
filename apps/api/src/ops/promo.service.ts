@@ -16,7 +16,7 @@ export interface PromoInput {
   kind: PromoKind;
   /** percent (1–100), cents, or months (1–24) */
   value: number;
-  appliesTo?: ('plus' | 'premium')[];
+  appliesTo?: 'standard'[];
   priceLockMonths?: number | null;
   maxRedemptions?: number | null;
   validUntil?: Date | null;

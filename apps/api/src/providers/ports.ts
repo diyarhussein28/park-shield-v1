@@ -139,7 +139,8 @@ export interface Captcha {
   verify(solution: string | undefined): Promise<boolean>;
 }
 
-export type PaidPlan = 'plus' | 'premium';
+/** The single all-inclusive plan (owner decision 2026-11-21). */
+export type PaidPlan = 'standard';
 
 export interface CheckoutRequest {
   customerId: string;

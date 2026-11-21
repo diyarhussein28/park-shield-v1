@@ -107,14 +107,21 @@ export class VehiclesController {
     return { ok: true };
   }
 
-  /** US-13: revoke the current code and issue a new one (02-architecture §10). */
-  @Post(':id/tokens')
-  reissue(
+  /** „Sperren“: the current code stops working at once; no new code is created (2026-11-21). */
+  @Post(':id/tokens/revoke')
+  @HttpCode(200)
+  revoke(
     @CurrentUser() user: AuthContext,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(Reissue)) body: z.infer<typeof Reissue>,
   ) {
-    return this.vehicles.revokeAndReissue(user.userId, id, body.reason);
+    return this.vehicles.revoke(user.userId, id, body.reason);
+  }
+
+  /** „Neuen Code erstellen“: free, only while the vehicle has no active code. */
+  @Post(':id/tokens')
+  createCode(@CurrentUser() user: AuthContext, @Param('id', ParseUUIDPipe) id: string) {
+    return this.vehicles.createCode(user.userId, id);
   }
 
   /** AD-07: put a pre-printed partner decal on this vehicle. */

@@ -13,9 +13,11 @@ import { DsrService } from '../ops/dsr.service';
 import { ProviderHealthService } from '../ops/provider-health.service';
 import { PrivacyService } from '../privacy/privacy.service';
 import { DispatchService } from '../notifications/dispatch.service';
-import { ESCALATE_TOPIC, EscalationService } from '../notifications/escalation.service';
-import { OwnerReminderService, REMIND_TOPIC } from '../notifications/owner-reminder.service';
-import { EmergencyContactsService } from '../contacts/emergency-contacts.service';
+import {
+  OwnerReminderService,
+  REMIND_TOPIC,
+  SMS_ESCALATE_TOPIC,
+} from '../notifications/owner-reminder.service';
 import { OrdersService, PRINT_TOPIC } from '../orders/orders.service';
 import { RemindersService } from '../preferences/reminders.service';
 import { DISPATCH_TOPIC, FOLLOWUP_TOPIC } from '../scan/scan.service';
@@ -36,7 +38,6 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
     @Inject(OrdersService) private readonly orders: OrdersService,
     @Inject(BillingService) private readonly billing: BillingService,
     @Inject(DispatchService) private readonly dispatch: DispatchService,
-    @Inject(EscalationService) private readonly escalation: EscalationService,
     @Inject(RemindersService) private readonly reminders: RemindersService,
     @Inject(PrivacyService) private readonly privacy: PrivacyService,
     @Inject(DsrService) private readonly dsr: DsrService,
@@ -50,15 +51,14 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
     @Inject(AlertMediaService) private readonly media: AlertMediaService,
     @Inject(WelcomeLettersService) private readonly letters: WelcomeLettersService,
     @Inject(OwnerReminderService) private readonly ownerReminders: OwnerReminderService,
-    @Inject(EmergencyContactsService) private readonly contacts: EmergencyContactsService,
   ) {}
 
   onApplicationBootstrap() {
     this.outbox.register(PRINT_TOPIC, (p) => this.orders.submitToPrinter(String(p.orderId)));
     this.outbox.register(DISPATCH_TOPIC, (p) => this.dispatch.dispatch(String(p.alertId)));
     this.outbox.register(FOLLOWUP_TOPIC, (p) => this.dispatch.followup(String(p.alertId)));
-    this.outbox.register(ESCALATE_TOPIC, (p) => this.escalation.run(p));
     this.outbox.register(REMIND_TOPIC, (p) => this.dispatch.remind(String(p.alertId)));
+    this.outbox.register(SMS_ESCALATE_TOPIC, (p) => this.dispatch.escalateSms(String(p.alertId)));
     // § 356a BGB: match, end, refund, revoke codes. Idempotent, so retries are safe.
     this.outbox.register(WITHDRAWAL_TOPIC, (p) => this.withdrawals.process(String(p.id)));
     // Extraordinary cancellations wait in the ops review queue (legal requests); nothing else to do.
@@ -159,31 +159,20 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
       quiet: true,
       run: () => this.access.remindDue(),
     });
-    // Escalations fall due at escalate_at; the sweeper picks them up within seconds (02-arch §3 step 8).
-    // It also recovers steps a lost job would have missed (e.g. after a Valkey restart): the database
-    // is the source of truth, so accuracy stays well within ±60 s.
-    this.scheduler.every({
-      name: 'alerts.escalate',
-      everyMs: 5_000,
-      quiet: true,
-      run: () => this.escalation.sweep(),
-    });
-    // Owner reminder (3 min without an answer, configurable), same pattern as escalation.
+    // Escalation (2026-11-21): reminder push after 10 min, one SMS after 30 min. The due times are in
+    // the database; these sweeps pick them up within seconds and recover anything a stopped worker
+    // missed, well within the ±60 s the spec allows.
     this.scheduler.every({
       name: 'alerts.remind',
       everyMs: 5_000,
       quiet: true,
       run: () => this.ownerReminders.sweep(),
     });
-    // Downgrade PREMIUM → PLUS: deactivate trusted contacts (30 days, then deleted); re-upgrade restores.
     this.scheduler.every({
-      name: 'contacts.plans',
-      everyMs: 5 * 60_000,
+      name: 'alerts.sms_escalate',
+      everyMs: 5_000,
       quiet: true,
-      run: async () => {
-        const r = await this.contacts.syncPlans();
-        return r.deactivated || r.restored ? r : null;
-      },
+      run: () => this.ownerReminders.sweepSms(),
     });
   }
 }
