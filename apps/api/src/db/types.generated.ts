@@ -25,7 +25,7 @@ export type BreakGlassStatus = "approved" | "expired" | "rejected" | "requested"
 
 export type ChannelType = "email" | "native_push" | "sms" | "voice" | "webpush";
 
-export type ChatCloseReason = "alert_deleted" | "inactivity" | "max_duration" | "owner";
+export type ChatCloseReason = "alert_deleted" | "blocked" | "inactivity" | "max_duration" | "owner";
 
 export type ChatSender = "owner" | "scanner" | "system";
 

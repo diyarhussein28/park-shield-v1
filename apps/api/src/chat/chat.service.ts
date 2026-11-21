@@ -19,7 +19,7 @@ import { WordListsService } from '../moderation/word-lists.service';
 import { stopEscalation } from '../notifications/escalation';
 
 export type ChatRole = 'owner' | 'scanner';
-export type CloseReason = 'owner' | 'inactivity' | 'max_duration' | 'alert_deleted';
+export type CloseReason = 'owner' | 'inactivity' | 'max_duration' | 'alert_deleted' | 'blocked';
 
 /** Valkey key while the scanner's page is connected (presence); refreshed by the socket heartbeat. */
 export const presenceKey = (alertId: string) => `chat:online:${alertId}`;
@@ -260,6 +260,22 @@ export class ChatService {
       .set({ status: 'closed', closed_at: sql`now()`, close_reason: reason })
       .where('alert_id', '=', alertId)
       .where('status', '=', 'active')
+      .returning('alert_id')
+      .executeTakeFirst();
+    if (row) await this.valkey.del(presenceKey(alertId));
+    return Boolean(row);
+  }
+
+  /**
+   * „Absender blockieren“ (Stage 3): the chat ends at once, also while it is still locked, so the person
+   * at the vehicle can send nothing more. Returns whether a chat was ended now.
+   */
+  async closeBlocked(alertId: string): Promise<boolean> {
+    const row = await this.db
+      .updateTable('chat_sessions')
+      .set({ status: 'closed', closed_at: sql`now()`, close_reason: 'blocked' })
+      .where('alert_id', '=', alertId)
+      .where('status', 'in', ['locked', 'active'])
       .returning('alert_id')
       .executeTakeFirst();
     if (row) await this.valkey.del(presenceKey(alertId));

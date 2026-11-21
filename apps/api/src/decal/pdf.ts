@@ -138,8 +138,36 @@ export function renderPrintBatchPdf(specs: DecalSpec[], title: string): Promise<
   return toBuffer(doc);
 }
 
-/** Free print-at-home sheet (OW-04): A4, decal at true size with a dashed cut line and instructions. */
-export function renderHomePdf(spec: DecalSpec, title: string): Promise<Buffer> {
+/** Crop marks: 5 mm lines, 2 mm away from each corner of the trim box (outside the decal). */
+function cropMarks(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number) {
+  const gap = 2;
+  const len = 5;
+  doc.save().lineWidth(0.5).strokeColor('#0f172a');
+  for (const [cx, cy] of [
+    [x, y],
+    [x + w, y],
+    [x, y + h],
+    [x + w, y + h],
+  ] as const) {
+    const dx = cx === x ? -1 : 1;
+    const dy = cy === y ? -1 : 1;
+    doc
+      .moveTo((cx + dx * gap) * PT, cy * PT)
+      .lineTo((cx + dx * (gap + len)) * PT, cy * PT)
+      .stroke();
+    doc
+      .moveTo(cx * PT, (cy + dy * gap) * PT)
+      .lineTo(cx * PT, (cy + dy * (gap + len)) * PT)
+      .stroke();
+  }
+  doc.restore();
+}
+
+/**
+ * Free print-at-home sheet (OW-04, owner decision 2026-11-21): A4, the decal at true size
+ * (80 × 80 mm) with crop marks and a dashed cut line, the instructions and the weatherproof notice.
+ */
+export function renderHomePdf(spec: DecalSpec, title: string, locale: 'de' | 'en' = 'de'): Promise<Buffer> {
   const doc = new PDFDocument({
     size: 'A4',
     margin: 0,
@@ -155,24 +183,41 @@ export function renderHomePdf(spec: DecalSpec, title: string): Promise<Buffer> {
     .rect(ox * PT, oy * PT, spec.width * PT, spec.height * PT)
     .stroke('#64748b')
     .undash();
+  cropMarks(doc, ox, oy, spec.width, spec.height);
+  const t =
+    locale === 'en'
+      ? {
+          head: 'Your ParkShield decal to print yourself',
+          size: `Size: ${spec.width} × ${spec.height} mm.`,
+          how:
+            'Print at actual size (100 %, not “fit to page”). Cut along the marks and place the decal clearly visible behind the windscreen. Then test it once in the app with “Test your decal”. ParkShield never asks for payment.',
+          paper:
+            'Plain paper does not stand up to sun, rain and the car wash for long. We recommend weatherproof polyester labels for laser printers.',
+        }
+      : {
+          head: 'Ihr ParkShield-Aufkleber zum Selbstausdrucken',
+          size: `Größe: ${spec.width} × ${spec.height} mm.`,
+          how:
+            'Bitte in Originalgröße drucken (100 %, nicht „an Seite anpassen“). Entlang der Schnittmarken ausschneiden und gut sichtbar hinter die Windschutzscheibe legen. Testen Sie den Aufkleber danach einmal mit „Aufkleber testen“. ParkShield verlangt nie eine Zahlung.',
+          paper:
+            'Normales Papier hält Sonne, Regen und Waschanlage nicht lange stand. Wir empfehlen wetterfeste Polyester-Etiketten für Laserdrucker.',
+        };
   doc
     .font('Helvetica-Bold')
     .fontSize(16)
     .fillColor('#0f172a')
-    .text('Ihr ParkShield-Aufkleber zum Selbstausdrucken', 20 * PT, 12 * PT, {
-      width: 170 * PT,
-      align: 'center',
-    });
+    .text(t.head, 20 * PT, 12 * PT, { width: 170 * PT, align: 'center' });
   doc
     .font('Helvetica')
     .fontSize(11)
-    .text(
-      'Bitte in Originalgröße drucken (100 %, nicht „an Seite anpassen“). Entlang der gestrichelten Linie ausschneiden ' +
-        'und gut sichtbar hinter die Windschutzscheibe legen. Testen Sie den Aufkleber danach einmal in Ihrem Konto ' +
-        'mit „Aufkleber testen“. ParkShield verlangt nie eine Zahlung.',
-      20 * PT,
-      (oy + spec.height + 12) * PT,
-      { width: 170 * PT, align: 'left', lineGap: 3 },
-    );
+    .text(`${t.size} ${t.how}`, 20 * PT, (oy + spec.height + 14) * PT, {
+      width: 170 * PT,
+      align: 'left',
+      lineGap: 3,
+    });
+  doc
+    .moveDown(0.8)
+    .font('Helvetica-Bold')
+    .text(t.paper, { width: 170 * PT, align: 'left', lineGap: 3 });
   return toBuffer(doc);
 }

@@ -33,6 +33,7 @@ import { DB, VALKEY } from '../core/tokens';
 import { MailService } from '../mail/mail.service';
 import { AppAlertsService } from './app-alerts.service';
 import { DevicesService } from './devices.service';
+import { HistoryService } from '../history/history.service';
 
 const MagicLink = z.object({
   email: z.email().max(254),
@@ -97,6 +98,7 @@ export class AppController {
     @Inject(MailService) private readonly mail: MailService,
     @Inject(VALKEY) private readonly valkey: Redis,
     @Inject(DB) private readonly db: Db,
+    @Inject(HistoryService) private readonly history: HistoryService,
   ) {}
 
   @Post('devices/register')
@@ -186,6 +188,16 @@ export class AppController {
     @Body(new ZodPipe(Ack)) body: z.infer<typeof Ack>,
   ) {
     const r = await this.ack.replyAsOwner(alertId, user.userId, body.reply);
+    this.gateway.alertChanged(alertId);
+    return r;
+  }
+
+  /** „Absender blockieren“ on the alert card, the detail and in the chat (Stage 3). */
+  @Post('alerts/:alertId/block')
+  @HttpCode(200)
+  async block(@CurrentUser() user: AuthContext, @Param('alertId', ParseUUIDPipe) alertId: string) {
+    const r = await this.history.block(user.userId, alertId);
+    this.gateway.closed(alertId, 'blocked');
     this.gateway.alertChanged(alertId);
     return r;
   }

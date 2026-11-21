@@ -30,6 +30,7 @@ import { ZodPipe } from '../core/zod.pipe';
 import { layoutDecal } from '../decal/layout';
 import { renderHomePdf } from '../decal/pdf';
 import { renderSvg } from '../decal/svg';
+import sharp from 'sharp';
 import { filterText } from '../moderation/text-filter';
 import { VehiclesService } from './vehicles.service';
 
@@ -177,6 +178,52 @@ export class VehiclesController {
       .send(renderSvg(spec, 'ParkShield-Aufkleber'));
   }
 
+  /** Self-printing (free, any time): the decal as SVG file to download. */
+  @Get(':id/decal-download.svg')
+  async downloadSvg(
+    @CurrentUser() user: AuthContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() reply: FastifyReply,
+  ) {
+    const spec = await this.homeSpec(user.userId, id);
+    return reply
+      .header('content-type', 'image/svg+xml; charset=utf-8')
+      .header('content-disposition', 'attachment; filename="parkshield-aufkleber.svg"')
+      .header('cache-control', 'no-store')
+      .send(renderSvg(spec, 'ParkShield-Aufkleber'));
+  }
+
+  /** Self-printing (free, any time): the decal as PNG, 300 dpi at 80 × 80 mm (945 px). */
+  @Get(':id/decal.png')
+  async png(
+    @CurrentUser() user: AuthContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() reply: FastifyReply,
+  ) {
+    const spec = await this.homeSpec(user.userId, id);
+    const px = Math.round((spec.width / 25.4) * 300);
+    const png = await sharp(Buffer.from(renderSvg(spec, 'ParkShield-Aufkleber')), { density: 300 })
+      .resize(px, Math.round((spec.height / spec.width) * px))
+      .png()
+      .toBuffer();
+    return reply
+      .header('content-type', 'image/png')
+      .header('content-disposition', 'attachment; filename="parkshield-aufkleber.png"')
+      .header('cache-control', 'no-store')
+      .send(png);
+  }
+
+  private async homeSpec(userId: string, id: string) {
+    const { token, code } = await this.vehicles.currentToken(userId, id);
+    return layoutDecal({
+      code,
+      scannerBaseUrl: this.env.SCANNER_BASE_URL,
+      template: token.design_template_id as never,
+      cta: token.cta_header,
+      product: 'uv_vinyl_sticker',
+    });
+  }
+
   /** Free print-at-home PDF at any time (OW-04). */
   @Get(':id/decal.pdf')
   async homePdf(
@@ -192,7 +239,7 @@ export class VehiclesController {
       cta: token.cta_header,
       product: 'uv_vinyl_sticker',
     });
-    const pdf = await renderHomePdf(spec, 'ParkShield-Aufkleber');
+    const pdf = await renderHomePdf(spec, 'ParkShield-Aufkleber', user.preferredLang);
     return reply
       .header('content-type', 'application/pdf')
       .header('content-disposition', 'attachment; filename="parkshield-aufkleber.pdf"')

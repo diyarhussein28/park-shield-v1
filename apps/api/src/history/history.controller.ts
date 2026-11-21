@@ -16,6 +16,7 @@ import type { AuthContext } from '../auth/session.service';
 import { ZodPipe } from '../core/zod.pipe';
 import { ProtectionService } from '../abuse/protection.service';
 import { HistoryService, REPORT_REASONS } from './history.service';
+import { ChatGateway } from '../chat/chat.gateway';
 
 const Protection = z.object({ active: z.boolean() });
 
@@ -30,6 +31,7 @@ export class HistoryController {
   constructor(
     @Inject(HistoryService) private readonly history: HistoryService,
     @Inject(ProtectionService) private readonly protection: ProtectionService,
+    @Inject(ChatGateway) private readonly gateway: ChatGateway,
   ) {}
 
   @Get('alerts')
@@ -45,6 +47,16 @@ export class HistoryController {
     @Body(new ZodPipe(Report)) body: z.infer<typeof Report>,
   ) {
     return this.history.report(user.userId, id, body.reason, body.note);
+  }
+
+  /** „Absender blockieren“ (Stage 3): ends the chat, cancels the escalation, blocks the sender. */
+  @Post('alerts/:id/block')
+  @HttpCode(200)
+  async block(@CurrentUser() user: AuthContext, @Param('id', ParseUUIDPipe) id: string) {
+    const r = await this.history.block(user.userId, id);
+    this.gateway.closed(id, 'blocked');
+    this.gateway.alertChanged(id);
+    return r;
   }
 
   /** Abuse protection §4: hidden content of an unconfirmed sender, shown on request ("Anzeigen"). */

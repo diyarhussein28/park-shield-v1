@@ -9,8 +9,10 @@ import { PreferencesService } from '../preferences/preferences.service';
 import { PhoneBansService } from '../abuse/phone-bans.service';
 import { ProtectionService } from '../abuse/protection.service';
 import { ViewTokenService } from '../alert-media/view-token.service';
+import { ChatService } from '../chat/chat.service';
+import { stopEscalation } from '../notifications/escalation';
 
-export const REPORT_REASONS = ['harassment', 'spam', 'false_alarm', 'other'] as const;
+export const REPORT_REASONS = ['harassment', 'spam', 'false_alarm', 'other', 'blocked'] as const;
 export type ReportReason = (typeof REPORT_REASONS)[number];
 const BLOCK_DAYS = 30;
 const MUTE_REASONS = ['quiet_hours', 'sensitive_spot'];
@@ -31,6 +33,7 @@ export class HistoryService {
     @Inject(ProtectionService) private readonly protection: ProtectionService,
     @Inject(PhoneBansService) private readonly phoneBans: PhoneBansService,
     @Inject(ViewTokenService) private readonly viewTokens: ViewTokenService,
+    @Inject(ChatService) private readonly chat: ChatService,
   ) {}
 
   async list(userId: string) {
@@ -213,6 +216,45 @@ export class HistoryService {
       const protectedMode = await this.protection.afterReport(trx, a.vehicle_id);
       return { reported: true, blocked: blocked || phoneBanned, phoneBanned, protectedMode };
     });
+  }
+
+  /**
+   * „Absender blockieren“ on the alert card, the alert detail, the live chat and the history (Stage 3,
+   * owner decision 2026-11-21). In this order: the live chat ends at once (the scanner sees „Der Chat
+   * wurde beendet.“), the pending reminder push and escalation SMS are cancelled, and the sender is
+   * blocked with the existing abuse module and its settings (`report`: per-vehicle scanner block by the
+   * server-side reference, phone ban for confirmed senders, Protected Mode counting). No device
+   * fingerprint, cookie or client-side storage is involved (§ 25 TDDDG). Idempotent: blocking twice
+   * changes nothing more.
+   */
+  async block(userId: string, alertId: string) {
+    const a = await this.db
+      .selectFrom('alerts as a')
+      .innerJoin('vehicles as v', 'v.id', 'a.vehicle_id')
+      .select(['a.id', 'a.is_test'])
+      .where('a.id', '=', alertId)
+      .where('v.owner_user_id', '=', userId)
+      .where('a.status', '<>', 'blocked')
+      .executeTakeFirst();
+    if (!a) throw new NotFoundException();
+    const chatClosed = await this.chat.closeBlocked(a.id);
+    await this.db
+      .updateTable('alerts')
+      .set(stopEscalation('blocked'))
+      .where('id', '=', a.id)
+      .execute();
+    // A test alert has no stranger behind it: nothing to block in the abuse module.
+    if (a.is_test) return { blocked: true, chatClosed, phoneBanned: false, protectedMode: false };
+    const r = await this.report(userId, a.id, 'blocked', undefined).catch((err: unknown) => {
+      if (err instanceof ConflictException) return null; // reported before: the block already exists
+      throw err;
+    });
+    return {
+      blocked: true,
+      chatClosed,
+      phoneBanned: r?.phoneBanned ?? false,
+      protectedMode: r?.protectedMode ?? false,
+    };
   }
 
   /** "Anzeigen": the hidden free text of an unconfirmed sender, on the owner's explicit request. */
