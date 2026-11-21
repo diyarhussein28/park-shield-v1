@@ -90,7 +90,9 @@ records. Old SendGrid and Brevo records stay but are unused.
   `app.lock_after_seconds` = 300 s, alerts from notifications open unlocked). Checkout and renewal
   need the profile (API `profile_incomplete`), on the website too. New table `user_profiles`
   (migration `20261205000000_user_profiles`, every field encrypted). QA report:
-  `docs/app-redesign-qa.md`; open legal points: `LEGAL_REVIEW.md` §8. Not deployed yet.
+  `docs/app-redesign-qa.md`; open legal points: `LEGAL_REVIEW.md` §8. **Deployed to the test server
+  2026-11-21 (`afaebdb`)**: migration applied, `app.lock_after_seconds` = 300; the app itself needs
+  a new build (EAS) to reach testers — Face ID works only in a development or store build.
 - **Alert photos in both plans (2026-11-20).** „Fotos bei Warnungen“ is part of Plus and Premium:
   `photos.plans` defaults to `["plus","premium"]` (migration `20261203000000_photos_all_plans`) and
   both plans list it on the pricing page. The feature itself stays behind `ALERT_PHOTOS_ENABLED`
@@ -155,8 +157,8 @@ Relaxed only for testing on the test server. Restore every item before step 5:
    staff again (passkeys bind to that host) and delete the `ops.test` DNS record
    (`infra/single/README.md`, "Test server: ops app on its own subdomain").
 
-8. **Before deploying the redesign** to the test server: run the migration; existing test accounts
-   will be asked for name and address on the next app start and before any website checkout.
+8. **Sign-up with name and address** (live on the test server since 2026-11-21): existing test
+   accounts are asked for name and address on the next app start and before any website checkout.
    Before go-live: the privacy policy needs the new section on name/address (`LEGAL_REVIEW.md` §8),
    and the store privacy labels must list name and address.
 
