@@ -94,7 +94,8 @@ records. Old SendGrid and Brevo records stay but are unused.
   3 €. „Absender blockieren“ ends the chat and the escalation. Scanner authenticity notice
   „Nur echt auf park-shield.de“; production `SCANNER_BASE_URL=https://park-shield.de`.
   Migrations `20261206000000_single_plan`, `20261206000100_owner_escalation`,
-  `20261206000200_block_sender`. **Not deployed yet.**
+  `20261206000200_block_sender`. **Implemented and tested 2026-11-21** (API 505, app 148, E2E 111
+  green, real-user run passed); **not deployed yet** — see §4 item 9 and `docs/handover.md` §6.
 - **App redesign, sign-up with address, Face ID lock (2026-11-20/21).** Implemented as decided in
   `docs/app-redesign.md` §7 (tabs Start · Warnungen · Fahrzeuge · Konto, onboarding, sign-up before
   payment with name and address, blocking „Konto vervollständigen“ for old accounts, welcome letter

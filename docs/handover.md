@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-21 20:40 UTC. API tests green (505), app Jest green (148), Expo export OK. Website + app stages 1–4 implemented. Real-user run passed (§4b). E2E suite being run and fixed._
+_Last updated: 2026-11-21 21:30 UTC. **All four stages implemented and tested.** API 505 tests, app Jest 148, E2E 111 passed / 9 skipped (desktop + mobile), typecheck, lint, prettier, db:check, production build and Expo export green. Nothing left open in code; see §6 for what the owner still has to do._
 
 ---
 
@@ -207,3 +207,17 @@ free (80 × 80 mm with cut marks), shipped „kostenlos (Willkommensdruck)“ �
 2. i18n texts; web portal; app screens (Stage 1 + 2 UI).
 3. Stage 3, then Stage 4.
 4. `LEGAL_REVIEW.md`, `docs/status.md`, `AGENTS.md` (channel matrix, plans, Stripe env) at each stage.
+
+## 6. Open items after the code (owner / deploy)
+
+1. Stripe: create the 20 € yearly price (tax-inclusive) → `STRIPE_PRICE_YEARLY`; remove the old
+   `STRIPE_PRICE_PLUS_*`/`PREMIUM_*` from `server.env` (docs/status.md §4 item 9).
+2. Twilio Verify service SID for owners' numbers (`TWILIO_VERIFY_SERVICE_SID`).
+3. `SCANNER_BASE_URL=https://park-shield.de` in production; 301 from `pkshd.de/s/*` if old decals exist.
+4. New EAS app build (expo-image-picker is a new native module); try the vehicle photo on a device.
+5. Deploy to the test server (`infra/single/deploy.sh`) — migrations 20261206000000/0100/0200 run then.
+6. Lawyer: `LEGAL_REVIEW.md` §9 (price change, phone purpose, § 356a card, 3 € print withdrawal).
+7. Small follow-ups: 110/112 as tappable links on the scanner page; `scanner.escalated` /
+   `contactOnTheWay` texts still mention contacts (unused by the flow now); a clean-up migration to drop
+   the empty `emergency_contacts` table and the unused escalation columns.
+
