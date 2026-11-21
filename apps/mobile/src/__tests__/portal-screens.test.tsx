@@ -5,7 +5,7 @@ import { Alert, Linking } from 'react-native';
 import { shareDecalPdf } from '@/lib/decal';
 import { t } from '@/lib/i18n';
 import { pt } from '@/lib/portal-i18n';
-import type { PortalVehicle, SubscriptionSummary } from '@/lib/portal';
+import { euro, longDate, type PortalVehicle, type SubscriptionSummary } from '@/lib/portal';
 import { setSession } from '@/lib/session';
 import Privacy from '@/app/daten';
 import VehicleDetail from '@/app/fahrzeug/[id]';
@@ -354,7 +354,7 @@ describe('vehicle detail', () => {
       t('revokeConfirm1'),
       t('revokeConfirm2'),
       t('revokeConfirm3'),
-      t('revokeConfirm4', { price: '3,00 €' }),
+      t('revokeConfirm4', { price: euro(300, 'de') }),
     ]) {
       expect(message).toContain(line);
     }
@@ -459,11 +459,11 @@ describe('subscription and checkout in the app', () => {
       url: 'exp://192.168.178.25:8082/--/zurueck?to=checkout&result=success&session_id=cs_test_1',
     });
     await render(<Plans />);
-    const pay = await screen.findByLabelText(t('payButton', { price: '20,00 €' }));
+    const pay = await screen.findByLabelText(t('payButton', { price: euro(2000, 'de') }));
     expect(pay.props.accessibilityState.disabled).toBe(true); // § 312j: only after the declaration
     // Price, term and renewal stay visible next to the button (§ 312j BGB).
     expect(screen.getByTestId('price-line').props.children).toBe(
-      `ParkShield · ${t('planPriceLine', { price: '20,00 €' })}`,
+      `ParkShield · ${t('planPriceLine', { price: euro(2000, 'de') })}`,
     );
     expect(screen.getByText(texts.renewalRule, { exact: false })).toBeTruthy();
     await fireEvent.press(screen.getByLabelText(texts.immediateStart.text));
@@ -565,12 +565,20 @@ describe('subscription and checkout in the app', () => {
       'GET /v1/legal/checkout-texts': () => json(texts),
     });
     await render(<Plans />);
-    await screen.findByLabelText(t('payButton', { price: '20,00 €' }));
-    expect(t('payButton', { price: '20,00 €' })).toBe(
-      'Zahlungspflichtig bestellen – 20,00 € / Jahr',
+    await screen.findByLabelText(t('payButton', { price: euro(2000, 'de') }));
+    expect(t('payButton', { price: euro(2000, 'de') })).toBe(
+      `Zahlungspflichtig bestellen – ${euro(2000, 'de')} / Jahr`,
     );
     expect(screen.getByTestId('plan-card')).toBeTruthy();
-    for (const k of ['planF1', 'planF2', 'planF3', 'planF4', 'planF5', 'planF6', 'planF7'] as const) {
+    for (const k of [
+      'planF1',
+      'planF2',
+      'planF3',
+      'planF4',
+      'planF5',
+      'planF6',
+      'planF7',
+    ] as const) {
       expect(screen.getByText(t(k))).toBeTruthy();
     }
     expect(screen.queryByText(/Premium|Plus\b/)).toBeNull();
@@ -695,5 +703,227 @@ describe('history', () => {
       await screen.findByText(pt('history.reportedBlocked', { nickname: 'Der Blaue' })),
     ).toBeTruthy();
     expect(sent('POST', '/v1/alerts/a1/report')).toEqual({ reason: 'spam' });
+  });
+});
+
+describe('„Vertrag“ card (§ 356a BGB)', () => {
+  const now = new Date('2026-11-25T12:00:00Z');
+  const show = (over: Partial<SubscriptionSummary>) => {
+    const onWithdraw = jest.fn();
+    const onCancel = jest.fn();
+    return {
+      onWithdraw,
+      onCancel,
+      view: render(
+        <ContractCard
+          sub={subscription(over)}
+          onWithdraw={onWithdraw}
+          onCancel={onCancel}
+          now={now}
+        />,
+      ),
+    };
+  };
+
+  it('during the withdrawal period: withdrawal with its date and button, then the cancel part', async () => {
+    const { onWithdraw, onCancel, view } = show({ withdrawalOpenUntil: '2026-12-03T12:00:00Z' });
+    await view;
+    expect(
+      screen.getByText(t('withdrawUntil', { date: longDate('2026-12-03T12:00:00Z', 'de') })),
+    ).toBeTruthy();
+    // As visible as „Vertrag hier kündigen“: same button style.
+    const withdraw = screen.getByTestId('withdraw');
+    const cancel = screen.getByTestId('cancel');
+    expect(withdraw.props.accessibilityLabel).toBe(t('withdrawButton'));
+    expect(withdraw.props.style).toEqual(cancel.props.style);
+    await fireEvent.press(withdraw);
+    expect(onWithdraw).toHaveBeenCalled();
+    await fireEvent.press(cancel);
+    expect(onCancel).toHaveBeenCalled();
+    expect(screen.getByText(t('contractTitle'))).toBeTruthy();
+  });
+
+  it('after the period only „Kündigen“ remains (also when the date has just passed)', async () => {
+    await show({ withdrawalOpenUntil: null }).view;
+    expect(screen.queryByTestId('withdraw')).toBeNull();
+    expect(screen.getByTestId('cancel')).toBeTruthy();
+    await show({ withdrawalOpenUntil: '2026-11-20T12:00:00Z' }).view;
+    expect(screen.queryByTestId('withdraw')).toBeNull();
+  });
+});
+
+describe('print options', () => {
+  const order = {
+    id: 'o1',
+    status: 'paid',
+    included: true,
+    trackingNumber: null,
+    createdAt: '2026-11-19T12:00:00Z',
+    product: 'uv_vinyl_sticker',
+    vehicleId: VEHICLE,
+    nickname: 'Der Blaue',
+  };
+  const routes = (shipped: object, over: Record<string, Handler> = {}) =>
+    api({
+      [`GET /v1/vehicles/${VEHICLE}`]: () => json(vehicle()),
+      [`GET /v1/vehicles/${VEHICLE}/print-options`]: () =>
+        json({ selfPrint: { priceCents: 0 }, shipped }),
+      'GET /v1/orders': () => json({ orders: [] }),
+      ...over,
+    });
+  const address = async () => {
+    await fireEvent.changeText(await screen.findByLabelText(pt('order.name')), 'Kim Muster');
+    await fireEvent.changeText(screen.getByLabelText(pt('order.line1')), 'Hauptstraße 1');
+    await fireEvent.changeText(screen.getByLabelText(pt('order.postalCode')), '50667');
+    await fireEvent.changeText(screen.getByLabelText(pt('order.city')), 'Köln');
+  };
+
+  it('shows the price on each option: self-print free, the welcome print free', async () => {
+    routes({ priceCents: 0, free: true, welcomePrint: true });
+    await render(<PrintScreen />);
+    expect(await screen.findByText(t('printSelfTitle'))).toBeTruthy();
+    expect(t('printSelfTitle')).toBe('Selbst drucken – kostenlos');
+    expect(screen.getByText(t('printPaper'))).toBeTruthy();
+    expect(screen.getByText(t('printShipTitle'))).toBeTruthy();
+    expect(screen.getByText('kostenlos (Willkommensdruck)')).toBeTruthy();
+    expect(screen.getByLabelText(t('printShipSubmitFree'))).toBeTruthy();
+  });
+
+  it('the free welcome print is ordered without a payment page', async () => {
+    routes(
+      { priceCents: 0, free: true, welcomePrint: true },
+      {
+        [`POST /v1/vehicles/${VEHICLE}/order-print`]: () =>
+          json({ id: 'o1', url: 'https://park-shield.de/konto', free: true }),
+      },
+    );
+    await render(<PrintScreen />);
+    await address();
+    await fireEvent.press(screen.getByLabelText(t('printShipSubmitFree')));
+    expect(await screen.findByText(t('printShipDone'))).toBeTruthy();
+    expect(WebBrowser.openAuthSessionAsync).not.toHaveBeenCalled();
+    expect(sent('POST', '/order-print')).toEqual({
+      address: {
+        name: 'Kim Muster',
+        line1: 'Hauptstraße 1',
+        postalCode: '50667',
+        city: 'Köln',
+        country: 'DE',
+      },
+      appReturn: 'exp://192.168.178.25:8082/--/zurueck',
+    });
+  });
+
+  it('after the welcome print: 3 € one-time, paid on Stripe inside the app', async () => {
+    routes(
+      { priceCents: 300, free: false, welcomePrint: false },
+      {
+        [`POST /v1/vehicles/${VEHICLE}/order-print`]: () =>
+          json({ url: 'https://checkout.stripe.com/c/pay/cs_print', free: false }),
+        'GET /v1/orders': () => json({ orders: [order] }),
+      },
+    );
+    (WebBrowser.openAuthSessionAsync as jest.Mock).mockResolvedValue({
+      type: 'success',
+      url: 'exp://192.168.178.25:8082/--/zurueck?to=order&result=success',
+    });
+    await render(<PrintScreen />);
+    const price = euro(300, 'de');
+    expect(await screen.findByText(t('printShipPrice', { price }))).toBeTruthy();
+    expect(t('printShipPrice', { price })).toBe(`${price} einmalig inkl. MwSt.`);
+    await address();
+    await fireEvent.press(screen.getByLabelText(t('printShipSubmitPaid', { price })));
+    expect(await screen.findByText(t('printShipDone'))).toBeTruthy();
+    expect(WebBrowser.openAuthSessionAsync).toHaveBeenCalledWith(
+      'https://checkout.stripe.com/c/pay/cs_print',
+      'exp://192.168.178.25:8082/--/zurueck',
+    );
+  });
+
+  it('self-print files (PNG) are downloaded with the session and shared', async () => {
+    routes(
+      { priceCents: 300, free: false, welcomePrint: false },
+      { [`GET /v1/vehicles/${VEHICLE}/decal.png`]: () => json({}) },
+    );
+    await render(<PrintScreen />);
+    await fireEvent.press(await screen.findByTestId('self-png'));
+    await waitFor(() =>
+      expect(Sharing.shareAsync).toHaveBeenCalledWith(mockFiles[0]!.uri, {
+        mimeType: 'image/png',
+        UTI: 'public.png',
+      }),
+    );
+    expect(mockFiles[0]!.deleted).toBe(true);
+  });
+
+  it('without a code: nothing to print until a new code exists', async () => {
+    routes(
+      { priceCents: 300, free: false, welcomePrint: false },
+      { [`GET /v1/vehicles/${VEHICLE}`]: () => json(vehicle({ decal: null })) },
+    );
+    await render(<PrintScreen />);
+    expect(await screen.findByText(t('noCodeTitle'))).toBeTruthy();
+    expect(screen.queryByTestId('self-print')).toBeNull();
+    expect(screen.queryByText(t('printShipTitle'))).toBeNull();
+  });
+});
+
+describe('notification settings', () => {
+  const channels = (over: object = {}) => ({
+    order: ['native_push', 'webpush', 'email', 'sms'],
+    email: { address: 'kim@example.de' },
+    push: { publicKey: 'x', devices: [] },
+    app: {
+      devices: [
+        { id: 'd1', platform: 'ios', appVersion: '1.0.0', lastSeenAt: '2026-11-20T12:00:00Z' },
+      ],
+    },
+    sms: { phone: '+49 ••• 4567', verifiedAt: '2026-11-19T12:00:00Z', enabled: true },
+    available: { sms: true },
+    ...over,
+  });
+  const routes = (c: object, usage: object = { sms: { used: 2, limit: 20, capReached: false } }) =>
+    api({
+      'GET /v1/channels': () => json(c),
+      'GET /v1/me/usage': () => json(usage),
+      'GET /v1/quiet-hours': () => json({ timezone: 'Europe/Berlin', rules: [] }),
+    });
+
+  it('only push, the verified number and quiet hours; no e-mail, browser push or channel order', async () => {
+    routes(channels());
+    await render(<Notifications />);
+    expect(await screen.findByText('+49 ••• 4567')).toBeTruthy();
+    expect(screen.getByText(t('phoneVerified'))).toBeTruthy();
+    expect(screen.getByText(t('phoneSmsRule'))).toBeTruthy();
+    expect(screen.getByText(t('appPushTitle'))).toBeTruthy();
+    expect(screen.getByText(pt('quiet.title'))).toBeTruthy();
+    expect(screen.getByText(t('quietSmsNote'))).toBeTruthy();
+    expect(screen.queryByText(/Reihenfolge|Browser|E-Mail-Adresse|kim@example\.de/)).toBeNull();
+    expect(screen.queryByText(/WhatsApp/)).toBeNull();
+    // The system settings are always one tap away.
+    const open = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
+    await fireEvent.press(screen.getByTestId('open-settings'));
+    expect(open).toHaveBeenCalled();
+  });
+
+  it('no device registered: the warning about the SMS after 30 minutes', async () => {
+    routes(channels({ app: { devices: [] } }));
+    await render(<Notifications />);
+    expect(await screen.findByText(t('pushOffWarning'))).toBeTruthy();
+  });
+
+  it('the number can be changed (new code), never removed; the SMS cap is shown', async () => {
+    routes(channels(), { sms: { used: 20, limit: 20, capReached: true } });
+    await render(<Notifications />);
+    expect(await screen.findByTestId('sms-cap')).toBeTruthy();
+    expect(screen.queryByText(/entfernen/i)).toBeNull();
+    await fireEvent.press(screen.getByTestId('phone-change'));
+    expect(screen.getByText(t('phoneChangeHint'))).toBeTruthy();
+    expect(screen.getByTestId('phone')).toBeTruthy();
+    expect(
+      (global.fetch as jest.Mock).mock.calls.some(
+        ([, i]: [string, RequestInit | undefined]) => i?.method === 'DELETE',
+      ),
+    ).toBe(false);
   });
 });

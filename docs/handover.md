@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-21 (Stage 1 + 2 API in progress)._
+_Last updated: 2026-11-21 (API stages 1–3 written; website portal stage 1–2 done; scanner page redesigned; app stage 1–2 and API tests in progress)._
 
 ---
 
@@ -47,10 +47,9 @@ Legend: ✅ done and tested · 🟡 code written, tests/UI open · ⬜ not start
 - 🟡 Print: `GET /v1/vehicles/:id/print-options`, `POST /v1/vehicles/:id/order-print` (free welcome print
   once, then ops-granted free replacements, then 3 € Stripe one-time; `order-included`/`order-replacement`
   are aliases). Setting `prices.print_shipped_cents` = 300.
-- ⬜ Home PDF: 80 × 80 mm with **cut marks** + weatherproof notice; PNG download (`decal.png`) and SVG
-  download.
-- ⬜ i18n (`packages/i18n` de/en): remove Plus/Premium texts, add single-plan texts.
-- ⬜ Web `/konto/*`, pricing on landing page, help articles.
+- ✅ Home PDF: 80 × 80 mm with cut marks + weatherproof notice; `decal.png` (300 dpi), `decal-download.svg`.
+- ✅ i18n for the website (landing.planF1..6 etc.), web `/konto/*`, pricing, help articles, contacts pages
+  removed (typecheck, lint, build, i18n parity pass; not yet tested in a browser / E2E).
 - ⬜ App: paywall `/tarif`, `/abo` contract card, sign-up phone step, completion gate for phone,
   Sperren dialog, „Kein aktiver Code“ state, print options screen.
 - ⬜ API tests rewritten (see §4), E2E.
@@ -78,14 +77,23 @@ Legend: ✅ done and tested · 🟡 code written, tests/UI open · ⬜ not start
 - ⬜ Tests: no alert e-mail; payload; 10-min reminder; one SMS at 30 min; every stop condition; seen
   does not stop; sweeper recovery; cap.
 
-### Stage 3 — block sender and chat (⬜ not started)
+### Stage 3 — block sender and chat (🟡 API done, UI open)
+
+- 🟡 API: `HistoryService.block`, `POST /v1/app/alerts/:id/block`, `POST /v1/alerts/:id/block`,
+  `ChatService.closeBlocked` (reason `blocked`, migration `20261206000200_block_sender`).
+- ⬜ App/web buttons „Absender blockieren“ on the alert card, detail, chat, history.
+
 
 Existing: `HistoryService` „Absender blockieren“ (`history/history.service.ts` ~line 150, uses
 `scanner_blocks` by `block_ref`, phone bans, Protected Mode), `ChatService.senderBlocked`. To do: block
 button on alert card / detail / chat (app) + history; on block: close chat (scanner sees „Der Chat wurde
 beendet.“), `stopEscalation('blocked')`, existing abuse module only (no new identifiers, no storage).
 
-### Stage 4 — home, vehicle photo, design refresh, scanner UI (⬜ not started)
+### Stage 4 — home, vehicle photo, design refresh, scanner UI
+
+- ✅ Scanner page redesign (`apps/web/lib/scanner/*`, select card then „Warnung senden“, ~71 KB).
+- ⬜ App home, vehicle photo on device, design refresh bug, alerts tab badge.
+
 
 See §3 for the designs.
 

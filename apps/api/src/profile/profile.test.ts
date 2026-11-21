@@ -10,6 +10,7 @@ import {
   setSetting,
   signIn,
   subscribe,
+  verifyPhone,
   type Harness,
   type Session,
 } from '../test/harness';
@@ -34,7 +35,7 @@ const checkout = (s: Session) =>
     method: 'POST',
     url: '/v1/billing/checkout',
     headers: s.headers,
-    payload: { plan: 'plus', immediateStart: true, immediateStartVersion: 1, termsVersion: 1 },
+    payload: { plan: 'standard', immediateStart: true, immediateStartVersion: 1, termsVersion: 1 },
   });
 
 describe('profile (sign-up data)', () => {
@@ -48,6 +49,7 @@ describe('profile (sign-up data)', () => {
       newAccount: true,
       profile: null,
       phone: null,
+      phoneVerified: false,
     });
 
     const saved = await put(s, { ...SAMPLE_PROFILE, firstName: '  Erika  ', country: undefined });
@@ -101,12 +103,18 @@ describe('profile (sign-up data)', () => {
     }
   });
 
-  it('shows the verified SMS number masked (the phone is optional, stored once)', async () => {
+  it('shows the verified mobile number masked (required before checkout, stored once)', async () => {
     const s = await signIn(h, 'neu@example.de');
     await completeProfile(h, s);
-    expect((await get(s, '/v1/me/profile')).json().phone).toBeNull();
+    expect((await get(s, '/v1/me/profile')).json()).toMatchObject({
+      phone: null,
+      phoneVerified: false,
+    });
     await linkSmsDirect(h, 'neu@example.de', '+491701234567');
-    expect((await get(s, '/v1/me/profile')).json().phone).toBe('+49 ••• 4567');
+    expect((await get(s, '/v1/me/profile')).json()).toMatchObject({
+      phone: '+49 ••• 4567',
+      phoneVerified: true,
+    });
   });
 });
 
@@ -121,7 +129,7 @@ describe('checkout needs a complete profile', () => {
       url: '/v1/portal/subscriptions/renew',
       headers: s.headers,
       payload: {
-        plan: 'plus',
+        plan: 'standard',
         immediateStart: true,
         immediateStartVersion: 1,
         termsVersion: 1,
@@ -131,12 +139,16 @@ describe('checkout needs a complete profile', () => {
     expect(renew.json().error).toBe('profile_incomplete');
 
     await completeProfile(h, s);
+    // Name and address alone are not enough any more: the verified mobile number comes next.
+    expect((await checkout(s)).json()).toEqual({ error: 'phone_required' });
+    await verifyPhone(h, s);
     expect((await checkout(s)).statusCode).toBe(200);
   });
 
   it('prefills the Stripe customer with the sign-up name and address', async () => {
     const s = await signIn(h, 'neu@example.de');
     await completeProfile(h, s, { street: 'Ringstraße 3', postalCode: '50674' });
+    await verifyPhone(h, s);
     expect((await checkout(s)).statusCode).toBe(200);
     const user = await h.db
       .selectFrom('users')

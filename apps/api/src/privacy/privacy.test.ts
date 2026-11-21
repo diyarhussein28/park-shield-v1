@@ -75,7 +75,7 @@ describe('data export (US-32, OW-12)', () => {
       expect.objectContaining({ nickname: 'Der Blaue', plate: 'K-AB 1234', color: 'Blau' }),
     ]);
     expect(data.alerts[0]).toMatchObject({ type: 'custom', message: 'Licht an' });
-    expect(data.subscriptions[0]).toMatchObject({ plan: 'plus', status: 'active' });
+    expect(data.subscriptions[0]).toMatchObject({ plan: 'standard', status: 'active' });
     expect(JSON.stringify(data)).not.toContain('other@example.de');
     // Nothing that identifies scanners.
     expect(JSON.stringify(data)).not.toMatch(/scanner_ref|block_ref|198\.51/);
@@ -147,7 +147,8 @@ describe('account deletion (US-32)', () => {
       { processor: 'print_partner', status: 'not_applicable', automated: false },
       { processor: 'sentry', status: 'done', automated: true },
       { processor: 'stripe', status: 'pending', automated: true },
-      { processor: 'twilio', status: 'not_applicable', automated: false },
+      // Every customer has a verified mobile number (required since 2026-11-21).
+      { processor: 'twilio', status: 'pending', automated: false },
       { processor: 'zammad', status: 'pending', automated: false },
     ]);
   });

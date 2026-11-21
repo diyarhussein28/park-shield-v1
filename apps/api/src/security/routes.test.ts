@@ -74,23 +74,6 @@ const PUBLIC: Record<string, Control> = {
   'POST /v1/alerts/view/:token/report-abuse': { kind: 'rate', limits: ['alert_view.ip'] },
   'POST /v1/ack/preview': { kind: 'token', what: 'HMAC reply token' },
   'POST /v1/ack': { kind: 'token', what: 'HMAC reply token' },
-  'POST /v1/emergency-contact-invitations/view': { kind: 'token', what: 'consent token, 256 bit' },
-  'POST /v1/emergency-contact-invitations/decide': {
-    kind: 'token',
-    what: 'consent token, 256 bit',
-  },
-  'POST /v1/emergency-contact-invitations/accept': {
-    kind: 'token',
-    what: 'consent token, 256 bit',
-  },
-  'POST /v1/emergency-contact-invitations/decline': {
-    kind: 'token',
-    what: 'consent token, 256 bit',
-  },
-  // A trusted contact's escalation link (/k/…): "Ich komme" and opt-out.
-  'POST /v1/contacts/alert/preview': { kind: 'token', what: 'HMAC contact link token, 256 bit' },
-  'POST /v1/contacts/alert/ack': { kind: 'token', what: 'HMAC contact link token, 256 bit' },
-  'POST /v1/contacts/opt-out': { kind: 'token', what: 'HMAC contact link token, 256 bit' },
   'POST /v1/me/dsr/confirm': { kind: 'token', what: 'HMAC request token' },
   'POST /v1/me/deletion/cancel': { kind: 'token', what: 'HMAC request token' },
   'GET /v1/claim/:code': { kind: 'rate', limits: ['scan.not_found'] },
