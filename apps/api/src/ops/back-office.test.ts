@@ -21,7 +21,7 @@ import {
   type Harness,
   type Session,
 } from '../test/harness';
-import { completeProfile } from '../test/harness';
+import { completeProfile, registerAppDevice, verifyPhone } from '../test/harness';
 import { DispatchService } from '../notifications/dispatch.service';
 import { WithdrawalsService } from '../legal/withdrawals.service';
 import { AuditStreamService } from './audit.service';
@@ -118,8 +118,9 @@ const pub = (s: Session, method: 'GET' | 'POST', url: string, payload?: unknown)
   });
 
 async function includedOrder(c: Awaited<ReturnType<typeof customer>>) {
-  const r = await pub(c.s, 'POST', `/v1/vehicles/${c.v.id}/order-included`, { address: ADDRESS });
-  expect(r.statusCode).toBe(201);
+  const r = await pub(c.s, 'POST', `/v1/vehicles/${c.v.id}/order-print`, { address: ADDRESS });
+  expect(r.statusCode).toBe(200);
+  expect(r.json().free).toBe(true); // the free welcome print
   return r.json().id as string;
 }
 
@@ -427,14 +428,14 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
       subscriptionId: c.sub.id,
     });
     expect(quote.statusCode).toBe(200);
-    // 10.00 € paid, 1 started day of 365 → 0.03 € Wertersatz; no decal printed yet.
+    // 20.00 € paid, 1 started day of 365 → 0.05 € Wertersatz; no decal printed yet.
     expect(quote.json()).toMatchObject({
-      paidCents: 1000,
+      paidCents: 2000,
       daysUsed: 1,
       periodDays: 365,
-      wertersatzCents: 3,
+      wertersatzCents: 5,
       decalCostCents: 0,
-      refundCents: 997,
+      refundCents: 1995,
       endsSubscriptionNow: true,
     });
 
@@ -452,7 +453,7 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     expect(sub.status).toBe('withdrawn');
     expect((await h.app.inject({ method: 'GET', url: `/v1/scan/${c.code}` })).statusCode).toBe(404);
     const mail = await lastMail(h, 'refund_issued');
-    expect(mail?.text).toMatch(/9,97\s€/);
+    expect(mail?.text).toMatch(/19,95\s€/);
     expect(mail?.text).toContain(r.json().creditNoteNo);
 
     const again = await post(finance, '/ops/v1/refunds', {
@@ -466,7 +467,7 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     expect(notes).toEqual([
       expect.objectContaining({
         number: r.json().creditNoteNo,
-        amountCents: 997,
+        amountCents: 1995,
         kind: 'withdrawal',
       }),
     ]);
@@ -474,7 +475,7 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     expect(file.statusCode).toBe(200);
     expect(file.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');
     expect(file.rawPayload.toString('latin1')).toMatch(
-      /Erstattungsbetrag \\\(brutto\\\): 9,97\s\x80/,
+      /Erstattungsbetrag \\\(brutto\\\): 19,95\s\x80/,
     ); // PDF escapes "(" and ")"
     const other = await signIn(h, 'fremd@example.de');
     expect(
@@ -494,7 +495,7 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     const q = (
       await post(finance, '/ops/v1/refunds/quote', { kind: 'withdrawal', subscriptionId: c.sub.id })
     ).json();
-    expect(q).toMatchObject({ decalCostCents: 0, refundCents: 997 });
+    expect(q).toMatchObject({ decalCostCents: 0, refundCents: 1995 });
 
     await h.db
       .updateTable('subscriptions')
@@ -525,10 +526,10 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     const tooMuch = await post(finance, '/ops/v1/refunds/quote', {
       kind: 'goodwill',
       subscriptionId: c.sub.id,
-      amountCents: 800,
+      amountCents: 1800,
     });
     expect(tooMuch.statusCode).toBe(409);
-    expect(tooMuch.json()).toMatchObject({ error: 'amount_too_high', max: 700 });
+    expect(tooMuch.json()).toMatchObject({ error: 'amount_too_high', max: 1700 });
     expect(
       (
         await h.db
@@ -597,8 +598,9 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     ).toBe(200);
     const s = await signIn(h, 'spaet@example.de');
     await completeProfile(h, s);
+    await verifyPhone(h, s);
     const res = await pub(s, 'POST', '/v1/billing/checkout', {
-      plan: 'plus',
+      plan: 'standard',
       immediateStart: true,
       immediateStartVersion: 1,
       termsVersion: 1,
@@ -612,9 +614,11 @@ describe('US-41 settings, kill switches and provider health (AD-14–16)', () =>
   it('a kill switch needs a reason, is versioned and audited, and applies to the next alert', async () => {
     const admin = await staffAs(['admin']);
     const list = (await get(admin, '/ops/v1/settings')).json();
-    const email = list.settings.find((s: { key: string }) => s.key === 'channels.email.enabled');
+    const email = list.settings.find(
+      (s: { key: string }) => s.key === 'channels.native_push.enabled',
+    );
     expect(email).toMatchObject({ killSwitch: true, value: true, group: 'channels' });
-    const url = '/ops/v1/settings/channels.email.enabled';
+    const url = '/ops/v1/settings/channels.native_push.enabled';
     expect(
       (await send(admin, 'PUT', url, { value: false, version: email.version })).json().error,
     ).toBe('reason_required');
@@ -625,7 +629,7 @@ describe('US-41 settings, kill switches and provider health (AD-14–16)', () =>
     const off = await send(admin, 'PUT', url, {
       value: false,
       version: email.version,
-      reason: 'Brevo-Störung',
+      reason: 'FCM-Störung',
     });
     expect(off.statusCode).toBe(200);
     expect(off.json().version).toBe(email.version + 1);
@@ -639,6 +643,7 @@ describe('US-41 settings, kill switches and provider health (AD-14–16)', () =>
 
     // The public API reloads at once through the settings broadcast.
     const c = await customer();
+    await registerAppDevice(h, 'kunde@example.de');
     await h.db
       .updateTable('qr_tokens')
       .set({ last_test_at: new Date() })
@@ -658,7 +663,7 @@ describe('US-41 settings, kill switches and provider health (AD-14–16)', () =>
       .select(['channel', 'status', 'suppressed_reason'])
       .where('alert_id', '=', alert.id)
       .execute();
-    expect(deliveries.find((d) => d.channel === 'email')).toMatchObject({
+    expect(deliveries.find((d) => d.channel === 'native_push')).toMatchObject({
       status: 'suppressed',
       suppressed_reason: 'kill_switch',
     });
@@ -667,7 +672,7 @@ describe('US-41 settings, kill switches and provider health (AD-14–16)', () =>
     expect(history[0]).toMatchObject({
       old: true,
       new: false,
-      reason: 'Brevo-Störung',
+      reason: 'FCM-Störung',
       version: email.version + 1,
     });
     const support = await staffAs(['support']);
@@ -881,7 +886,7 @@ describe('US-43 metrics for Metabase (AD-18)', () => {
         }>`SELECT * FROM metrics.revenue_by_plan`.execute(trx)
       ).rows;
     });
-    expect(revenue).toEqual([expect.objectContaining({ plan: 'plus', mrr_gross_cents: '83' })]);
+    expect(revenue).toEqual([expect.objectContaining({ plan: 'standard', mrr_gross_cents: '167' })]);
     await expect(
       h.db.transaction().execute(async (trx) => {
         await sql`SET LOCAL ROLE metabase_ro`.execute(trx);
@@ -930,7 +935,7 @@ describe('US-44 contact form to Zammad and the ticket sidebar summary (SP-01, AD
       subject: string;
     }[];
 
-  it('opens a ticket for visitors and recognises signed-in Plus customers', async () => {
+  it('opens a ticket for visitors and recognises signed-in customers', async () => {
     const anon = await contact({
       email: 'Besucher@Example.de',
       message: 'Wo klebe ich den Aufkleber am besten hin?',
@@ -951,7 +956,7 @@ describe('US-44 contact form to Zammad and the ticket sidebar summary (SP-01, AD
     expect(mine.json().replyHours).toBe(48);
     const t = (await tickets())[0]!;
     expect(t.email).toBe('kunde@example.de');
-    expect(t.tags).toEqual(['topic_decal', 'lang_de', 'signed_in', 'plus', 'reply_48h']);
+    expect(t.tags).toEqual(['topic_decal', 'lang_de', 'signed_in', 'standard', 'reply_48h']);
     expect(t.body).toContain(`Kunden-ID: ${c.userId}`);
 
     expect(
@@ -991,9 +996,9 @@ describe('US-44 contact form to Zammad and the ticket sidebar summary (SP-01, AD
       found: true,
       id: c.userId,
       email: 'k•••@example.de',
-      subscription: { plan: 'plus', status: 'active' },
+      subscription: { plan: 'standard', status: 'active' },
       vehicles: 1,
-      protection: 33,
+      protection: 50, // e-mail and the verified number (no app, decal not tested)
     });
     expect(
       (await get(support, '/ops/v1/customers/summary?email=niemand%40example.de')).json(),

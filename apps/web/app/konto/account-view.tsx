@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Icon, type IconName } from '@/components/icons';
+import { useNeedsPhone } from '@/components/konto-access';
 import { KontoShell, Section } from '@/components/konto-shell';
 import { api } from '@/lib/api-client';
 import type {
@@ -20,6 +21,7 @@ import { LOCALE_COOKIE } from '@/lib/locale-cookie';
 import { usePendingClaim } from '@/lib/pending-claim';
 import { useAddVehicle, VehicleForm } from './fahrzeuge/vehicles-view';
 import { CheckoutForm, PastDue, SubscriptionInfo } from './parts';
+import { NoActiveCode } from './no-active-code';
 import { QrCard } from './qr-card';
 
 export function AccountView({
@@ -27,7 +29,6 @@ export function AccountView({
   subscription,
   vehicles,
   channels,
-  contactCount,
   protection,
   checkout,
   sessionId,
@@ -36,7 +37,6 @@ export function AccountView({
   subscription: SubscriptionSummary | null;
   vehicles: Vehicle[];
   channels: ChannelsOverview | null;
-  contactCount: number;
   protection: Protection | null;
   checkout?: 'success' | 'canceled';
   sessionId?: string;
@@ -53,6 +53,7 @@ export function AccountView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const pending = usePendingClaim();
+  const needsPhone = useNeedsPhone();
   const [vehicleList, setVehicles] = useState(vehicles);
   const [channelData, setChannels] = useState(channels);
   const [score, setScore] = useState(protection);
@@ -120,9 +121,25 @@ export function AccountView({
         </Notice>
       )}
 
-      {subscription ? (
+      {subscription && needsPhone ? (
         <>
           {subscription.status === 'past_due' && <PastDue />}
+          <CompleteAccount onDone={() => router.refresh()} />
+        </>
+      ) : subscription ? (
+        <>
+          {subscription.status === 'past_due' && <PastDue />}
+          {vehicleList
+            .filter((v) => !v.decal)
+            .map((v) => (
+              <NoActiveCode
+                key={v.id}
+                vehicle={v}
+                onCreated={(nv) =>
+                  setVehicles((list) => list.map((x) => (x.id === nv.id ? nv : x)))
+                }
+              />
+            ))}
           {score && (
             <SetupGuide
               protection={score}
@@ -146,7 +163,7 @@ export function AccountView({
             </Section>
           </div>
           <HowScanningWorks />
-          <QuickLinks channels={channelData} contactCount={contactCount} />
+          <QuickLinks channels={channelData} />
         </>
       ) : (
         <>
@@ -183,12 +200,12 @@ function QrCodes({ vehicles }: { vehicles: Vehicle[] }) {
   );
 }
 
-type StepKey = 'vehicle' | 'phone' | 'decal' | 'contact';
+type StepKey = 'vehicle' | 'app' | 'phone' | 'decal';
 
 /**
- * OW-14 / US-28 as a guided set-up: the protection score (four steps of 25 %, computed by the API) on
- * top, then the steps in the order a new owner does them. The first open step is expanded with its
- * form right here, so nobody has to hunt through the menu. The emergency contact is optional.
+ * OW-14 / US-28 as a guided set-up: the protection score (four steps of 25 %, computed by the API:
+ * e-mail, app push, verified mobile number, decal tested) on top, then the steps in the order a new
+ * owner does them. The first open step is expanded with its form right here.
  */
 function SetupGuide({
   protection,
@@ -213,11 +230,18 @@ function SetupGuide({
   const steps: { key: StepKey; done: boolean; title: string; href?: string; go?: string }[] = [
     { key: 'vehicle', done: vehicles.length > 0, title: t('setup.vehicleTitle') },
     {
-      key: 'phone',
+      key: 'app',
       done: protection.steps.channel,
       title: t('protection.stepChannel'),
       href: '/konto/benachrichtigungen',
-      go: t('protection.goChannel'),
+      go: t('protection.goApp'),
+    },
+    {
+      key: 'phone',
+      done: protection.steps.phone,
+      title: t('protection.stepPhone'),
+      href: '/konto/benachrichtigungen',
+      go: t('protection.goPhone'),
     },
     {
       key: 'decal',
@@ -226,18 +250,6 @@ function SetupGuide({
       href: first ? `/konto/fahrzeuge/${first.id}` : '/konto/fahrzeuge',
       go: t('protection.goDecal'),
     },
-    // Trusted contacts are PREMIUM only: for PLUS the step does not apply (null).
-    ...(protection.steps.contact === null
-      ? []
-      : [
-          {
-            key: 'contact' as const,
-            done: protection.steps.contact,
-            title: t('protection.stepContact'),
-            href: '/konto/notfallkontakte',
-            go: t('protection.goContact'),
-          },
-        ]),
   ];
   const current = steps.find((s) => !s.done)?.key ?? null;
   const complete = protection.percent === 100 && vehicles.length > 0;
@@ -251,18 +263,19 @@ function SetupGuide({
         {error && <Notice tone="warning">{error}</Notice>}
       </>
     ),
-    phone: (
+    app: (
       <>
-        {channels && (
-          <PhoneSetup overview={channels} onChange={onChannelsChanged} headingLevel={3} embedded />
-        )}
-        <p className="text-sm text-muted">
-          {t('setup.phoneOr')}{' '}
-          <Link href="/konto/benachrichtigungen" className="font-semibold text-primary underline">
-            {t('setup.pushLink')}
-          </Link>
-        </p>
+        <p className="text-muted">{t('setup.appText')}</p>
+        <p className="text-sm text-muted">{t('setup.appDone')}</p>
       </>
+    ),
+    phone: (
+      <PhoneSetup
+        phone={channels?.sms?.phone ?? null}
+        onVerified={onChannelsChanged}
+        headingLevel={3}
+        embedded
+      />
     ),
     decal: (
       <>
@@ -286,18 +299,6 @@ function SetupGuide({
             <Icon name="arrowRight" className="size-5" />
           </Link>
         </div>
-      </>
-    ),
-    contact: (
-      <>
-        <p className="text-muted">{t('setup.contactText')}</p>
-        <Link
-          href="/konto/notfallkontakte"
-          className="inline-flex min-h-12 w-fit items-center gap-2 rounded-xl bg-primary px-4 font-semibold text-primary-fg hover:bg-primary-hover"
-        >
-          {t('protection.goContact')}
-          <Icon name="arrowRight" className="size-5" />
-        </Link>
       </>
     ),
   };
@@ -361,9 +362,6 @@ function SetupGuide({
                   </span>
                   <span className={cx('min-w-0 font-semibold', s.done && 'text-muted')}>
                     {s.title}
-                    {s.key === 'contact' && !s.done && (
-                      <span className="font-normal text-muted"> ({t('common.optional')})</span>
-                    )}
                     <span className="sr-only">
                       : {s.done ? t('protection.done') : t('protection.todo')}
                     </span>
@@ -469,13 +467,7 @@ function GetStarted() {
   );
 }
 
-function QuickLinks({
-  channels,
-  contactCount,
-}: {
-  channels: ChannelsOverview | null;
-  contactCount: number;
-}) {
+function QuickLinks({ channels }: { channels: ChannelsOverview | null }) {
   const { t } = useI18n();
   const tiles: { href: string; icon: IconName; title: string; text: string }[] = [
     {
@@ -488,16 +480,10 @@ function QuickLinks({
       href: '/konto/benachrichtigungen',
       icon: 'bell',
       title: t('channels.manage'),
-      text: t('channels.summaryPhone', {
-        push: channels?.push.devices.length ?? 0,
+      text: t('channels.summaryApp', {
+        app: channels?.app.devices.length ?? 0,
         phone: channels?.sms ? 'yes' : 'no',
       }),
-    },
-    {
-      href: '/konto/notfallkontakte',
-      icon: 'users',
-      title: t('contacts.manage'),
-      text: t('contacts.summary', { count: contactCount }),
     },
     {
       href: '/konto/verlauf',
@@ -544,5 +530,23 @@ function QuickLinks({
         ))}
       </ul>
     </section>
+  );
+}
+
+/**
+ * „Konto vervollständigen“ for accounts from before 2026-11-21: the mobile number is required for the
+ * escalation SMS. The overview shows only this step until it is done; alerts are never blocked.
+ */
+function CompleteAccount({ onDone }: { onDone: () => void }) {
+  const { t } = useI18n();
+  return (
+    <Section
+      title={t('portal.completeTitle')}
+      icon="phone"
+      intro={t('portal.completePhoneIntro')}
+      className="border-2 border-primary"
+    >
+      <PhoneSetup phone={null} onVerified={onDone} headingLevel={3} embedded />
+    </Section>
   );
 }

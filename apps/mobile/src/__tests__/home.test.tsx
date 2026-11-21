@@ -40,18 +40,18 @@ const item = (id: string, acknowledged: boolean, de: string) => ({
   seenAt: null,
   acknowledged,
   acknowledgedBy: null,
-  escalationStep: 0,
+  escalationStage: 'none',
   vehicle: { id: 'v1', nickname: 'Blue' },
   photoCount: 0,
   chatStatus: null,
 });
 
-function api(alerts: object[]) {
+function api(alerts: object[], pushReady = true) {
   global.fetch = jest.fn(async (url: string) => {
     const path = url.replace('https://api.test', '');
     const body =
       path === '/v1/app/alerts'
-        ? { alerts, next: null, pushReady: true }
+        ? { alerts, next: null, pushReady }
         : path === '/v1/alerts'
           ? { alerts: [] }
           : {};
@@ -87,6 +87,12 @@ describe('the Warnungen tab', () => {
     expect(await screen.findByText(t('emptyAlertsTitle'))).toBeTruthy();
     await fireEvent.press(screen.getByLabelText(t('emptyAlertsAction')));
     expect(mockNavigate).toHaveBeenCalledWith('/fahrzeuge');
+  });
+
+  it('warns that alerts come only by SMS after 30 minutes while push is off', async () => {
+    api([], false);
+    await show();
+    expect(await screen.findByText(t('pushOffWarning'))).toBeTruthy();
   });
 
   it('the 90-day history (the former „Verlauf“) is in the same tab', async () => {

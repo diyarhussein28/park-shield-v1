@@ -1,18 +1,12 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Linking,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CarArt } from '@/components/art';
 import { Icon } from '@/components/icons';
+import { NoCodeCard } from '@/components/no-code';
 import { isOpen, OpenAlertCard } from '@/components/open-alert-card';
+import { PushOffBanner } from '@/components/push-warning';
 import { PastDue } from '@/components/subscription';
 import { Banner, Button, Chip } from '@/components/ui';
 import { api } from '@/lib/api';
@@ -21,7 +15,6 @@ import { HAS_FIREBASE } from '@/lib/config';
 import { t } from '@/lib/i18n';
 import type { PortalVehicle, Protection, SubscriptionSummary } from '@/lib/portal';
 import { getFlag, setFlag } from '@/lib/prefs';
-import { permission, type PushPermission } from '@/lib/push';
 import { setupSteps, setupSummary } from '@/lib/setup';
 import { radius, space, type as typeScale, useTheme } from '@/theme/tokens';
 
@@ -34,7 +27,6 @@ export default function Home() {
   const router = useRouter();
   const { data, error, reload } = useAlerts();
   const [refreshing, setRefreshing] = useState(false);
-  const [push, setPush] = useState<PushPermission | null>(null);
   const [sub, setSub] = useState<SubscriptionSummary | null | undefined>(undefined);
   const [protection, setProtection] = useState<Protection | null>(null);
   const [vehicles, setVehicles] = useState<PortalVehicle[] | null>(null);
@@ -62,8 +54,6 @@ export default function Home() {
       setVehicles(v.vehicles);
     }
     setHidden(await getFlag('setupDismissed'));
-    // No automatic permission prompt here (P6): it is asked after the first QR code.
-    setPush(await permission().catch(() => null));
   }, [reload]);
 
   useFocusEffect(
@@ -123,16 +113,11 @@ export default function Home() {
         )}
 
         {sub?.status === 'past_due' && <PastDue />}
-        {push === 'denied' && sub && (
-          <Banner tone="warn">
-            <Text style={[typeScale.body, { color: c.warningFg }]}>{t('pushDeniedBanner')}</Text>
-            <Button
-              label={t('pushOpenSettings')}
-              variant="secondary"
-              onPress={() => void Linking.openSettings()}
-            />
-          </Banner>
-        )}
+        {/* Alerts are push only: without it the first sign is the SMS after 30 minutes. No
+            automatic permission prompt here (P6): the banner only asks on its button. */}
+        {sub && <PushOffBanner pushReady={data?.pushReady} onChanged={reload} />}
+
+        {sub && first && !first.decal && <NoCodeCard vehicle={first} onCreated={() => load()} />}
 
         {sub === null && (
           <View
@@ -165,7 +150,7 @@ export default function Home() {
           </View>
         )}
 
-        {sub && vehicles && first && summary && (
+        {sub && vehicles && first?.decal && summary && (
           <Pressable
             testID="home-status"
             accessibilityRole="button"

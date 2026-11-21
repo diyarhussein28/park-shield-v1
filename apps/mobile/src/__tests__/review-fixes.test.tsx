@@ -28,7 +28,7 @@ const list = (n: number) => ({
     seenAt: null,
     acknowledged: false,
     acknowledgedBy: null,
-    escalationStep: 0,
+    escalationStage: 'none',
     vehicle: { id: 'v', nickname: 'Blue' },
     photoCount: 0,
     chatStatus: null,

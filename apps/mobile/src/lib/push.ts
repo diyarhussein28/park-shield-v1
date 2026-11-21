@@ -62,7 +62,8 @@ export async function requestPermission(): Promise<PushPermission> {
   // iOS can answer without showing its dialog (the status stays „not determined“, e.g. when the app
   // was not fully in the foreground yet). That is no refusal: the „Erlauben“ button stays.
   if (p.canAskAgain) return 'undetermined';
-  // A real refusal: the banner stays in the app; the API sends one e-mail hint a day.
+  // A real refusal: the warning stays in the app (Start, Warnungen, Benachrichtigungen); the API is
+  // told so it can send its account hint.
   await api('/v1/app/push-denied', {
     body: { platform: Platform.OS === 'ios' ? 'ios' : 'android' },
   }).catch(() => undefined);
@@ -125,7 +126,8 @@ export async function unregisterDevice(): Promise<void> {
 }
 
 /**
- * One field of a ParkShield push ({ alertId, type, kind }, all strings). iOS: expo-notifications fills
+ * One field of a ParkShield push ({ alertId, kind }, both strings; since 2026-11-21 there is no
+ * `type` any more, the app loads everything else from the API). iOS: expo-notifications fills
  * `data` of a remote notification only from the payload's `body` key (our API sends it); older pushes
  * carry the ids at the top level, so the raw payload is read as well.
  */

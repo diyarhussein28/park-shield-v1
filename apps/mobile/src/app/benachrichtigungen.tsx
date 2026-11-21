@@ -3,46 +3,41 @@ import { useCallback, useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 import { Check, Field, H3 } from '@/components/form';
 import { SwitchRow } from '@/components/list';
-import { PhoneSetup } from '@/components/phone-setup';
-import { Banner, Button, Card, P, Screen, Title, useTheme } from '@/components/ui';
+import { PhoneCard } from '@/components/phone-setup';
+import { PushOffBanner } from '@/components/push-warning';
+import { Banner, Button, Card, Chip, P, Screen, Title } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { APP_VERSION, HAS_FIREBASE } from '@/lib/config';
 import { t } from '@/lib/i18n';
 import {
   errorText,
   type ChannelsOverview,
-  type OrderableChannel,
-  type PushDevice,
   type QuietHours,
   type QuietRule,
-  type SubscriptionSummary,
   type Usage,
 } from '@/lib/portal';
 import { pt, type MessageKey } from '@/lib/portal-i18n';
 import { permission, registerDevice, requestPermission, type PushPermission } from '@/lib/push';
 
 /**
- * „Benachrichtigungen“ (web: /konto/benachrichtigungen): mobile number for SMS, this app's push and the
- * other devices, e-mail, the order normal alerts follow, and quiet hours.
+ * „Benachrichtigungen“ (web: /konto/benachrichtigungen, 2026-11-21): alerts come by app push only, so
+ * this screen has exactly three parts: the app notifications (permission, open the system settings,
+ * the phones signed in), the verified mobile number for the one SMS after 30 minutes, and quiet hours.
+ * E-mail, browser push, channel order and WhatsApp are gone.
  */
 export default function Notifications() {
   const [data, setData] = useState<ChannelsOverview | null>(null);
   const [usage, setUsage] = useState<Usage | undefined>(undefined);
   const [quiet, setQuiet] = useState<QuietHours | null>(null);
-  const [premium, setPremium] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
-      const [channels, used, q, sub] = await Promise.all([
+      const [channels, used, q] = await Promise.all([
         api<ChannelsOverview>('/v1/channels'),
         api<Usage>('/v1/me/usage').catch(() => undefined),
         api<QuietHours>('/v1/quiet-hours'),
-        api<{ subscription: SubscriptionSummary | null }>('/v1/billing/subscription').catch(() => ({
-          subscription: null,
-        })),
       ]);
-      setPremium(sub.subscription?.plan === 'premium');
       setData(channels);
       setUsage(used);
       setQuiet(q);
@@ -59,48 +54,20 @@ export default function Notifications() {
 
   return (
     <Screen>
-      <P muted>{pt('channels.intro')}</P>
+      <P muted>{t('notifIntro')}</P>
       {error && <Banner tone="err">{error}</Banner>}
-      {/* SMS is a PREMIUM feature (P15): Plus is not asked for a number as if SMS were included. */}
-      {data && (premium || data.sms) ? (
-        <PhoneSetup overview={data} usage={usage} onChange={reload} />
-      ) : (
-        data && (
-          <Card>
-            <Title>{pt('channels.phoneTitle')}</Title>
-            <P muted>{t('smsPremiumOnly')}</P>
-          </Card>
-        )
-      )}
+      {data && <PushOffBanner pushReady={data.app.devices.length > 0} onChanged={reload} />}
       {data && <AppPushCard devices={data.app.devices} reload={reload} />}
-      {data && <BrowserPushCard devices={data.push.devices} reload={reload} />}
-      {data && (
-        <Card>
-          <Title>{pt('channels.emailTitle')}</Title>
-          <P>{pt('channels.emailText', { email: data.email.address })}</P>
-        </Card>
-      )}
-      {data && (
-        <OrderCard
-          order={data.order}
-          setUp={{
-            native_push: data.app.devices.length > 0,
-            webpush: data.push.devices.length > 0,
-            email: true,
-            sms: Boolean(data.sms),
-          }}
-          onSaved={(order) => setData((d) => (d ? { ...d, order } : d))}
-        />
-      )}
+      {data && <PhoneCard phone={data.sms?.phone ?? null} usage={usage} onChanged={reload} />}
       {quiet && <QuietHoursCard initial={quiet} />}
     </Screen>
   );
 }
 
 /**
- * This app's notifications: system permission, and the phones signed in to the app. Allowed but not
- * registered yet (e.g. switched on in the iOS settings): registers this device and reloads, so „App“
- * in the order below counts as set up without restarting the app.
+ * This app's notifications: on or off (system permission and a registered device), a button to the
+ * system settings, and the phones signed in to the app. Allowed but not registered yet (e.g. switched
+ * on in the iOS settings): registers this device and reloads, so it counts at once.
  */
 function AppPushCard({
   devices,
@@ -128,28 +95,27 @@ function AppPushCard({
     setPush(p);
     if (p === 'granted') await reload();
   };
-  const date = (iso: string) => new Date(iso);
+  const on = push === 'granted' && !none;
   return (
     <Card>
-      <Title>{t('notifications')}</Title>
+      <View style={s.head}>
+        <Title>{t('appPushTitle')}</Title>
+        <Chip tone={on ? 'ok' : 'warn'}>{on ? t('pushActive') : t('pushInactive')}</Chip>
+      </View>
       {!HAS_FIREBASE ? (
         <Banner tone="warn">{t('pushNoFirebase')}</Banner>
       ) : push === 'granted' ? (
         <P>{t('notificationsOn')}</P>
-      ) : (
-        <>
-          <Banner tone="warn">{t('pushDeniedBanner')}</Banner>
-          {push === 'undetermined' ? (
-            <Button label={t('pushAllow')} onPress={() => void allow()} />
-          ) : (
-            <Button
-              label={t('pushOpenSettings')}
-              variant="secondary"
-              onPress={() => void Linking.openSettings()}
-            />
-          )}
-        </>
-      )}
+      ) : push === 'undetermined' ? (
+        <Button label={t('pushTitle')} onPress={() => void allow()} testID="push-allow-card" />
+      ) : null}
+      {/* Always reachable: Focus modes, sounds and the lock screen are set in the system. */}
+      <Button
+        label={t('pushOpenSettings')}
+        variant="secondary"
+        onPress={() => void Linking.openSettings()}
+        testID="open-settings"
+      />
       <H3>{t('appDevices')}</H3>
       {devices.length === 0 ? (
         <P muted>{t('appDevicesNone')}</P>
@@ -159,115 +125,11 @@ function AppPushCard({
             {t('appDevice', {
               platform: d.platform === 'ios' ? 'iPhone' : 'Android',
               version: d.appVersion ?? APP_VERSION,
-              date: date(d.lastSeenAt).toLocaleDateString(),
+              date: new Date(d.lastSeenAt).toLocaleDateString(),
             })}
           </P>
         ))
       )}
-    </Card>
-  );
-}
-
-/** Browser push on other devices (set up on the website); removable here. */
-function BrowserPushCard({
-  devices,
-  reload,
-}: {
-  devices: PushDevice[];
-  reload: () => Promise<void>;
-}) {
-  const deviceText = (d: PushDevice) =>
-    d.label ??
-    pt('channels.pushDevice', { platform: d.platform ?? 'desktop', date: new Date(d.createdAt) });
-  return (
-    <Card>
-      <Title>{pt('channels.pushTitle')}</Title>
-      <P muted>{t('browserPushHint')}</P>
-      <H3>{pt('channels.pushDevices')}</H3>
-      {devices.length === 0 ? (
-        <P muted>{pt('channels.pushNoDevices')}</P>
-      ) : (
-        devices.map((d) => (
-          <View key={d.id} style={s.item}>
-            <P>{deviceText(d)}</P>
-            <Button
-              variant="secondary"
-              label={pt('channels.pushRemoveLabel', { device: deviceText(d) })}
-              onPress={() =>
-                void api(`/v1/push-subscriptions/${d.id}`, { method: 'DELETE' }).then(reload)
-              }
-            />
-          </View>
-        ))
-      )}
-    </Card>
-  );
-}
-
-/** US-22 / OW-05: the order normal alerts follow, with up/down buttons. */
-function OrderCard({
-  order,
-  setUp,
-  onSaved,
-}: {
-  order: OrderableChannel[];
-  setUp: Record<OrderableChannel, boolean>;
-  onSaved: (order: OrderableChannel[]) => void;
-}) {
-  const c = useTheme();
-  const [status, setStatus] = useState<string | null>(null);
-  const name = (channel: OrderableChannel) => pt('channels.channelName', { channel });
-
-  const move = async (index: number, by: -1 | 1) => {
-    const next = [...order];
-    const [item] = next.splice(index, 1);
-    next.splice(index + by, 0, item!);
-    setStatus(null);
-    try {
-      onSaved(
-        (
-          await api<{ order: OrderableChannel[] }>('/v1/channels/order', {
-            method: 'PUT',
-            body: { order: next },
-          })
-        ).order,
-      );
-      setStatus(pt('channels.orderSaved'));
-    } catch (err) {
-      setStatus(errorText(err));
-    }
-  };
-
-  return (
-    <Card>
-      <Title>{pt('channels.orderTitle')}</Title>
-      <P>{pt('channels.orderIntro')}</P>
-      {order.map((ch, i) => (
-        <View key={ch} style={[s.orderRow, { borderColor: c.border }]}>
-          <P style={{ flex: 1, fontWeight: '700' }}>
-            {i + 1}. {name(ch)}
-            {!setUp[ch] ? ` (${pt('channels.orderNotSetUp')})` : ''}
-          </P>
-          <View style={s.arrows}>
-            <Button
-              label="↑"
-              variant="secondary"
-              disabled={i === 0}
-              accessibilityHint={pt('channels.orderUp', { channel: name(ch) })}
-              onPress={() => void move(i, -1)}
-            />
-            <Button
-              label="↓"
-              variant="secondary"
-              disabled={i === order.length - 1}
-              accessibilityHint={pt('channels.orderDown', { channel: name(ch) })}
-              onPress={() => void move(i, 1)}
-            />
-          </View>
-        </View>
-      ))}
-      {status && <P muted>{status}</P>}
-      <P muted>{pt('channels.orderNote')}</P>
     </Card>
   );
 }
@@ -374,6 +236,8 @@ function QuietHoursCard({ initial }: { initial: QuietHours }) {
       <P muted>{`${pt('quiet.overnight')} ${pt('quiet.timezone', { timezone: data.timezone })}`}</P>
       <SwitchRow title={pt('quiet.urgentBypass')} value={urgentBypass} onChange={setUrgentBypass} />
       <P muted>{pt('quiet.urgentHint')}</P>
+      {/* Owner decision 2026-11-21: never an SMS in quiet hours; the urgent bypass is push only. */}
+      <P muted>{t('quietSmsNote')}</P>
       {error && <Banner tone="err">{error}</Banner>}
       <Button
         label={pt('quiet.add')}
@@ -386,14 +250,6 @@ function QuietHoursCard({ initial }: { initial: QuietHours }) {
 }
 
 const s = StyleSheet.create({
+  head: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
   item: { gap: 6 },
-  orderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 8,
-  },
-  arrows: { flexDirection: 'row', gap: 6, width: 120 },
 });

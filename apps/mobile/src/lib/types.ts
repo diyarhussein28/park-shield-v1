@@ -15,11 +15,16 @@ export interface AlertListItem {
   seenAt: string | null;
   acknowledged: boolean;
   acknowledgedBy: string | null;
-  escalationStep: number;
+  /** Owner escalation (2026-11-21): reminder push after 10 min, one SMS after 30 min. */
+  escalationStage: EscalationStage;
   vehicle: { id: string; nickname: string };
   photoCount: number;
   chatStatus: ChatStatus | null;
 }
+
+export type EscalationStage = 'none' | 'reminder_sent' | 'sms_sent';
+export type EscalationStopReason =
+  'acknowledged' | 'replied' | 'chat_opened' | 'blocked' | 'resolved';
 
 export interface AlertList {
   alerts: AlertListItem[];
@@ -70,12 +75,19 @@ export interface AlertDetail {
   seenAt: string | null;
   reply: 'coming' | 'in_30_min' | 'not_nearby' | null;
   acknowledgedAt: string | null;
-  acknowledgedBy: { kind: 'owner' | 'contact'; name: string | null } | null;
+  acknowledgedBy: { kind: 'owner'; name: string | null } | null;
+  /**
+   * The owner's own escalation (no trusted contacts any more): a reminder push at `reminderAt`, one SMS
+   * at `smsDueAt`, both cancelled at `stoppedAt` when the owner reacted. Viewing alone does not stop it.
+   */
   escalation: {
-    applies: boolean;
-    step: number;
-    escalatedAt: string | null;
-    notified: { step: number | null; name: string | null }[];
+    stage: EscalationStage;
+    reminderAt: string | null;
+    remindedAt: string | null;
+    smsDueAt: string | null;
+    smsSentAt: string | null;
+    stoppedAt: string | null;
+    stopReason: EscalationStopReason | null;
   };
   vehicle: { id: string; nickname: string };
   contentHidden: boolean;
@@ -90,35 +102,9 @@ export interface AlertDetail {
   chat: (ChatState & { canOpen: boolean; senderBlocked: boolean }) | null;
 }
 
-export interface EscalationSettings {
-  available: boolean;
-  enabled: boolean;
-  delayMinutes: number;
-  confirmedContacts: number;
-  suggestEnable: boolean;
-  vehicles: { id: string; nickname: string; enabled: boolean | null }[];
-}
-
-export interface Contact {
-  id: string;
-  position: number;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  status: 'pending' | 'confirmed' | 'declined' | 'revoked' | 'deactivated';
-  expiresAt: string | null;
-}
-
-export interface ContactList {
-  premium: boolean;
-  limit: number;
-  ownerName: string | null;
-  contacts: Contact[];
-}
-
 export interface Me {
   email: string;
   customerNo: string | null;
   preferredLang: 'de' | 'en';
-  plan?: 'plus' | 'premium' | null;
+  plan?: 'standard' | null;
 }

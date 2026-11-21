@@ -90,25 +90,6 @@ const de = {
     planF5: 'Ein gedruckter, UV-beständiger Aufkleber inklusive Versand',
     planF6: 'Für 1 Fahrzeug',
     planCta: 'Jetzt bestellen',
-    plusName: 'Plus',
-    plusFor: 'Für einzelne Fahrerinnen und Fahrer',
-    plusF1: 'Bis zu 2 Fahrzeuge',
-    plusF2: 'Ein UV-beständiger Aufkleber inklusive Versand',
-    plusF3: 'App-Push und E-Mail unbegrenzt',
-    plusF4: '„Ich komme“, Schnellantworten und Live-Status',
-    plusF5: 'Eskalation an 1 Notfallkontakt',
-    plusF6: 'Fotos bei Warnungen',
-    plusF7: 'E-Mail-Support innerhalb von 48 Stunden',
-    plusCta: 'Plus wählen',
-    premiumName: 'Premium',
-    premiumFor: 'Für Familien und geteilte Autos',
-    premiumF1: 'Alles aus Plus',
-    premiumF2: 'Bis zu 5 Fahrzeuge und 3 Mitfahrende',
-    premiumF3: 'Zusätzlich SMS (bis 5 pro Monat) und Eskalation an bis zu 3 Vertrauenspersonen',
-    premiumF4: 'Anonymer Chat und Eskalation an bis zu 3 Kontakte',
-    premiumF5: 'Fotos bei Warnungen',
-    premiumF6: 'Support innerhalb von 24 Stunden',
-    premiumSoon: 'Verfügbar ab 9. November 2027',
     faqTitle: 'Häufige Fragen',
     faq1Q: 'Braucht die Person, die scannt, eine App?',
     faq1A: 'Nein. Der Code öffnet eine Webseite. Ohne Konto und ohne Installation.',
@@ -187,11 +168,6 @@ const de = {
     channelReminderText: 'Noch keine Reaktion? Die App meldet sich ein zweites Mal.',
     channelSms: 'SMS nach 30 Minuten',
     channelSmsText: 'Eine einzige SMS an Ihre bestätigte Handynummer, auch ohne Internet.',
-    channelPush: 'Push',
-    channelPushText: 'Sofort auf Ihrem Handy, auch auf dem iPhone.',
-    channelEmail: 'E-Mail',
-    channelEmailText: 'Unbegrenzt und immer als Rückfall dabei.',
-    pricingRecommended: 'Empfohlen',
     ctaTitle: 'Bereit für Ihren Aufkleber?',
     ctaText:
       'Inklusive UV-beständigem Aufkleber und Versand. Jederzeit zum Ende des Jahres kündbar.',
@@ -231,7 +207,6 @@ const de = {
     overview: 'Übersicht',
     vehicles: 'Fahrzeuge & QR-Codes',
     notifications: 'Benachrichtigungen',
-    contacts: 'Notfallkontakte',
     history: 'Verlauf',
     plan: 'Abo & Konto',
     data: 'Ihre Daten',
@@ -299,12 +274,6 @@ const de = {
     newCodeDone:
       'Neuer Code erstellt. Drucken Sie ihn selbst aus oder lassen Sie ihn drucken und zusenden.',
     codeActive: 'Dieses Fahrzeug hat bereits einen aktiven Code.',
-    upgradeTitle: 'Auf Premium wechseln',
-    upgradeIntro: 'Für Familien und geteilte Autos. Ihr Plus-Jahr wird beim Wechsel angerechnet.',
-    upgradeSoon:
-      'Der Wechsel ist ab 9. November 2027 möglich. Wir schreiben Ihnen, sobald es so weit ist.',
-    upgradeBadge: 'Bald verfügbar',
-    currentPlan: 'Ihr Tarif',
   },
   account: {
     title: 'Mein Konto',
@@ -364,7 +333,14 @@ const de = {
       'Ein Tipp genügt. Der Fahrer wird sofort benachrichtigt. Niemand sieht Ihre oder seine Nummer.',
     vehicle: 'Fahrzeug',
     backAt: 'Fahrer ist gegen {time} zurück',
-    testBanner: 'Testmodus: Diese Warnung geht nur an Sie selbst und aktiviert Ihren Aufkleber.',
+    testLabel: 'Testmodus:',
+    testBanner: 'Diese Warnung geht nur an Sie selbst und aktiviert Ihren Aufkleber.',
+    noteLabel: 'Kurze Notiz (freiwillig)',
+    notePlaceholder: 'z. B. „Blauer Golf, Parkplatz A“',
+    customSub: 'Beschreiben Sie das Problem in eigenen Worten',
+    sendAlert: 'Warnung senden',
+    chooseFirst: 'Bitte tippen Sie zuerst auf das passende Problem.',
+    stepDoneSr: '(erledigt)',
     customLabel: 'Ihre Nachricht',
     customHint:
       'Höchstens 280 Zeichen. Bitte keine Telefonnummern, E-Mail-Adressen, Links oder Beleidigungen.',
@@ -397,7 +373,7 @@ const de = {
     reportLink: 'Aufkleber sieht verdächtig aus?',
     reportTitle: 'Verdächtigen Aufkleber melden',
     reportText:
-      'Echte ParkShield-Aufkleber führen immer zu pkshd.de, zeigen den Spitznamen des Fahrzeugs und verlangen nie Geld. Stimmt etwas nicht, sagen Sie es uns.',
+      'Echte ParkShield-Aufkleber führen immer zu park-shield.de, zeigen den Spitznamen des Fahrzeugs und verlangen nie Geld. Stimmt etwas nicht, sagen Sie es uns.',
     reportLabel: 'Was ist Ihnen aufgefallen? (freiwillig)',
     reportSend: 'Meldung senden',
     reportThanks: 'Danke! Unser Team prüft den Aufkleber.',
@@ -438,7 +414,8 @@ const de = {
     chatTitle: 'Chat mit dem Fahrzeughalter',
     chatOpened: 'Der Fahrzeughalter möchte Ihnen eine Rückfrage stellen.',
     chatLabel: 'Ihre Antwort',
-    chatHint: 'Bitte keine Telefonnummern, Links oder E-Mail-Adressen. Höchstens 500 Zeichen.',
+    chatHint: 'Keine Telefonnummern, Links oder E-Mail-Adressen. Bis zu 500 Zeichen.',
+    chatPlaceholder: 'Antwort schreiben …',
     chatCounter: '{count} von 500 Zeichen',
     chatRemaining: 'Noch {count} von {max} Nachrichten',
     chatSend: 'Senden',
@@ -446,7 +423,7 @@ const de = {
     chatOwner: 'Fahrzeughalter',
     chatTyping: 'Der Fahrzeughalter schreibt …',
     chatRead: 'Gelesen',
-    chatClosed: 'Der Chat wurde beendet. Vielen Dank für Ihre Hilfe!',
+    chatClosed: 'Der Chat wurde beendet.',
     chatFiltered:
       'Diese Nachricht kann nicht gesendet werden. Bitte ohne Telefonnummern, Links, Adressen oder Beleidigungen.',
     chatLimit: 'Sie haben die höchste Anzahl an Nachrichten erreicht.',
@@ -465,14 +442,14 @@ const de = {
     emergency: 'In echter Gefahr: 110 (Polizei) oder 112 (Feuerwehr, Rettung).',
     rateTitle: 'Bitte kurz warten',
     rateText: 'Zu viele Aufrufe von diesem Netz. Versuchen Sie es in einer Minute erneut.',
-    trustDomain: 'Echte Seite: pkshd.de',
-    trustPayment: 'ParkShield verlangt nie eine Zahlung',
-    protectToo: 'Auch schützen? park-shield.de',
+    trustDomain: 'Nur echt auf park-shield.de',
+    trustPayment: 'ParkShield verlangt nie eine Zahlung.',
+    protectToo: 'Auch Ihr Auto schützen? park-shield.de',
     // Phase 2 alert photos (only shown while ALERT_PHOTOS_ENABLED and the owner's plan allow it).
     photoTitle: 'Fotos (freiwillig)',
     photoHint:
-      'Bis zu 2 Fotos, z. B. von der zugeparkten Ausfahrt oder dem Schaden. Erst Foto machen, dann oben das Problem antippen.',
-    photoAdd: 'Foto hinzufügen',
+      'Fügen Sie bis zu 2 Fotos hinzu, z. B. von der zugeparkten Ausfahrt oder dem Schaden.',
+    photoAdd: 'Foto {n} hinzufügen',
     // TODO [LEGAL REVIEW] camera notice and privacy link (LEGAL_REVIEW.md §5)
     photoNotice:
       'Bitte fotografieren Sie nur das betroffene Fahrzeug – keine Personen oder fremden Kennzeichen.',
@@ -531,20 +508,7 @@ const de = {
       'Diese Ländervorwahl wird nicht unterstützt. Bitte nutzen Sie eine Handynummer aus Deutschland oder der EU.',
     smsCapReached:
       'Die SMS dieses Monats sind aufgebraucht ({used} von {limit}). Bis zum Monatsende erreichen Warnungen Sie nur über die App.',
-    toAccount: '← Zum Konto',
     manage: 'Benachrichtigungen einstellen',
-    summaryPhone:
-      'E-Mail{push, plural, =0 {} one {, Push auf # Gerät} other {, Push auf # Geräten}}{phone, select, yes {, SMS} other {}}',
-    emailTitle: 'E-Mail',
-    emailText: 'Warnungen gehen immer an {email}.',
-    phoneTitle: 'Ihre Handynummer',
-    phoneIntro:
-      'Damit eine Warnung Sie sofort erreicht, auch unterwegs. Wer scannt, sieht Ihre Nummer nie.',
-    phoneHow: 'Wie sollen Warnungen Sie auf dem Handy erreichen?',
-    phoneVia_sms: 'Per SMS: klappt auf jedem Handy, auch ohne Internet',
-    phoneConsentNote:
-      'Wir schicken nur Warnungen und Hinweise zu Ihren Fahrzeugen, keine Werbung. Abschalten können Sie das hier jederzeit.',
-    phoneChooseOne: 'Bitte setzen Sie das Häkchen bei SMS, damit wir Ihr Handy erreichen.',
     phoneSendCode: 'Code per SMS senden',
     phoneCodeSent:
       'Wir haben einen 6-stelligen Code per SMS an {phone} geschickt. Er gilt 10 Minuten.',
@@ -555,73 +519,19 @@ const de = {
     phoneLinkedNow:
       'Fertig! Ihre Handynummer ist bestätigt. Wir haben Ihnen eine Bestätigung geschickt.',
     phoneYours: 'Ihre Nummer: {phone}',
-    phoneOn: 'an',
-    phoneOff: 'aus',
     phoneUsage: 'Diesen Monat {used} von {limit}',
-    phoneAdd: 'Auch per {channel}',
-    phoneRemove: '{channel} abschalten',
-    phoneAdded: '{channel} ist eingeschaltet.',
-    phoneRemoved: '{channel} ist abgeschaltet.',
     phoneChange: 'Andere Nummer verwenden',
     phoneNoneAvailable:
-      'SMS ist gerade nicht verfügbar. App, Push und E-Mail funktionieren wie gewohnt.',
-    pushTitle: 'Push-Benachrichtigungen',
-    pushIntro:
-      'Kostenlos und am schnellsten. Schalten Sie Push auf jedem Gerät ein, auf dem Sie Warnungen sehen möchten.',
-    pushEnable: 'Push auf diesem Gerät einschalten',
-    pushEnabledHere: 'Push ist auf diesem Gerät eingeschaltet.',
-    pushAdded: 'Push ist eingeschaltet. Testen Sie es mit dem Testmodus Ihres Aufklebers.',
-    pushDenied:
-      'Ihr Browser blockiert Benachrichtigungen für diese Seite. Erlauben Sie sie in den Browser-Einstellungen und versuchen Sie es erneut.',
-    pushUnsupported: 'Dieser Browser unterstützt keine Push-Benachrichtigungen.',
-    pushNoDevices: 'Noch kein Gerät eingerichtet.',
-    pushDevices: 'Ihre Geräte',
-    pushDevice:
-      '{platform, select, ios {iPhone oder iPad} android {Android} other {Computer}} · seit {date, date, medium}',
-    pushRemove: 'Entfernen',
-    pushRemoveLabel: 'Gerät entfernen: {device}',
-    iosTitle: 'Push auf dem iPhone (ab iOS 16.4)',
-    iosIntro:
-      'Auf iPhone und iPad funktioniert Push nur, wenn ParkShield auf dem Home-Bildschirm liegt.',
-    iosStep1: 'Öffnen Sie park-shield.de/konto in Safari.',
-    iosStep2: 'Tippen Sie auf „Teilen“ (Quadrat mit Pfeil) und dann auf „Zum Home-Bildschirm“.',
-    iosStep3: 'Öffnen Sie ParkShield über das neue Symbol und melden Sie sich an.',
-    iosStep4:
-      'Tippen Sie hier auf „Push auf diesem Gerät einschalten“ und erlauben Sie Mitteilungen.',
-    iosOld:
-      'Ihr iPhone braucht dafür mindestens iOS 16.4. Bis dahin erreichen Sie Warnungen in der ParkShield-App oder per E-Mail.',
+      'SMS ist gerade nicht verfügbar. Bitte versuchen Sie es später erneut; die App funktioniert wie gewohnt.',
     waPhone: 'Handynummer',
     waPhoneHint: 'Zum Beispiel 0151 23456789 oder +43 664 1234567.',
-    waCodeSent: 'Wir haben einen Code an {phone} geschickt. Er gilt 10 Minuten.',
     waCode: '6-stelliger Code',
     waVerify: 'Bestätigen',
     waOtherNumber: 'Andere Nummer',
-    waLinked: 'Verbunden: {phone}',
     waPhoneInvalid: 'Bitte geben Sie eine gültige Handynummer ein.',
     waCodeWrong:
       'Der Code stimmt nicht. {left, plural, =0 {Bitte fordern Sie einen neuen an.} one {Noch # Versuch.} other {Noch # Versuche.}}',
     waCodeExpired: 'Der Code ist abgelaufen. Bitte fordern Sie einen neuen an.',
-    smsTitle: 'SMS',
-    smsIntro:
-      'Warnungen als SMS mit einem Link zum Antworten. Funktioniert auch ohne Internet am Handy. Ihre Nummer sieht niemand, der scannt.',
-    smsUsage:
-      'Diesen Monat: {used} von {limit} SMS. Danach erreichen Warnungen Sie über die anderen Kanäle.',
-    smsConsent:
-      'Ich möchte Warnungen und Hinweise zu meinen Fahrzeugen per SMS erhalten. Ich kann das hier jederzeit abschalten.',
-    smsConsentRequired: 'Bitte bestätigen Sie, dass Sie Nachrichten per SMS erhalten möchten.',
-    smsSendCode: 'Code per SMS senden',
-    smsLinkedNow: 'SMS ist eingerichtet. Wir haben Ihnen eine Bestätigung geschickt.',
-    smsUnlink: 'SMS abschalten',
-    smsUnlinked: 'SMS ist abgeschaltet. Wir schicken Ihnen keine SMS mehr.',
-    orderTitle: 'Reihenfolge der Kanäle',
-    orderIntro:
-      'Jede Warnung geht gleichzeitig an alle Kanäle Ihres Tarifs. Die Reihenfolge legt nur fest, welchen Kanal wir zuerst ansprechen.',
-    orderNote:
-      'Kanäle, die noch nicht eingerichtet sind, überspringen wir. SMS gibt es im Premium-Tarif.',
-    orderUp: '{channel} nach oben',
-    orderDown: '{channel} nach unten',
-    orderSaved: 'Reihenfolge gespeichert.',
-    orderNotSetUp: 'noch nicht eingerichtet',
     channelName:
       '{channel, select, native_push {App} webpush {Push} email {E-Mail} sms {SMS} other {{channel}}}',
   },
@@ -702,8 +612,7 @@ const de = {
       'Ruhezeit aktiv. Prüfen Sie Ihre Ruhezeiten, wenn Sie diese Warnung bekommen wollten.',
     r_sensitive_spot: 'Modus „Sensibler Ort“ war an: nur dringende Warnungen kommen durch.',
     r_kill_switch: 'Dieser Kanal war bei uns kurz gestört. Wir haben Ihre anderen Kanäle genutzt.',
-    r_fair_use:
-      'Die SMS dieses Monats waren aufgebraucht. Die Warnung kam nur über die App.',
+    r_fair_use: 'Die SMS dieses Monats waren aufgebraucht. Die Warnung kam nur über die App.',
     r_http_404:
       'Das Gerät ist nicht mehr erreichbar und wurde entfernt. Schalten Sie Push dort neu ein.',
     r_http_410:
@@ -825,16 +734,12 @@ const de = {
     vehicleTitle: 'Fahrzeug anlegen und QR-Code erhalten',
     vehicleText:
       'Ein Spitzname reicht, zum Beispiel „Der Blaue“. Er hilft der Person am Auto, das richtige Fahrzeug zu erkennen. Ihr QR-Code entsteht sofort.',
-    phoneOr: 'Lieber eine Mitteilung direkt auf dem Bildschirm?',
-    pushLink: 'Push-Benachrichtigungen einschalten',
     decalText:
       'Drucken Sie den QR-Code aus oder bestellen Sie Ihren inklusive Aufkleber per Post. Legen Sie ihn hinter die Windschutzscheibe und scannen Sie ihn einmal selbst. Dann wissen Sie sicher, dass Warnungen ankommen.',
     decalButton: 'Aufkleber bestellen und testen',
     appText:
       'Installieren Sie die ParkShield-App auf Ihrem Handy, melden Sie sich mit Ihrer E-Mail-Adresse an und erlauben Sie Mitteilungen. Nur so erfahren Sie sofort von Warnungen.',
     appDone: 'Sobald die App verbunden ist, wird dieser Schritt automatisch abgehakt.',
-    contactText:
-      'Wenn Sie bei einer dringenden Warnung nicht reagieren, sagen wir einer Person Ihres Vertrauens Bescheid. Sie bestätigt das per E-Mail.',
     intro:
       '{count, plural, one {Noch ein Schritt} other {Noch # Schritte}}, dann ist Ihr Auto zuverlässig erreichbar.',
     allDone: 'Alles eingerichtet. Ihr Auto ist erreichbar.',
@@ -849,12 +754,10 @@ const de = {
     stepPhone: 'Handynummer bestätigt',
     goPhone: 'Handynummer bestätigen',
     goApp: 'App einrichten',
-    stepContact: 'Notfallkontakt bestätigt',
     stepDecal: 'Aufkleber angebracht und getestet',
     done: 'erledigt',
     todo: 'offen',
     goChannel: 'Handy verbinden',
-    goContact: 'Notfallkontakt einladen',
     goDecal: 'Aufkleber testen',
   },
   summarySettings: {
@@ -910,75 +813,6 @@ const de = {
     escalated:
       'Ihr Notfallkontakt wurde bereits benachrichtigt. Ihre Antwort sieht die Person trotzdem.',
     loading: 'Wird geladen …',
-  },
-  contacts: {
-    title: 'Notfallkontakte',
-    intro:
-      'Reagieren Sie bei einer dringenden Warnung nicht, informieren wir Ihren Notfallkontakt per E-Mail. Er erfährt nur, was los ist und um welches Fahrzeug es geht.',
-    toAccount: '← Zum Konto',
-    manage: 'Notfallkontakte verwalten',
-    summary:
-      '{count, plural, =0 {Noch kein Notfallkontakt} one {# Notfallkontakt} other {# Notfallkontakte}}',
-    none: 'Noch kein Notfallkontakt.',
-    statusPending: 'Wartet auf Zustimmung bis {date, date, medium}',
-    statusConfirmed: 'Bestätigt',
-    statusDeclined: 'Abgelehnt',
-    allVehicles: 'Alle Fahrzeuge',
-    forVehicle: 'Für „{nickname}“',
-    remove: 'Entfernen',
-    removeLabel: 'Notfallkontakt entfernen: {name}',
-    addTitle: 'Notfallkontakt einladen',
-    name: 'Name des Kontakts',
-    email: 'E-Mail-Adresse des Kontakts',
-    vehicle: 'Für welches Fahrzeug?',
-    ownerName: 'Ihr Name',
-    ownerNameHint: 'So steht es in der Einladung, damit der Kontakt weiß, wer fragt.',
-    invite: 'Einladung senden',
-    invited: 'Einladung gesendet. Erst wenn {name} zustimmt, ist der Kontakt aktiv.',
-    limitReached:
-      'Ihr Tarif {plan} erlaubt {limit, plural, one {# Notfallkontakt} other {# Notfallkontakte}}. Entfernen Sie einen, um jemand anderen einzuladen.',
-    noSubscription: 'Notfallkontakte gibt es mit einem aktiven Abo.',
-    exists: 'Diese Person ist bereits eingeladen.',
-    self: 'Bitte laden Sie eine andere Person ein, nicht sich selbst.',
-    delayTitle: 'Wann benachrichtigen wir den Kontakt?',
-    delayLabel: 'Wenn Sie nicht reagieren, nach',
-    delayOption: '{minutes} Minuten',
-    delayDefault: 'Standard ({minutes} Minuten)',
-    delaySaved: 'Gespeichert.',
-    howItWorks:
-      'Nur bei „Fahrzeug versperrt Ausfahrt“, „Fenster offen“, „Beschädigung“ und „Abschleppen droht“, und nur, wenn Sie nicht reagieren oder „Bin nicht in der Nähe“ antworten.',
-    premiumOnly:
-      'Vertrauenspersonen und die Eskalation gibt es im Premium-Tarif. Reagieren Sie nicht, benachrichtigen wir nacheinander bis zu 3 Vertrauenspersonen per SMS und E-Mail.',
-    phone: 'Handynummer des Kontakts',
-    phoneHint: 'Wir schicken die Einladung und spätere Hinweise per SMS.',
-    phoneInvalid: 'Bitte geben Sie eine gültige Handynummer ein.',
-    statusDeactivated: 'Deaktiviert (Tarif), gelöscht am {date, date, long}',
-    escalationTitle: 'Eskalation an Vertrauenspersonen',
-    escalationOn:
-      'Eingeschaltet: Reagieren Sie nicht, benachrichtigen wir Ihre Vertrauenspersonen nacheinander.',
-    escalationOff: 'Ausgeschaltet: Ihre Vertrauenspersonen werden nicht benachrichtigt.',
-    escalationSuggest:
-      'Eine Vertrauensperson hat zugestimmt. Möchten Sie die Eskalation jetzt einschalten?',
-    escalationEnable: 'Eskalation einschalten',
-    escalationDisable: 'Eskalation ausschalten',
-  },
-  invitation: {
-    title: 'Einladung als Notfallkontakt',
-    ask: '{owner} möchte Sie als Notfallkontakt bei ParkShield eintragen.',
-    explain1:
-      'Wer ein Problem mit {vehicle, select, all {dem Auto von {owner}} other {dem Fahrzeug „{vehicle}“}} bemerkt, benachrichtigt den Fahrer anonym über ParkShield.',
-    explain2:
-      'Reagiert der Fahrer bei einem dringenden Problem nicht, schicken wir Ihnen eine E-Mail: was los ist und um welches Fahrzeug es geht. Mehr nicht.',
-    explain3: 'Sie können sich jederzeit über diesen Link wieder abmelden.',
-    accept: 'Zustimmen',
-    decline: 'Ablehnen',
-    accepted: 'Danke! Sie sind jetzt Notfallkontakt für {owner}.',
-    declined: 'Sie haben abgelehnt. Wir löschen Ihre Adresse spätestens nach 14 Tagen.',
-    confirmedState: 'Sie sind Notfallkontakt für {owner}.',
-    withdraw: 'Als Notfallkontakt abmelden',
-    withdrawn: 'Sie sind abgemeldet. Wir haben Ihre Adresse gelöscht und {owner} informiert.',
-    invalid:
-      'Diese Einladung gibt es nicht mehr. Vielleicht wurde sie zurückgezogen oder ist abgelaufen.',
   },
   vehicles: {
     title: 'Fahrzeuge',
@@ -1213,9 +1047,6 @@ const de = {
     receivedTitle: 'Ihr Widerruf ist eingegangen',
     receivedText:
       'Eingegangen am {date, date, long} um {date, time, short}. Wir haben Ihnen eine Eingangsbestätigung per E-Mail geschickt.',
-    portalTitle: 'Widerrufsrecht',
-    portalText:
-      'Sie können diesen Vertrag noch bis zum {date, date, long} ohne Angabe von Gründen widerrufen.',
   },
   legal: {
     draft: 'Entwurf: Die endgültige Fassung erstellt ein Rechtsanwalt für IT-Recht in Phase 0.',
@@ -2053,7 +1884,8 @@ const de = {
     k_limits_vehicles: 'Fahrzeuge pro Konto',
     k_sms_monthly_cap: 'Eskalations-SMS pro Konto und Monat (Obergrenze)',
     k_prices_plan_year_cents: 'Jahrespreis inkl. MwSt. (Cent, muss zum Stripe-Preis passen)',
-    k_prices_print_shipped_cents: 'Gedruckter Aufkleber mit Versand nach dem Willkommensdruck (Cent)',
+    k_prices_print_shipped_cents:
+      'Gedruckter Aufkleber mit Versand nach dem Willkommensdruck (Cent)',
     k_escalation_reminder_minutes: 'Erinnerungs-Push an den Halter nach (Minuten)',
     k_escalation_sms_minutes: 'Eine SMS an den Halter nach (Minuten ohne Reaktion)',
     k_owner_phone_countries: 'Handynummer des Halters: erlaubte Länder (ISO-Codes, mit Komma)',
@@ -2320,26 +2152,6 @@ const de = {
     statusExpired: 'Abgelaufen',
     emailInvalid: 'Bitte geben Sie eine gültige E-Mail-Adresse ein.',
     immediateStart: 'Ich verlange ausdrücklich den sofortigen Beginn der Leistung.',
-  },
-  // Trusted contact's page from an escalation message (/k/<token>). TODO [LEGAL REVIEW]
-  contactAlert: {
-    title: 'Hinweis für Vertrauenspersonen',
-    lead: 'Gerade wurde gemeldet: {type} beim Fahrzeug „{nickname}“. Der Fahrer hat noch nicht reagiert.',
-    privacy: 'Mehr wissen wir nicht, und mehr geben wir zum Schutz aller Beteiligten nicht weiter.',
-    coming: 'Ich komme',
-    comingHint:
-      'Der Fahrer und die Person am Fahrzeug sehen dann, dass jemand unterwegs ist. Niemand weiteres wird benachrichtigt.',
-    doneComing:
-      'Danke! Der Fahrer und die Person am Fahrzeug sehen jetzt, dass Sie unterwegs sind.',
-    already: 'Jemand kümmert sich bereits darum. Danke!',
-    expired: 'Diese Warnung ist abgelaufen.',
-    invalid: 'Dieser Link ist ungültig.',
-    optOut: 'Keine Benachrichtigungen mehr erhalten',
-    optOutConfirm:
-      'Möchten Sie keine Benachrichtigungen mehr von ParkShield für diese Person erhalten? Ihre Daten werden gelöscht und die Person wird informiert.',
-    optOutYes: 'Ja, abmelden',
-    optOutDone: 'Sie erhalten keine Benachrichtigungen mehr. Ihre Daten wurden gelöscht.',
-    error: 'Das hat nicht geklappt. Bitte versuchen Sie es noch einmal.',
   },
   // Sign-in link for the native app (/app/anmelden), also the fallback when the app is not installed.
   authOpen: {

@@ -1,7 +1,9 @@
+import { ADDON_PRICES_CENTS } from '@parkshield/shared';
 import { notFound, redirect } from 'next/navigation';
 import {
   serverApi,
   type OrderSummary,
+  type PrintOptions,
   type Vehicle,
   type VehicleMode,
   type VehicleProtection,
@@ -20,24 +22,30 @@ export default async function VehiclePage({
 }) {
   const { id } = await params;
   const { order } = await searchParams;
-  const [vehicle, orders, mode, protection] = await Promise.all([
-    serverApi<Vehicle>(`/v1/vehicles/${encodeURIComponent(id)}`),
-    serverApi<{ orders: OrderSummary[]; includedAvailable: boolean; freeReplacements: number }>(
-      '/v1/orders',
-    ),
-    serverApi<{ mode: VehicleMode | null }>(`/v1/vehicles/${encodeURIComponent(id)}/mode`),
-    serverApi<VehicleProtection>(`/v1/vehicles/${encodeURIComponent(id)}/protection`),
+  const vid = encodeURIComponent(id);
+  const [vehicle, orders, mode, protection, printOptions] = await Promise.all([
+    serverApi<Vehicle>(`/v1/vehicles/${vid}`),
+    serverApi<{ orders: OrderSummary[]; printPriceCents: number }>('/v1/orders'),
+    serverApi<{ mode: VehicleMode | null }>(`/v1/vehicles/${vid}/mode`),
+    serverApi<VehicleProtection>(`/v1/vehicles/${vid}/protection`),
+    serverApi<PrintOptions>(`/v1/vehicles/${vid}/print-options`),
   ]);
   if (vehicle.status === 401) redirect('/anmelden');
   if (!vehicle.data) notFound();
+  const printPriceCents = orders.data?.printPriceCents ?? ADDON_PRICES_CENTS.printShipped;
   return (
     <VehicleDetail
       vehicle={vehicle.data}
       mode={mode.data?.mode ?? null}
       protection={protection.data ?? { active: false, source: null, activeUntil: null }}
       orders={(orders.data?.orders ?? []).filter((o) => o.vehicleId === id)}
-      includedAvailable={orders.data?.includedAvailable ?? false}
-      freeReplacements={orders.data?.freeReplacements ?? 0}
+      printOptions={
+        printOptions.data ?? {
+          selfPrint: { priceCents: 0 },
+          shipped: { priceCents: printPriceCents, free: false, welcomePrint: false },
+        }
+      }
+      printPriceCents={printPriceCents}
       orderResult={order === 'paid' || order === 'canceled' ? order : undefined}
     />
   );

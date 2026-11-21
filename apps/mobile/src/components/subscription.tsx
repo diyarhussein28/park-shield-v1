@@ -1,25 +1,54 @@
+import { PLAN_PRICE_CENTS } from '@parkshield/shared/plans';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { api } from '@/lib/api';
-import { lang, t } from '@/lib/i18n';
-import { errorText, openInBrowser, payInApp, type SubscriptionSummary } from '@/lib/portal';
+import { lang, t, type Key } from '@/lib/i18n';
+import { errorText, euro, openInBrowser, payInApp, type SubscriptionSummary } from '@/lib/portal';
 import { pt } from '@/lib/portal-i18n';
+import { type as typeScale } from '@/theme/tokens';
 import { Badge, Check, Choice, Field } from './form';
+import { Icon } from './icons';
 import { Collapsible } from './list';
 import { Banner, Button, P, useTheme } from './ui';
 
-export const PLAN_LABEL = { plus: 'Plus', premium: 'Premium' } as const;
+/** The one plan's price (20 € incl. VAT), formatted for the app's language. */
+export const planPrice = () => euro(PLAN_PRICE_CENTS, lang());
 
-/** Plan name, status, contract number and the renewal or end date (web: SubscriptionInfo). */
+/** „Ihr Tarif enthält“: everything is included in the one plan (owner decision 2026-11-21). */
+export const PLAN_FEATURES: Key[] = [
+  'planF1',
+  'planF2',
+  'planF3',
+  'planF4',
+  'planF5',
+  'planF6',
+  'planF7',
+];
+
+export function PlanFeatures() {
+  const c = useTheme();
+  return (
+    <View style={s.features} testID="plan-features">
+      {PLAN_FEATURES.map((k) => (
+        <View key={k} style={s.feature}>
+          <View style={[s.check, { backgroundColor: c.successBg }]}>
+            <Icon name="check" size={14} color={c.successFg} />
+          </View>
+          <Text style={[typeScale.label, { color: c.fg, fontWeight: '400', flex: 1 }]}>{t(k)}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** „ParkShield · Aktiv“, contract number and the renewal or end date (web: SubscriptionInfo). */
 export function SubscriptionInfo({ sub }: { sub: SubscriptionSummary }) {
   const c = useTheme();
   const end = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
   return (
     <View style={s.info}>
       <View style={s.line}>
-        <Text style={{ color: c.fg, fontSize: 19, fontWeight: '700' }}>
-          {pt('account.planName', { plan: PLAN_LABEL[sub.plan] })}
-        </Text>
+        <Text style={{ color: c.fg, fontSize: 19, fontWeight: '700' }}>{t('planName')}</Text>
         <Badge tone={sub.status === 'active' ? 'ok' : 'warn'}>
           {sub.status === 'active' ? pt('account.statusActive') : pt('account.statusPastDue')}
         </Badge>
@@ -131,7 +160,7 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
     setError(null);
     setState('idle');
     const body = {
-      plan: 'plus',
+      plan: 'standard',
       immediateStart: true,
       immediateStartVersion: texts.immediateStart.version,
       termsVersion: texts.terms.version,
@@ -170,8 +199,8 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
         </Banner>
       )}
       <View style={[s.summary, { backgroundColor: c.surface, borderColor: c.border }]}>
-        <Text style={{ color: c.fg, fontSize: 17, fontWeight: '700' }}>
-          {pt('checkout.priceLine')}
+        <Text style={{ color: c.fg, fontSize: 17, fontWeight: '700' }} testID="price-line">
+          {`${t('planName')} · ${t('planPriceLine', { price: planPrice() })}`}
         </Text>
         <P muted>{pt('checkout.summaryTerm')}</P>
         <P muted>
@@ -198,13 +227,18 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
       {/* TODO [LEGAL REVIEW: mandatory immediate-start consent] text comes from legal_texts */}
       <Check label={texts.immediateStart.text} checked={immediate} onChange={setImmediate} />
       {error && <Banner tone="err">{error}</Banner>}
+      {/* § 312j BGB: the button names the obligation to pay and the price. */}
       <Button
-        label={pt('checkout.pay')}
+        label={t('payButton', { price: planPrice() })}
         onPress={() => void submit()}
         busy={busy}
         disabled={!immediate}
         testID="pay"
       />
+      <View style={s.secure}>
+        <Icon name="lock" size={16} color={c.muted} />
+        <Text style={[typeScale.caption, { color: c.muted }]}>{t('paySecure')}</Text>
+      </View>
       {!immediate && <P muted>{pt('checkout.immediateRequired')}</P>}
       <Collapsible title={t('paywallDetails')} testID="pay-details">
         <P muted>
@@ -250,4 +284,14 @@ const s = StyleSheet.create({
   form: { gap: 12 },
   summary: { gap: 2, borderWidth: 1, borderRadius: 12, padding: 12 },
   link: { textDecorationLine: 'underline', fontWeight: '700' },
+  secure: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  features: { gap: 8 },
+  feature: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  check: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

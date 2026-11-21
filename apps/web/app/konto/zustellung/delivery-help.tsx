@@ -54,22 +54,19 @@ export function DeliveryHelpView({ data }: { data: DeliveryHelp }) {
             {t('deliveryHelp.checksTitle')}
           </Heading>
           <ul className="flex flex-col gap-2">
+            {/* Alerts reach the owner through the app only (2026-11-21): no browser push row. */}
             <Check
-              ok={s.pushDevices > 0 && s.pushFailing === 0}
+              ok={s.appDevices > 0 && s.appFailing === 0}
               fix={fixLink('/konto/benachrichtigungen', t('deliveryHelp.goNotifications'))}
             >
-              {s.pushDevices === 0
-                ? t('deliveryHelp.noPush')
-                : s.pushFailing > 0
-                  ? t('deliveryHelp.pushFailing', { count: s.pushFailing })
-                  : t('deliveryHelp.okPush', { count: s.pushDevices })}
-            </Check>
-            <Check ok={s.appDevices > 0 && s.appFailing === 0}>
               {s.appDevices > 0
                 ? t('deliveryHelp.okApp', { count: s.appDevices })
                 : t('deliveryHelp.noApp')}
             </Check>
-            <Check ok={s.sms}>
+            <Check
+              ok={s.sms}
+              fix={fixLink('/konto/benachrichtigungen', t('deliveryHelp.goNotifications'))}
+            >
               {s.sms ? t('deliveryHelp.okSms') : t('deliveryHelp.noSms')}
               {s.sms && s.smsUsage.limit > 0 && <> {t('deliveryHelp.smsUsage', s.smsUsage)}</>}
             </Check>

@@ -6,6 +6,7 @@ import { AlertCard } from '@/components/alert-card';
 import { Segmented } from '@/components/form';
 import { HistoryList } from '@/components/history-list';
 import { isOpen } from '@/components/open-alert-card';
+import { PushOffBanner } from '@/components/push-warning';
 import { Banner, EmptyState } from '@/components/ui';
 import { useAlerts } from '@/lib/alerts-store';
 import { t } from '@/lib/i18n';
@@ -45,6 +46,7 @@ export default function Alerts() {
           />
         }
       >
+        <PushOffBanner pushReady={data?.pushReady} onChanged={reload} />
         <Segmented
           legend={t('alertsShow')}
           options={['now', 'history'] as const}

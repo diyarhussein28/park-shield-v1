@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Group, Row, SwitchRow } from '@/components/list';
-import { PLAN_LABEL } from '@/components/subscription';
 import { Banner } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -11,7 +10,7 @@ import { biometricInfo, biometricName, type BiometricKind } from '@/lib/biometri
 import { APP_VERSION } from '@/lib/config';
 import { t } from '@/lib/i18n';
 import { useLock } from '@/lib/lock';
-import type { ChannelsOverview, PortalMe, SubscriptionSummary } from '@/lib/portal';
+import type { PortalMe, SubscriptionSummary } from '@/lib/portal';
 import { pt } from '@/lib/portal-i18n';
 import { clearAccountFlags } from '@/lib/prefs';
 import { useProfile } from '@/lib/profile';
@@ -19,8 +18,8 @@ import { radius, space, type as typeScale, useTheme } from '@/theme/tokens';
 
 /**
  * Konto (§5.1, P12): who is signed in, then one grouped iOS-style list with everything that used to be
- * under „Mehr“ (notifications, trusted contacts, „Warnung nicht erhalten?“, data, help), the app lock
- * switch, and „Abmelden“ as a plain red row at the very end.
+ * under „Mehr“ (notifications, „Warnung nicht erhalten?“, data, help), the app lock switch, and
+ * „Abmelden“ as a plain red row at the very end. Trusted contacts were removed on 2026-11-21.
  */
 export default function Account() {
   const c = useTheme();
@@ -30,8 +29,7 @@ export default function Account() {
   const lock = useLock();
   const [me, setMe] = useState<PortalMe | null>(null);
   const [sub, setSub] = useState<SubscriptionSummary | null | undefined>(undefined);
-  const [channels, setChannels] = useState<ChannelsOverview | null>(null);
-  const [contacts, setContacts] = useState(0);
+  const [pushReady, setPushReady] = useState<boolean | null>(null);
   const [kind, setKind] = useState<BiometricKind>('deviceCode');
   const [lockError, setLockError] = useState(false);
 
@@ -47,12 +45,9 @@ export default function Account() {
       void api<{ subscription: SubscriptionSummary | null }>('/v1/billing/subscription')
         .then((r) => setSub(r.subscription))
         .catch(() => undefined);
-      void api<ChannelsOverview>('/v1/channels')
-        .then(setChannels)
-        .catch(() => setChannels(null));
-      void api<{ contacts?: unknown[] }>('/v1/emergency-contacts')
-        .then((r) => setContacts(r.contacts?.length ?? 0))
-        .catch(() => setContacts(0));
+      void api<{ app: { devices: unknown[] } }>('/v1/channels')
+        .then((r) => setPushReady(r.app.devices.length > 0))
+        .catch(() => setPushReady(null));
     }, []),
   );
 
@@ -61,7 +56,7 @@ export default function Account() {
   const initials = p ? `${p.firstName[0] ?? ''}${p.lastName[0] ?? ''}`.toUpperCase() : '·';
   const method = biometricName(kind);
   const planDetail = sub
-    ? `${PLAN_LABEL[sub.plan]} · ${sub.status === 'active' ? pt('account.statusActive') : pt('account.statusPastDue')}`
+    ? `${t('planName')} · ${sub.status === 'active' ? pt('account.statusActive') : pt('account.statusPastDue')}`
     : sub === null
       ? t('planNone')
       : undefined;
@@ -110,22 +105,14 @@ export default function Account() {
             icon="bell"
             title={pt('portal.notifications')}
             subtitle={
-              channels
-                ? pt('channels.summaryPhone', {
-                    push: channels.push.devices.length,
-                    phone: channels.sms ? 'yes' : 'no',
-                  })
-                : undefined
+              pushReady === null
+                ? undefined
+                : `${pushReady ? t('notifPushOn') : t('notifPushOff')} · ${
+                    profile?.phone ? t('notifPhone') : t('notifNoPhone')
+                  }`
             }
             onPress={() => router.push('/benachrichtigungen')}
             testID="row-notifications"
-          />
-          <Row
-            icon="users"
-            title={pt('portal.contacts')}
-            subtitle={pt('contacts.summary', { count: contacts })}
-            onPress={() => router.push('/einstellungen')}
-            testID="row-contacts"
           />
           <Row
             icon="user"

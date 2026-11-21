@@ -6,6 +6,7 @@ import { DispatchService } from '../notifications/dispatch.service';
 import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
 import {
   createHarness,
+  registerAppDevice,
   resetState,
   setSetting,
   signIn,
@@ -60,6 +61,7 @@ const report = (
 describe('alert history (US-31, OW-08)', () => {
   it('lists the owner’s alerts with message, reply, channels and mute reason', async () => {
     const { s, code } = await owner();
+    await registerAppDevice(h, 'owner@example.de');
     const a = (
       await send(code, '198.51.100.1', { type: 'custom', message: 'Kofferraum offen' })
     ).json();
@@ -91,7 +93,7 @@ describe('alert history (US-31, OW-08)', () => {
       id: a.alertId,
       message: 'Kofferraum offen',
       status: 'delivered',
-      deliveries: [{ channel: 'email', status: 'sent', reason: null }],
+      deliveries: [{ channel: 'native_push', status: 'sent', reason: null }],
     });
 
     const other = await owner('other@example.de');
@@ -153,7 +155,7 @@ describe('alert history (US-31, OW-08)', () => {
 describe('"I didn’t get the alert" (SP-05)', () => {
   it('shows the latest attempts with reasons, and what is set up', async () => {
     const { s, code } = await owner();
-    await setSetting(h, 'channels.webpush.enabled', false);
+    await setSetting(h, 'channels.native_push.enabled', false);
     await h.app.inject({
       method: 'POST',
       url: '/v1/quiet-hours',
@@ -174,10 +176,10 @@ describe('"I didn’t get the alert" (SP-05)', () => {
     expect(r.setup).toMatchObject({
       pushDevices: 0,
       appDevices: 0,
-      sms: false,
+      sms: true, // the verified number is required since 2026-11-21
       quietHours: 1,
       decalTested: false,
-      switchedOff: ['webpush'],
+      switchedOff: ['native_push'],
     });
   });
 });

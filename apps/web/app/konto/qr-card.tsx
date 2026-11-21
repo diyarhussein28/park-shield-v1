@@ -32,8 +32,12 @@ export function QrCard({
           />
         </div>
       ) : (
-        <div className="grid min-h-40 place-items-center border-b border-border bg-secondary/40 p-4 text-center text-muted">
-          {t('portal.noCode')}
+        // After „Sperren“: no active code until the owner creates a new one (free).
+        <div className="grid min-h-40 place-items-center border-b-2 border-danger bg-danger-bg p-4 text-center font-semibold text-danger-text">
+          <span className="flex flex-col items-center gap-2">
+            <Icon name="alert" className="size-6" />
+            {t('portal.noCodeTitle')}
+          </span>
         </div>
       )}
       <div className="flex flex-1 flex-col gap-3 p-4">

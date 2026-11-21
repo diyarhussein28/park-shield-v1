@@ -75,8 +75,16 @@ beforeEach(async () => {
             sms: null,
             available: { sms: true },
           }
-        : url.endsWith('/v1/emergency-contacts')
-          ? { contacts: [] }
+        : url.endsWith('/v1/billing/subscription')
+          ? {
+              subscription: {
+                plan: 'standard',
+                status: 'active',
+                contractNo: 'PS-1',
+                currentPeriodEnd: null,
+                cancelAtPeriodEnd: false,
+              },
+            }
           : {},
   })) as unknown as typeof fetch;
 });
@@ -84,10 +92,15 @@ beforeEach(async () => {
 it('Konto has every former „Mehr“ item, the lock switch, and sign-out as the last row (P12)', async () => {
   await render(<Account />);
   expect(await screen.findByText('Kim Muster')).toBeTruthy();
+  // One plan, no Plus/Premium; no trusted contacts any more (2026-11-21).
+  expect(await screen.findByText(`ParkShield · ${pt('account.statusActive')}`)).toBeTruthy();
+  expect(screen.queryByTestId('row-contacts')).toBeNull();
+  expect(screen.queryByText(/Plus|Premium|Notfallkontakt|Vertrauensperson/)).toBeNull();
+  // No app device and no number yet: the row says so.
+  expect(screen.getByText(`${t('notifPushOff')} · ${t('notifNoPhone')}`)).toBeTruthy();
   const rows: [string, unknown][] = [
     ['row-plan', '/abo'],
     ['row-notifications', '/benachrichtigungen'],
-    ['row-contacts', '/einstellungen'],
     ['row-profile', { pathname: '/profil', params: { flow: 'edit' } }],
     ['row-delivery', '/zustellung'],
     ['row-data', '/daten'],

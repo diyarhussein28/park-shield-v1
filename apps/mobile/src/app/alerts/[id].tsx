@@ -9,16 +9,17 @@ import { api, ApiError, authHeaders, mediaUrl } from '@/lib/api';
 import { minutesSince } from '@/lib/chat';
 import { lang, t } from '@/lib/i18n';
 import { savePhoto } from '@/lib/photos';
-import { errorText } from '@/lib/portal';
+import { clockTime, errorText } from '@/lib/portal';
 import { pt } from '@/lib/portal-i18n';
 import type { AlertDetail } from '@/lib/types';
 
 type Reply = 'coming' | 'in_30_min' | 'not_nearby';
 
 /**
- * Alert detail. Opening it marks the alert "seen" (shown to the scanner; it does not stop reminders or
- * escalation). Only „Ich komme" does. Photos are streamed from the API with the session (memory cache
- * only, nothing on disk) and saved to the gallery only on "Speichern".
+ * Alert detail. Opening it marks the alert "seen" (shown to the scanner; it does not stop the reminder
+ * or the SMS). „Ich komme“, a reply, opening the chat or „Erledigt“ do (2026-11-21); the screen shows
+ * where the escalation stands. Photos are streamed from the API with the session (memory cache only,
+ * nothing on disk) and saved to the gallery only on "Speichern".
  */
 export default function AlertScreen() {
   const c = useTheme();
@@ -26,11 +27,9 @@ export default function AlertScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [a, setA] = useState<AlertDetail | null>(null);
   const [error, setError] = useState(false);
-  const [busy, setBusy] = useState<Reply | 'chat' | 'report' | null>(null);
+  const [busy, setBusy] = useState<Reply | 'chat' | 'report' | 'resolve' | null>(null);
   const [headers, setHeaders] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
-  // „Bin nicht in der Nähe“ can start the escalation to trusted contacts (the API says so).
-  const [escalating, setEscalating] = useState(false);
   // „Missbrauch melden“: a second tap confirms, because the photos are deleted for good.
   const [confirmReport, setConfirmReport] = useState(false);
   const [reportResult, setReportResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(
@@ -67,10 +66,7 @@ export default function AlertScreen() {
   const reply = async (r: Reply) => {
     setBusy(r);
     try {
-      const res = await api<{ reply: Reply; escalating?: boolean }>(`/v1/app/alerts/${a.id}/ack`, {
-        body: { reply: r },
-      });
-      setEscalating(Boolean(res?.escalating));
+      await api(`/v1/app/alerts/${a.id}/ack`, { body: { reply: r } });
     } catch (e) {
       if (!(e instanceof ApiError && e.status === 409)) setError(true);
     } finally {
@@ -97,6 +93,19 @@ export default function AlertScreen() {
     }
   };
 
+  /** „Erledigt“: a stop condition like „Ich komme“, without telling the person at the vehicle anything. */
+  const resolve = async () => {
+    setBusy('resolve');
+    try {
+      await api(`/v1/app/alerts/${a.id}/resolve`, { body: {} });
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(null);
+      await load(a.revealed && a.contentHidden);
+    }
+  };
+
   const openChat = async () => {
     setBusy('chat');
     try {
@@ -115,7 +124,8 @@ export default function AlertScreen() {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(a.createdAt));
-  const done = a.reply === 'coming' || a.acknowledgedBy !== null;
+  const resolved = a.escalation.stopReason === 'resolved';
+  const done = a.reply === 'coming' || a.acknowledgedBy !== null || resolved;
   const open = !done && !['expired', 'blocked'].includes(a.status);
   const chat = a.chat;
   const lastSeen = minutesSince(chat?.scanner.lastSeenAt ?? null);
@@ -191,20 +201,14 @@ export default function AlertScreen() {
         )}
       </Card>
 
-      {a.acknowledgedBy?.kind === 'contact' ? (
-        <Banner tone="ok">
-          {a.acknowledgedBy.name
-            ? t('comingByContact', { name: a.acknowledgedBy.name })
-            : t('comingByContactNoName')}
-        </Banner>
+      {resolved && a.reply !== 'coming' ? (
+        <Banner tone="ok">{t('escStop_resolved')}</Banner>
       ) : done ? (
         <Banner tone="ok">{t('comingDone')}</Banner>
       ) : a.reply === 'in_30_min' ? (
         <Banner tone="ok">{pt('reply.doneIn30')}</Banner>
       ) : a.reply === 'not_nearby' ? (
-        <Banner tone="ok">
-          {pt(escalating ? 'reply.doneNotNearbyEscalating' : 'reply.doneNotNearby')}
-        </Banner>
+        <Banner tone="ok">{pt('reply.doneNotNearby')}</Banner>
       ) : null}
 
       {open && (
@@ -235,8 +239,17 @@ export default function AlertScreen() {
               />
             </View>
           </View>
+          <Button
+            label={t('resolve')}
+            variant="secondary"
+            onPress={() => void resolve()}
+            busy={busy === 'resolve'}
+            accessibilityHint={t('resolveHint')}
+            testID="resolve"
+          />
         </View>
       )}
+      <EscalationState alert={a} />
       {!open && chatBlock && <Card>{chatBlock}</Card>}
 
       {a.photos.map((p) => (
@@ -301,13 +314,47 @@ export default function AlertScreen() {
         </P>
       )}
 
-      {a.escalation.notified.map((n) => (
-        <P key={n.step ?? 0} muted>
-          {t('escalationStep', { step: n.step ?? 0, name: n.name ?? '–' })}
-        </P>
-      ))}
       {error && <Banner tone="err">{t('error')}</Banner>}
     </Screen>
+  );
+}
+
+/**
+ * Where the owner's escalation stands (2026-11-21): reminder push after 10 min, one SMS after 30 min,
+ * both cancelled once the owner reacted. Test alerts have neither planned (no card then).
+ */
+export function EscalationState({ alert: a }: { alert: AlertDetail }) {
+  const c = useTheme();
+  const e = a.escalation;
+  const lines: string[] = [];
+  if (e.remindedAt) lines.push(t('escReminderSent', { time: clockTime(e.remindedAt) }));
+  if (e.smsSentAt) lines.push(t('escSmsSent', { time: clockTime(e.smsSentAt) }));
+  if (e.stoppedAt) {
+    lines.push(
+      e.stopReason ? `${t('escStopped')} ${t(`escStop_${e.stopReason}`)}` : t('escStopped'),
+    );
+  } else if (!['expired', 'blocked'].includes(a.status)) {
+    if (e.reminderAt && e.smsDueAt && !e.remindedAt)
+      lines.push(
+        t('escPlanned', { reminder: clockTime(e.reminderAt), sms: clockTime(e.smsDueAt) }),
+      );
+    else if (e.smsDueAt && !e.smsSentAt)
+      lines.push(t('escPlannedSms', { sms: clockTime(e.smsDueAt) }));
+  }
+  if (!lines.length) return null;
+  return (
+    <Card>
+      <View testID="escalation" style={{ gap: 4 }}>
+        <Text accessibilityRole="header" style={[typeScale.label, { color: c.fg }]}>
+          {t('escTitle')}
+        </Text>
+        {lines.map((l) => (
+          <P key={l} muted>
+            {l}
+          </P>
+        ))}
+      </View>
+    </Card>
   );
 }
 

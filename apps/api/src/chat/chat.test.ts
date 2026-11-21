@@ -177,34 +177,60 @@ describe('owner-initiated live chat (Socket.io /chat)', () => {
     expect(rows.every((r) => !r.body_enc.toString('latin1').includes('warte'))).toBe(true);
   });
 
-  it('opening the chat stops the owner reminder, but not the escalation', async () => {
+  it('opening the chat stops the reminder push and the SMS, but does not acknowledge', async () => {
     const { alert, app } = await setup();
     const before = await h.db
       .selectFrom('alerts')
-      .select(['remind_at', 'escalate_at', 'status'])
+      .select(['remind_at', 'sms_due_at', 'status'])
       .where('id', '=', alert.alertId)
       .executeTakeFirstOrThrow();
     expect(before.remind_at).not.toBeNull();
+    expect(before.sms_due_at).not.toBeNull();
 
     expect((await openChat(alert.alertId, app)).statusCode).toBe(200);
 
     const after = await h.db
       .selectFrom('alerts')
-      .select(['remind_at', 'escalate_at', 'status', 'owner_reply', 'acknowledged_by'])
+      .select([
+        'remind_at',
+        'sms_due_at',
+        'status',
+        'owner_reply',
+        'acknowledged_by',
+        'escalation_stop_reason',
+      ])
       .where('id', '=', alert.alertId)
       .executeTakeFirstOrThrow();
-    expect(after.remind_at).toBeNull();
-    // Writing "I can't come" in the chat must still let the trusted contacts help: only
-    // „Ich komme" acknowledges the alert and stops the escalation.
+    // The owner reacted, but only „Ich komme" acknowledges the alert for the scanner.
     expect(after).toMatchObject({
-      escalate_at: before.escalate_at,
+      remind_at: null,
+      sms_due_at: null,
       status: before.status,
       owner_reply: null,
       acknowledged_by: null,
+      escalation_stop_reason: 'chat_opened',
     });
-    await sql`UPDATE alerts SET remind_at = now() - interval '1 second'
-      WHERE id = ${alert.alertId} AND remind_at IS NOT NULL`.execute(h.db);
-    expect(await h.app.get(OwnerReminderService).sweep()).toBe(0);
+    await sql`UPDATE alerts SET remind_at = now() - interval '1 second',
+      sms_due_at = now() - interval '1 second' WHERE id = ${alert.alertId}`.execute(h.db);
+    const reminders = h.app.get(OwnerReminderService);
+    expect(await reminders.sweep()).toBe(0);
+    expect(await reminders.sweepSms()).toBe(0);
+  });
+
+  it('„Absender blockieren“ ends the chat at once for the scanner, even before it was opened', async () => {
+    const { alert, app } = await setup();
+    const sc = scanner(alert);
+    expect(await sc.next('chat:state')).toMatchObject({ status: 'locked' });
+    const res = await h.app.inject({
+      method: 'POST',
+      url: `/v1/app/alerts/${alert.alertId}/block`,
+      headers: app,
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(await sc.next('chat:closed')).toEqual({ reason: 'blocked' });
+    expect(await sc.send('Hallo?')).toEqual({ ok: false, error: 'chat_not_active' });
+    // Opening is impossible afterwards.
+    expect((await openChat(alert.alertId, app)).statusCode).toBeGreaterThanOrEqual(400);
   });
 
   it('filters scanner text (links, numbers, addresses); owner text only gets a warning in the app', async () => {
@@ -301,7 +327,7 @@ describe('owner-initiated live chat (Socket.io /chat)', () => {
       if (!push) await new Promise((r) => setTimeout(r, 100));
     }
     if (!push) throw new Error('no chat push');
-    expect(push.body.message.notification.body).toBe('Neue Nachricht im Chat zu Ihrem Alarm');
+    expect(push.body.message.notification.body).toBe('Neue Nachricht im Chat zu Ihrer Warnung.');
     expect(JSON.stringify(push)).not.toContain('Auto');
     sc.socket.disconnect();
     await new Promise((r) => setTimeout(r, 300));

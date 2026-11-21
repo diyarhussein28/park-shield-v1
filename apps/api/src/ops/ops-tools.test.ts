@@ -14,6 +14,7 @@ import {
   createHarness,
   lastMail,
   mailbox,
+  registerAppDevice,
   resetState,
   setSetting,
   subscribe,
@@ -120,7 +121,7 @@ describe('Customer 360 and delivery trace (US-35, AD-03/04/05)', () => {
     const data = view.json();
     expect(data.vehicles[0]).toMatchObject({ nickname: 'Der Blaue', plateMasked: 'K-•• ••34' });
     expect(data.vehicles[0].decals[0]).toMatchObject({ codeHint: c.hint });
-    expect(data.subscriptions[0]).toMatchObject({ plan: 'plus', status: 'active' });
+    expect(data.subscriptions[0]).toMatchObject({ plan: 'standard', status: 'active' });
     expect(JSON.stringify(data)).not.toContain('K-AB 1234');
     expect(JSON.stringify(data)).not.toContain(c.code);
     const reads = await audit('customer.view');
@@ -132,6 +133,7 @@ describe('Customer 360 and delivery trace (US-35, AD-03/04/05)', () => {
 
   it('the trace shows every attempt with reasons and cost, never the free text', async () => {
     const c = await customer();
+    await registerAppDevice(h, 'kunde@example.de');
     const a = (await scan(c.code, { type: 'custom', message: 'Geheime Nachricht' })).json();
     await h.app.get(DispatchService).dispatch(a.alertId);
     const support = await staffAs('support@parkshield.de', ['support']);
@@ -140,7 +142,12 @@ describe('Customer 360 and delivery trace (US-35, AD-03/04/05)', () => {
     const t = r.json();
     expect(t.alert).toMatchObject({ customerId: c.userId, type: 'custom', hasMessage: true });
     expect(t.deliveries).toEqual([
-      expect.objectContaining({ recipient: 'owner', channel: 'email', status: 'sent', costEur: 0 }),
+      expect.objectContaining({
+        recipient: 'owner',
+        channel: 'native_push',
+        status: 'sent',
+        costEur: 0,
+      }),
     ]);
     expect(JSON.stringify(t)).not.toContain('Geheime');
     expect((await audit('alert.trace'))[0]?.is_read).toBe(true);
@@ -267,7 +274,8 @@ describe('GDPR queue (US-37, AD-11)', () => {
       accountStatus: 'pending_deletion',
     });
 
-    for (const p of ['zammad', 'print_partner']) {
+    // Twilio: every customer has a verified mobile number since 2026-11-21.
+    for (const p of ['zammad', 'print_partner', 'twilio']) {
       const step = detail.steps.find((s: { processor: string }) => s.processor === p);
       if (step.status === 'pending') {
         expect(
@@ -371,6 +379,8 @@ describe('abuse centre (US-38, AD-08/09/10)', () => {
       await h.app.inject({ method: 'GET', url: '/v1/orders', headers: c.s.headers })
     ).json();
     expect(orders.freeReplacements).toBe(1);
+    // The free welcome print was used before; the granted replacement is what is free now.
+    await h.db.updateTable('users').set({ free_welcome_print_used: true }).execute();
     const r = await h.app.inject({
       method: 'POST',
       url: `/v1/vehicles/${c.v.id}/order-replacement`,

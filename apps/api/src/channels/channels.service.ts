@@ -195,7 +195,11 @@ export class ChannelsService {
   ): Promise<{ phone: string; via: PhoneChannel }> {
     const wanted = [...new Set(Array.isArray(channels) ? channels : [channels])];
     const phone = normalizePhone(phoneInput);
-    if (!phone) throw new BadRequestException({ error: 'phone_invalid' });
+    if (!phone) {
+      // A valid landline or service number is "not mobile", so the owner sees why it is refused.
+      const valid = parsePhoneNumberFromString(phoneInput.trim(), 'DE')?.isValid();
+      throw new BadRequestException({ error: valid ? 'phone_not_mobile' : 'phone_invalid' });
+    }
     const available = await this.available();
     if (!wanted.length || wanted.some((c) => !available[c])) {
       throw new BadRequestException({ error: 'channel_unavailable' });

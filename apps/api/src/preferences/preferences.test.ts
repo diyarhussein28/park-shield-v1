@@ -3,16 +3,18 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { FieldCrypto } from '../core/crypto';
 import { CRYPTO } from '../core/tokens';
 import { DispatchService } from '../notifications/dispatch.service';
-import { EscalationService } from '../notifications/escalation.service';
 import { FairUseService } from '../notifications/fair-use.service';
 import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
+import { ViewTokenService } from '../alert-media/view-token.service';
 import {
-  addConfirmedContact,
-  enableEscalation,
-  linkSmsDirect,
-  makePremium,
+  appPushes,
   createHarness,
+  escalationDue,
+  linkSmsDirect,
   mailbox,
+  registerAppDevice,
+  runEscalation,
+  smsInbox,
   resetState,
   setSetting,
   signIn,
@@ -33,8 +35,10 @@ beforeEach(() => resetState(h));
 
 const OWNER = 'owner@example.de';
 
-async function vehicleWithCode(email = OWNER) {
+/** A paying owner (verified number) with a vehicle and, unless `device` is false, the app. */
+async function vehicleWithCode(email = OWNER, device = true) {
   const s = await subscribe(h, email);
+  if (device) await registerAppDevice(h, email);
   const v = (
     await h.app.inject({
       method: 'POST',
@@ -75,13 +79,6 @@ const alertMails = async () => (await mailbox(h)).filter((m) => m.tag === 'alert
 const quiet = (s: Session, payload: Record<string, unknown>) =>
   h.app.inject({ method: 'POST', url: '/v1/quiet-hours', headers: s.headers, payload });
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
-
-/** PREMIUM with escalation on and a confirmed contact: escalation is PREMIUM only. */
-async function escalatingOwner(contactEmail = 'kim@example.de') {
-  await makePremium(h, OWNER);
-  await enableEscalation(h, OWNER);
-  await addConfirmedContact(h, OWNER, contactEmail);
-}
 
 describe('quiet hours (US-26, OW-06)', () => {
   it('mutes normal alerts and records them; urgent ones come through by default', async () => {
@@ -129,19 +126,22 @@ describe('quiet hours (US-26, OW-06)', () => {
     });
     const test = await alert(code);
     await h.app.get(DispatchService).dispatch(test.alertId);
-    expect((await mailbox(h)).some((m) => m.tag === 'alert_test')).toBe(true);
+    expect((await appPushes(h)).some((p) => p.body.message.data.kind === 'test')).toBe(true);
   });
 
-  it('still escalates a muted, escalating alert to the emergency contact', async () => {
+  it('during quiet hours neither the reminder push nor the SMS is sent; the alert is kept', async () => {
     const { s, code } = await vehicleWithCode();
-    await escalatingOwner();
     await quiet(s, { days: ALL_DAYS, start: '00:00', end: '00:00', urgentBypass: false });
     const a = await alert(code, 'blocking');
     await h.app.get(DispatchService).dispatch(a.alertId);
-    await sql`UPDATE alerts SET escalate_at = now() - interval '1 second'`.execute(h.db);
-    expect(await h.app.get(EscalationService).sweep()).toBe(1);
-    await h.app.get(EscalationService).run({ alertId: a.alertId, step: 1 });
-    expect((await mailbox(h)).find((m) => m.tag === 'escalation')?.to).toBe('kim@example.de');
+    await escalationDue(h);
+    expect(await runEscalation(h)).toEqual({ reminders: 1, sms: 1 });
+    expect(await appPushes(h)).toHaveLength(0);
+    expect(await smsInbox(h)).toHaveLength(0);
+    expect(await ownerDeliveries(a.alertId)).toEqual([
+      { channel: 'native_push', status: 'suppressed', suppressed_reason: 'quiet_hours' },
+      { channel: 'sms', status: 'suppressed', suppressed_reason: 'quiet_hours' },
+    ]);
   });
 
   it('validates rules, keeps them private and limits their number', async () => {
@@ -217,22 +217,18 @@ describe('temporary modes (US-26, OW-17)', () => {
   });
 });
 
-describe('fair use (US-27, NT-05)', () => {
-  it('counts SMS per month (PREMIUM), warns at 80 %, and above the limit falls back to push and e-mail', async () => {
-    await setSetting(h, 'limits.premium.sms_per_month', 5);
+describe('fair use (US-27, NT-05): the monthly SMS safety cap', () => {
+  it('counts escalation SMS per month and above `sms.monthly_cap` suppresses them, without e-mail', async () => {
+    await setSetting(h, 'sms.monthly_cap', 5);
     const { s, code } = await vehicleWithCode();
-    await makePremium(h, OWNER);
-    await linkSmsDirect(h, OWNER);
-    const dispatch = h.app.get(DispatchService);
     const results: string[] = [];
     for (let i = 0; i < 7; i++) {
       const a = await alert(code, 'blocking');
-      await dispatch.dispatch(a.alertId);
+      await h.app.get(DispatchService).dispatch(a.alertId);
+      await escalationDue(h, 'sms', a.alertId);
+      await runEscalation(h);
       const sms = (await ownerDeliveries(a.alertId)).find((d) => d.channel === 'sms')!;
       results.push(sms.status === 'sent' ? 'sent' : `${sms.status}:${sms.suppressed_reason}`);
-      expect((await ownerDeliveries(a.alertId)).find((d) => d.channel === 'email')?.status).toBe(
-        'sent',
-      );
     }
     expect(results).toEqual([
       'sent',
@@ -243,20 +239,17 @@ describe('fair use (US-27, NT-05)', () => {
       'suppressed:fair_use',
       'suppressed:fair_use',
     ]);
+    expect((await smsInbox(h)).filter((m) => m.tag === 'sms_escalation')).toHaveLength(5);
+    // Since 2026-11-21 the cap is shown in the app and logged, never mailed.
     const mails = await mailbox(h);
-    expect(mails.filter((m) => m.tag === 'fair_use_warning')).toHaveLength(1);
-    expect(mails.find((m) => m.tag === 'fair_use_warning')?.subject).toBe(
-      'SMS: 4 von 5 Nachrichten in diesem Monat',
-    );
-    expect(mails.filter((m) => m.tag === 'fair_use_reached')).toHaveLength(1);
+    expect(mails.filter((m) => m.tag.startsWith('fair_use'))).toHaveLength(0);
     const usage = await h.app.inject({ method: 'GET', url: '/v1/me/usage', headers: s.headers });
-    expect(usage.json()).toEqual({ sms: { used: 5, limit: 5 } });
+    expect(usage.json()).toEqual({ sms: { used: 5, limit: 5, capReached: true } });
   });
 
   it('cannot be overshot by concurrent alerts, and a failed send gives the unit back', async () => {
-    await setSetting(h, 'limits.premium.sms_per_month', 5);
+    await setSetting(h, 'sms.monthly_cap', 5);
     await subscribe(h, OWNER);
-    await makePremium(h, OWNER);
     const user = await h.db.selectFrom('users').select('id').executeTakeFirstOrThrow();
     const fair = h.app.get(FairUseService);
     const owner = { id: user.id, email: OWNER, lang: 'de' as const };
@@ -268,40 +261,15 @@ describe('fair use (US-27, NT-05)', () => {
   });
 });
 
-describe('escalation delay and resilience (US-25, OW-07)', () => {
-  it('uses the owner’s own delay (3–30 min)', async () => {
-    const { s, code } = await vehicleWithCode();
-    await escalatingOwner();
-    const patch = (escalationMinutes: unknown) =>
-      h.app.inject({
-        method: 'PATCH',
-        url: '/v1/me',
-        headers: s.headers,
-        payload: { escalationMinutes },
-      });
-    expect((await patch(2)).statusCode).toBe(400);
-    expect((await patch(31)).statusCode).toBe(400);
-    expect((await patch(3)).statusCode).toBe(200);
-    expect(
-      (await h.app.inject({ method: 'GET', url: '/v1/me', headers: s.headers })).json()
-        .escalationMinutes,
-    ).toBe(3);
-    await alert(code, 'blocking');
-    const { escalate_at } = await h.db
-      .selectFrom('alerts')
-      .select('escalate_at')
-      .executeTakeFirstOrThrow();
-    expect(escalate_at!.getTime() - Date.now()).toBeGreaterThan(2.5 * 60_000);
-    expect(escalate_at!.getTime() - Date.now()).toBeLessThan(3.5 * 60_000);
-  });
-
+describe('resilience (US-25)', () => {
   it('keeps working after a Valkey restart: reply links and escalation live in PostgreSQL', async () => {
     const { code } = await vehicleWithCode();
-    await escalatingOwner();
     const a = await alert(code, 'blocking');
     await h.app.get(DispatchService).dispatch(a.alertId);
-    const mail = (await mailbox(h)).find((m) => m.tag === 'alert_received')!;
-    const token = /#t=([A-Za-z0-9_-]+)/.exec(mail.text)![1]!;
+    const view = h.app.get(ViewTokenService).tokenFor(a.alertId);
+    const token = (
+      await h.app.inject({ method: 'GET', url: `/v1/alerts/view/${view}` })
+    ).json().replyToken as string;
 
     await h.valkey.flushdb(); // what a restart without persistence looks like
 
@@ -312,6 +280,10 @@ describe('escalation delay and resilience (US-25, OW-07)', () => {
     });
     expect(preview.json()).toMatchObject({ answered: false });
     await h.app.get(DispatchService).dispatch(a.alertId); // a retry after the restart reuses the link
+    await escalationDue(h, 'reminder');
+    await h.valkey.flushdb();
+    expect(await runEscalation(h)).toEqual({ reminders: 1, sms: 0 });
+    expect(await runEscalation(h)).toEqual({ reminders: 0, sms: 0 }); // never twice
     expect(
       (
         await h.app.inject({
@@ -321,14 +293,9 @@ describe('escalation delay and resilience (US-25, OW-07)', () => {
         })
       ).statusCode,
     ).toBe(200);
-    await sql`UPDATE alerts SET escalate_at = now() - interval '1 second'`.execute(h.db);
-    await h.valkey.flushdb();
-    const escalation = h.app.get(EscalationService);
-    expect(await escalation.sweep()).toBe(1);
-    expect(await escalation.sweep()).toBe(0); // never twice
-    await escalation.run({ alertId: a.alertId, step: 1 });
-    await escalation.run({ alertId: a.alertId, step: 1 }); // a replayed event
-    expect((await mailbox(h)).filter((m) => m.tag === 'escalation')).toHaveLength(1);
+    // The reply stopped the SMS step.
+    await escalationDue(h, 'sms');
+    expect(await runEscalation(h)).toEqual({ reminders: 0, sms: 0 });
     const again = await h.app.inject({
       method: 'POST',
       url: '/v1/ack',
@@ -339,24 +306,19 @@ describe('escalation delay and resilience (US-25, OW-07)', () => {
 });
 
 describe('protection score (US-28, OW-14)', () => {
-  it('starts at 25 % and grows by 25 % per step, computed from data', async () => {
-    const { s, v, code } = await vehicleWithCode();
+  it('four steps of 25 %: e-mail, app, verified mobile number, tested decal', async () => {
+    const { s, v, code } = await vehicleWithCode(OWNER, false);
     const score = async () =>
       (await h.app.inject({ method: 'GET', url: '/v1/me/protection', headers: s.headers })).json();
-    // PLUS: trusted contacts do not apply, three steps make up 100 %.
-    expect(await score()).toEqual({
-      percent: 33,
-      steps: { email: true, channel: false, contact: null, decal: false },
-    });
-    await makePremium(h, OWNER);
+    await h.db.deleteFrom('contact_channels').execute();
     expect(await score()).toEqual({
       percent: 25,
-      steps: { email: true, channel: false, contact: false, decal: false },
+      steps: { email: true, channel: false, phone: false, decal: false },
     });
+    await registerAppDevice(h, OWNER);
+    expect(await score()).toMatchObject({ percent: 50, steps: { channel: true } });
     await linkSmsDirect(h, OWNER);
-    expect((await score()).percent).toBe(50);
-    await addConfirmedContact(h, OWNER);
-    expect((await score()).percent).toBe(75);
+    expect(await score()).toMatchObject({ percent: 75, steps: { phone: true } });
     await h.app.inject({
       method: 'POST',
       url: `/v1/vehicles/${v.id}/test-window`,
@@ -365,7 +327,7 @@ describe('protection score (US-28, OW-14)', () => {
     await alert(code);
     expect(await score()).toEqual({
       percent: 100,
-      steps: { email: true, channel: true, contact: true, decal: true },
+      steps: { email: true, channel: true, phone: true, decal: true },
     });
   });
 });
@@ -485,7 +447,7 @@ describe('reminders and summaries (US-29, US-30)', () => {
     const [summary] = await reminderMails('summary');
     expect(summary?.text).toContain('2 Warnungen');
     // PLUS: three applicable steps (trusted contacts are PREMIUM only), one done.
-    expect(summary?.text).toContain('Ihr Schutz: 33 %');
+    expect(summary?.text).toContain('Ihr Schutz: 75 %');
     expect(await reminderMails('summary')).toHaveLength(1);
 
     await h.app.inject({

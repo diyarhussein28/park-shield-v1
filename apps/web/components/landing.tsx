@@ -1,7 +1,7 @@
 'use client';
 
 import type { MessageKey } from '@parkshield/i18n';
-import { PLAN_FEATURE_COUNTS, PLAN_PRICES_CENTS } from '@parkshield/shared';
+import { PLAN_FEATURE_COUNT, PLAN_PRICE_CENTS } from '@parkshield/shared';
 import { useI18n } from '@parkshield/ui';
 import Image, { type StaticImageData } from 'next/image';
 import Link from 'next/link';
@@ -347,7 +347,7 @@ function HowItWorks() {
   );
 }
 
-const FEATURE_ICONS: IconName[] = ['zap', 'users', 'eyeOff', 'shieldCheck'];
+const FEATURE_ICONS: IconName[] = ['zap', 'clock', 'eyeOff', 'shieldCheck'];
 
 function Privacy() {
   const { t } = useI18n();
@@ -420,10 +420,11 @@ function Privacy() {
   );
 }
 
-const CHANNELS: { key: 'App' | 'Push' | 'Email'; icon: IconName; tint: string }[] = [
+// Alerts reach the owner in the app only; the follow-ups are a reminder push and one SMS (2026-11-21).
+const CHANNELS: { key: 'App' | 'Reminder' | 'Sms'; icon: IconName; tint: string }[] = [
   { key: 'App', icon: 'phone', tint: 'from-emerald-500 to-green-700' },
-  { key: 'Push', icon: 'bell', tint: 'from-blue-500 to-indigo-600' },
-  { key: 'Email', icon: 'mail', tint: 'from-amber-400 to-orange-500' },
+  { key: 'Reminder', icon: 'bell', tint: 'from-blue-500 to-indigo-600' },
+  { key: 'Sms', icon: 'chat', tint: 'from-amber-400 to-orange-500' },
 ];
 
 function Channels() {
@@ -467,7 +468,7 @@ function Channels() {
   );
 }
 
-/** "10 € / Jahr inkl. 19 % MwSt." as one sentence, with the amount set large. */
+/** "20 € / Jahr inkl. 19 % MwSt." as one sentence, with the amount set large. */
 function Price({ cents }: { cents: number }) {
   const { t } = useI18n();
   const price = useEuro()(cents);
@@ -483,9 +484,9 @@ function Price({ cents }: { cents: number }) {
   );
 }
 
+/** One all-inclusive plan (owner decision 2026-11-21): one card, no comparison, no upgrade. */
 function Pricing() {
   const { t } = useI18n();
-  const card = 'flex h-full flex-col gap-5 rounded-3xl border border-border bg-surface p-7';
   return (
     <section
       id="preise"
@@ -499,40 +500,22 @@ function Pricing() {
         text={t('landing.pricingNote')}
         center
       />
-      <div className="grid items-stretch gap-6 lg:grid-cols-3">
-        <Reveal className="h-full">
-          <div className="relative h-full rounded-3xl bg-gradient-to-br from-blue-500 via-blue-700 to-amber-400 p-[2px] shadow-2xl shadow-primary/20 lg:-my-4">
-            <div className={cx(card, 'border-0 bg-bg lg:py-11')}>
-              <span className="absolute -top-3.5 left-7 rounded-full bg-amber-400 px-3 py-1 text-sm font-bold text-slate-950 shadow">
-                {t('landing.pricingRecommended')}
-              </span>
-              <div>
-                <h3 className="text-2xl font-bold">{t('landing.plusName')}</h3>
-                <p className="text-muted">{t('landing.plusFor')}</p>
-              </div>
-              <Price cents={PLAN_PRICES_CENTS.plus} />
-              <FeatureList items={keys('landing.plusF', PLAN_FEATURE_COUNTS.plus)} />
-              <Link href="/konto" className={cx(btnPrimary, 'mt-auto')}>
-                {t('landing.plusCta')}
-                <Icon name="arrowRight" className="size-5 transition group-hover:translate-x-1" />
-              </Link>
-            </div>
-          </div>
-        </Reveal>
-        <Reveal delay={120} className="h-full">
-          <div className={card}>
+      <Reveal className="mx-auto max-w-xl">
+        <div className="rounded-3xl bg-gradient-to-br from-blue-500 via-blue-700 to-amber-400 p-[2px] shadow-2xl shadow-primary/20">
+          <div className="flex flex-col gap-5 rounded-[calc(1.5rem-2px)] bg-bg p-7 sm:p-9">
             <div>
-              <h3 className="text-2xl font-bold">{t('landing.premiumName')}</h3>
-              <p className="text-muted">{t('landing.premiumFor')}</p>
+              <h3 className="text-2xl font-bold">{t('landing.planName')}</h3>
+              <p className="text-muted">{t('landing.planFor')}</p>
             </div>
-            <Price cents={PLAN_PRICES_CENTS.premium} />
-            <FeatureList items={keys('landing.premiumF', PLAN_FEATURE_COUNTS.premium)} />
-            <span className="mt-auto w-fit rounded-full bg-info-bg px-3 py-1 text-sm font-semibold text-info-fg">
-              {t('landing.premiumSoon')}
-            </span>
+            <Price cents={PLAN_PRICE_CENTS} />
+            <FeatureList items={keys('landing.planF', PLAN_FEATURE_COUNT)} />
+            <Link href="/konto" className={cx(btnPrimary, 'mt-2')}>
+              {t('landing.planCta')}
+              <Icon name="arrowRight" className="size-5 transition group-hover:translate-x-1" />
+            </Link>
           </div>
-        </Reveal>
-      </div>
+        </div>
+      </Reveal>
     </section>
   );
 }

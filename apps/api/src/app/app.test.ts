@@ -209,8 +209,8 @@ describe('native app API (/v1/app)', () => {
     for (const [method, url] of [
       ['GET', '/v1/app/alerts'],
       ['POST', '/v1/app/devices/register'],
-      ['GET', '/v1/app/escalation'],
-      ['GET', '/v1/app/emergency-contacts'],
+      ['POST', '/v1/app/alerts/00000000-0000-4000-8000-000000000000/resolve'],
+      ['POST', '/v1/app/alerts/00000000-0000-4000-8000-000000000000/block'],
     ] as const) {
       expect((await h.app.inject({ method, url, payload: {} })).statusCode, url).toBe(401);
     }

@@ -1,19 +1,19 @@
+import { PLAN_LIMIT_DEFAULTS } from '@parkshield/shared/plans';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { HowItWorks } from '@/components/how-it-works';
 import { Icon } from '@/components/icons';
+import { NoCodeCard } from '@/components/no-code';
 import { VehicleForm, type VehicleInput } from '@/components/vehicle-forms';
-import { Banner, Button, Chip, EmptyState, Screen, Section, useTheme } from '@/components/ui';
+import { Banner, Button, Chip, EmptyState, P, Screen, Section, useTheme } from '@/components/ui';
 import { api, ApiError, authHeaders } from '@/lib/api';
 import { API_URL } from '@/lib/config';
 import { t } from '@/lib/i18n';
 import { errorText, type PortalVehicle, type SubscriptionSummary } from '@/lib/portal';
 import { pt, type MessageKey } from '@/lib/portal-i18n';
 import { radius, space, type as typeScale } from '@/theme/tokens';
-
-const PLAN_LABEL: Record<string, string> = { plus: 'Plus', premium: 'Premium' };
 
 const thumb = (v: PortalVehicle) =>
   `${API_URL}/v1/vehicles/${v.id}/decal.svg?${new URLSearchParams({
@@ -22,8 +22,10 @@ const thumb = (v: PortalVehicle) =>
   })}`;
 
 /**
- * Fahrzeuge (web: /konto/fahrzeuge): one card per vehicle with its QR code, „Fahrzeug hinzufügen“,
- * and „Was passiert beim Scannen?“. Without a plan the website's notice leads to the Konto tab.
+ * Fahrzeuge (web: /konto/fahrzeuge): one card per vehicle with its QR code (or „Kein aktiver Code“
+ * with „Neuen Code erstellen“), „Fahrzeug hinzufügen“ while the plan's vehicle limit allows (one
+ * vehicle for now; no upgrade prompt), and „Was passiert beim Scannen?“. Without a plan the notice
+ * leads to the plan.
  */
 export default function Vehicles() {
   const c = useTheme();
@@ -33,6 +35,8 @@ export default function Vehicles() {
   const [headers, setHeaders] = useState<Record<string, string> | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // The API's limit (setting `limits.vehicles`) when it told us, else the plan default.
+  const [limit, setLimit] = useState(PLAN_LIMIT_DEFAULTS.vehicles);
 
   const load = useCallback(async () => {
     try {
@@ -72,13 +76,9 @@ export default function Vehicles() {
       else router.push({ pathname: '/fahrzeug/[id]', params: { id: created.id } });
     } catch (err) {
       if (err instanceof ApiError && err.body?.error === 'vehicle_limit') {
-        const body = err.body as { limit: number; plan: string };
-        setError(
-          pt('vehicles.limitReached', {
-            limit: body.limit,
-            plan: PLAN_LABEL[body.plan] ?? body.plan,
-          }),
-        );
+        const body = err.body as { limit?: number };
+        if (typeof body.limit === 'number') setLimit(body.limit);
+        await load();
       } else if (err instanceof ApiError && err.status === 400) {
         // Say what is wrong instead of „Etwas ist schiefgelaufen“ (QA 2026-11-20).
         setError(t('vehicleInvalid'));
@@ -116,6 +116,7 @@ export default function Vehicles() {
             <Text style={[typeScale.label, { color: c.muted, fontWeight: '400' }]}>
               {[v.plate, v.color, v.makeModel].filter(Boolean).join(' · ')}
             </Text>
+            {!v.decal && <Chip tone="urgent">{t('noCodeChip')}</Chip>}
             {v.decal && (
               <Chip tone={v.decal.status === 'assigned' ? 'ok' : 'info'}>
                 {pt('vehicles.decalStatus', {
@@ -128,6 +129,11 @@ export default function Vehicles() {
           </View>
         </Pressable>
       ))}
+      {vehicles
+        ?.filter((v) => !v.decal)
+        .map((v) => (
+          <NoCodeCard key={`no-code-${v.id}`} vehicle={v} onCreated={() => load()} />
+        ))}
 
       {subscribed === false ? (
         <Section title={pt('vehicles.add')}>
@@ -144,15 +150,19 @@ export default function Vehicles() {
                 text={t('emptyVehiclesText')}
               />
             )}
-            <Section
-              title={pt('vehicles.add')}
-              intro={pt('portal.addIntro')}
-              style={
-                vehicles?.length === 0 ? { borderColor: c.primary, borderWidth: 2 } : undefined
-              }
-            >
-              <VehicleForm key={formKey} submitLabel={pt('vehicles.add')} onSubmit={add} />
-            </Section>
+            {vehicles && vehicles.length >= limit ? (
+              <P muted>{t('vehicleLimitNote', { limit })}</P>
+            ) : (
+              <Section
+                title={pt('vehicles.add')}
+                intro={pt('portal.addIntro')}
+                style={
+                  vehicles?.length === 0 ? { borderColor: c.primary, borderWidth: 2 } : undefined
+                }
+              >
+                <VehicleForm key={formKey} submitLabel={pt('vehicles.add')} onSubmit={add} />
+              </Section>
+            )}
           </>
         )
       )}

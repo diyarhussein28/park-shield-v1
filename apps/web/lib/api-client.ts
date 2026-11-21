@@ -71,6 +71,8 @@ export function errorText(err: unknown, t: Translate): string {
     if (err.body?.error === 'promo_invalid') return t('checkout.promoInvalid');
     if (err.body?.error === 'already_subscribed') return t('checkout.already');
     if (err.body?.error === 'profile_incomplete') return t('profile.needed');
+    if (err.body?.error === 'phone_required') return t('checkout.phoneRequired');
+    if (err.body?.error === 'code_active') return t('portal.codeActive');
   }
   return t('auth.genericError');
 }

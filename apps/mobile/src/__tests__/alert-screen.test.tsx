@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { t } from '@/lib/i18n';
+import { pt } from '@/lib/portal-i18n';
 import { setSession } from '@/lib/session';
 import type { AlertDetail } from '@/lib/types';
 import AlertScreen from '@/app/alerts/[id]';
@@ -37,7 +38,15 @@ const detail = (over: Partial<AlertDetail> = {}): AlertDetail => ({
   reply: null,
   acknowledgedAt: null,
   acknowledgedBy: null,
-  escalation: { applies: true, step: 0, escalatedAt: null, notified: [] },
+  escalation: {
+    stage: 'none',
+    reminderAt: '2026-11-19T12:10:00Z',
+    remindedAt: null,
+    smsDueAt: '2026-11-19T12:30:00Z',
+    smsSentAt: null,
+    stoppedAt: null,
+    stopReason: null,
+  },
   vehicle: { id: 'v1', nickname: 'Der Blaue' },
   contentHidden: false,
   revealed: true,
@@ -112,17 +121,85 @@ it('opens the chat only on the owner’s tap, and never for a blocked sender', a
   expect(calls).toContain(`POST /v1/app/alerts/${ALERT}/chat/open`);
 });
 
-it('shows who acknowledged when a trusted contact is on the way; no chat for blocked senders', async () => {
+it('no chat for blocked senders', async () => {
   const blocked = detail({
-    acknowledgedBy: { kind: 'contact', name: 'Kim' },
+    acknowledgedBy: { kind: 'owner', name: null },
     reply: 'coming',
     chat: { ...detail().chat!, canOpen: false, senderBlocked: true },
   });
   global.fetch = jest.fn(() => respond(blocked)) as unknown as typeof fetch;
   await render(<AlertScreen />);
-  expect(await screen.findByText('Kim kümmert sich darum.')).toBeTruthy();
+  expect(await screen.findByText(t('comingDone'))).toBeTruthy();
   expect(screen.getByText('Ein Chat ist mit diesem Absender nicht möglich.')).toBeTruthy();
   expect(screen.queryByTestId('open-chat')).toBeNull();
+});
+
+describe('owner escalation (reminder after 10 min, one SMS after 30 min)', () => {
+  const at = (iso: string) =>
+    new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+
+  it('an open alert says when the reminder and the SMS will come; no trusted contacts', async () => {
+    global.fetch = jest.fn(() => respond(detail())) as unknown as typeof fetch;
+    await render(<AlertScreen />);
+    expect(
+      await screen.findByText(
+        t('escPlanned', { reminder: at('2026-11-19T12:10:00Z'), sms: at('2026-11-19T12:30:00Z') }),
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Vertrauensperson|Notfallkontakt/)).toBeNull();
+  });
+
+  it('shows the reminder and the SMS that went out', async () => {
+    global.fetch = jest.fn(() =>
+      respond(
+        detail({
+          escalation: {
+            stage: 'sms_sent',
+            reminderAt: null,
+            remindedAt: '2026-11-19T12:10:00Z',
+            smsDueAt: null,
+            smsSentAt: '2026-11-19T12:30:00Z',
+            stoppedAt: null,
+            stopReason: null,
+          },
+        }),
+      ),
+    ) as unknown as typeof fetch;
+    await render(<AlertScreen />);
+    expect(
+      await screen.findByText(t('escReminderSent', { time: at('2026-11-19T12:10:00Z') })),
+    ).toBeTruthy();
+    expect(screen.getByText(t('escSmsSent', { time: at('2026-11-19T12:30:00Z') }))).toBeTruthy();
+  });
+
+  it('„Erledigt“ calls /resolve, which stops the reminder and the SMS', async () => {
+    let current = detail();
+    const calls: string[] = [];
+    global.fetch = jest.fn((url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? 'GET'} ${url.replace('https://api.test', '')}`);
+      if (url.endsWith('/resolve')) {
+        current = detail({
+          escalation: {
+            ...detail().escalation,
+            reminderAt: null,
+            smsDueAt: null,
+            stoppedAt: '2026-11-19T12:03:00Z',
+            stopReason: 'resolved',
+          },
+        });
+        return respond({ resolvedAt: '2026-11-19T12:03:00Z' });
+      }
+      return respond(current);
+    }) as unknown as typeof fetch;
+    await render(<AlertScreen />);
+    fireEvent.press(await screen.findByTestId('resolve'));
+    expect(await screen.findByText(`${t('escStopped')} ${t('escStop_resolved')}`)).toBeTruthy();
+    expect(calls).toContain(`POST /v1/app/alerts/${ALERT}/resolve`);
+    // Done: no „Ich komme“ and no „Erledigt“ any more, the status chip says so.
+    expect(screen.queryByTestId('ack')).toBeNull();
+    expect(screen.queryByTestId('resolve')).toBeNull();
+    expect(screen.getByText(t('acknowledged'))).toBeTruthy();
+  });
 });
 
 it('urgent actions come first, in order: „Ich komme“, the chat, then the two other replies', async () => {
@@ -226,7 +303,5 @@ it('„In ca. 30 Min“ and „Bin nicht in der Nähe“ confirm what the person
   expect(screen.getByTestId('ack')).toBeTruthy();
 
   fireEvent.press(screen.getByLabelText(t('notNearby')));
-  expect(
-    await screen.findByText('Danke! Wir benachrichtigen jetzt Ihren Notfallkontakt.'),
-  ).toBeTruthy();
+  expect(await screen.findByText(pt('reply.doneNotNearby'))).toBeTruthy();
 });

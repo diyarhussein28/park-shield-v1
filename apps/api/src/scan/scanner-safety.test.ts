@@ -5,11 +5,10 @@ import { CRYPTO } from '../core/tokens';
 import { DispatchService } from '../notifications/dispatch.service';
 import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
 import {
-  addConfirmedContact,
-  enableEscalation,
-  makePremium,
+  appPushes,
   createHarness,
-  lastMail,
+  mailbox,
+  registerAppDevice,
   resetState,
   setSetting,
   subscribe,
@@ -152,14 +151,9 @@ describe('the three scanner limits (US-17)', () => {
 });
 
 describe('"Ich warte noch" and the owner reminder (US-18, SC-14, NT-09)', () => {
-  async function acknowledged(minutesAgo: number, type = 'blocking', contact = true) {
+  async function acknowledged(minutesAgo: number, type = 'blocking') {
     const { code } = await vehicle('owner@example.de');
-    if (contact) {
-      // Escalation is PREMIUM only and switched on by the owner.
-      await makePremium(h, 'owner@example.de');
-      await enableEscalation(h, 'owner@example.de');
-      await addConfirmedContact(h, 'owner@example.de');
-    }
+    await registerAppDevice(h, 'owner@example.de');
     const res = await send(code, { type });
     const { alertId, statusToken } = res.json();
     await h.db
@@ -182,7 +176,7 @@ describe('"Ich warte noch" and the owner reminder (US-18, SC-14, NT-09)', () => 
     expect(res.json().error).toBe('not_available_yet');
   });
 
-  it('sends one reminder, works once, and brings escalation forward to at most 5 minutes', async () => {
+  it('sends one reminder push, works once, and escalates to nobody else', async () => {
     const { alertId, statusToken } = await acknowledged(16);
     expect((await waiting(alertId, 'wrong')).statusCode).toBe(404);
     expect((await waiting(alertId, statusToken)).statusCode).toBe(200);
@@ -195,7 +189,8 @@ describe('"Ich warte noch" and the owner reminder (US-18, SC-14, NT-09)', () => 
       .select(['scanner_waiting_at', 'escalate_at'])
       .executeTakeFirstOrThrow();
     expect(alert.scanner_waiting_at).not.toBeNull();
-    expect(alert.escalate_at!.getTime()).toBeLessThanOrEqual(Date.now() + 5 * 60_000 + 2000);
+    // Trusted contacts were removed (2026-11-21): there is no escalation to bring forward.
+    expect(alert.escalate_at).toBeNull();
     const events = await h.db
       .selectFrom('outbox_events')
       .select(['topic', 'payload'])
@@ -205,26 +200,23 @@ describe('"Ich warte noch" and the owner reminder (US-18, SC-14, NT-09)', () => 
       { topic: FOLLOWUP_TOPIC, payload: { alertId } },
     ]);
 
-    // Without push or WhatsApp, the reminder goes by e-mail, exactly once.
+    // The reminder is an app push, exactly once; never an e-mail.
     const dispatch = h.app.get(DispatchService);
     await dispatch.followup(alertId);
     await dispatch.followup(alertId);
-    const mail = await lastMail(h, 'alert_followup');
-    expect(mail?.subject).toBe('Erinnerung: Jemand wartet an „Der Blaue“');
+    const pushes = (await appPushes(h)).filter((p) => p.body.message.data.kind === 'followup');
+    expect(pushes).toHaveLength(1);
+    expect(pushes[0]!.body.message.notification.body).toBe(
+      'Die Person am Fahrzeug wartet noch auf Sie.',
+    );
+    expect((await mailbox(h)).filter((m) => m.tag.startsWith('alert_'))).toHaveLength(0);
     const s = (await status(alertId, statusToken)).json();
     expect(s.waitingAvailableAt).toBeNull();
     expect(s.waitingSentAt).not.toBeNull();
   });
 
-  it('does not invent an escalation for types that never escalate', async () => {
+  it('never schedules an escalation, whatever the type', async () => {
     const { alertId, statusToken } = await acknowledged(16, 'lights_on');
-    expect((await waiting(alertId, statusToken)).statusCode).toBe(200);
-    const a = await h.db.selectFrom('alerts').select('escalate_at').executeTakeFirstOrThrow();
-    expect(a.escalate_at).toBeNull();
-  });
-
-  it('does not schedule an escalation without a confirmed emergency contact', async () => {
-    const { alertId, statusToken } = await acknowledged(16, 'blocking', false);
     expect((await waiting(alertId, statusToken)).statusCode).toBe(200);
     const a = await h.db.selectFrom('alerts').select('escalate_at').executeTakeFirstOrThrow();
     expect(a.escalate_at).toBeNull();

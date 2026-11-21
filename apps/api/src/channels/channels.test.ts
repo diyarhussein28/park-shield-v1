@@ -9,10 +9,13 @@ import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
 import { TWILIO_SMS_WEBHOOK_PATH } from '../providers/twilio-sms';
 import { twilioSignature } from '../providers/twilio-signature';
 import {
+  appPushes,
   createHarness,
-  lastMail,
-  makePremium,
+  escalationDue,
+  mailbox,
+  registerAppDevice,
   resetState,
+  runEscalation,
   setSetting,
   signIn,
   TEST_TWILIO_AUTH_TOKEN,
@@ -197,82 +200,59 @@ describe('Web Push devices (US-20)', () => {
   });
 });
 
-describe('dispatch on all channels (US-20, US-21, NT-06, NT-12)', () => {
-  it('pushes every device once (high urgency for urgent alerts) alongside e-mail', async () => {
+describe('dispatch: app push only (US-21, NT-06, NT-12, owner decision 2026-11-21)', () => {
+  it('pushes every app device once; never web push, e-mail or SMS at alert time', async () => {
     const { s, code } = await vehicleWithCode();
-    await registerPush(s, `${pushBase}/ok/phone`);
     await registerPush(s, `${pushBase}/ok/laptop`);
+    await registerAppDevice(h, 'owner@example.de', 'fcm-token-phone-0000000001');
+    await registerAppDevice(h, 'owner@example.de', 'fcm-token-tablet-000000001');
     const id = await alert(code, 'blocking');
     const dispatch = h.app.get(DispatchService);
     await dispatch.dispatch(id);
     await dispatch.dispatch(id); // replay
-    expect(received.map((r) => r.path).sort()).toEqual(['/ok/laptop', '/ok/phone']);
-    expect(
-      received.every((r) => r.urgency === 'high' && r.ttl === '7200' && r.encoding === 'aes128gcm'),
-    ).toBe(true);
-    const rows = await deliveries(id);
-    expect(rows.filter((r) => r.channel === 'webpush' && r.status === 'sent')).toHaveLength(2);
-    expect(rows.filter((r) => r.channel === 'email' && r.status === 'sent')).toHaveLength(1);
-    const devices = await h.db
-      .selectFrom('push_subscriptions')
-      .select(['last_ok_at', 'failed_count'])
-      .execute();
-    expect(devices.every((d) => d.last_ok_at && d.failed_count === 0)).toBe(true);
-  });
-
-  it('removes a device after HTTP 410 and tells the owner by e-mail', async () => {
-    const { s, code } = await vehicleWithCode();
-    await registerPush(s, `${pushBase}/gone/1`);
-    const id = await alert(code);
-    await h.app.get(DispatchService).dispatch(id);
-    expect(await h.db.selectFrom('push_subscriptions').selectAll().execute()).toHaveLength(0);
-    expect((await deliveries(id)).find((r) => r.channel === 'webpush')).toMatchObject({
-      status: 'failed',
-      error_code: 'http_410',
-    });
-    const mail = await lastMail(h, 'push_removed');
-    expect(mail?.to).toBe('owner@example.de');
-    expect(mail?.text).toContain('/konto/benachrichtigungen');
-  });
-
-  it(`removes a device after ${PUSH_MAX_FAILURES} consecutive errors, and a success resets the count`, async () => {
-    const { s, code } = await vehicleWithCode();
-    await registerPush(s, `${pushBase}/fail/1`);
-    await h.db
-      .updateTable('push_subscriptions')
-      .set({ failed_count: PUSH_MAX_FAILURES - 2 })
-      .execute();
-    const dispatch = h.app.get(DispatchService);
-    await dispatch.dispatch(await alert(code, 'lights_on', '198.51.100.1'));
-    expect(
-      (await h.db.selectFrom('push_subscriptions').select('failed_count').executeTakeFirstOrThrow())
-        .failed_count,
-    ).toBe(PUSH_MAX_FAILURES - 1);
-    expect(await lastMail(h, 'push_removed')).toBeUndefined();
-    await dispatch.dispatch(await alert(code, 'lights_on', '198.51.101.1'));
-    expect(await h.db.selectFrom('push_subscriptions').selectAll().execute()).toHaveLength(0);
-    expect(await lastMail(h, 'push_removed')).toBeDefined();
-  });
-
-  it('suppresses a switched-off channel with reason kill_switch and still sends the others', async () => {
-    const { s, code } = await vehicleWithCode();
-    await registerPush(s, `${pushBase}/ok/1`);
-    await setSetting(h, 'channels.webpush.enabled', false);
-    const id = await alert(code);
-    await h.app.get(DispatchService).dispatch(id);
     expect(received).toHaveLength(0);
     const rows = await deliveries(id);
-    expect(rows.find((r) => r.channel === 'webpush')).toMatchObject({
-      status: 'suppressed',
-      suppressed_reason: 'kill_switch',
-    });
-    expect(rows.find((r) => r.channel === 'email')?.status).toBe('sent');
+    expect(rows.map((r) => `${r.channel}:${r.status}`)).toEqual([
+      'native_push:sent',
+      'native_push:sent',
+    ]);
+    expect((await appPushes(h)).map((p) => p.body.message.token).sort()).toEqual([
+      'fcm-token-phone-0000000001',
+      'fcm-token-tablet-000000001',
+    ]);
+    expect(await smsInbox()).toHaveLength(0);
+    expect((await mailbox(h)).filter((m) => m.tag.startsWith('alert_'))).toHaveLength(0);
     const a = await h.db.selectFrom('alerts').select('status').executeTakeFirstOrThrow();
     expect(a.status).toBe('delivered');
   });
+
+  it(`removes an app device FCM reports as gone, or after ${PUSH_MAX_FAILURES} errors in a row`, async () => {
+    const { code } = await vehicleWithCode();
+    await registerAppDevice(h, 'owner@example.de', 'invalid-token-0000000000001');
+    const id = await alert(code, 'lights_on', '198.51.100.1');
+    await h.app.get(DispatchService).dispatch(id);
+    expect(await h.db.selectFrom('user_devices').selectAll().execute()).toHaveLength(0);
+    expect((await deliveries(id))[0]).toMatchObject({ channel: 'native_push', status: 'failed' });
+  });
+
+  it('suppresses switched-off app push with reason kill_switch', async () => {
+    const { code } = await vehicleWithCode();
+    await registerAppDevice(h, 'owner@example.de');
+    await setSetting(h, 'channels.native_push.enabled', false);
+    const id = await alert(code);
+    await h.app.get(DispatchService).dispatch(id);
+    expect(await appPushes(h)).toHaveLength(0);
+    expect(await deliveries(id)).toEqual([
+      expect.objectContaining({
+        channel: 'native_push',
+        status: 'suppressed',
+        suppressed_reason: 'kill_switch',
+      }),
+    ]);
+  });
 });
 
-describe('SMS (NT-07)', () => {
+describe('SMS (NT-07): the owner’s verified mobile number', () => {
   async function linkSms(s: Session, phone = '0151 23456789') {
     const start = await h.app.inject({
       method: 'POST',
@@ -280,13 +260,13 @@ describe('SMS (NT-07)', () => {
       headers: s.headers,
       payload: { phone, consent: true },
     });
-    expect(start.statusCode).toBe(200);
-    const otp = (await smsInbox()).find((m) => m.tag === 'sms_otp')!;
+    expect(start.statusCode, start.body).toBe(200);
+    const otp = (await smsInbox()).find((m) => m.tag === 'sms_verify')!;
     const code = /(\d{6})/.exec(otp.body)![1]!;
     return { start, otp, code };
   }
 
-  it('links a number with an SMS code, records the opt-in and unlinks', async () => {
+  it('links a number with an SMS code and records the opt-in; it can be changed, not removed', async () => {
     const s = await signIn(h, 'owner@example.de');
     const noConsent = await h.app.inject({
       method: 'POST',
@@ -299,7 +279,14 @@ describe('SMS (NT-07)', () => {
     const { start, otp, code } = await linkSms(s);
     expect(start.json().phone).toBe('+49 ••• 6789');
     expect(otp.to).toBe('+4915123456789');
-    expect(otp.body).toContain('ParkShield-Code');
+    const wrong = await h.app.inject({
+      method: 'POST',
+      url: '/v1/channels/sms/verify',
+      headers: s.headers,
+      payload: { code: code === '000000' ? '111111' : '000000' },
+    });
+    expect(wrong.statusCode).toBe(400);
+    expect(wrong.json().error).toBe('code_wrong');
     const ok = await h.app.inject({
       method: 'POST',
       url: '/v1/channels/sms/verify',
@@ -310,6 +297,7 @@ describe('SMS (NT-07)', () => {
     expect((await smsInbox())[0]?.tag).toBe('sms_linked');
     const channel = await h.db.selectFrom('contact_channels').selectAll().executeTakeFirstOrThrow();
     expect(channel).toMatchObject({ type: 'sms' });
+    expect(channel.verified_at).not.toBeNull();
     expect(channel.opted_in_at).not.toBeNull();
     expect(channel.address_enc!.toString('latin1')).not.toContain('15123456789');
     const consent = await h.db.selectFrom('consents').selectAll().executeTakeFirstOrThrow();
@@ -319,15 +307,39 @@ describe('SMS (NT-07)', () => {
     ).json();
     expect(overview.sms.phone).toBe('+49 ••• 6789');
     expect(overview).not.toHaveProperty('whatsapp');
-    expect(overview.order).toEqual(['native_push', 'webpush', 'email', 'sms']);
+    const profile = (
+      await h.app.inject({ method: 'GET', url: '/v1/me/profile', headers: s.headers })
+    ).json();
+    expect(profile.phoneVerified).toBe(true);
 
-    await h.app.inject({ method: 'DELETE', url: '/v1/channels/sms', headers: s.headers });
-    expect(await h.db.selectFrom('contact_channels').selectAll().execute()).toHaveLength(0);
-    const withdrawn = await h.db
-      .selectFrom('consents')
-      .select('withdrawn_at')
-      .executeTakeFirstOrThrow();
-    expect(withdrawn.withdrawn_at).not.toBeNull();
+    // The number is required (escalation SMS): removing it is refused, it stays linked.
+    const del = await h.app.inject({ method: 'DELETE', url: '/v1/channels/sms', headers: s.headers });
+    expect(del.statusCode).toBe(409);
+    expect(del.json()).toEqual({ error: 'phone_required' });
+    expect(await h.db.selectFrom('contact_channels').selectAll().execute()).toHaveLength(1);
+  });
+
+  it('accepts mobile numbers only, from Germany and the EU', async () => {
+    const s = await signIn(h, 'owner@example.de');
+    const start = (phone: string) =>
+      h.app.inject({
+        method: 'POST',
+        url: '/v1/channels/sms',
+        headers: s.headers,
+        payload: { phone, consent: true },
+      });
+    const landline = await start('+49 30 12345678');
+    expect(landline.statusCode).toBe(400);
+    expect(landline.json().error).toBe('phone_not_mobile');
+    const us = await start('+1 202 555 0147');
+    expect(us.statusCode).toBe(400);
+    expect(us.json().error).toBe('phone_country');
+    const swiss = await start('+41 79 123 45 67');
+    expect(swiss.json().error).toBe('phone_country');
+    expect(await smsInbox()).toHaveLength(0);
+    // An EU mobile number works (Austria).
+    expect((await start('+43 664 1234567')).statusCode).toBe(200);
+    expect((await smsInbox())[0]).toMatchObject({ tag: 'sms_verify', to: '+436641234567' });
   });
 
   it('limits SMS code requests per user', async () => {
@@ -343,36 +355,16 @@ describe('SMS (NT-07)', () => {
     expect(fourth.json().limit).toBe('sms.otp_user');
   });
 
-  it('never texts a PLUS owner (channel matrix: push + e-mail only)', async () => {
-    const { s, code: decal } = await vehicleWithCode();
-    const { code } = await linkSms(s);
-    await h.app.inject({
-      method: 'POST',
-      url: '/v1/channels/sms/verify',
-      headers: s.headers,
-      payload: { code },
-    });
+  it('the escalation SMS is one GSM-7 segment with the view link and cost; signed status callbacks', async () => {
+    const { code: decal } = await vehicleWithCode();
     const id = await alert(decal, 'blocking');
     await h.app.get(DispatchService).dispatch(id);
-    expect((await smsInbox()).filter((m) => m.tag === 'sms_alert')).toHaveLength(0);
-    expect((await deliveries(id)).map((r) => r.channel)).toEqual(['email']);
-  });
-
-  it('texts PREMIUM alerts in one GSM-7 segment with the view link and cost, and tracks signed status callbacks', async () => {
-    const { s, code: decal } = await vehicleWithCode();
-    await makePremium(h, 'owner@example.de');
-    const { code } = await linkSms(s);
-    await h.app.inject({
-      method: 'POST',
-      url: '/v1/channels/sms/verify',
-      headers: s.headers,
-      payload: { code },
-    });
-    const id = await alert(decal, 'blocking');
-    await h.app.get(DispatchService).dispatch(id);
+    expect(await smsInbox()).toHaveLength(0); // never at alert time
+    await escalationDue(h, 'sms');
+    await runEscalation(h);
     const msg = (await smsInbox())[0]!;
-    expect(msg).toMatchObject({ tag: 'sms_alert', to: '+4915123456789' });
-    expect(msg.body).toContain('Fahrzeug versperrt Ausfahrt (Der Blaue). Details:');
+    expect(msg).toMatchObject({ tag: 'sms_escalation', to: '+4915123456789' });
+    expect(msg.body).toContain('Fahrzeug versperrt Ausfahrt');
     expect(msg.body).toMatch(/\/v\/[A-Za-z0-9_-]{43}$/);
     expect(msg.body.length).toBeLessThanOrEqual(160);
     const row = (await deliveries(id)).find((r) => r.channel === 'sms')!;
@@ -399,33 +391,6 @@ describe('SMS (NT-07)', () => {
     expect(ok.statusCode).toBe(200);
     expect((await deliveries(id)).find((r) => r.channel === 'sms')!.status).toBe('delivered');
   });
-
-  it('stops at the monthly SMS limit and falls through to the other channels', async () => {
-    const { s, code: decal } = await vehicleWithCode();
-    await makePremium(h, 'owner@example.de');
-    const { code } = await linkSms(s);
-    await h.app.inject({
-      method: 'POST',
-      url: '/v1/channels/sms/verify',
-      headers: s.headers,
-      payload: { code },
-    });
-    await setSetting(h, 'limits.premium.sms_per_month', 1);
-    const first = await alert(decal, 'blocking', '198.51.100.9');
-    await h.app.get(DispatchService).dispatch(first);
-    const second = await alert(decal, 'blocking', '192.0.2.44');
-    await h.app.get(DispatchService).dispatch(second);
-    const rows = await deliveries(second);
-    expect(rows.find((r) => r.channel === 'sms')).toMatchObject({
-      status: 'suppressed',
-      suppressed_reason: 'fair_use',
-    });
-    expect(rows.find((r) => r.channel === 'email')?.status).toBe('sent');
-    const usage = (
-      await h.app.inject({ method: 'GET', url: '/v1/me/usage', headers: s.headers })
-    ).json();
-    expect(usage.sms).toEqual({ used: 1, limit: 1 });
-  });
 });
 
 describe('one mobile number for SMS (NT-07)', () => {
@@ -438,7 +403,7 @@ describe('one mobile number for SMS (NT-07)', () => {
       payload: { phone: '0151 23456789', channels: ['sms'], consent: true },
     });
     expect(start.json()).toEqual({ phone: '+49 ••• 6789', via: 'sms' });
-    const otp = (await smsInbox()).find((m) => m.tag === 'sms_otp')!;
+    const otp = (await smsInbox()).find((m) => m.tag === 'sms_verify')!;
     const code = /(\d{6})/.exec(otp.body)![1]!;
     const ok = await h.app.inject({
       method: 'POST',

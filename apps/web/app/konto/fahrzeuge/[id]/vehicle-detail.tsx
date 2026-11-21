@@ -2,7 +2,6 @@
 
 import type { MessageKey } from '@parkshield/i18n';
 import {
-  ADDON_PRICES_CENTS,
   CTA_MAX,
   CTA_SUGGESTIONS,
   DECAL_PRODUCTS,
@@ -13,11 +12,19 @@ import {
 import { Badge, Button, Field, Input, Notice, Select, Stack, Text, useI18n } from '@parkshield/ui';
 import { clsx } from 'clsx';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Icon } from '@/components/icons';
 import { KontoShell, Section } from '@/components/konto-shell';
 import { api, ApiError, errorText } from '@/lib/api-client';
-import type { OrderSummary, Vehicle, VehicleMode, VehicleProtection } from '@/lib/api-server';
+import type {
+  OrderSummary,
+  PrintOptions,
+  Vehicle,
+  VehicleMode,
+  VehicleProtection,
+} from '@/lib/api-server';
+import { NoActiveCode } from '../../no-active-code';
+import { useEuro } from '../../parts';
 import { VehicleForm } from '../vehicles-view';
 import { ModeCard } from './mode-card';
 import { ProtectionCard } from './protection-card';
@@ -193,7 +200,7 @@ function AddressForm({
   submitLabel,
   onSubmit,
 }: {
-  intro: string;
+  intro?: string;
   submitLabel: string;
   onSubmit: (address: Address) => Promise<void>;
 }) {
@@ -219,7 +226,7 @@ function AddressForm({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
-      <Text>{intro}</Text>
+      {intro && <Text>{intro}</Text>}
       <Field label={t('order.name')}>
         {({ id }) => (
           <Input id={id} required autoComplete="name" value={a.name} onChange={set('name')} />
@@ -278,9 +285,6 @@ function AddressForm({
   );
 }
 
-const euro = (cents: number, locale: string) =>
-  new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' }).format(cents / 100);
-
 /**
  * The vehicle's own QR code first: what it is, where a scan leads, how to print it and how to test it.
  * The code itself lives in the database (qr_tokens: SHA-256 hash for lookups, AES-GCM copy for
@@ -329,19 +333,13 @@ function QrHero({ vehicle }: { vehicle: Vehicle }) {
         </div>
         <Stack gap={4}>
           <Text>{t('portal.qrHeroText', { nickname: vehicle.nickname })}</Text>
-          <div className="flex flex-col gap-2">
-            <a
-              href={`/v1/vehicles/${vehicle.id}/decal.pdf`}
-              download
-              className="inline-flex min-h-12 w-fit items-center gap-2 rounded-xl bg-primary px-5 font-semibold text-primary-fg hover:bg-primary-hover"
-            >
-              <Icon name="download" className="size-5" />
-              {t('decal.homePdf')}
-            </a>
-            <Text muted className="text-sm">
-              {t('decal.homePdfHint')}
-            </Text>
-          </div>
+          <a
+            href="#drucken"
+            className="inline-flex min-h-12 w-fit items-center gap-2 font-semibold text-primary underline-offset-4 hover:underline"
+          >
+            <Icon name="download" className="size-5" />
+            {t('order.printTitle')}
+          </a>
           <div className="flex flex-col gap-3 border-t border-border pt-4">
             <h3 className="text-lg font-bold">{t('decalTest.title')}</h3>
             <Text>{t('decalTest.intro')}</Text>
@@ -376,153 +374,104 @@ function QrHero({ vehicle }: { vehicle: Vehicle }) {
 
 const REASONS = ['leaked', 'car_sold', 'damaged', 'other'] as const;
 
-function RevokeAndReplace({
+const download =
+  'inline-flex min-h-12 items-center gap-2 rounded-xl border-2 border-border-strong px-4 font-semibold hover:border-primary';
+
+/**
+ * One section with both ways to the decal, each with its price before the owner confirms (2026-11-21):
+ * self-printing is always free (PDF 80 × 80 mm with cut marks, PNG, SVG); printing and shipping is free
+ * once (the welcome print, or a replacement ops granted) and then a one-time Stripe payment.
+ */
+function PrintOptionsSection({
   vehicle,
-  onReissued,
+  options,
+  orders,
   orderResult,
-  freeReplacement,
-  showReplacement,
+  onOrdered,
 }: {
   vehicle: Vehicle;
-  onReissued: (v: Vehicle) => void;
-  orderResult?: 'paid' | 'canceled';
-  freeReplacement: boolean;
-  showReplacement: boolean;
-}) {
-  const { t, locale } = useI18n();
-  const [reason, setReason] = useState<(typeof REASONS)[number]>('leaked');
-  const [done, setDone] = useState(false);
-  const price = freeReplacement
-    ? t('replacement.free')
-    : euro(ADDON_PRICES_CENTS.replacementDecal, locale);
-
-  async function revoke() {
-    if (!window.confirm(t('revoke.confirm'))) return;
-    onReissued(
-      await api<Vehicle>(`/v1/vehicles/${vehicle.id}/tokens`, { body: { confirm: true, reason } }),
-    );
-    setDone(true);
-  }
-
-  return (
-    <Section title={t('revoke.title')} icon="lock" intro={t('revoke.intro')}>
-      <Stack gap={6}>
-        <Stack gap={3}>
-          {done && <Notice tone="success">{t('revoke.done')}</Notice>}
-          <Field label={t('revoke.reason')}>
-            {({ id }) => (
-              <Select
-                id={id}
-                value={reason}
-                onChange={(e) => setReason(e.target.value as typeof reason)}
-              >
-                {REASONS.map((r) => (
-                  <option key={r} value={r}>
-                    {t(`revoke.reason_${r}` as MessageKey)}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-          <Button variant="danger" onClick={revoke} className="w-fit">
-            {t('revoke.button')}
-          </Button>
-        </Stack>
-        {showReplacement && (
-          <Stack gap={3}>
-            <h3 className="text-lg font-bold">{t('replacement.title')}</h3>
-            {orderResult === 'paid' && <Notice tone="success">{t('replacement.paid')}</Notice>}
-            {orderResult === 'canceled' && (
-              <Notice tone="warning">{t('replacement.canceled')}</Notice>
-            )}
-            <AddressForm
-              intro={
-                freeReplacement ? t('replacement.freeIntro') : t('replacement.intro', { price })
-              }
-              submitLabel={t('replacement.submit', { price })}
-              onSubmit={async (address) => {
-                const { url } = await api<{ url: string }>(
-                  `/v1/vehicles/${vehicle.id}/order-replacement`,
-                  {
-                    body: { address },
-                  },
-                );
-                window.location.assign(url);
-              }}
-            />
-          </Stack>
-        )}
-      </Stack>
-    </Section>
-  );
-}
-
-export function VehicleDetail({
-  vehicle: initial,
-  orders: initialOrders,
-  includedAvailable,
-  orderResult,
-  mode,
-  protection,
-  freeReplacements = 0,
-}: {
-  mode: VehicleMode | null;
-  protection: VehicleProtection;
-  freeReplacements?: number;
-  vehicle: Vehicle;
+  options: PrintOptions;
   orders: OrderSummary[];
-  includedAvailable: boolean;
   orderResult?: 'paid' | 'canceled';
+  onOrdered: () => Promise<void>;
 }) {
   const { t } = useI18n();
-  const router = useRouter();
-  const [vehicle, setVehicle] = useState(initial);
-  const [orders, setOrders] = useState(initialOrders);
-  const [canOrder, setCanOrder] = useState(includedAvailable);
-  const [justOrdered, setJustOrdered] = useState(false);
-  const [detailsSaved, setDetailsSaved] = useState(false);
-
-  async function remove() {
-    if (!window.confirm(t('vehicles.deleteConfirm'))) return;
-    await api(`/v1/vehicles/${vehicle.id}`, { method: 'DELETE' });
-    router.push('/konto/fahrzeuge');
-    router.refresh();
-  }
+  const euro = useEuro();
+  const [ordered, setOrdered] = useState(false);
+  const shipped = options.shipped;
+  const price = shipped.free
+    ? shipped.welcomePrint
+      ? t('order.priceWelcome')
+      : t('order.priceFree')
+    : t('order.pricePaid', { price: euro(shipped.priceCents) });
+  const base = `/v1/vehicles/${vehicle.id}`;
 
   return (
-    <KontoShell
-      title={vehicle.nickname}
-      intro={[vehicle.plate, vehicle.color, vehicle.makeModel].filter(Boolean).join(' · ')}
-      back={{ href: '/konto/fahrzeuge', label: t('vehicles.back') }}
+    <Section
+      id="drucken"
+      title={t('order.printTitle')}
+      icon="truck"
+      intro={vehicle.decal ? t('order.printIntro') : undefined}
+      className="scroll-mt-6"
     >
-      {vehicle.decal && (
-        <QrHero
-          key={`${vehicle.decal.tokenId}-${vehicle.decal.template}-${vehicle.decal.cta}`}
-          vehicle={vehicle}
-        />
+      {orderResult === 'paid' && <Notice tone="success">{t('order.paidNotice')}</Notice>}
+      {orderResult === 'canceled' && <Notice tone="warning">{t('order.canceledNotice')}</Notice>}
+      {ordered && <Notice tone="success">{t('order.submitted')}</Notice>}
+      {!vehicle.decal ? (
+        <Text muted>{t('order.needsCode')}</Text>
+      ) : (
+        <ol className="grid gap-4 xl:grid-cols-2">
+          <li className="flex flex-col gap-3 rounded-2xl border border-border bg-bg p-4 sm:p-5">
+            <h3 className="text-lg font-bold">{t('order.selfTitle')}</h3>
+            <Text>{t('order.selfText')}</Text>
+            <div className="flex flex-wrap gap-2">
+              <a href={`${base}/decal.pdf`} download className={download}>
+                <Icon name="download" className="size-5" />
+                {t('order.selfPdf')}
+              </a>
+              <a href={`${base}/decal.png`} download className={download}>
+                <Icon name="download" className="size-5" />
+                {t('order.selfPng')}
+              </a>
+              <a href={`${base}/decal.svg`} download className={download}>
+                <Icon name="download" className="size-5" />
+                {t('order.selfSvg')}
+              </a>
+            </div>
+            <Notice tone="info">{t('order.paperNotice')}</Notice>
+          </li>
+          <li className="flex flex-col gap-3 rounded-2xl border border-border bg-bg p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-lg font-bold">{t('order.shippedTitle')}</h3>
+              <Badge tone={shipped.free ? 'success' : 'info'}>{price}</Badge>
+            </div>
+            <Text>{t('order.shippedText')}</Text>
+            <AddressForm
+              submitLabel={
+                shipped.free
+                  ? t('order.submitFree')
+                  : t('order.submitPaid', { price: euro(shipped.priceCents) })
+              }
+              onSubmit={async (address) => {
+                const r = await api<{ id?: string; url: string; free: boolean }>(
+                  `${base}/order-print`,
+                  { body: { address } },
+                );
+                if (!r.free) {
+                  // 3 € one-time payment on Stripe's page; back to this page with ?order=paid|canceled.
+                  window.location.assign(r.url);
+                  return;
+                }
+                setOrdered(true);
+                await onOrdered();
+              }}
+            />
+          </li>
+        </ol>
       )}
-      {vehicle.decal && (
-        <Designer key={`d-${vehicle.decal.tokenId}`} vehicle={vehicle} onSaved={setVehicle} />
-      )}
-      <Section title={t('order.title')} icon="truck">
-        {justOrdered && <Notice tone="success">{t('order.submitted')}</Notice>}
-        {canOrder ? (
-          <AddressForm
-            intro={t('order.includedIntro')}
-            submitLabel={t('order.submit')}
-            onSubmit={async (address) => {
-              const o = await api<OrderSummary>(`/v1/vehicles/${vehicle.id}/order-included`, {
-                body: { address },
-              });
-              setOrders((list) => [o, ...list]);
-              setCanOrder(false);
-              setJustOrdered(true);
-            }}
-          />
-        ) : (
-          orders.length === 0 && <Text muted>{t('order.used')}</Text>
-        )}
-        {orders.length > 0 && (
+      {orders.length > 0 && (
+        <>
+          <h3 className="text-lg font-bold">{t('order.orders')}</h3>
           <ul className="flex flex-col divide-y divide-border">
             {orders.map((o) => (
               <li key={o.id} className="py-2">
@@ -539,8 +488,182 @@ export function VehicleDetail({
               </li>
             ))}
           </ul>
+        </>
+      )}
+    </Section>
+  );
+}
+
+/**
+ * „Sperren“ (2026-11-21): the code stops working at once and no new code is created. A confirmation
+ * dialog says exactly what happens; afterwards the vehicle shows „Kein aktiver Code“ with the free
+ * „Neuen Code erstellen“.
+ */
+function LockCode({
+  vehicle,
+  printPriceCents,
+  onLocked,
+}: {
+  vehicle: Vehicle;
+  printPriceCents: number;
+  onLocked: (v: Vehicle) => void;
+}) {
+  const { t } = useI18n();
+  const euro = useEuro();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [reason, setReason] = useState<(typeof REASONS)[number]>('leaked');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function lock() {
+    setBusy(true);
+    setError(null);
+    try {
+      const v = await api<Vehicle>(`/v1/vehicles/${vehicle.id}/tokens/revoke`, {
+        body: { confirm: true, reason },
+      });
+      dialog.current?.close();
+      onLocked(v);
+    } catch (err) {
+      setError(errorText(err, t));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section title={t('revoke.title')} icon="lock" intro={t('revoke.lockIntro')}>
+      <Field label={t('revoke.reason')}>
+        {({ id }) => (
+          <Select
+            id={id}
+            value={reason}
+            onChange={(e) => setReason(e.target.value as typeof reason)}
+            className="max-w-sm"
+          >
+            {REASONS.map((r) => (
+              <option key={r} value={r}>
+                {t(`revoke.reason_${r}` as MessageKey)}
+              </option>
+            ))}
+          </Select>
         )}
-      </Section>
+      </Field>
+      <Button variant="danger" onClick={() => dialog.current?.showModal()} className="w-fit">
+        {t('revoke.lockButton')}
+      </Button>
+      <dialog
+        ref={dialog}
+        aria-labelledby={`lock-title-${vehicle.id}`}
+        className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-2xl border border-border bg-surface p-0 text-fg shadow-xl backdrop:bg-black/50"
+      >
+        <div className="flex flex-col gap-4 p-5 sm:p-6">
+          <h2 id={`lock-title-${vehicle.id}`} className="text-xl font-bold">
+            {t('revoke.dialogTitle')}
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {[
+              t('revoke.dialogStop'),
+              t('revoke.dialogNoNew'),
+              t('revoke.dialogFree'),
+              t('revoke.dialogPrint', { price: euro(printPriceCents) }),
+            ].map((line) => (
+              <li key={line} className="flex items-start gap-2">
+                <Icon name="arrowRight" className="mt-1 size-4 shrink-0 text-muted" />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+          {error && <Notice tone="danger">{error}</Notice>}
+          <div className="flex flex-wrap gap-3">
+            <Button variant="danger" onClick={lock} busy={busy}>
+              {t('revoke.dialogConfirm')}
+            </Button>
+            <Button variant="secondary" onClick={() => dialog.current?.close()}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+        </div>
+      </dialog>
+    </Section>
+  );
+}
+
+export function VehicleDetail({
+  vehicle: initial,
+  orders: initialOrders,
+  printOptions: initialOptions,
+  printPriceCents,
+  orderResult,
+  mode,
+  protection,
+}: {
+  mode: VehicleMode | null;
+  protection: VehicleProtection;
+  vehicle: Vehicle;
+  orders: OrderSummary[];
+  printOptions: PrintOptions;
+  printPriceCents: number;
+  orderResult?: 'paid' | 'canceled';
+}) {
+  const { t } = useI18n();
+  const router = useRouter();
+  const [vehicle, setVehicle] = useState(initial);
+  const [orders, setOrders] = useState(initialOrders);
+  const [options, setOptions] = useState(initialOptions);
+  const [notice, setNotice] = useState<'locked' | 'created' | null>(null);
+  const [detailsSaved, setDetailsSaved] = useState(false);
+
+  async function reloadOrders() {
+    const [list, opts] = await Promise.all([
+      api<{ orders: OrderSummary[] }>('/v1/orders'),
+      api<PrintOptions>(`/v1/vehicles/${vehicle.id}/print-options`),
+    ]);
+    setOrders(list.orders.filter((o) => o.vehicleId === vehicle.id));
+    setOptions(opts);
+  }
+
+  async function remove() {
+    if (!window.confirm(t('vehicles.deleteConfirm'))) return;
+    await api(`/v1/vehicles/${vehicle.id}`, { method: 'DELETE' });
+    router.push('/konto/fahrzeuge');
+    router.refresh();
+  }
+
+  return (
+    <KontoShell
+      title={vehicle.nickname}
+      intro={[vehicle.plate, vehicle.color, vehicle.makeModel].filter(Boolean).join(' · ')}
+      back={{ href: '/konto/fahrzeuge', label: t('vehicles.back') }}
+    >
+      {notice === 'locked' && <Notice tone="success">{t('revoke.lockedDone')}</Notice>}
+      {notice === 'created' && <Notice tone="success">{t('portal.newCodeDone')}</Notice>}
+      {!vehicle.decal && (
+        <NoActiveCode
+          vehicle={vehicle}
+          onCreated={(v) => {
+            setVehicle(v);
+            setNotice('created');
+          }}
+        />
+      )}
+      {vehicle.decal && (
+        <QrHero
+          key={`${vehicle.decal.tokenId}-${vehicle.decal.template}-${vehicle.decal.cta}`}
+          vehicle={vehicle}
+        />
+      )}
+      <PrintOptionsSection
+        key={vehicle.decal?.tokenId ?? 'none'}
+        vehicle={vehicle}
+        options={options}
+        orders={orders}
+        orderResult={orderResult}
+        onOrdered={reloadOrders}
+      />
+      {vehicle.decal && (
+        <Designer key={`d-${vehicle.decal.tokenId}`} vehicle={vehicle} onSaved={setVehicle} />
+      )}
 
       <ModeCard vehicleId={vehicle.id} initial={mode} />
 
@@ -561,13 +684,14 @@ export function VehicleDetail({
       </Section>
 
       {vehicle.decal && (
-        <RevokeAndReplace
+        <LockCode
           vehicle={vehicle}
-          onReissued={setVehicle}
-          orderResult={orderResult}
-          freeReplacement={freeReplacements > 0}
-          // The paid replacement only makes sense once the included decal has been ordered.
-          showReplacement={!canOrder}
+          printPriceCents={printPriceCents}
+          onLocked={(v) => {
+            setVehicle(v);
+            setNotice('locked');
+            window.scrollTo({ top: 0 });
+          }}
         />
       )}
 

@@ -5,6 +5,7 @@ import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
 import { ApiError, authHeaders } from './api';
 import { API_URL } from './config';
+import { lang, t } from './i18n';
 import { pt } from './portal-i18n';
 
 /* The customer portal's data, the same shapes as apps/web/lib/api-server.ts. */
@@ -55,9 +56,10 @@ export interface VehicleMode {
   endsAt: string;
 }
 
+/** GET /v1/me/protection: channel = the app is connected for push, phone = verified mobile number. */
 export interface Protection {
   percent: number;
-  steps: { email: boolean; channel: boolean; contact: boolean | null; decal: boolean };
+  steps: { email: boolean; channel: boolean; phone: boolean; decal: boolean };
 }
 
 export interface HistoryAlert {
@@ -109,8 +111,15 @@ export interface DeliveryHelp {
   };
 }
 
+/** GET /v1/me/usage: the monthly safety cap for escalation SMS (setting `sms.monthly_cap`). */
 export interface Usage {
-  sms: { used: number; limit: number };
+  sms: { used: number; limit: number; capReached?: boolean };
+}
+
+/** GET /v1/vehicles/:id/print-options: both prices before the owner confirms (cents incl. VAT). */
+export interface PrintOptions {
+  selfPrint: { priceCents: number };
+  shipped: { priceCents: number; free: boolean; welcomePrint: boolean };
 }
 
 export interface PortalMe {
@@ -118,13 +127,13 @@ export interface PortalMe {
   customerNo: string | null;
   preferredLang: 'de' | 'en';
   summaryFrequency: 'off' | 'weekly' | 'monthly';
-  escalationMinutes: number | null;
   timezone: string;
   passkeys: { id: string; label: string | null; createdAt: string; lastUsedAt: string | null }[];
 }
 
 export interface SubscriptionSummary {
-  plan: 'plus' | 'premium';
+  /** One all-inclusive plan since 2026-11-21. */
+  plan: 'standard';
   status: 'active' | 'past_due';
   contractNo: string | null;
   currentPeriodEnd: string | null;
@@ -191,20 +200,6 @@ export interface CreditNote {
   createdAt: string;
 }
 
-export interface EmergencyContact {
-  id: string;
-  position: number;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  vehicleId: string | null;
-  vehicleNickname: string | null;
-  status: 'pending' | 'confirmed' | 'declined' | 'revoked' | 'deactivated';
-  requestedAt: string;
-  decidedAt: string | null;
-  expiresAt: string | null;
-}
-
 /** The website's errorText (apps/web/lib/api-client.ts): known API errors in plain words. */
 export function errorText(err: unknown): string {
   if (err instanceof ApiError) {
@@ -216,6 +211,8 @@ export function errorText(err: unknown): string {
     if (err.body?.error === 'promo_invalid') return pt('checkout.promoInvalid');
     if (err.body?.error === 'already_subscribed') return pt('checkout.already');
     if (err.body?.error === 'profile_incomplete') return pt('profile.needed');
+    if (err.body?.error === 'phone_required') return t('phoneRequiredError');
+    if (err.body?.error === 'code_active') return t('codeActive');
   }
   return pt('auth.genericError');
 }
@@ -225,6 +222,21 @@ export const euro = (cents: number, locale: string) =>
     style: 'currency',
     currency: 'EUR',
   }).format(cents / 100);
+
+/** „19. November 2027“ / „19 November 2027“ for texts of the app's own i18n (no ICU dates there). */
+export const longDate = (iso: string | Date, locale: string = lang()) =>
+  new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'de-DE', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(iso));
+
+/** „14:05“ for the escalation times on the alert screen. */
+export const clockTime = (iso: string | Date, locale: string = lang()) =>
+  new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'de-DE', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
 
 /** Where Stripe hands the result back to the app (apps/api/src/billing/app-return.ts). */
 export const appReturnUrl = () => Linking.createURL('zurueck');

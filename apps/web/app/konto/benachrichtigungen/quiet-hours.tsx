@@ -77,6 +77,10 @@ export function QuietHoursCard({ initial }: { initial: QuietHours }) {
           {t('quiet.title')}
         </Heading>
         <Text>{t('quiet.intro')}</Text>
+        {/* Owner decision 2026-11-21: never an SMS in quiet hours; the urgent bypass is push only. */}
+        <Text muted className="text-sm">
+          {t('quiet.smsNote')}
+        </Text>
         {data.rules.length === 0 ? (
           <Text muted>{t('quiet.none')}</Text>
         ) : (

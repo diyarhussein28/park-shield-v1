@@ -26,13 +26,21 @@ export interface ProfileResponse {
   /** Never had a contract: the profile is part of the sign-up. */
   newAccount?: boolean;
   profile: (ProfileData & { source: 'signup' | 'completed_later'; completedAt: string }) | null;
+  /** The verified mobile number, masked (e.g. „+49 ••• 4567“). */
   phone: string | null;
+  /**
+   * A verified mobile number exists (required since 2026-11-21: the escalation SMS). Older API answers
+   * without the field count as verified, so an outdated server never locks the app.
+   */
+  phoneVerified?: boolean;
 }
 
 interface ProfileState {
   /** undefined while loading (or signed out). */
   data: ProfileResponse | null | undefined;
   complete: boolean | undefined;
+  /** undefined while loading; true when offline (never block on a failed request). */
+  phoneVerified: boolean | undefined;
   newAccount: boolean;
   reload: () => Promise<void>;
   save: (input: ProfileData) => Promise<ProfileResponse>;
@@ -42,7 +50,8 @@ const Ctx = createContext<ProfileState | null>(null);
 
 /**
  * Whether the signed-in account has its name and address (owner decision 2026-11-20: every account
- * needs them; old accounts complete them on the first open after the update, blocking).
+ * needs them; old accounts complete them on the first open after the update, blocking) and a verified
+ * mobile number (owner decision 2026-11-21, same blocking completion).
  */
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const { signedIn } = useAuth();
@@ -75,6 +84,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     () => ({
       data,
       complete: data === undefined ? undefined : (data?.complete ?? true),
+      phoneVerified: data === undefined ? undefined : data?.phoneVerified !== false,
       newAccount: Boolean(data?.newAccount),
       reload,
       save,

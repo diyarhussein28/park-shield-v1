@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { FieldCrypto } from '../core/crypto';
 import { sha256 } from '../core/crypto';
-import { SettingsService } from '../core/settings.service';
 import { CRYPTO } from '../core/tokens';
 import {
   createHarness,
   resetState,
+  setSetting,
   signIn,
   subscribe,
   type Harness,
@@ -62,33 +62,22 @@ describe('vehicles (US-09)', () => {
     expect(res.json().decal.codeHint).toBe(code.slice(-4));
   });
 
-  it('enforces the plan limit with an upgrade hint, also under concurrent requests', async () => {
+  it('enforces the limit of one vehicle, also under concurrent requests', async () => {
     const s = await subscribe(h, 'limit@example.de');
     const results = await Promise.all(
       [1, 2, 3, 4, 5].map((n) => addVehicle(s, { nickname: `Auto ${n}`, plate: `K-A ${n}` })),
     );
-    expect(results.filter((r) => r.statusCode === 201)).toHaveLength(2);
+    expect(results.filter((r) => r.statusCode === 201)).toHaveLength(1);
     const rejected = results.find((r) => r.statusCode === 409)!;
-    expect(rejected.json()).toEqual({ error: 'vehicle_limit', limit: 2, plan: 'plus' });
+    expect(rejected.json()).toEqual({ error: 'vehicle_limit', limit: 1, plan: 'standard' });
   });
 
   it('reads limit overrides from app_settings (no hard-coded limits)', async () => {
-    await h.db
-      .insertInto('app_settings')
-      .values({ key: 'limits.plus.vehicles', value: JSON.stringify(3) })
-      .execute();
-    h.app.get(SettingsService).invalidate();
-    try {
-      const s = await subscribe(h, 'override@example.de');
-      for (const n of [1, 2, 3])
-        expect((await addVehicle(s, { nickname: `A${n}`, plate: `B-X ${n}` })).statusCode).toBe(
-          201,
-        );
-      expect((await addVehicle(s, { nickname: 'A4', plate: 'B-X 4' })).statusCode).toBe(409);
-    } finally {
-      await h.db.deleteFrom('app_settings').where('key', '=', 'limits.plus.vehicles').execute();
-      h.app.get(SettingsService).invalidate();
-    }
+    await setSetting(h, 'limits.vehicles', 3);
+    const s = await subscribe(h, 'override@example.de');
+    for (const n of [1, 2, 3])
+      expect((await addVehicle(s, { nickname: `A${n}`, plate: `B-X ${n}` })).statusCode).toBe(201);
+    expect((await addVehicle(s, { nickname: 'A4', plate: 'B-X 4' })).statusCode).toBe(409);
   });
 
   it('keeps vehicles private to their owner', async () => {

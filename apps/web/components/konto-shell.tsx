@@ -7,7 +7,7 @@ import { useState, type ReactNode } from 'react';
 import { api } from '@/lib/api-client';
 import { cx } from '@/lib/cx';
 import { Icon, type IconName } from './icons';
-import { isLockedSection, useSubscribed } from './konto-access';
+import { isLockedSection, useNeedsPhone, useSubscribed } from './konto-access';
 import { PageShell, WIDE } from './site-chrome';
 
 type Item = { href: string; label: string; icon: IconName };
@@ -30,6 +30,7 @@ export function KontoShell({
   children: ReactNode;
 }) {
   const subscribed = useSubscribed();
+  const needsPhone = useNeedsPhone();
   const pathname = usePathname();
   const locked = subscribed === false && isLockedSection(pathname);
   return (
@@ -54,7 +55,10 @@ export function KontoShell({
               </div>
               {actions}
             </header>
-            <div className="flex flex-col gap-6">{locked ? <LockedSection /> : children}</div>
+            <div className="flex flex-col gap-6">
+              {needsPhone && pathname !== '/konto' && <CompleteBanner />}
+              {locked ? <LockedSection /> : children}
+            </div>
           </div>
         </div>
       </div>
@@ -79,6 +83,25 @@ function LockedSection() {
   );
 }
 
+/** Old accounts without a verified mobile number: a persistent reminder on every other portal page. */
+function CompleteBanner() {
+  const { t } = useI18n();
+  return (
+    <div
+      role="status"
+      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-warning-fg bg-warning-bg px-4 py-3 text-warning-fg"
+    >
+      <span className="flex min-w-0 items-center gap-2 font-semibold">
+        <Icon name="alert" className="size-5 shrink-0" />
+        <span className="min-w-0">{t('portal.completeBanner')}</span>
+      </span>
+      <Link href="/konto" className="inline-flex min-h-12 items-center font-semibold underline">
+        {t('portal.completeBannerLink')}
+      </Link>
+    </div>
+  );
+}
+
 function KontoNav() {
   const { t } = useI18n();
   const pathname = usePathname();
@@ -90,7 +113,6 @@ function KontoNav() {
     { href: '/konto', label: t('portal.overview'), icon: 'home' },
     { href: '/konto/fahrzeuge', label: t('portal.vehicles'), icon: 'qr' },
     { href: '/konto/benachrichtigungen', label: t('portal.notifications'), icon: 'bell' },
-    { href: '/konto/notfallkontakte', label: t('portal.contacts'), icon: 'users' },
     { href: '/konto/verlauf', label: t('portal.history'), icon: 'clock' },
     { href: '/konto/abo', label: t('portal.plan'), icon: 'card' },
     { href: '/konto/daten', label: t('portal.data'), icon: 'database' },

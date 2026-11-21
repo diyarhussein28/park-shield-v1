@@ -3,10 +3,11 @@ import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, StyleSheet, View } from 'react-native';
-import { Badge, Choice, Field, H3 } from '@/components/form';
+import { Badge, Choice, H3 } from '@/components/form';
 import { WindscreenArt } from '@/components/art';
 import { Collapsible, Group, Row } from '@/components/list';
-import { AddressForm, VehicleForm } from '@/components/vehicle-forms';
+import { NoCodeCard } from '@/components/no-code';
+import { VehicleForm } from '@/components/vehicle-forms';
 import { Banner, Button, Card, Loading, P, Screen, Title, useTheme } from '@/components/ui';
 import { api, ApiError, authHeaders } from '@/lib/api';
 import { API_URL } from '@/lib/config';
@@ -15,9 +16,8 @@ import { lang, t } from '@/lib/i18n';
 import {
   errorText,
   euro,
-  payInApp,
-  type OrderSummary,
   type PortalVehicle,
+  type PrintOptions,
   type VehicleMode,
   type VehicleModeKind,
   type VehicleProtection,
@@ -28,17 +28,17 @@ const svg = (id: string, q: Record<string, string>) =>
   `${API_URL}/v1/vehicles/${id}/decal.svg?${new URLSearchParams(q)}`;
 
 /**
- * One vehicle, exactly like the website's vehicle page: its QR code (print PDF, test), the decal
- * design, the printed decal order, vehicle modes, Protected Mode, details, a new code with an optional
- * replacement decal (paid on Stripe's page inside the app), and deleting the vehicle.
+ * One vehicle, like the website's vehicle page: its QR code (print PDF, test) or „Kein aktiver Code“,
+ * the decal design, the print options (own screen, prices first), vehicle modes, Protected Mode,
+ * details, „Sperren“ (no new code is created; that is an explicit, free action), and deleting it.
  */
 export default function VehicleDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [v, setV] = useState<PortalVehicle | null>(null);
-  const [orders, setOrders] = useState<OrderSummary[]>([]);
-  const [canOrder, setCanOrder] = useState(false);
-  const [freeReplacements, setFree] = useState(0);
+  const [options, setOptions] = useState<PrintOptions | null>(null);
+  const [created, setCreated] = useState(false);
+  const [revoked, setRevoked] = useState(false);
   const [mode, setMode] = useState<VehicleMode | null>(null);
   const [protection, setProtection] = useState<VehicleProtection | null>(null);
   const [headers, setHeaders] = useState<Record<string, string> | null>(null);
@@ -48,16 +48,12 @@ export default function VehicleDetail() {
     try {
       const [vehicle, o, m, p] = await Promise.all([
         api<PortalVehicle>(`/v1/vehicles/${id}`),
-        api<{ orders: OrderSummary[]; includedAvailable: boolean; freeReplacements: number }>(
-          '/v1/orders',
-        ),
+        api<PrintOptions>(`/v1/vehicles/${id}/print-options`).catch(() => null),
         api<{ mode: VehicleMode | null }>(`/v1/vehicles/${id}/mode`).catch(() => ({ mode: null })),
         api<VehicleProtection>(`/v1/vehicles/${id}/protection`).catch(() => null),
       ]);
       setV(vehicle);
-      setOrders(o.orders.filter((x) => x.vehicleId === id));
-      setCanOrder(o.includedAvailable);
-      setFree(o.freeReplacements);
+      setOptions(o);
       setMode(m.mode);
       setProtection(p ?? { active: false, source: null, activeUntil: null });
     } catch (err) {
@@ -96,6 +92,19 @@ export default function VehicleDetail() {
     <Screen>
       <Stack.Screen options={{ title: v.nickname }} />
       <P muted>{[v.plate, v.color, v.makeModel].filter(Boolean).join(' · ')}</P>
+      {revoked && !v.decal && <Banner tone="ok">{t('revokeDone')}</Banner>}
+      {!v.decal && (
+        <NoCodeCard
+          vehicle={v}
+          onCreated={async (fresh) => {
+            if (fresh) setV(fresh);
+            else await load();
+            setRevoked(false);
+            setCreated(true);
+          }}
+        />
+      )}
+      {created && v.decal && <Banner tone="ok">{t('newCodeDone')}</Banner>}
       {v.decal && (
         <QrHero
           key={`${v.decal.tokenId}-${v.decal.template}-${v.decal.cta}`}
@@ -105,6 +114,22 @@ export default function VehicleDetail() {
       )}
       {v.decal && (
         <Group>
+          <Row
+            icon="printer"
+            iconTone="accent"
+            title={t('printOpen')}
+            detail={
+              options?.shipped.free
+                ? options.shipped.welcomePrint
+                  ? t('printShipWelcome')
+                  : t('printShipFree')
+                : undefined
+            }
+            onPress={() =>
+              router.push({ pathname: '/fahrzeug/drucken/[id]', params: { id: v.id } })
+            }
+            testID="print-open"
+          />
           <Row
             icon="palette"
             iconTone="accent"
@@ -116,27 +141,24 @@ export default function VehicleDetail() {
         </Group>
       )}
 
-      <Orders
-        vehicle={v}
-        orders={orders}
-        canOrder={canOrder}
-        onOrdered={(o) => {
-          setOrders((list) => [o, ...list]);
-          setCanOrder(false);
-        }}
-      />
       <ModeCard vehicleId={v.id} initial={mode} />
       {protection && <ProtectionCard vehicleId={v.id} initial={protection} />}
 
       <Details vehicle={v} onSaved={setV} />
 
       {v.decal && (
-        <RevokeAndReplace
+        <RevokeCard
           vehicle={v}
-          onReissued={setV}
-          onPaid={load}
-          freeReplacement={freeReplacements > 0}
-          showReplacement={!canOrder}
+          shipPriceCents={
+            options && !options.shipped.free
+              ? options.shipped.priceCents
+              : ADDON_PRICES_CENTS.printShipped
+          }
+          onRevoked={(fresh) => {
+            setCreated(false);
+            setRevoked(true);
+            setV(fresh);
+          }}
         />
       )}
 
@@ -251,55 +273,6 @@ function QrHero({ vehicle, headers }: { vehicle: PortalVehicle; headers: Record<
         <Button label={pt('decalTest.button')} variant="secondary" onPress={() => void start()} />
       )}
       {error && <Banner tone="err">{error}</Banner>}
-    </Card>
-  );
-}
-
-/** The decal included in the plan (address in Germany) and every order with its status. */
-function Orders({
-  vehicle,
-  orders,
-  canOrder,
-  onOrdered,
-}: {
-  vehicle: PortalVehicle;
-  orders: OrderSummary[];
-  canOrder: boolean;
-  onOrdered: (o: OrderSummary) => void;
-}) {
-  const [justOrdered, setJustOrdered] = useState(false);
-  return (
-    <Card>
-      <Title>{pt('order.title')}</Title>
-      {justOrdered && <Banner tone="ok">{pt('order.submitted')}</Banner>}
-      {canOrder ? (
-        <AddressForm
-          intro={pt('order.includedIntro')}
-          submitLabel={pt('order.submit')}
-          onSubmit={async (address) => {
-            onOrdered(
-              await api<OrderSummary>(`/v1/vehicles/${vehicle.id}/order-included`, {
-                body: { address },
-              }),
-            );
-            setJustOrdered(true);
-          }}
-        />
-      ) : (
-        orders.length === 0 && <P muted>{pt('order.used')}</P>
-      )}
-      {orders.map((o) => (
-        <View key={o.id}>
-          <P>
-            {pt('order.orderLine', {
-              nickname: o.nickname ?? vehicle.nickname,
-              date: new Date(o.createdAt),
-              status: pt(`order.status_${o.status}` as MessageKey),
-            })}
-          </P>
-          {o.trackingNumber && <P muted>{pt('order.tracking', { number: o.trackingNumber })}</P>}
-        </View>
-      ))}
     </Card>
   );
 }
@@ -478,83 +451,62 @@ function Details({
 
 const REASONS = ['leaked', 'car_sold', 'damaged', 'other'] as const;
 
-/** US-13: revoke the code (a new one is issued at once) and order a replacement decal. */
-function RevokeAndReplace({
+/**
+ * „Sperren“ (2026-11-21): the code stops working at once and NO new code is created. The dialog says
+ * exactly that, and what comes next costs: a new code is free, self-printing is free, printing and
+ * shipping costs 3 € (after the free welcome print). Afterwards the vehicle shows „Kein aktiver Code“.
+ */
+export function RevokeCard({
   vehicle,
-  onReissued,
-  onPaid,
-  freeReplacement,
-  showReplacement,
+  shipPriceCents,
+  onRevoked,
 }: {
   vehicle: PortalVehicle;
-  onReissued: (v: PortalVehicle) => void;
-  onPaid: () => Promise<void>;
-  freeReplacement: boolean;
-  showReplacement: boolean;
+  shipPriceCents: number;
+  onRevoked: (v: PortalVehicle) => void;
 }) {
   const [reason, setReason] = useState<(typeof REASONS)[number]>('leaked');
-  const [done, setDone] = useState(false);
-  const [result, setResult] = useState<'paid' | 'canceled' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const price = freeReplacement
-    ? pt('replacement.free')
-    : euro(ADDON_PRICES_CENTS.replacementDecal, lang());
+  const price = euro(shipPriceCents, lang());
 
   const revoke = () =>
-    Alert.alert(pt('revoke.title'), pt('revoke.confirm'), [
-      { text: pt('common.cancel'), style: 'cancel' },
-      {
-        text: pt('revoke.button'),
-        style: 'destructive',
-        onPress: () =>
-          void api<PortalVehicle>(`/v1/vehicles/${vehicle.id}/tokens`, {
-            body: { confirm: true, reason },
-          })
-            .then((v) => {
-              onReissued(v);
-              setDone(true);
+    Alert.alert(
+      t('revokeConfirmTitle'),
+      [
+        t('revokeConfirm1'),
+        t('revokeConfirm2'),
+        t('revokeConfirm3'),
+        t('revokeConfirm4', { price }),
+      ]
+        .map((line) => `• ${line}`)
+        .join('\n'),
+      [
+        { text: pt('common.cancel'), style: 'cancel' },
+        {
+          text: t('revokeButton'),
+          style: 'destructive',
+          onPress: () =>
+            void api<PortalVehicle>(`/v1/vehicles/${vehicle.id}/tokens/revoke`, {
+              body: { confirm: true, reason },
             })
-            .catch((err) => setError(errorText(err))),
-      },
-    ]);
+              .then(onRevoked)
+              .catch((err) => setError(errorText(err))),
+        },
+      ],
+    );
 
   return (
     <Card>
-      <Title>{pt('revoke.title')}</Title>
-      <P muted>{pt('revoke.intro')}</P>
-      {done && <Banner tone="ok">{pt('revoke.done')}</Banner>}
+      <Title>{t('revokeTitle')}</Title>
+      <P muted>{t('revokeIntro')}</P>
       <Choice
-        legend={pt('revoke.reason')}
+        legend={t('revokeReason')}
         options={REASONS}
         value={reason}
         onChange={setReason}
-        label={(r) => pt(`revoke.reason_${r}` as MessageKey)}
+        label={(r) => t(`revokeReason_${r}`)}
       />
-      <Button label={pt('revoke.button')} variant="danger" onPress={revoke} />
-      {showReplacement && (
-        <>
-          <H3>{pt('replacement.title')}</H3>
-          {result === 'paid' && <Banner tone="ok">{pt('replacement.paid')}</Banner>}
-          {result === 'canceled' && <Banner tone="warn">{pt('replacement.canceled')}</Banner>}
-          <AddressForm
-            intro={
-              freeReplacement ? pt('replacement.freeIntro') : pt('replacement.intro', { price })
-            }
-            submitLabel={pt('replacement.submit', { price })}
-            onSubmit={async (address) => {
-              const r = await payInApp((appReturn) =>
-                api<{ url: string }>(`/v1/vehicles/${vehicle.id}/order-replacement`, {
-                  body: { address, appReturn },
-                }),
-              );
-              setResult(
-                r.result === 'success' ? 'paid' : r.result === 'canceled' ? 'canceled' : null,
-              );
-              await onPaid();
-            }}
-          />
-        </>
-      )}
+      <Button label={t('revokeButton')} variant="danger" onPress={revoke} testID="revoke" />
       {error && <Banner tone="err">{error}</Banner>}
     </Card>
   );

@@ -1,8 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { CodeInput } from '@/components/code-input';
-import { Check, Field } from '@/components/form';
+import { useEffect, useRef, useState } from 'react';
 import { StepProgress } from '@/components/list';
+import { PhoneVerify } from '@/components/phone-setup';
 import {
   AddressFields,
   EMPTY_PROFILE,
@@ -12,7 +11,6 @@ import {
   type ProfileErrors,
 } from '@/components/profile-form';
 import { Banner, Button, P, Screen, Title } from '@/components/ui';
-import { api, ApiError } from '@/lib/api';
 import { t } from '@/lib/i18n';
 import { errorText } from '@/lib/portal';
 import { pt } from '@/lib/portal-i18n';
@@ -24,17 +22,23 @@ type Step = 'name' | 'address' | 'phone';
 const STEPS: Step[] = ['name', 'address', 'phone'];
 
 /**
- * Name, address and (optionally) the mobile number, in short steps with a progress bar (§6):
- * - `signup`: steps 2–4 of the new sign-up, then the Face ID offer and the plans;
- * - `complete`: accounts from before the sign-up existed complete them once, blocking (§7);
- * - `edit`: „Ihre Angaben“ from the Konto tab, one form.
+ * Name, address and the mobile number (required since 2026-11-21, verified by SMS code), in short
+ * steps with a progress bar (§6):
+ * - `signup`: steps 2–4 of the new sign-up (step 5 is the plan), then the Face ID offer and the plan;
+ * - `complete`: accounts from before the sign-up or the phone rule complete what is missing once,
+ *   blocking (§7); an account with name and address only sees the phone step;
+ * - `edit`: „Ihre Angaben“ from the Konto tab, one form (the number is changed under
+ *   „Benachrichtigungen“).
  */
 export default function ProfileScreen() {
   const router = useRouter();
   const { flow: raw } = useLocalSearchParams<{ flow?: string }>();
   const flow: Flow = raw === 'signup' || raw === 'edit' ? raw : 'complete';
-  const { data, save } = useProfile();
+  const { data, save, reload } = useProfile();
   const [step, setStep] = useState<Step>('name');
+  // Name and address were already there: only the phone is missing (decided once, so saving the
+  // address in this flow does not switch the layout half-way).
+  const [phoneOnly, setPhoneOnly] = useState(false);
   const [value, setValue] = useState<ProfileData>(EMPTY_PROFILE);
   const [errors, setErrors] = useState<ProfileErrors>({});
   // A corrected field loses its error at once (not only on the next „Weiter“).
@@ -57,6 +61,20 @@ export default function ProfileScreen() {
     }
   }, [data?.profile]);
 
+  // Reopened with name and address saved but no verified number: straight to the phone step.
+  const missingPhoneOnly =
+    flow !== 'edit' && Boolean(data?.complete) && data?.phoneVerified === false;
+  const decided = useRef(false);
+  useEffect(() => {
+    // Only the first answer decides (see phoneOnly).
+    if (decided.current || !data) return;
+    decided.current = true;
+    if (missingPhoneOnly) {
+      setStep('phone');
+      if (flow === 'complete') setPhoneOnly(true);
+    }
+  }, [data, missingPhoneOnly, flow]);
+
   const done = () => {
     if (flow === 'edit') router.back();
     else
@@ -74,7 +92,7 @@ export default function ProfileScreen() {
     if (part === 'name') return setStep('address');
     setBusy(true);
     try {
-      await save({
+      const saved = await save({
         ...value,
         firstName: value.firstName.trim(),
         lastName: value.lastName.trim(),
@@ -83,6 +101,8 @@ export default function ProfileScreen() {
         city: value.city.trim(),
       });
       if (flow === 'edit') done();
+      // The number is already verified (e.g. an old account that only lacked its address): done.
+      else if (saved?.phoneVerified === true) done();
       else setStep('phone');
     } catch (err) {
       const fields = serverErrors(err);
@@ -101,9 +121,11 @@ export default function ProfileScreen() {
   const title =
     flow === 'edit'
       ? pt('profile.title')
-      : flow === 'complete'
-        ? pt('profile.completeTitle')
-        : t('signUpTitle');
+      : phoneOnly
+        ? t('phoneCompleteTitle')
+        : flow === 'complete'
+          ? pt('profile.completeTitle')
+          : t('signUpTitle');
 
   return (
     <Screen>
@@ -115,7 +137,7 @@ export default function ProfileScreen() {
           gestureEnabled: flow === 'edit',
         }}
       />
-      {flow !== 'edit' && (
+      {flow !== 'edit' && !phoneOnly && (
         <StepProgress step={index} total={total} label={t('signUpStep', { step: index, total })} />
       )}
       {flow === 'complete' && step === 'name' && <P muted>{pt('profile.completeIntro')}</P>}
@@ -150,136 +172,19 @@ export default function ProfileScreen() {
           <Button label={pt('common.back')} variant="ghost" onPress={() => setStep('name')} />
         </>
       ) : (
-        <PhoneStep alreadyLinked={data?.phone ?? null} onDone={done} />
+        <>
+          <Title>{t('phoneTitle')}</Title>
+          <P muted>{phoneOnly ? t('phoneCompleteIntro') : t('phoneIntro')}</P>
+          <PhoneVerify
+            onVerified={async () => {
+              // The gate must see the verified number before the next screen, or it sends us back.
+              await reload();
+              done();
+            }}
+          />
+        </>
       )}
       {error && <Banner tone="err">{error}</Banner>}
     </Screen>
-  );
-}
-
-/**
- * Optional mobile number (§6): verified with one SMS code through the same flow as „Benachrichtigungen“
- * (it becomes the SMS channel; nothing is pre-ticked, the opt-in stays explicit). „Überspringen“ is
- * always possible.
- */
-function PhoneStep({
-  alreadyLinked,
-  onDone,
-}: {
-  alreadyLinked: string | null;
-  onDone: () => void;
-}) {
-  const [phone, setPhone] = useState('');
-  const [consent, setConsent] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [code, setCode] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
-  const [linked, setLinked] = useState(alreadyLinked);
-
-  const start = async () => {
-    setBusy(true);
-    setMessage(null);
-    try {
-      await api('/v1/channels/phone', { body: { phone, channels: ['sms'], consent: true } });
-      setSent(true);
-      setCode('');
-    } catch (err) {
-      const why = err instanceof ApiError ? err.body?.error : undefined;
-      setMessage({
-        tone: 'err',
-        text:
-          why === 'phone_invalid'
-            ? t('signUpPhoneInvalid')
-            : why === 'channel_unavailable'
-              ? pt('channels.phoneNoneAvailable')
-              : errorText(err),
-      });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const verify = async (value = code) => {
-    if (value.length !== 6 || busy) return;
-    setBusy(true);
-    setMessage(null);
-    try {
-      await api('/v1/channels/phone/verify', { body: { code: value } });
-      setLinked(phone);
-    } catch (err) {
-      const why = err instanceof ApiError ? err.body?.error : undefined;
-      setCode('');
-      if (why === 'code_expired') setSent(false);
-      setMessage({
-        tone: 'err',
-        text:
-          why === 'code_wrong'
-            ? t('signUpPhoneWrong')
-            : why === 'code_expired'
-              ? pt('channels.waCodeExpired')
-              : errorText(err),
-      });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <>
-      <Title>{t('signUpPhoneTitle')}</Title>
-      <P muted>{t('signUpPhoneIntro')}</P>
-      {linked ? (
-        <>
-          <Banner tone="ok">{`${t('signUpPhoneDone')} ${linked}`}</Banner>
-          <Button label={t('continue')} onPress={onDone} testID="phone-done" />
-        </>
-      ) : sent ? (
-        <>
-          <CodeInput
-            label={t('signUpPhoneCode')}
-            value={code}
-            onChange={setCode}
-            onComplete={(v) => void verify(v)}
-            error={message?.tone === 'err'}
-          />
-          <Button
-            label={pt('channels.waVerify')}
-            busy={busy}
-            disabled={code.length !== 6}
-            onPress={() => void verify()}
-          />
-          <Button
-            label={pt('channels.waOtherNumber')}
-            variant="ghost"
-            onPress={() => setSent(false)}
-          />
-        </>
-      ) : (
-        <>
-          <Field
-            label={t('signUpPhoneLabel')}
-            hint={pt('channels.waPhoneHint')}
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            autoComplete="tel"
-            textContentType="telephoneNumber"
-            maxLength={30}
-            testID="phone"
-          />
-          <Check label={pt('channels.phoneVia_sms')} checked={consent} onChange={setConsent} />
-          <P muted>{pt('channels.phoneConsentNote')}</P>
-          <Button
-            label={t('signUpPhoneSend')}
-            busy={busy}
-            disabled={phone.trim().length < 6 || !consent}
-            onPress={() => void start()}
-          />
-        </>
-      )}
-      {message && <Banner tone={message.tone}>{message.text}</Banner>}
-      {!linked && <Button label={t('skip')} variant="ghost" onPress={onDone} testID="phone-skip" />}
-    </>
   );
 }

@@ -2,7 +2,12 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Choice, H3, Segmented } from '@/components/form';
-import { PastDue, SubscriptionInfo, openPaymentPortal } from '@/components/subscription';
+import {
+  PastDue,
+  PlanFeatures,
+  SubscriptionInfo,
+  openPaymentPortal,
+} from '@/components/subscription';
 import { Banner, Button, Card, P, Screen, Title, useTheme } from '@/components/ui';
 import { api } from '@/lib/api';
 import { lang, t } from '@/lib/i18n';
@@ -10,6 +15,7 @@ import {
   downloadAndShare,
   errorText,
   euro,
+  longDate,
   openInBrowser,
   type CreditNote,
   type InvoiceSummary,
@@ -19,9 +25,10 @@ import {
 import { pt } from '@/lib/portal-i18n';
 
 /**
- * „Abo und Rechnungen“ (web: /konto/abo), pushed from the Konto tab: subscription, upgrade, invoices
- * and credit notes, the summary e-mail, customer number and e-mail language, passkeys, withdrawal and
- * cancellation. Without a plan it leads to the plans (/tarif), where Stripe's page opens in the app.
+ * „Abo und Rechnungen“ (web: /konto/abo), pushed from the Konto tab: „ParkShield · Aktiv“ with what the
+ * one plan includes, invoices and credit notes, the summary e-mail, customer number and e-mail
+ * language, passkeys, and one „Vertrag“ card (withdrawal while the period runs, then cancellation).
+ * Without a plan it leads to the plan (/tarif), where Stripe's page opens in the app.
  */
 export default function Subscription() {
   const c = useTheme();
@@ -103,6 +110,10 @@ export default function Subscription() {
         {sub === undefined ? null : sub ? (
           <>
             <SubscriptionInfo sub={sub} />
+            <Text style={{ color: c.fg, fontSize: 15, fontWeight: '700' }}>
+              {t('planIncludes')}
+            </Text>
+            <PlanFeatures />
             <Button
               label={pt('account.paymentMethod')}
               variant="secondary"
@@ -116,25 +127,6 @@ export default function Subscription() {
           </>
         )}
       </Card>
-
-      {sub?.plan === 'plus' && (
-        <Card>
-          <Title>{pt('portal.upgradeTitle')}</Title>
-          <P muted>{pt('portal.upgradeIntro')}</P>
-          {(
-            [
-              'landing.premiumF2',
-              'landing.premiumF3',
-              'landing.premiumF4',
-              // F5 (photos with alerts) is part of Plus too, so it is no reason to upgrade.
-              'landing.premiumF6',
-            ] as const
-          ).map((k) => (
-            <P key={k}>✓ {pt(k)}</P>
-          ))}
-          <P muted>{pt('portal.upgradeSoon')}</P>
-        </Card>
-      )}
 
       <Card>
         <Title>{pt('account.invoices')}</Title>
@@ -229,28 +221,12 @@ export default function Subscription() {
         </Card>
       )}
 
-      {sub?.withdrawalOpenUntil && (
-        <Card>
-          <Title>{pt('withdraw.portalTitle')}</Title>
-          <P>{pt('withdraw.portalText', { date: new Date(sub.withdrawalOpenUntil) })}</P>
-          <Button
-            variant="secondary"
-            label={pt('common.footer.withdrawContract')}
-            onPress={() => router.push('/widerrufen')}
-          />
-        </Card>
-      )}
-
-      {sub && !sub.cancelAtPeriodEnd && (
-        <Card>
-          <Title>{pt('account.cancelTitle')}</Title>
-          <P>{pt('account.cancelText')}</P>
-          <Button
-            variant="secondary"
-            label={pt('common.footer.cancelContract')}
-            onPress={() => router.push('/kuendigen')}
-          />
-        </Card>
+      {sub && (
+        <ContractCard
+          sub={sub}
+          onWithdraw={() => router.push('/widerrufen')}
+          onCancel={() => router.push('/kuendigen')}
+        />
       )}
 
       {error && <Banner tone="err">{error}</Banner>}
@@ -258,7 +234,64 @@ export default function Subscription() {
   );
 }
 
+/**
+ * „Vertrag“ (owner decision 2026-11-21): one card instead of separate withdrawal and cancel cards.
+ * While the withdrawal period runs (`withdrawalOpenUntil` in the future) „Vertrag widerrufen“ stays on
+ * it, as visible as „Vertrag hier kündigen“ (§ 356a BGB: permanently available, prominently placed,
+ * on the interface where the contract was concluded); afterwards only the cancel part remains.
+ */
+export function ContractCard({
+  sub,
+  onWithdraw,
+  onCancel,
+  now = new Date(),
+}: {
+  sub: SubscriptionSummary;
+  onWithdraw: () => void;
+  onCancel: () => void;
+  now?: Date;
+}) {
+  const withdrawal =
+    sub.withdrawalOpenUntil && new Date(sub.withdrawalOpenUntil) > now
+      ? sub.withdrawalOpenUntil
+      : null;
+  return (
+    <Card>
+      <Title>{t('contractTitle')}</Title>
+      {/* TODO [LEGAL REVIEW] § 356a BGB withdrawal button wording, placement and the date shown. */}
+      {withdrawal && (
+        <View style={s.part} testID="contract-withdraw">
+          <P>{t('withdrawUntil', { date: longDate(withdrawal) })}</P>
+          <Button
+            variant="secondary"
+            label={t('withdrawButton')}
+            onPress={onWithdraw}
+            testID="withdraw"
+          />
+        </View>
+      )}
+      {/* TODO [LEGAL REVIEW] § 312k BGB cancellation text (annual renewal, end of the paid year). */}
+      {sub.cancelAtPeriodEnd ? (
+        sub.currentPeriodEnd && (
+          <P>{pt('account.endsOn', { date: new Date(sub.currentPeriodEnd) })}</P>
+        )
+      ) : (
+        <View style={s.part} testID="contract-cancel">
+          <P>{pt('account.cancelText')}</P>
+          <Button
+            variant="secondary"
+            label={t('cancelButton')}
+            onPress={onCancel}
+            testID="cancel"
+          />
+        </View>
+      )}
+    </Card>
+  );
+}
+
 const s = StyleSheet.create({
+  part: { gap: 8 },
   row: { gap: 2 },
   passkey: { gap: 6 },
 });

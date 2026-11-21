@@ -1,75 +1,66 @@
 'use client';
 
-import type { MessageKey } from '@parkshield/i18n';
-import { Badge, Button, Checkbox, Field, Input, Notice, useI18n } from '@parkshield/ui';
+import { Badge, Button, Field, Input, Notice, useI18n } from '@parkshield/ui';
 import { useState, type FormEvent } from 'react';
 import { Icon } from '@/components/icons';
 import { api, ApiError, errorText } from '@/lib/api-client';
-import type { ChannelsOverview, Usage } from '@/lib/api-server';
+import type { Usage } from '@/lib/api-server';
 
-type PhoneChannel = 'sms';
 type Message = { tone: 'success' | 'danger' | 'warning' | 'info'; text: string } | null;
 
-const CHANNELS: PhoneChannel[] = ['sms'];
-
 /**
- * The owner's mobile number (NT-07): typed once, confirmed with one SMS code, then used for SMS alerts
- * (PREMIUM). Nothing is pre-ticked: SMS is an explicit opt-in (Art. 6(1)(a) GDPR). Only offered while
- * SMS is switched on (kill switch, AD-15). WhatsApp was removed.
+ * The owner's mobile number (required since 2026-11-21): typed once, confirmed with one SMS code and
+ * used only for the single escalation SMS after 30 minutes without a reaction. It can be changed (the
+ * new number applies once its code is confirmed), never removed; account deletion removes it.
+ * The API accepts mobile numbers from the allowed countries only (`phone_not_mobile`, `phone_country`).
  */
 export function PhoneSetup({
-  overview,
+  phone,
   usage,
-  onChange,
+  onVerified,
   headingLevel = 2,
   embedded = false,
 }: {
-  overview: Pick<ChannelsOverview, 'sms' | 'available'>;
+  /** The verified number, masked by the API; null while none is verified. */
+  phone: string | null;
   usage?: Usage;
-  onChange: () => Promise<void>;
+  onVerified: () => Promise<void> | void;
   headingLevel?: 2 | 3;
-  /** Inside another card (the set-up guide): no own border and no visible title. */
+  /** Inside another card (set-up guide, checkout): no own border and no visible title. */
   embedded?: boolean;
 }) {
   const { t } = useI18n();
   const H = `h${headingLevel}` as const;
-  const linked: Record<PhoneChannel, ChannelsOverview['sms']> = { sms: overview.sms };
-  const available = CHANNELS.filter((c) => overview.available[c]);
-  const number = linked.sms?.phone ?? null;
   const [editing, setEditing] = useState(false);
-  const [phone, setPhone] = useState('');
-  const [chosen, setChosen] = useState<Record<PhoneChannel, boolean>>({ sms: false });
-  const [sent, setSent] = useState<{ phone: string; via: PhoneChannel } | null>(null);
+  const [input, setInput] = useState('');
+  const [sent, setSent] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<Message>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
-  const name = (channel: PhoneChannel) => t('channels.channelName', { channel });
 
   async function start(e?: FormEvent) {
     e?.preventDefault();
     setMessage(null);
     setPhoneError(null);
-    const channels = available.filter((c) => chosen[c]);
-    if (!channels.length) {
-      setMessage({
-        tone: 'danger',
-        text: t('channels.phoneChooseOne', { whatsapp: 'no' }),
-      });
-      return;
-    }
     setBusy(true);
     try {
-      const r = await api<{ phone: string; via: PhoneChannel }>('/v1/channels/phone', {
-        body: { phone, channels, consent: true },
+      // TODO [LEGAL REVIEW] legal basis of the required number (contract performance, Art. 6(1)(b)
+      // GDPR); the purpose is shown next to the field (channels.phonePrivacy).
+      const r = await api<{ phone: string }>('/v1/channels/sms', {
+        body: { phone: input, consent: true },
       });
-      setSent(r);
+      setSent(r.phone);
       setCode('');
       if (!e) setMessage({ tone: 'info', text: t('channels.phoneResent') });
     } catch (err) {
-      if (err instanceof ApiError && err.body?.error === 'phone_invalid') {
-        setPhoneError(t('channels.waPhoneInvalid'));
-      } else setMessage({ tone: 'danger', text: errorText(err, t) });
+      const error = err instanceof ApiError ? err.body?.error : undefined;
+      if (error === 'phone_invalid') setPhoneError(t('channels.waPhoneInvalid'));
+      else if (error === 'phone_not_mobile') setPhoneError(t('channels.phoneNotMobile'));
+      else if (error === 'phone_country') setPhoneError(t('channels.phoneCountry'));
+      else if (error === 'channel_unavailable')
+        setMessage({ tone: 'warning', text: t('channels.phoneNoneAvailable') });
+      else setMessage({ tone: 'danger', text: errorText(err, t) });
     } finally {
       setBusy(false);
     }
@@ -80,12 +71,11 @@ export function PhoneSetup({
     setBusy(true);
     setMessage(null);
     try {
-      await api('/v1/channels/phone/verify', { body: { code: code.trim() } });
+      await api('/v1/channels/sms/verify', { body: { code: code.trim() } });
       setSent(null);
       setEditing(false);
-      setPhone('');
-      setChosen({ sms: false });
-      await onChange();
+      setInput('');
+      await onVerified();
       setMessage({ tone: 'success', text: t('channels.phoneLinkedNow') });
     } catch (err) {
       const body =
@@ -105,32 +95,11 @@ export function PhoneSetup({
     }
   }
 
-  async function act(channel: PhoneChannel, on: boolean) {
-    setBusy(true);
-    setMessage(null);
-    try {
-      if (on) {
-        setEditing(true);
-        return;
-      }
-      await api(`/v1/channels/${channel}`, { method: 'DELETE' });
-      await onChange();
-      setMessage({
-        tone: 'success',
-        text: t(on ? 'channels.phoneAdded' : 'channels.phoneRemoved', { channel: name(channel) }),
-      });
-    } catch (err) {
-      setMessage({ tone: 'danger', text: errorText(err, t) });
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const form = sent ? (
     <form onSubmit={verify} className="flex flex-col gap-4">
       {/* The number as typed (only in this browser), so a typo is easy to spot. */}
       <Notice tone="info">
-        {t('channels.phoneCodeSent', { phone: phone.trim() || sent.phone, via: sent.via })}{' '}
+        {t('channels.phoneCodeSent', { phone: input.trim() || sent })}{' '}
         {t('channels.phoneCheckNumber')}
       </Notice>
       <Field label={t('channels.waCode')} hint={t('channels.phoneCodeHint')}>
@@ -171,32 +140,24 @@ export function PhoneSetup({
             type="tel"
             autoComplete="tel"
             maxLength={30}
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
             aria-describedby={describedBy}
             aria-invalid={invalid || undefined}
             className="max-w-sm"
           />
         )}
       </Field>
-      <fieldset className="flex min-w-0 flex-col gap-3">
-        <legend className="mb-2 font-semibold">{t('channels.phoneHow')}</legend>
-        {available.map((c) => (
-          <Checkbox
-            key={c}
-            label={t(`channels.phoneVia_${c}` as MessageKey)}
-            checked={chosen[c]}
-            onChange={(e) => setChosen((s) => ({ ...s, [c]: e.target.checked }))}
-          />
-        ))}
-        <p className="text-sm text-muted">{t('channels.phoneConsentNote')}</p>
-      </fieldset>
+      {phone && <p className="text-sm text-muted">{t('channels.phoneChangeHint')}</p>}
+      {/* TODO [LEGAL REVIEW] privacy notice for the mobile number (purpose: escalation SMS). */}
+      <p className="text-sm text-muted">{t('channels.phonePrivacy')}</p>
       <Button type="submit" busy={busy} className="w-fit">
-        {t('channels.phoneSendCode', { via: 'sms' })}
+        {t('channels.phoneSendCode')}
       </Button>
     </form>
   );
 
+  const sms = usage?.sms;
   return (
     <section
       aria-labelledby="phone-title"
@@ -205,12 +166,12 @@ export function PhoneSetup({
       }
     >
       {embedded ? (
-        // Inside the set-up guide the step title says it already: no second card.
+        // Inside another card the surrounding title says it already: no second visible heading.
         <>
           <H id="phone-title" className="sr-only">
-            {t('channels.phoneTitle')}
+            {t('channels.phoneMandatoryTitle')}
           </H>
-          <p className="text-muted">{t('channels.phoneIntro')}</p>
+          <p className="text-muted">{t('channels.phoneRequiredIntro')}</p>
         </>
       ) : (
         <div className="flex min-w-0 items-start gap-3">
@@ -219,61 +180,47 @@ export function PhoneSetup({
           </span>
           <div className="min-w-0">
             <H id="phone-title" className="text-xl font-bold tracking-tight">
-              {t('channels.phoneTitle')}
+              {t('channels.phoneMandatoryTitle')}
             </H>
-            <p className="mt-1 text-muted">{t('channels.phoneIntro')}</p>
+            <p className="mt-1 text-muted">{t('channels.phonePurpose')}</p>
           </div>
         </div>
       )}
-      <div className={embedded ? 'mt-4 flex flex-col gap-4' : 'mt-5 flex flex-col gap-4'}>
-        {available.length === 0 && !number ? (
-          <p className="text-muted">{t('channels.phoneNoneAvailable')}</p>
-        ) : number && !editing ? (
+      <div className="mt-4 flex flex-col gap-4">
+        {phone && !editing ? (
           <>
-            <p className="text-lg font-semibold">{t('channels.phoneYours', { phone: number })}</p>
-            <ul className="flex flex-col divide-y divide-border rounded-xl border border-border">
-              {CHANNELS.filter((c) => linked[c] || overview.available[c]).map((c) => {
-                const used = usage?.[c];
-                return (
-                  <li
-                    key={c}
-                    className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-                  >
-                    <span className="flex min-w-0 flex-col">
-                      <span className="flex items-center gap-2 font-semibold">
-                        {name(c)}
-                        <Badge tone={linked[c] ? 'success' : 'info'}>
-                          {linked[c] ? t('channels.phoneOn') : t('channels.phoneOff')}
-                        </Badge>
-                      </span>
-                      {linked[c] && used && used.limit > 0 && (
-                        <span className="text-sm text-muted">
-                          {t('channels.phoneUsage', { used: used.used, limit: used.limit })}
-                        </span>
-                      )}
-                    </span>
-                    {linked[c] ? (
-                      <Button variant="ghost" onClick={() => act(c, false)} busy={busy}>
-                        {t('channels.phoneRemove', { channel: name(c) })}
-                      </Button>
-                    ) : (
-                      <Button variant="secondary" onClick={() => act(c, true)} busy={busy}>
-                        {t('channels.phoneAdd', { channel: name(c) })}
-                      </Button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-            <Button variant="ghost" className="w-fit" onClick={() => setEditing(true)}>
-              {t('channels.phoneChange')}
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-lg font-semibold wrap-anywhere">
+                {t('channels.phoneYours', { phone })}
+              </p>
+              <Badge tone="success">{t('channels.phoneVerified')}</Badge>
+            </div>
+            {sms && sms.limit > 0 && (
+              <p className="text-sm text-muted">
+                {t('channels.phoneUsage', { used: sms.used, limit: sms.limit })}
+              </p>
+            )}
+            {sms?.capReached && (
+              <Notice tone="warning">
+                {t('channels.smsCapReached', { used: sms.used, limit: sms.limit })}
+              </Notice>
+            )}
+            <Button variant="secondary" className="w-fit" onClick={() => setEditing(true)}>
+              {t('channels.phoneChangeNumber')}
             </Button>
           </>
         ) : (
           <>
             {form}
-            {number && (
-              <Button variant="ghost" className="w-fit" onClick={() => setEditing(false)}>
+            {phone && (
+              <Button
+                variant="ghost"
+                className="w-fit"
+                onClick={() => {
+                  setEditing(false);
+                  setSent(null);
+                }}
+              >
                 {t('common.cancel')}
               </Button>
             )}

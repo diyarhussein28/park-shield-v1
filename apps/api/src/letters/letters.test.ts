@@ -2,6 +2,7 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import jsQR from 'jsqr';
 import sharp from 'sharp';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { PLAN_FEATURE_COUNT } from '@parkshield/shared';
 import { buildOpsApp } from '../apps';
 import { loadEnv, type Env } from '../config/env';
 import type { FieldCrypto } from '../core/crypto';
@@ -117,7 +118,7 @@ describe('trigger', () => {
     expect(await drain()).toEqual(['exists']);
     const rows = await lettersOf(id);
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ version: 1, status: 'new', plan: 'plus', created_by: null });
+    expect(rows[0]).toMatchObject({ version: 1, status: 'new', plan: 'standard', created_by: null });
   });
 
   it('vehicle first, then the payment: the payment creates the letter', async () => {
@@ -146,6 +147,8 @@ describe('trigger', () => {
     const id = await userId('kunde@example.de');
     await addVehicle(s);
     await drain();
+    // One vehicle per plan (2026-11-21); ops can raise `limits.vehicles`.
+    await setSetting(h, 'limits.vehicles', 2);
     await addVehicle(s, 'Der Rote', 'K-CD 5678');
     expect(await drain()).toEqual([]);
     const admin = await staffAs('admin@parkshield.de', ['admin']);
@@ -280,26 +283,19 @@ describe('snapshot and content', () => {
     expect(info.Kundennummer).toBe(user.customer_no);
     expect(info.Vertragsnummer).toBe(sub.contract_no);
     expect(info['E-Mail']).toBe('kunde@example.de');
-    expect(info.Tarif).toBe('ParkShield Plus');
-    expect(snap.benefits).toEqual(planBenefits('plus'));
-    expect(c.blocks).toContainEqual({ kind: 'bullets', items: planBenefits('plus') });
+    expect(info.Tarif).toBe('ParkShield');
+    expect(snap.benefits).toEqual(planBenefits('standard'));
+    expect(c.blocks).toContainEqual({ kind: 'bullets', items: planBenefits('standard') });
     expect(c.greeting).toBe('Guten Tag Erika Mustermann,');
   });
 
-  it('plan benefits come from the pricing-page catalog for every plan', () => {
+  it('plan benefits come from the pricing-page catalog of the single plan', () => {
     const de = createTranslator('de');
-    expect(planBenefits('plus')).toEqual(
-      [1, 2, 3, 4, 5, 6, 7].map((i) => de(`landing.plusF${i}` as never)),
+    expect(planBenefits('standard')).toEqual(
+      Array.from({ length: PLAN_FEATURE_COUNT }, (_, i) => de(`landing.planF${i + 1}` as never)),
     );
-    expect(planBenefits('premium')).toEqual(
-      [1, 2, 3, 4, 5, 6].map((i) => de(`landing.premiumF${i}` as never)),
-    );
-    // Owner decision 2026-11-20: alert photos are part of both plans.
-    expect(planBenefits('plus')).toContain('Fotos bei Warnungen');
-    expect(planBenefits('premium')).toContain('Fotos bei Warnungen');
-    for (const line of [...planBenefits('plus'), ...planBenefits('premium')]) {
-      expect(line).not.toMatch(/^landing\./);
-    }
+    expect(planBenefits('standard')).toHaveLength(6);
+    for (const line of planBenefits('standard')) expect(line).not.toMatch(/^landing\./);
   });
 });
 
@@ -321,11 +317,11 @@ const SNAPSHOT: LetterSnapshot = {
   },
   contract: {
     contractNo: 'PS-7K3M9QX2',
-    plan: 'plus',
-    planName: 'ParkShield Plus',
+    plan: 'standard',
+    planName: 'ParkShield',
     startedAt: '2026-11-17T09:00:00.000Z',
-    priceCents: 1000,
-    renewalMode: 'monthly_after_first_term',
+    priceCents: 2000,
+    renewalMode: 'annual',
   },
   vehicle: { plate: 'K-AB 1234', description: 'VW Golf, Blau' },
   benefits: ['Bis zu 2 Fahrzeuge'],
@@ -459,6 +455,7 @@ describe('QR export', () => {
     expect(svg.body).not.toContain('K-AB');
     expect(svg.headers['content-disposition']).not.toContain('K-AB');
 
+    await setSetting(h, 'limits.vehicles', 2);
     await addVehicle(s, 'Der Rote', 'K-CD 5678');
     const both = await get(print, `/ops/v1/customers/${id}/qr?format=pdf`);
     expect(both.headers['content-type']).toBe('application/zip');
@@ -562,7 +559,7 @@ describe('back office access', () => {
     const admin = await staffAs('admin@parkshield.de', ['admin']);
     const list = (await get(admin, '/ops/v1/welcome-letters?status=new')).json().letters;
     expect(list).toHaveLength(2);
-    expect(list[0]).toMatchObject({ name: 'Erika Mustermann', plan: 'plus', status: 'new' });
+    expect(list[0]).toMatchObject({ name: 'Erika Mustermann', plan: 'standard', status: 'new' });
     expect(list[0].customerNo).toMatch(/^PS-/);
     const ids = list.map((l: { id: string }) => l.id);
     const pdf = await post(admin, '/ops/v1/welcome-letters/batch.pdf', { ids });

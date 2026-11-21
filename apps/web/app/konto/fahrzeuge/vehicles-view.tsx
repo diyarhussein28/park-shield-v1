@@ -1,13 +1,13 @@
 'use client';
 
-import { Button, Field, Input, Notice, useI18n } from '@parkshield/ui';
+import { PLAN_LIMIT_DEFAULTS } from '@parkshield/shared';
+import { Button, Field, Input, Notice, Text, useI18n } from '@parkshield/ui';
 import { useState, type FormEvent } from 'react';
 import { KontoShell, Section } from '@/components/konto-shell';
 import { api, ApiError, errorText } from '@/lib/api-client';
 import type { Vehicle } from '@/lib/api-server';
+import { NoActiveCode } from '../no-active-code';
 import { QrCard } from '../qr-card';
-
-const PLAN_LABEL: Record<string, string> = { plus: 'Plus', premium: 'Premium' };
 
 export function VehicleForm({
   initial,
@@ -89,7 +89,7 @@ export function VehicleForm({
   );
 }
 
-/** Adds a vehicle (its QR code is issued in the same transaction) and turns the plan limit into text. */
+/** Adds a vehicle (its QR code is issued in the same transaction) and turns the vehicle limit into text. */
 export function useAddVehicle(onAdded: (v: Vehicle) => void) {
   const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
@@ -100,13 +100,8 @@ export function useAddVehicle(onAdded: (v: Vehicle) => void) {
       onAdded(await api<Vehicle>('/v1/vehicles', { body: v }));
     } catch (err) {
       if (err instanceof ApiError && err.body?.error === 'vehicle_limit') {
-        const body = err.body as { limit: number; plan: string };
-        setError(
-          t('vehicles.limitReached', {
-            limit: body.limit,
-            plan: PLAN_LABEL[body.plan] ?? body.plan,
-          }),
-        );
+        const body = err.body as { limit: number };
+        setError(t('vehicles.limitReached', { limit: body.limit }));
       } else {
         setError(errorText(err, t));
       }
@@ -125,8 +120,22 @@ export function VehiclesView({ initial, subscribed }: { initial: Vehicle[]; subs
     setFormKey((k) => k + 1);
   });
 
+  // One vehicle per account (setting `limits.vehicles`, owner decision 2026-11-21): once it is there,
+  // no add form and no upgrade prompt, just a plain note.
+  const limit = PLAN_LIMIT_DEFAULTS.vehicles;
+  const full = vehicles.length >= limit;
+
   return (
     <KontoShell title={t('portal.vehiclesTitle')} intro={t('vehicles.intro')}>
+      {vehicles
+        .filter((v) => !v.decal)
+        .map((v) => (
+          <NoActiveCode
+            key={v.id}
+            vehicle={v}
+            onCreated={(nv) => setVehicles((list) => list.map((x) => (x.id === nv.id ? nv : x)))}
+          />
+        ))}
       {vehicles.length > 0 && (
         <ul className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
           {vehicles.map((v) => (
@@ -137,19 +146,23 @@ export function VehiclesView({ initial, subscribed }: { initial: Vehicle[]; subs
         </ul>
       )}
 
-      <Section
-        title={t('vehicles.add')}
-        icon="plus"
-        intro={subscribed ? t('portal.addIntro') : undefined}
-        className={vehicles.length === 0 ? 'border-2 border-primary' : undefined}
-      >
-        {subscribed ? (
-          <VehicleForm key={formKey} submitLabel={t('vehicles.add')} onSubmit={add} />
-        ) : (
-          <Notice tone="info">{t('vehicles.noSubscription')}</Notice>
-        )}
-        {error && <Notice tone="warning">{error}</Notice>}
-      </Section>
+      {full ? (
+        <Text muted>{t('vehicles.limitReached', { limit })}</Text>
+      ) : (
+        <Section
+          title={t('vehicles.add')}
+          icon="plus"
+          intro={subscribed ? t('portal.addIntro') : undefined}
+          className={vehicles.length === 0 ? 'border-2 border-primary' : undefined}
+        >
+          {subscribed ? (
+            <VehicleForm key={formKey} submitLabel={t('vehicles.add')} onSubmit={add} />
+          ) : (
+            <Notice tone="info">{t('vehicles.noSubscription')}</Notice>
+          )}
+          {error && <Notice tone="warning">{error}</Notice>}
+        </Section>
+      )}
     </KontoShell>
   );
 }

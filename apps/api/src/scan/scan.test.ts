@@ -6,9 +6,10 @@ import { CRYPTO } from '../core/tokens';
 import { DispatchService } from '../notifications/dispatch.service';
 import { DEV_CAPTCHA_SOLUTION } from '../providers/captcha';
 import {
+  appPushes,
   createHarness,
-  lastMail,
   mailbox,
+  registerAppDevice,
   resetState,
   subscribe,
   type Harness,
@@ -104,7 +105,7 @@ describe('scanner page data (US-14, SC-07)', () => {
     const unknown = await h.app.inject({ method: 'GET', url: '/v1/scan/ZZZZZZZZZZ' });
     await h.app.inject({
       method: 'POST',
-      url: `/v1/vehicles/${v.id}/tokens`,
+      url: `/v1/vehicles/${v.id}/tokens/revoke`,
       headers: s.headers,
       payload: { confirm: true, reason: 'leaked' },
     });
@@ -158,6 +159,7 @@ describe('sending an alert (US-14, US-15, US-16)', () => {
 
   it('creates the alert, queues dispatch, and only the status token sees its status', async () => {
     const { code } = await vehicleWithCode();
+    await registerAppDevice(h, 'owner@example.de');
     const res = await send(code, { type: 'blocking' });
     expect(res.statusCode).toBe(201);
     expect(res.headers['set-cookie']).toBeUndefined();
@@ -189,12 +191,14 @@ describe('sending an alert (US-14, US-15, US-16)', () => {
     const after = (await status(alertId, statusToken)).json();
     expect(after.status).toBe('delivered');
     expect(after.deliveredAt).not.toBeNull();
-    const mail = await lastMail(h, 'alert_received');
-    expect(mail?.to).toBe('owner@example.de');
-    expect(mail?.subject).toBe('Fahrzeug versperrt Ausfahrt: „Der Blaue“');
+    // App push only (2026-11-21): no e-mail for an alert.
+    expect((await appPushes(h)).map((p) => p.body.message.data)).toEqual([
+      { alertId, kind: 'alert' },
+    ]);
 
     await h.app.get(DispatchService).dispatch(alertId); // replay
-    expect((await mailbox(h)).filter((m) => m.tag === 'alert_received')).toHaveLength(1);
+    expect(await appPushes(h)).toHaveLength(1);
+    expect((await mailbox(h)).filter((m) => m.tag.startsWith('alert_'))).toHaveLength(0);
   });
 
   it('uses one daily scanner ref across vehicles but a per-vehicle block ref', async () => {
@@ -208,13 +212,15 @@ describe('sending an alert (US-14, US-15, US-16)', () => {
   });
 
   it('delivers an allowed custom message to the owner', async () => {
-    const { code } = await vehicleWithCode();
+    const { s, code } = await vehicleWithCode();
     expect((await send(code, { type: 'custom' })).json()).toEqual({ error: 'message_required' });
     const res = await send(code, { type: 'custom', message: 'Ihr Kofferraum steht offen' });
     await h.app.get(DispatchService).dispatch(res.json().alertId);
-    expect((await lastMail(h, 'alert_received'))?.text).toContain(
-      'Nachricht: „Ihr Kofferraum steht offen“',
-    );
+    // The owner reads it in the app or the portal (never in a push, never by e-mail).
+    const list = (
+      await h.app.inject({ method: 'GET', url: '/v1/alerts', headers: s.headers })
+    ).json();
+    expect(list.alerts[0]).toMatchObject({ message: 'Ihr Kofferraum steht offen' });
     const row = await h.db
       .selectFrom('alerts')
       .select('custom_message_enc')
@@ -307,6 +313,7 @@ describe('sending an alert (US-14, US-15, US-16)', () => {
 describe('decal test and code replacement (US-12, US-13)', () => {
   it('the next scan in the test window is a test that activates the decal', async () => {
     const { s, v, code } = await vehicleWithCode();
+    await registerAppDevice(h, 'owner@example.de');
     const open = await h.app.inject({
       method: 'POST',
       url: `/v1/vehicles/${v.id}/test-window`,
@@ -323,7 +330,9 @@ describe('decal test and code replacement (US-12, US-13)', () => {
     expect(token.last_test_at).toBeInstanceOf(Date);
     expect(token.activated_at).toBeInstanceOf(Date);
     await h.app.get(DispatchService).dispatch(alertId);
-    expect((await lastMail(h, 'alert_test'))?.subject).toBe('Test erfolgreich: „Der Blaue“');
+    const push = (await appPushes(h))[0]!.body.message;
+    expect(push.data).toEqual({ alertId, kind: 'test' });
+    expect(push.notification.body).toBe('Testwarnung angekommen. So erreichen Sie Warnungen.');
 
     expect((await h.app.inject({ method: 'GET', url: `/v1/scan/${code}` })).json().testMode).toBe(
       false,
@@ -340,7 +349,7 @@ describe('decal test and code replacement (US-12, US-13)', () => {
     ).toBe(false);
   });
 
-  it('revokes a leaked code after explicit confirmation and keeps the design', async () => {
+  it('„Sperren“ revokes the code after explicit confirmation and creates no new one', async () => {
     const { s, v, code } = await vehicleWithCode();
     await h.app.inject({
       method: 'PUT',
@@ -348,25 +357,62 @@ describe('decal test and code replacement (US-12, US-13)', () => {
       headers: s.headers,
       payload: { template: 'night', cta: 'Licht an? Bitte scannen' },
     });
-    const noConfirm = await h.app.inject({
-      method: 'POST',
-      url: `/v1/vehicles/${v.id}/tokens`,
+    const revoke = (payload: Record<string, unknown>) =>
+      h.app.inject({
+        method: 'POST',
+        url: `/v1/vehicles/${v.id}/tokens/revoke`,
+        headers: s.headers,
+        payload,
+      });
+    expect((await revoke({ reason: 'leaked' })).statusCode).toBe(400);
+    const res = await revoke({ confirm: true, reason: 'leaked' });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().decal).toBeNull();
+    // The old code is inactive for scanners, and there is no other code.
+    const scan = await h.app.inject({ method: 'GET', url: `/v1/scan/${code}` });
+    expect(scan.statusCode).toBe(404);
+    expect(scan.json()).toEqual({ error: 'inactive' });
+    expect(
+      await h.db.selectFrom('qr_tokens').select('id').where('status', '<>', 'revoked').execute(),
+    ).toHaveLength(0);
+    expect(
+      (await h.app.inject({ method: 'GET', url: `/v1/vehicles/${v.id}`, headers: s.headers })).json()
+        .decal,
+    ).toBeNull();
+    // Nothing left to block.
+    expect((await revoke({ confirm: true })).statusCode).toBe(409);
+  });
+
+  it('„Neuen Code erstellen“ is free, keeps the design and refuses while a code is active', async () => {
+    const { s, v, code } = await vehicleWithCode();
+    await h.app.inject({
+      method: 'PUT',
+      url: `/v1/vehicles/${v.id}/decal`,
       headers: s.headers,
-      payload: { reason: 'leaked' },
+      payload: { template: 'night', cta: 'Licht an? Bitte scannen' },
     });
-    expect(noConfirm.statusCode).toBe(400);
-    const res = await h.app.inject({
+    const create = () =>
+      h.app.inject({ method: 'POST', url: `/v1/vehicles/${v.id}/tokens`, headers: s.headers });
+    const busy = await create();
+    expect(busy.statusCode).toBe(409);
+    expect(busy.json()).toEqual({ error: 'code_active' });
+
+    await h.app.inject({
       method: 'POST',
-      url: `/v1/vehicles/${v.id}/tokens`,
+      url: `/v1/vehicles/${v.id}/tokens/revoke`,
       headers: s.headers,
       payload: { confirm: true, reason: 'leaked' },
     });
+    const res = await create();
+    expect(res.statusCode, res.body).toBeLessThan(300);
     expect(res.json().decal).toMatchObject({
       template: 'night',
       cta: 'Licht an? Bitte scannen',
       status: 'assigned',
     });
     expect(res.json().decal.codeHint).not.toBe(code.slice(-4));
+    // No payment, no order.
+    expect(await h.db.selectFrom('decal_orders').select('id').execute()).toHaveLength(0);
     expect((await h.app.inject({ method: 'GET', url: `/v1/scan/${code}` })).statusCode).toBe(404);
     const fresh = await h.db
       .selectFrom('qr_tokens')
@@ -377,58 +423,6 @@ describe('decal test and code replacement (US-12, US-13)', () => {
       (await h.app.inject({ method: 'GET', url: `/v1/scan/${crypto.decrypt(fresh.code_enc)}` }))
         .statusCode,
     ).toBe(200);
-  });
-
-  it('sells a €5.90 replacement decal and prints it only after payment', async () => {
-    const { s, v } = await vehicleWithCode();
-    const address = {
-      name: 'Jonas',
-      line1: 'Domstraße 1',
-      postalCode: '50667',
-      city: 'Köln',
-      country: 'DE',
-    };
-    const res = await h.app.inject({
-      method: 'POST',
-      url: `/v1/vehicles/${v.id}/order-replacement`,
-      headers: s.headers,
-      payload: { address },
-    });
-    expect(res.statusCode, res.body).toBe(200);
-    const sessionId = new URL(res.json().url).searchParams.get('session')!;
-    const session = (
-      await h.app.inject({ method: 'GET', url: `/v1/dev/payments/sessions/${sessionId}` })
-    ).json();
-    expect(session).toMatchObject({ title: 'ParkShield-Ersatzaufkleber', amountCents: 590 });
-    let order = await h.db
-      .selectFrom('decal_orders')
-      .select(['status', 'total_gross_cents'])
-      .executeTakeFirstOrThrow();
-    expect(order).toEqual({ status: 'pending_payment', total_gross_cents: 590 });
-    expect(
-      await h.db
-        .selectFrom('outbox_events')
-        .selectAll()
-        .where('topic', '=', 'print.submit')
-        .execute(),
-    ).toHaveLength(0);
-
-    await h.app.inject({
-      method: 'POST',
-      url: '/v1/dev/payments/complete',
-      payload: { sessionId },
-    });
-    order = await h.db
-      .selectFrom('decal_orders')
-      .select(['status', 'total_gross_cents'])
-      .executeTakeFirstOrThrow();
-    expect(order.status).toBe('paid');
-    expect(
-      await h.db
-        .selectFrom('outbox_events')
-        .selectAll()
-        .where('topic', '=', 'print.submit')
-        .execute(),
-    ).toHaveLength(1);
+    expect((await create()).statusCode).toBe(409);
   });
 });

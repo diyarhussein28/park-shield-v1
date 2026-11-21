@@ -31,20 +31,26 @@ export const unstable_settings = { anchor: '(tabs)' };
 
 /** Screens without a session: onboarding, sign-in, sign-up and the link landings. */
 const PUBLIC = new Set(['willkommen', 'anmelden', 'registrieren', 'app', 'auth']);
-/** Screens reachable while the profile is incomplete: the profile itself and alerts (never block those). */
+/**
+ * Screens reachable while the account is incomplete: the profile (with the phone step) itself, and
+ * alerts, their detail and chat (never block those, owner decisions 2026-11-20 and 2026-11-21).
+ */
 const PROFILE_FREE = new Set(['profil', 'alerts', 'chat', 'app', 'auth']);
 
 /**
  * Where a session-less or half-set-up user belongs, or null to stay. Pure, so the routing rules are
  * unit-tested: no session → onboarding (first launch) or sign-in; signed in without name and address
- * → the profile steps (new sign-up) or the blocking „Konto vervollständigen“ (older accounts);
- * signed in on a public screen → the Face ID offer (when the lock is off) or Start.
+ * or without a verified mobile number → the profile steps (new sign-up) or the blocking „Konto
+ * vervollständigen“ (older accounts); signed in on a public screen → the Face ID offer (when the lock
+ * is off) or Start.
  */
 export function gateTarget(s: {
   signedIn: boolean;
   first: string;
   onboarded: boolean;
   profileComplete: boolean | undefined;
+  /** A verified mobile number exists (required for the escalation SMS); undefined while loading. */
+  phoneVerified?: boolean | undefined;
   /** The account never had a contract: name and address are part of its sign-up. */
   newAccount?: boolean;
   lockEnabled: boolean | undefined;
@@ -54,11 +60,13 @@ export function gateTarget(s: {
     return s.onboarded ? '/anmelden' : '/willkommen';
   }
   if (s.profileComplete === undefined || s.lockEnabled === undefined) return null;
-  if (!s.profileComplete && !PROFILE_FREE.has(s.first)) {
+  // Only a known `false` blocks: a missing answer (offline, older server) never locks the owner out.
+  const ready = s.profileComplete && s.phoneVerified !== false;
+  if (!ready && !PROFILE_FREE.has(s.first)) {
     const signup = s.first === 'registrieren' || Boolean(s.newAccount);
     return { pathname: '/profil', params: { flow: signup ? 'signup' : 'complete' } };
   }
-  if (s.profileComplete && ['anmelden', 'registrieren', 'willkommen'].includes(s.first)) {
+  if (ready && ['anmelden', 'registrieren', 'willkommen'].includes(s.first)) {
     return s.lockEnabled ? ('/' as Href) : { pathname: '/app-sperre', params: { next: 'home' } };
   }
   return null;
@@ -67,7 +75,7 @@ export function gateTarget(s: {
 function Gate() {
   const c = useTheme();
   const { signedIn } = useAuth();
-  const { complete, newAccount } = useProfile();
+  const { complete, phoneVerified, newAccount } = useProfile();
   const lock = useLock();
   const segments = useSegments();
   const pathname = usePathname();
@@ -86,11 +94,12 @@ function Gate() {
       first: segments[0] ?? '',
       onboarded,
       profileComplete: complete,
+      phoneVerified,
       newAccount,
       lockEnabled: lock.enabled,
     });
     if (target) router.replace(target);
-  }, [signedIn, onboarded, complete, newAccount, lock.enabled, segments, router]);
+  }, [signedIn, onboarded, complete, phoneVerified, newAccount, lock.enabled, segments, router]);
 
   // Every start refreshes the device registration (last seen, token rotation, locale), and so does
   // every return to the foreground: notifications switched on in the iOS settings count at once.
@@ -144,8 +153,8 @@ function Gate() {
         <Stack.Screen name="chat/[id]" options={{ title: t('chatTitle') }} />
         <Stack.Screen name="fahrzeug/[id]" options={{ title: pt('portal.vehicles') }} />
         <Stack.Screen name="fahrzeug/design/[id]" options={{ title: t('designTitle') }} />
+        <Stack.Screen name="fahrzeug/drucken/[id]" options={{ title: t('printTitle') }} />
         <Stack.Screen name="benachrichtigungen" options={{ title: pt('channels.title') }} />
-        <Stack.Screen name="einstellungen" options={{ title: pt('portal.contacts') }} />
         <Stack.Screen name="zustellung" options={{ title: pt('deliveryHelp.title') }} />
         <Stack.Screen name="kuendigen" options={{ title: pt('common.footer.cancelContract') }} />
         <Stack.Screen name="widerrufen" options={{ title: pt('common.footer.withdrawContract') }} />

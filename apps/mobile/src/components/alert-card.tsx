@@ -8,7 +8,8 @@ import { Chip } from './ui';
 export function statusLabel(a: AlertListItem): string {
   if (a.acknowledged) return t('acknowledged');
   if (a.status === 'expired') return t('expired');
-  if (a.status === 'escalated') return t('escalated');
+  // The owner did not react for 30 minutes: the one SMS went out.
+  if (a.escalationStage === 'sms_sent') return t('escalated');
   if (a.seenAt) return t('seen');
   return t('open');
 }

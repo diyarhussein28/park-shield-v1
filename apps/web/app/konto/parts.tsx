@@ -11,16 +11,71 @@ import {
   Text,
   useI18n,
 } from '@parkshield/ui';
+import { PLAN_FEATURE_COUNT, PLAN_PRICE_CENTS } from '@parkshield/shared';
+import type { MessageKey } from '@parkshield/i18n';
 import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/browser';
 import Link from 'next/link';
 import { useEffect, useState, type FormEvent } from 'react';
+import { Icon } from '@/components/icons';
 import { Section } from '@/components/konto-shell';
+import { PhoneSetup } from '@/components/phone-setup';
 import { api, errorText } from '@/lib/api-client';
-import type { CreditNote, InvoiceSummary, Me, SubscriptionSummary } from '@/lib/api-server';
+import type {
+  CreditNote,
+  InvoiceSummary,
+  Me,
+  ProfileSummary,
+  SubscriptionSummary,
+} from '@/lib/api-server';
 import { usePendingClaim } from '@/lib/pending-claim';
 import { useBrowserValue } from '@/lib/use-browser-value';
 
-export const PLAN_LABEL = { plus: 'Plus', premium: 'Premium' } as const;
+/** Euro amount in the visitor's language, without cents for whole euros (20 €, €3). */
+export function useEuro() {
+  const { locale } = useI18n();
+  return (cents: number) =>
+    new Intl.NumberFormat(locale === 'en' ? 'en-IE' : 'de-DE', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    }).format(cents / 100);
+}
+
+/** The single plan's yearly price (setting `prices.plan_year_cents`; the default until it loaded). */
+export function usePlanPrice(): number {
+  const [cents, setCents] = useState(PLAN_PRICE_CENTS);
+  useEffect(() => {
+    let live = true;
+    void api<{ code: string; priceYearGrossCents: number }[]>('/v1/plans', { method: 'GET' })
+      .then((plans) => {
+        const p = plans.find((x) => x.code === 'standard');
+        if (live && p) setCents(p.priceYearGrossCents);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
+  return cents;
+}
+
+/** The plan's feature lines, the same keys as the pricing page and the welcome letter. */
+export function PlanFeatures() {
+  const { t } = useI18n();
+  return (
+    <ul className="flex flex-col gap-2">
+      {Array.from(
+        { length: PLAN_FEATURE_COUNT },
+        (_, i) => `landing.planF${i + 1}` as MessageKey,
+      ).map((k) => (
+        <li key={k} className="flex items-start gap-2">
+          <Icon name="check" className="mt-0.5 size-5 shrink-0 text-success-fg" />
+          <span>{t(k)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export async function openPaymentPortal() {
   const { url } = await api<{ url: string }>('/v1/billing/portal', { body: {} });
@@ -30,12 +85,14 @@ export async function openPaymentPortal() {
 /** Plan name, status, contract number and the renewal or end date. */
 export function SubscriptionInfo({ sub }: { sub: SubscriptionSummary }) {
   const { t } = useI18n();
+  const euro = useEuro();
+  const price = usePlanPrice();
   const end = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
   return (
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-lg font-semibold">
-          {t('account.planName', { plan: PLAN_LABEL[sub.plan] })}
+          {t('account.planLine', { price: euro(price) })}
         </span>
         <Badge tone={sub.status === 'active' ? 'success' : 'warning'}>
           {sub.status === 'active' ? t('account.statusActive') : t('account.statusPastDue')}
@@ -96,7 +153,7 @@ const EMPTY_PROFILE: ProfileValues = {
 /**
  * „Konto vervollständigen“ (docs/app-redesign.md §6/§7): name and postal address, required before the
  * first checkout (the API answers profile_incomplete otherwise). The same rules and texts as the app;
- * the mobile number stays optional and is set up under Benachrichtigungen.
+ * the verified mobile number is the next step (PhoneSetup, API `phone_required`).
  */
 export function ProfileForm({ onSaved }: { onSaved: () => void }) {
   const { t } = useI18n();
@@ -207,22 +264,30 @@ export function ProfileForm({ onSaved }: { onSaved: () => void }) {
   );
 }
 
-/** Checkout, after the profile: without name and address the profile form comes first. */
+/**
+ * Checkout, after the profile and the mobile number: without name and address the profile form comes
+ * first, then the verified mobile number (required for the escalation SMS; the API answers
+ * `profile_incomplete` / `phone_required` otherwise), then the order itself.
+ */
 export function CheckoutForm() {
-  const [complete, setComplete] = useState<boolean | null>(null);
+  const [profile, setProfile] = useState<ProfileSummary | null | 'unknown'>(null);
+  const [version, setVersion] = useState(0);
+  const load = () => setVersion((v) => v + 1);
   useEffect(() => {
     let live = true;
-    void api<{ complete: boolean }>('/v1/me/profile', { method: 'GET' })
-      .then((r) => live && setComplete(r.complete))
-      // The API still refuses the checkout without a profile, and the form then says why.
-      .catch(() => live && setComplete(true));
+    void api<ProfileSummary>('/v1/me/profile', { method: 'GET' })
+      .then((p) => live && setProfile(p))
+      // The API still refuses the checkout without profile or number, and the form then says why.
+      .catch(() => live && setProfile('unknown'));
     return () => {
       live = false;
     };
-  }, []);
-  if (complete === null) return null;
-  if (!complete) return <ProfileForm onSaved={() => setComplete(true)} />;
-  return <Checkout />;
+  }, [version]);
+  if (profile === null) return null;
+  if (profile !== 'unknown' && !profile.complete) return <ProfileForm onSaved={load} />;
+  if (profile !== 'unknown' && !profile.phoneVerified)
+    return <PhoneSetup phone={null} onVerified={load} headingLevel={3} embedded />;
+  return <Checkout phone={profile === 'unknown' ? null : profile.phone} />;
 }
 
 /**
@@ -231,8 +296,10 @@ export function CheckoutForm() {
  * and the button „Zahlungspflichtig bestellen“, disabled until the declaration is ticked.
  * After an ended subscription it first asks whether the old sticker is still on the car.
  */
-function Checkout() {
+function Checkout({ phone }: { phone: string | null }) {
   const { t, locale } = useI18n();
+  const euro = useEuro();
+  const price = euro(usePlanPrice());
   const pending = usePendingClaim();
   const [typed, setPromo] = useState<string | null>(null);
   // A partner decal brings its promo code along (AD-07); the person may still change it.
@@ -274,7 +341,7 @@ function Checkout() {
     setBusy(true);
     setError(null);
     const body = {
-      plan: 'plus',
+      plan: 'standard',
       immediateStart: true,
       immediateStartVersion: texts.immediateStart.version,
       termsVersion: texts.terms.version,
@@ -303,8 +370,16 @@ function Checkout() {
         <h3 id="checkout-summary" className="font-semibold">
           {t('checkout.summaryTitle')}
         </h3>
-        <p className="text-2xl font-bold">{t('checkout.priceLine')}</p>
+        <p className="text-2xl font-bold">{t('checkout.pricePlan', { price })}</p>
         <Text>{t('checkout.summaryTerm')}</Text>
+        <div className="mt-2">
+          <PlanFeatures />
+        </div>
+        {phone && (
+          <Text muted className="mt-2 wrap-anywhere">
+            {t('checkout.phoneStepDone', { phone })}
+          </Text>
+        )}
         <Text>
           <span className="font-semibold">{t('checkout.summaryRenewal')}:</span> {texts.renewalRule}
         </Text>
@@ -374,8 +449,9 @@ function Checkout() {
         </Link>
       </Text>
       {error && <Notice tone="danger">{error}</Notice>}
+      {/* TODO [LEGAL REVIEW] § 312j (3) BGB button label with the price. */}
       <Button type="submit" size="lg" busy={busy} disabled={!immediate} className="sm:w-fit">
-        {t('checkout.pay')}
+        {t('checkout.payPrice', { price })}
       </Button>
     </form>
   );
