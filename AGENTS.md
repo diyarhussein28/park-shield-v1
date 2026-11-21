@@ -86,12 +86,12 @@ logger), `security` (route registry and authorisation tests), `dev` (test-only h
 Public: `/`, `/business`, `/hilfe` (+ articles, contact form), `/impressum`, `/datenschutz`, `/agb`,
 `/widerruf`, `/barrierefreiheit`, `/sicherheit`, `/kuendigen` (cancel without login, §312k BGB).
 Flows: `/anmelden` (+ `/link`), `/aktivieren` (claim a pre-printed decal), `/antwort` (owner reply
-from e-mail), `/notfallkontakt` (contact consent), `/datenschutz-anfrage`,
+from e-mail), `/datenschutz-anfrage`,
 `/konto-loeschen-abbrechen`. Owner portal (all pages share `KontoShell` in
 `apps/web/components/konto-shell.tsx`: sidebar on desktop, collapsible menu on phones): `/konto`
 (overview: the vehicles' QR codes first, or the form that creates the first one; before payment the
 checkout), `/konto/fahrzeuge` (+ `[id]`, QR code with PDF and test at the top),
-`/konto/benachrichtigungen`, `/konto/notfallkontakte`, `/konto/verlauf`, `/konto/zustellung`,
+`/konto/benachrichtigungen`, `/konto/verlauf`, `/konto/zustellung`,
 `/konto/abo` (subscription, invoices, credit notes, e-mail summary, passkeys, cancel),
 `/konto/daten`. A decal's QR code is issued with its vehicle (`TokensService.issue`, stored in
 `qr_tokens` as hash + encrypted copy). Scanner: `/s/[code]`. Dev only: `/dev/postfach` (local inbox), `/dev/checkout`
@@ -227,7 +227,7 @@ Stripe account settings the code relies on (test mode and live, set once per acc
 SMS (NT-07) go through the same Twilio account: `TWILIO_SMS_FROM` is an alphanumeric sender ID (max.
 11 characters, one-way, no registration needed in Germany), a Twilio number or a Messaging Service SID
 (`MG…`). The only alert SMS is the escalation SMS (one per alert, after 30 min), one GSM-7 segment (≤ 160 characters) with the view link `/v/<token>`;
-each one counts against `limits.premium.sms_per_month` and costs `sms.cost_micros`. Status callbacks arrive
+each one counts against `sms.monthly_cap` and costs `sms.cost_micros`. Status callbacks arrive
 signed at `https://<domain>/v1/webhooks/twilio/sms` (locally only through a tunnel and
 `TWILIO_WEBHOOK_BASE_URL`).
 
@@ -315,7 +315,7 @@ Single API test file: `cd apps/api && npx vitest run src/scan`. Single E2E file:
   without metadata, one AES-256-GCM key per file wrapped with the data key, files in `ALERT_MEDIA_DIR`
   (outside web roots, **never backed up**). One view link `/v/<token>` (HMAC token, only its hash
   stored) in every channel, never an attachment. Deleted after 30 days by the retention job (key, file,
-  row) or at once by „Missbrauch melden“. Plans: setting `photos.plans`. Open items: LEGAL_REVIEW.md §5
+  row) or at once by „Missbrauch melden“. Part of the single plan (no plan setting any more). Open items: LEGAL_REVIEW.md §5
   and, for the multi-host Ansible topology, a storage the worker can reach.
 - **Scanner page `/s/[code]`** is a Next.js **route handler returning plain HTML + inline vanilla
   JS** (`apps/web/lib/scanner/*`), not React, to meet the 1.5 s / 90 KB budget on bad mobile
@@ -368,7 +368,8 @@ Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
   React Native out of the server Docker build). `npm --prefix apps/mobile test`, `… run typecheck`.
   Besides alerts, alert detail and chat, the app has **the whole customer portal**, screen for screen
   like `/konto/*` (overview with set-up guide, vehicles with QR code, design, orders, modes, Protected
-  Mode, new code; notifications with SMS number, channel order, quiet hours; trusted contacts; history
+  Mode, Sperren / new code, print options; notifications with push status, the verified number and
+  quiet hours; history
   with blocking; delivery help; plan with checkout, invoices, cancellation and withdrawal; data export
   and account deletion). It uses the same owner API with a bearer session and **the website's texts**:
   `packages/i18n` and `packages/shared` are shared as source (`metro.config.js`, tsconfig `paths`, Jest
@@ -378,15 +379,15 @@ Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
   only in test environments), Stripe returns to the website's bounce page `/app/zurueck`, which
   redirects into the app, and the app confirms the checkout at once. Passkeys are added on the website.
   Navigation (redesign 2026-11-20, `docs/app-redesign.md`): four tabs in `src/app/(tabs)` —
-  **Start** (`index`: open alerts first with „Ich komme“ on the card, the car's protection status, one
-  set-up step), **Warnungen** (`alerts`: list + 90-day history, open-alert badge), **Fahrzeuge**,
-  **Konto** (grouped list: plan → `/abo`, notifications, trusted contacts, „Ihre Angaben“, Face ID
+  **Start** (`index`, Stage 4 2026-11-21: greeting, protection status, the car with the on-device photo,
+  a decal preview with „Ansehen/Testen“ and „Design bearbeiten“; no alert cards), **Warnungen** (`alerts`: list + 90-day history, open-alert badge), **Fahrzeuge**,
+  **Konto** (grouped list: plan → `/abo`, notifications, „Ihre Angaben“, Face ID
   switch, delivery help, data, help, sign-out) — with the branded `BrandTabBar`; every other screen is
   pushed above the tabs. The routing rules are the pure `gateTarget()` in `src/app/_layout.tsx`: first
   launch → `/willkommen` (three onboarding scenes) → `/registrieren` (e-mail + 6-digit code) →
-  `/profil?flow=signup` (name, address, optional phone with SMS code) → `/app-sperre` (Face ID offer) →
-  `/tarif` (paywall) → `/erfolg` (success moments) → add the car; accounts without a profile get the
-  blocking `/profil?flow=complete` (alerts are never blocked). **Profile gate:** the API answers
+  `/profil?flow=signup` (name, address, **required** mobile number with SMS code) → `/app-sperre` (Face ID offer) →
+  `/tarif` (paywall) → `/erfolg` (success moments) → add the car; accounts without a profile or
+  without a verified number get the blocking `/profil?flow=complete` (alerts are never blocked). **Profile gate:** the API answers
   `profile_incomplete` (409) on checkout and renewal until `PUT /v1/me/profile` was done (app and
   website `/konto` show the form); `GET /v1/me/profile` also says `newAccount` (never had a contract).
   **App lock** (`src/lib/lock.tsx`, `expo-local-authentication`): opt-in under Konto, Face ID / Touch ID
@@ -430,8 +431,8 @@ Also:
 ## 9. Testing conventions
 
 - API tests are integration tests against real PostgreSQL and Valkey (`apps/api/src/test/harness.ts`:
-  `createHarness`, `resetState`, `mailbox`, `setSetting`, `addConfirmedContact`). Use the helpers
-  instead of raw inserts into `app_settings` / `emergency_contacts`.
+  `createHarness`, `resetState`, `mailbox`, `setSetting`, `verifyPhone`, `registerAppDevice`,
+  `escalationDue`, `runEscalation`). Use the helpers instead of raw inserts into `app_settings`.
 - `audit_logs` is append-only and **never reset between runs**: filter assertions by this run's
   actor or entity ids. Tests that stream the audit log must reset `audit_stream_state`.
 - E2E (`e2e/tests`): use the shared `sql()` helper (never a new pg client per call), `staffBrowser()`
