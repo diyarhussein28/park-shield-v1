@@ -175,6 +175,13 @@ export class HistoryService {
       .where('a.status', '<>', 'blocked')
       .executeTakeFirst();
     if (!a || a.is_test) throw new NotFoundException();
+    // Stage 3: blocking always ends the live chat at once and cancels the reminder and the SMS.
+    await this.chat.closeBlocked(a.id);
+    await this.db
+      .updateTable('alerts')
+      .set(stopEscalation('blocked'))
+      .where('id', '=', a.id)
+      .execute();
     return this.db.transaction().execute(async (trx) => {
       const existing = await trx
         .selectFrom('abuse_reports')

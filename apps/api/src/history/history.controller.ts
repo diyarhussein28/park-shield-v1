@@ -41,12 +41,16 @@ export class HistoryController {
 
   @Post('alerts/:id/report')
   @HttpCode(200)
-  report(
+  async report(
     @CurrentUser() user: AuthContext,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(Report)) body: z.infer<typeof Report>,
   ) {
-    return this.history.report(user.userId, id, body.reason, body.note);
+    const r = await this.history.report(user.userId, id, body.reason, body.note);
+    // The scanner's page shows „Der Chat wurde beendet.“ at once.
+    this.gateway.closed(id, 'blocked');
+    this.gateway.alertChanged(id);
+    return r;
   }
 
   /** „Absender blockieren“ (Stage 3): ends the chat, cancels the escalation, blocks the sender. */
