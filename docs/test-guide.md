@@ -27,11 +27,12 @@ What behaves differently on the test server (expected, not bugs):
 | Topic                    | On the test server                                                                 |
 | ------------------------ | ---------------------------------------------------------------------------------- |
 | Captcha                  | simulated („Sicherheitsprüfung: lokal simuliert“)                                  |
-| WhatsApp                 | switched off everywhere (`WHATSAPP_PROVIDER=off`)                                  |
-| Scanner phone check code | fake: the code appears in `/dev/postfach`, not as an SMS                           |
-| Alert photos             | on for Plus and Premium (production: Plus and Premium, after the legal review)     |
+| Owner's mobile number    | real: Twilio Lookup (mobile only) + Verify, the code arrives as a real SMS         |
+| Scanner phone check code | real Twilio Verify too (Protected Mode)                                            |
+| Alerts to the owner      | **app push only** (no alert e-mail); needs the app signed in on your phone         |
+| Alert photos             | on (production: after the legal review)                                            |
 | Wait between alerts      | 1 minute per vehicle (production: 15 minutes)                                      |
-| SMS                      | real and limited: Plus 5 per month. Each costs money; do not send dozens.          |
+| SMS                      | real, one per alert after 30 min without reaction, cap 20 / month. Costs money.    |
 | Printed decals           | no print partner: orders land as files on the server, staff mark them as shipped   |
 
 ---
@@ -45,12 +46,14 @@ What behaves differently on the test server (expected, not bugs):
       `contact@park-shield.de` (ask the owner) with your address as reply-to.
 - [ ] Legal pages open and show the company data: `/impressum`, `/datenschutz`, `/agb`,
       `/widerruf`, `/barrierefreiheit`, `/sicherheit`.
-- [ ] `/business`: join the waitlist → confirmation e-mail → link confirms (`/business/bestaetigen`).
 
 ## 2. Sign-up and sign-in
 
 - [ ] `/anmelden`: enter your e-mail → „Link senden“ → e-mail arrives within a minute.
-- [ ] The link signs you in. Open it a second time → it must no longer work (one-time link).
+- [ ] The link signs you in. `/konto` first asks for name, address and the **required** mobile
+      number: a landline is rejected („Festnetz- und Internetnummern können keine SMS empfangen“),
+      a mobile number gets a code by SMS; checkout stays locked until it is verified.
+- [ ] Sign out and open the same link again → it must no longer work (one-time link).
 - [ ] Sign out, sign in again. Ask for two links in a row: only the newest one works.
 - [ ] Later (after §3), in `/konto/abo`: „Passkey hinzufügen“, sign out and sign in with the
       passkey instead of the e-mail link.
@@ -59,9 +62,12 @@ What behaves differently on the test server (expected, not bugs):
 
 - [ ] `/konto` shows the checkout. Without ticking the withdrawal consent („Ich verlange
       ausdrücklich …“) ordering is not possible.
-- [ ] Tick it → „Zahlungspflichtig bestellen“ → Stripe checkout (test mode). First try the
+- [ ] The home page and `/konto` show **one** plan „ParkShield“, 20 € / Jahr incl. MwSt., one
+      vehicle; no Plus or Premium anywhere.
+- [ ] Tick it → „Zahlungspflichtig bestellen – 20 € / Jahr“ → Stripe checkout (test mode). First try the
       declined card: you get an error and no subscription.
-- [ ] Pay with `4242 4242 4242 4242` → back on `/konto`, the subscription is active.
+- [ ] Pay with `4242 4242 4242 4242` → back on `/konto`, the subscription is active (yearly,
+      365 days); `/konto/abo` shows the contract card and „Vertrag widerrufen“ in the first 14 days.
 - [ ] Order confirmation and invoice e-mails arrive; `/konto/abo` lists the invoice (PDF shows 19 %
       VAT included).
 - [ ] Optional: create a promo code in the back office (§12, „Gutscheine“) and use it as
@@ -69,29 +75,29 @@ What behaves differently on the test server (expected, not bugs):
 
 ## 4. Vehicle and decal
 
-- [ ] `/konto` or `/konto/fahrzeuge`: „Fahrzeug hinzufügen“ (nickname, plate, colour).
-- [ ] The vehicle shows its QR code. Download the PDF and check it prints cleanly (A4, sharp code).
-- [ ] Open „Aufkleber und Details“ → „Aufkleber testen“ → a test alert reaches **all** your
-      channels („Das ist Ihre Testwarnung …“). Reply from the mail; the reply shows up.
-- [ ] Edit and delete a second vehicle; its QR code must stop working (scan shows an error page).
+- [ ] `/konto` or `/konto/fahrzeuge`: „Fahrzeug hinzufügen“ (nickname, plate, colour). After the
+      first vehicle the add form is gone (one vehicle per plan).
+- [ ] The vehicle shows its QR code. Self-print is free: PDF 80 × 80 mm with cut marks, PNG and SVG
+      download.
+- [ ] Open „Aufkleber und Details“ → „Aufkleber testen“ → a test alert reaches the app by push
+      („Das ist Ihre Testwarnung …“); no SMS for tests, a reminder push after 10 minutes.
+- [ ] **Sperren:** the dialog lists the four facts; after confirming there is no active code, a
+      warning shows, and the old code scans as inactive. „Neuen Code erstellen“ (free) brings a new
+      code with the same design.
+- [ ] **Print:** the first shipped decal is „kostenlos (Willkommensdruck)“; a second one costs
+      3 € (Stripe one-time payment, test card). The order appears in the back office (§12).
 
 ## 5. Delivery channels and settings
 
-- [ ] `/konto/zustellung`: e-mail is there. Add your mobile number for SMS („Handynummer
-      bestätigen“, code by SMS). Allow push in the browser and on the phone.
-- [ ] `/konto/benachrichtigungen`: change the channel order (e.g. SMS first). Normal alerts go to
-      the first channel that works; urgent alerts and tests go to all.
+- [ ] `/konto/benachrichtigungen`: push status of the app, the verified mobile number (it can be
+      changed, not removed) and quiet hours. Install the app on your phone and sign in (alerts come
+      only there).
 - [ ] Add a quiet time („Ruhezeit“) covering now → a normal alert stays silent and appears in the
-      history as „Stumm wegen Ruhezeit“; an urgent one (towing) still comes through. Remove it.
+      history as „Stumm wegen Ruhezeit“; an urgent one (towing) still pushes, but **no SMS** in
+      quiet hours. Remove it.
 - [ ] Vehicle modes (if shown for your vehicle): try one and check its effect on the next alert.
 
-## 6. Emergency contact
-
-- [ ] `/konto/notfallkontakte`: add a contact with **a second e-mail address of your own**.
-- [ ] That address gets a consent e-mail → open it → accept on `/notfallkontakt`. Until then the
-      contact shows as not confirmed and receives nothing.
-- [ ] Later (§7): when you do not react to an alert, it escalates to this contact after the
-      configured delay (setting in the back office).
+## 6. (removed: trusted contacts were dropped on 2026-11-21)
 
 ## 7. The scanner (core flow)
 
@@ -99,30 +105,35 @@ Use the **phone** as the stranger, **not signed in**.
 
 - [ ] Open the vehicle's QR code with the phone camera (or the „Scan-Seite auf diesem Gerät
       öffnen“ link) → `/s/<code>` loads quickly, shows no name, number or plate of the owner.
-- [ ] Pick a problem (e.g. lights on) and send → the owner gets it on the first channel.
-- [ ] Owner replies („Ich komme“, „In ca. 30 Min“, „Bin nicht in der Nähe“) from the mail, SMS
-      link or push → the scanner page updates **live** without reloading.
+- [ ] The page shows „Nur echt auf park-shield.de“.
+- [ ] Pick a problem (e.g. lights on) and send → the owner gets an app push (generic text, no
+      details); no e-mail.
+- [ ] Owner replies („Ich komme“, „In ca. 30 Min“, „Bin nicht in der Nähe“) in the app → the
+      scanner page updates **live** without reloading.
 - [ ] Send another alert at once → blocked (1 minute wait on the test server). After a minute it
       works again.
-- [ ] Urgent problem (towing) → all channels at once.
+- [ ] Urgent problem (towing) → app push, also in quiet hours.
 - [ ] Free text: a normal sentence goes through; insults or a phone number are blocked or held for
       review (see §12 „Missbrauch“ → review queue).
-- [ ] Do **not** react to one alert → after the delay the emergency contact (§6) is notified, and
-      the owner gets a follow-up.
+- [ ] Do **not** react to one alert → after 10 minutes a reminder push, after 30 minutes **one**
+      SMS with a view link (`/v/…`). „Ich komme“, any reply, opening the chat or „Erledigt“ stop it;
+      merely opening the alert („gesehen“) does not.
+- [ ] **Absender blockieren** (app alert screen or `/konto/verlauf`) → the chat ends at once, the
+      scanner page shows „Der Chat wurde beendet.“, no reminder or SMS follows.
 - [ ] Owner: „Missbrauch melden“ on an alert → the report shows up in the back office.
 - [ ] **Schutzmodus (Protected Mode):** switch it on in the account → scanner contents from unknown
       senders are hidden; the scanner may be asked to confirm a mobile number („Handynummer
-      bestätigen“, code in `/dev/postfach`). Switch it off again.
+      bestätigen“, real SMS code). Switch it off again.
 - [ ] **Photo:** on the scanner page add a photo („Foto hinzufügen“, camera or gallery) and send →
       the owner's notification has a link to view it (`/v/…`); the photos also show in the app's
       alert screen. „Missbrauch melden“ there (or on the view page) deletes them at once; otherwise
-      they are deleted 30 days after the alert. Works for Plus and Premium.
+      they are deleted 30 days after the alert.
 - [ ] Phone with a slow network (DevTools „Slow 4G“): the scanner page is still usable.
 
 ## 8. History
 
 - [ ] `/konto/verlauf` lists every alert with type, time, channel and reply, including the muted
-      ones and the test alert.
+      ones and the test alert; blocked senders are marked.
 
 ## 9. Pre-printed decal (activation)
 
@@ -161,7 +172,7 @@ settings and kill switches apply to the whole test server.
 - [ ] **Missbrauch:** the report from §7; review queue with the held free text (approve / block);
       word lists (add a test word, check it blocks, remove it); phone bans.
 - [ ] **Datenschutz:** the request from §10, deadlines, work it through.
-- [ ] **Bestellungen:** a decal order (from „Aufkleber bestellen“ in the account) → mark in
+- [ ] **Bestellungen:** a decal order (the welcome print or the 3 € print from §4) → mark in
       production → shipped with a tracking number; the customer gets the e-mail.
 - [ ] **Gutscheine:** create a code, use it once (§3), deactivate it.
 - [ ] **Partner**, **Zammad** (shows e-mail mode for now): open and read.
