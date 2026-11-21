@@ -271,7 +271,7 @@ export async function completeProfile(page: Page) {
  * The mobile number is required before the checkout (2026-11-21): a unique German mobile number per
  * call (tests run in parallel), the 6-digit code from the local SMS inbox (fake Twilio Verify).
  */
-export async function verifyPhone(page: Page) {
+export async function verifyPhone(page: Page, { checkout = true }: { checkout?: boolean } = {}) {
   const local = `2${String(Date.now()).slice(-6)}${Math.floor(Math.random() * 10)}`;
   const e164 = `+49151${local}`;
   const field = page.getByLabel('Handynummer', { exact: true });
@@ -292,7 +292,122 @@ export async function verifyPhone(page: Page) {
     .not.toBe('');
   await page.getByLabel('6-stelliger Code').fill(code);
   await page.getByRole('button', { name: 'Bestätigen' }).click();
+  if (!checkout) {
+    await expect(page.getByText(`Ihre Nummer: +49 ••• ${e164.slice(-4)}`)).toBeVisible({
+      timeout: 15_000,
+    });
+    return;
+  }
   await expect(page.getByRole('button', { name: /Zahlungspflichtig bestellen/ })).toBeVisible({
     timeout: 15_000,
   });
+}
+
+export interface AppPush {
+  body: {
+    message: {
+      token: string;
+      notification: { title: string; body: string };
+      data: Record<string, string>;
+    };
+  };
+  sentAt: string;
+}
+
+/**
+ * The owner's phone with the app (2026-11-21: alerts reach the owner by app push only): an app session
+ * and a registered device with a unique FCM token, whose pushes land in the local inbox
+ * (/v1/dev/app-push) while Firebase is faked.
+ */
+export async function appDevice(request: APIRequestContext, email: string) {
+  const app = await appSession(request, email);
+  const fcmToken = `e2e-${randomBytes(24).toString('base64url')}`;
+  const r = await request.post(`${API_URL}/v1/app/devices/register`, {
+    headers: app.headers,
+    data: { fcmToken, platform: 'android', locale: 'de' },
+  });
+  expect(r.status()).toBe(200);
+  return { ...app, fcmToken };
+}
+
+/** Every push the fake FCM stored for one device token (newest first). */
+export async function appPushesTo(request: APIRequestContext, fcmToken: string) {
+  const { messages } = (await (await request.get(`${API_URL}/v1/dev/app-push`)).json()) as {
+    messages: AppPush[];
+  };
+  return messages.filter((m) => m.body.message.token === fcmToken);
+}
+
+/** Waits for the push of one kind (alert, test, reminder, chat, …) for an alert on one device. */
+export async function waitForAppPush(
+  request: APIRequestContext,
+  fcmToken: string,
+  kind: string,
+  alertId?: string,
+): Promise<AppPush> {
+  let found: AppPush | undefined;
+  await expect
+    .poll(
+      async () => {
+        found = (await appPushesTo(request, fcmToken)).find(
+          (m) =>
+            m.body.message.data.kind === kind &&
+            (!alertId || m.body.message.data.alertId === alertId),
+        );
+        return Boolean(found);
+      },
+      { timeout: 20_000, message: `app push "${kind}"` },
+    )
+    .toBe(true);
+  return found!;
+}
+
+/** Alerts never go by e-mail (2026-11-21): no alert mail of any kind reached the owner. */
+export async function expectNoAlertMail(request: APIRequestContext, to: string) {
+  const { mails } = (await (await request.get(`${API_URL}/v1/dev/mailbox`)).json()) as {
+    mails: Mail[];
+  };
+  expect(
+    mails
+      .filter((m) => m.to === to && /^(alert|escalation|reminder)/.test(m.tag))
+      .map((m) => m.tag),
+  ).toEqual([]);
+}
+
+/** Makes the reminder push (10 min) or the escalation SMS (30 min) due now; the worker sweeps every 5 s. */
+export async function escalationDue(alertId: string, step: 'reminder' | 'sms') {
+  await sql(
+    step === 'reminder'
+      ? `UPDATE alerts SET remind_at = now() - interval '1 second' WHERE id = $1`
+      : `UPDATE alerts SET sms_due_at = now() - interval '1 second' WHERE id = $1`,
+    [alertId],
+  );
+}
+
+/** The SMS deliveries of one alert to the owner (status, suppressed reason). */
+export const smsDeliveries = (alertId: string) =>
+  sql<{ status: string; suppressed_reason: string | null; provider_message_id: string | null }>(
+    `SELECT status, suppressed_reason, provider_message_id FROM alert_deliveries
+      WHERE alert_id = $1 AND channel = 'sms' ORDER BY queued_at`,
+    [alertId],
+  );
+
+/** Waits for the one escalation SMS of an alert and returns it from the local SMS inbox. */
+export async function waitForEscalationSms(request: APIRequestContext, alertId: string) {
+  let sms: { to: string; body: string; tag: string; messageId: string } | undefined;
+  await expect
+    .poll(
+      async () => {
+        const sent = (await smsDeliveries(alertId)).find((d) => d.status === 'sent');
+        if (!sent?.provider_message_id) return false;
+        const { messages } = (await (await request.get(`${API_URL}/v1/dev/sms`)).json()) as {
+          messages: { to: string; body: string; tag: string; messageId: string }[];
+        };
+        sms = messages.find((m) => m.messageId === sent.provider_message_id);
+        return Boolean(sms);
+      },
+      { timeout: 20_000, message: 'escalation SMS' },
+    )
+    .toBe(true);
+  return sms!;
 }

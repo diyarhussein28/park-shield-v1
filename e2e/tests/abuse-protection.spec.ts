@@ -1,5 +1,13 @@
 import { expect, test, type Browser } from '@playwright/test';
-import { API_URL, expectAccessible, ownerWithActiveDecal, uniqueEmail } from './helpers';
+import {
+  alertIdOf,
+  API_URL,
+  appDevice,
+  expectAccessible,
+  ownerWithActiveDecal,
+  sql,
+  uniqueEmail,
+} from './helpers';
 
 /**
  * §25 TDDDG / abuse protection §0: the scanner page must not read or write anything on the device.
@@ -52,13 +60,15 @@ async function scanner(browser: Browser, url: string) {
   return { ctx, page, setCookies, touched };
 }
 
-test('the scanner page touches no cookie and no storage API, also across a reload', async ({
+test('the scanner page touches no cookie and no storage API, also across a reload and a block', async ({
   page,
   request,
   browser,
 }) => {
   test.setTimeout(120_000);
-  const url = await ownerWithActiveDecal(page, request, uniqueEmail('nostorage'));
+  const email = uniqueEmail('nostorage');
+  const url = await ownerWithActiveDecal(page, request, email);
+  const app = await appDevice(request, email);
   const s = await scanner(browser, url);
   await s.page.getByRole('button', { name: 'Licht brennt noch' }).click();
   await s.page.getByRole('button', { name: 'Warnung senden' }).click();
@@ -67,6 +77,30 @@ test('the scanner page touches no cookie and no storage API, also across a reloa
   // The status survives a reload through the URL fragment, not through storage.
   await s.page.reload();
   await expect(s.page.getByRole('heading', { name: 'Status Ihrer Warnung' })).toBeVisible();
+  expect(await s.touched()).toEqual([]);
+
+  // „Absender blockieren“ in the app: the chat is locked at once and the escalation stops; the
+  // block uses the server-side abuse module only, nothing is stored on the scanner's phone.
+  const alertId = await alertIdOf(s.page);
+  const blocked = await request.post(`${API_URL}/v1/app/alerts/${alertId}/block`, {
+    headers: app.headers,
+  });
+  expect(blocked.status()).toBe(200);
+  await expect(s.page.getByText('Der Chat wurde beendet.')).toBeVisible({ timeout: 10_000 });
+  await expect(s.page.getByLabel('Ihre Antwort')).toBeHidden();
+  const [row] = await sql(
+    `SELECT a.escalation_stop_reason AS reason, a.remind_at, a.sms_due_at,
+            c.status::text || '|' || c.close_reason::text AS chat
+       FROM alerts a JOIN chat_sessions c ON c.alert_id = a.id WHERE a.id = $1`,
+    [alertId],
+  );
+  expect(row).toEqual({
+    reason: 'blocked',
+    remind_at: null,
+    sms_due_at: null,
+    chat: 'closed|blocked',
+  });
+  await expectAccessible(s.page);
   expect(await s.touched()).toEqual([]);
   expect(s.setCookies).toEqual([]);
   expect(await s.ctx.cookies()).toEqual([]);

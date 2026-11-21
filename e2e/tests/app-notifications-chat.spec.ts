@@ -1,15 +1,20 @@
-import { expect, test } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
+import { expect, test, type Browser } from '@playwright/test';
 import {
   alertIdOf,
   API_URL,
-  appSession,
+  appDevice,
+  appPushesTo,
+  escalationDue,
   expectAccessible,
+  expectNoAlertMail,
   ownerWithActiveDecal,
   scannerPage,
+  smsDeliveries,
   sql,
   uniqueEmail,
-  waitForMail,
+  waitForAppPush,
+  waitForEscalationSms,
 } from './helpers';
 
 function ownerSocket(alertId: string, session: string) {
@@ -34,7 +39,7 @@ test('live chat: the owner opens it from the app, both write, the owner closes i
   test.setTimeout(150_000);
   const email = uniqueEmail('chat');
   const url = await ownerWithActiveDecal(page, request, email);
-  const app = await appSession(request, email);
+  const app = await appDevice(request, email);
 
   const { ctx, page: scan } = await scannerPage(browser, url);
   // The chat socket goes through this route, so the test can hold back the server's
@@ -91,6 +96,12 @@ test('live chat: the owner opens it from the app, both write, the owner closes i
     headers: app.headers,
   });
   expect(opened.status()).toBe(200);
+  // Opening the chat is a reaction: no reminder push, no SMS any more.
+  const [stopped] = await sql(
+    `SELECT escalation_stop_reason AS reason, remind_at, sms_due_at FROM alerts WHERE id = $1`,
+    [alertId],
+  );
+  expect(stopped).toEqual({ reason: 'chat_opened', remind_at: null, sms_due_at: null });
   await expect(scan.getByRole('heading', { name: 'Chat mit dem Fahrzeughalter' })).toBeVisible({
     timeout: 10_000,
   });
@@ -162,94 +173,104 @@ test('live chat: the owner opens it from the app, both write, the owner closes i
   await ctx.close();
 });
 
-test('PREMIUM escalation: the trusted contact gets one SMS, taps „Ich komme" on /k/…, the scanner sees it', async ({
+/** Each "scanner" gets its own browser identity, so the per-scanner limit does not interfere. */
+async function scanAs(browser: Browser, url: string, n: number) {
+  const ctx = await browser.newContext({
+    locale: 'de-DE',
+    userAgent: `Mozilla/5.0 (Linux; Android 15; E2E-chat-${n}) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36`,
+  });
+  const page = await ctx.newPage();
+  await page.goto(url);
+  await page.getByRole('button', { name: 'Licht brennt noch' }).click();
+  await page.getByRole('button', { name: 'Warnung senden' }).click();
+  await expect(page.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
+    timeout: 15_000,
+  });
+  return { ctx, page, alertId: await alertIdOf(page) };
+}
+
+test('escalation: seeing is no reaction (reminder, then exactly one SMS); „Erledigt“ stops it; tests never send an SMS', async ({
   page,
   request,
   browser,
 }) => {
   test.setTimeout(150_000);
-  const email = uniqueEmail('trusted');
-  const contactEmail = uniqueEmail('kim');
+  const email = uniqueEmail('escal');
   const url = await ownerWithActiveDecal(page, request, email);
+  const app = await appDevice(request, email);
 
-  // PLUS first: no trusted contacts.
-  await page.goto('/konto/notfallkontakte');
-  await expect(
-    page.getByText(/Vertrauenspersonen und die Eskalation gibt es im Premium-Tarif/),
-  ).toBeVisible();
-
-  // The upgrade itself is tested in billing; here the subscription is switched in the database.
-  await sql(
-    `UPDATE subscriptions SET plan = 'premium' WHERE user_id = (SELECT id FROM users WHERE email = $1)`,
+  // The decal test of ownerWithActiveDecal: a reminder is planned, an SMS never.
+  const [testAlert] = await sql(
+    `SELECT a.remind_at IS NOT NULL AS remind, a.sms_due_at IS NULL AS no_sms
+       FROM alerts a JOIN vehicles v ON v.id = a.vehicle_id JOIN users u ON u.id = v.owner_user_id
+      WHERE u.email = $1 AND a.is_test`,
     [email],
   );
-  await page.reload();
-  const phone = `0151 ${String(Date.now()).slice(-8)}`;
-  await page.getByLabel('Name des Kontakts').fill('Kim');
-  await page.getByLabel('Handynummer des Kontakts').fill(phone);
-  await page.getByLabel('E-Mail-Adresse des Kontakts').fill(contactEmail);
-  await page.getByLabel('Ihr Name').fill('Jonas');
-  await page.getByRole('button', { name: 'Einladung senden' }).click();
-  await expect(page.getByText(/Einladung gesendet/)).toBeVisible();
+  expect(testAlert).toEqual({ remind: true, no_sms: true });
 
-  const invite = await waitForMail(request, contactEmail, 'ec_invite');
-  const link = /(https?:\/\/\S+\/notfallkontakt#t=[A-Za-z0-9_-]+)/.exec(invite.text)![1]!;
-  const kimCtx = await browser.newContext({ locale: 'de-DE' });
-  const kim = await kimCtx.newPage();
-  await kim.goto(link);
-  await kim.getByRole('button', { name: 'Zustimmen' }).click();
-  await expect(kim.getByText(/Danke!/)).toBeVisible();
-
-  // Escalation is off until the owner switches it on (the page suggests it now).
-  await page.reload();
-  await expect(page.getByText(/Eine Vertrauensperson hat zugestimmt/)).toBeVisible();
-  await page.getByRole('button', { name: 'Eskalation einschalten' }).click();
-  await expect(page.getByRole('button', { name: 'Eskalation ausschalten' })).toBeVisible();
-
-  const { ctx, page: scan } = await scannerPage(browser, url);
-  await scan.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
-  await scan.getByRole('button', { name: 'Warnung senden' }).click();
-  await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
-    timeout: 15_000,
+  // Alert 1: the owner only looks at it. „Seen“ is shown to the scanner, but it stops nothing.
+  const one = await scanAs(browser, url, 1);
+  await waitForAppPush(request, app.fcmToken, 'alert', one.alertId);
+  const seen = await request.post(`${API_URL}/v1/app/alerts/${one.alertId}/seen`, {
+    headers: app.headers,
   });
-  const alertId = await alertIdOf(scan);
-  // Instead of waiting 7 minutes: the step is due now; the worker's sweeper picks it up within seconds.
-  await sql(`UPDATE alerts SET escalate_at = now() WHERE id = $1`, [alertId]);
-  await expect(scan.getByText('Eine Vertrauensperson wurde benachrichtigt.')).toBeVisible({
-    timeout: 20_000,
-  });
-
-  const e164 = `+49${phone.replace(/\D/g, '').slice(1)}`;
-  let sms: { to: string; body: string; tag: string } | undefined;
-  await expect
-    .poll(
-      async () => {
-        const { messages } = (await (await request.get(`${API_URL}/v1/dev/sms`)).json()) as {
-          messages: { to: string; body: string; tag: string }[];
-        };
-        sms = messages.find((m) => m.to === e164 && m.tag === 'sms_escalation');
-        return Boolean(sms);
-      },
-      { timeout: 20_000 },
-    )
-    .toBe(true);
-  expect(sms!.body.length).toBeLessThanOrEqual(160);
-  expect(sms!.body).not.toMatch(/K-AB/);
-  const k = /(\S+\/k\/[A-Za-z0-9_-]{43})/.exec(sms!.body)![1]!;
-
-  await kim.goto(k.startsWith('http') ? k : `http://${k}`);
-  await expect(
-    kim.getByText(/Fahrzeug versperrt Ausfahrt beim Fahrzeug „Der Blaue“/),
-  ).toBeVisible();
-  await expectAccessible(kim);
-  await kim.getByRole('button', { name: 'Ich komme' }).click();
-  await expect(
-    kim.getByText(/Danke! Der Fahrer und die Person am Fahrzeug sehen jetzt/),
-  ).toBeVisible();
-  await expect(scan.getByText('Eine Vertrauensperson ist unterwegs.')).toBeVisible({
+  expect(seen.status()).toBe(200);
+  await expect(one.page.getByText('Fahrzeughalter hat die Nachricht gesehen.')).toBeVisible({
     timeout: 10_000,
   });
+  await escalationDue(one.alertId, 'reminder');
+  await waitForAppPush(request, app.fcmToken, 'reminder', one.alertId);
+  await escalationDue(one.alertId, 'sms');
+  await waitForEscalationSms(request, one.alertId);
+  const [stage] = await sql(`SELECT escalation_stage::text AS stage FROM alerts WHERE id = $1`, [
+    one.alertId,
+  ]);
+  expect(stage.stage).toBe('sms_sent');
+  // At-least-once delivery: a replayed outbox event and a due time set again send no second SMS.
+  await sql(
+    `INSERT INTO outbox_events (topic, payload) VALUES ('alert.sms_escalate', jsonb_build_object('alertId', $1::text))`,
+    [one.alertId],
+  );
+  await escalationDue(one.alertId, 'sms');
+  await expect
+    .poll(
+      async () =>
+        (
+          await sql(
+            `SELECT count(*)::int AS n FROM outbox_events
+              WHERE topic = 'alert.sms_escalate' AND payload->>'alertId' = $1 AND processed_at IS NULL`,
+            [one.alertId],
+          )
+        )[0].n,
+      { timeout: 20_000, message: 'the worker handled the replayed event' },
+    )
+    .toBe(0);
+  await new Promise((r) => setTimeout(r, 6_000)); // one more sweep
+  expect((await smsDeliveries(one.alertId)).map((d) => d.status)).toEqual(['sent']);
 
-  await kimCtx.close();
-  await ctx.close();
+  // Alert 2: „Erledigt“ in the app stops every pending step.
+  const two = await scanAs(browser, url, 2);
+  await waitForAppPush(request, app.fcmToken, 'alert', two.alertId);
+  const resolved = await request.post(`${API_URL}/v1/app/alerts/${two.alertId}/resolve`, {
+    headers: app.headers,
+  });
+  expect(resolved.status()).toBe(200);
+  const [row] = await sql(
+    `SELECT escalation_stop_reason AS reason, remind_at, sms_due_at FROM alerts WHERE id = $1`,
+    [two.alertId],
+  );
+  expect(row).toEqual({ reason: 'resolved', remind_at: null, sms_due_at: null });
+  // Even if the due times came back, the sweepers skip a stopped alert.
+  await escalationDue(two.alertId, 'reminder');
+  await escalationDue(two.alertId, 'sms');
+  await new Promise((r) => setTimeout(r, 12_000)); // two sweeps
+  const late = (await appPushesTo(request, app.fcmToken)).filter(
+    (m) => m.body.message.data.alertId === two.alertId && m.body.message.data.kind !== 'alert',
+  );
+  expect(late).toEqual([]);
+  expect(await smsDeliveries(two.alertId)).toEqual([]);
+  await expectNoAlertMail(request, email);
+
+  await one.ctx.close();
+  await two.ctx.close();
 });

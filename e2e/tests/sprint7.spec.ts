@@ -1,9 +1,19 @@
 import { expect, test, type Browser } from '@playwright/test';
-import { expectAccessible, ownerWithActiveDecal, sql, uniqueEmail } from './helpers';
+import {
+  alertIdOf,
+  appDevice,
+  escalationDue,
+  expectAccessible,
+  ownerWithActiveDecal,
+  smsDeliveries,
+  sql,
+  uniqueEmail,
+  waitForAppPush,
+} from './helpers';
 
 const deliveries = (email: string) =>
-  sql<{ alert_type: string; status: string; suppressed_reason: string | null }>(
-    `SELECT a.alert_type, d.status, d.suppressed_reason
+  sql<{ alert_type: string; channel: string; status: string; suppressed_reason: string | null }>(
+    `SELECT a.alert_type, d.channel, d.status, d.suppressed_reason
        FROM alert_deliveries d JOIN alerts a ON a.id = d.alert_id
        JOIN vehicles v ON v.id = a.vehicle_id JOIN users u ON u.id = v.owner_user_id
       WHERE u.email = $1 AND NOT a.is_test AND d.recipient = 'owner' ORDER BY d.queued_at`,
@@ -21,7 +31,7 @@ async function scanAs(browser: Browser, url: string, n: number) {
   return { ctx, page };
 }
 
-test('quiet hours mute normal alerts; urgent ones still come through (US-26)', async ({
+test('quiet hours mute the push of normal alerts; urgent pushes pass; never an SMS (US-26)', async ({
   page,
   request,
   browser,
@@ -29,16 +39,20 @@ test('quiet hours mute normal alerts; urgent ones still come through (US-26)', a
   test.setTimeout(120_000);
   const email = uniqueEmail('quiet');
   const url = await ownerWithActiveDecal(page, request, email);
+  const app = await appDevice(request, email);
   await page.goto('/konto/benachrichtigungen');
   await page.waitForLoadState('networkidle'); // typing before hydration would be reset to the defaults
   await expect(page.getByText('Keine Ruhezeiten eingerichtet.')).toBeVisible();
   await page.getByLabel('Von').fill('00:00');
   await page.getByLabel('Bis').fill('00:00');
-  await expect(page.getByLabel('Dringende Warnungen trotzdem zustellen (empfohlen)')).toBeChecked();
+  await expect(
+    page.getByLabel('Dringende Warnungen trotzdem per App zustellen (empfohlen)'),
+  ).toBeChecked();
+  await expect(page.getByText(/Während einer Ruhezeit schicken wir nie eine SMS/)).toBeVisible();
   await page.getByRole('button', { name: 'Ruhezeit hinzufügen' }).click();
   const rules = page.getByRole('list', { name: 'Ruhezeiten' });
   await expect(rules.getByRole('listitem')).toHaveText([
-    /Täglich: 00:00–00:00 Uhr.*dringende Warnungen kommen trotzdem/,
+    /Täglich: 00:00–00:00 Uhr.*dringende Warnungen kommen trotzdem per App/,
   ]);
   await expectAccessible(page);
 
@@ -52,15 +66,36 @@ test('quiet hours mute normal alerts; urgent ones still come through (US-26)', a
   await expect(two.page.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });
+  const urgent = await alertIdOf(two.page);
+  await waitForAppPush(request, app.fcmToken, 'alert', urgent);
+  const show = async () =>
+    (await deliveries(email)).map(
+      (d) => `${d.alert_type}:${d.channel}:${d.status}:${d.suppressed_reason ?? ''}`,
+    );
   await expect
-    .poll(async () =>
-      (await deliveries(email)).map(
-        (d) => `${d.alert_type}:${d.status}:${d.suppressed_reason ?? ''}`,
-      ),
-    )
-    .toEqual(expect.arrayContaining(['lights_on:suppressed:quiet_hours', 'blocking:sent:']));
+    .poll(show)
+    .toEqual(
+      expect.arrayContaining([
+        'lights_on:native_push:suppressed:quiet_hours',
+        'blocking:native_push:sent:',
+      ]),
+    );
   // The muted alert stays "sent", never "delivered": the scanner is not told about quiet hours.
   await expect(one.page.getByText('Ihre Warnung wurde gesendet.')).toBeVisible();
+
+  // 30 minutes without a reaction: no SMS during quiet hours, not even for the urgent alert.
+  const muted = await alertIdOf(one.page);
+  await escalationDue(muted, 'sms');
+  await escalationDue(urgent, 'sms');
+  for (const id of [muted, urgent])
+    await expect
+      .poll(
+        async () => (await smsDeliveries(id)).map((d) => `${d.status}:${d.suppressed_reason}`),
+        {
+          timeout: 20_000,
+        },
+      )
+      .toEqual(['suppressed:quiet_hours']);
   await one.ctx.close();
   await two.ctx.close();
 
@@ -96,34 +131,31 @@ test('"Kurzer Halt" shows scanners when the driver is back (US-26, OW-17)', asyn
   await after.ctx.close();
 });
 
-test('protection score, summary setting and escalation delay (US-28, US-30, OW-07)', async ({
+test('protection score (e-mail, app, mobile number, decal) and summary setting (US-28, US-30)', async ({
   page,
   request,
 }) => {
   test.setTimeout(90_000);
   const email = uniqueEmail('score');
   await ownerWithActiveDecal(page, request, email);
-  // PLUS: trusted contacts do not apply, so e-mail and decal are 2 of 3 steps.
+  // E-mail confirmed, mobile number verified, decal tested; the app is missing: 3 of 4 steps.
   await page.goto('/konto');
-  await expect(page.getByText('67 % eingerichtet')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Notfallkontakt einladen' })).toHaveCount(0);
-  // PREMIUM: four steps (trusted contacts and escalation are PREMIUM only).
-  await sql(
-    `UPDATE subscriptions SET plan = 'premium' WHERE user_id = (SELECT id FROM users WHERE email = $1)`,
-    [email],
-  );
-  await page.reload();
   await expect(page.getByRole('heading', { name: 'Ihr Schutz' })).toBeVisible();
-  // E-mail confirmed and decal tested: 2 of 4 steps.
-  await expect(page.getByText('50 % eingerichtet')).toBeVisible();
+  await expect(page.getByText('75 % eingerichtet')).toBeVisible();
   await expect(page.getByRole('progressbar', { name: 'Ihr Schutz' })).toHaveAttribute(
     'aria-valuenow',
-    '50',
+    '75',
   );
   await expect(page.getByText('Schutz unvollständig')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Notfallkontakt einladen' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Aufkleber testen' })).toHaveCount(0);
+  await expect(page.getByText('ParkShield-App mit Mitteilungen verbinden')).toBeVisible();
+  await expect(page.getByText(/Notfallkontakt|Vertrauensperson/)).toHaveCount(0);
+  await expectAccessible(page);
 
+  // The app is connected: fully protected.
+  await appDevice(request, email);
+  await page.reload();
+  await expect(page.getByText('100 % eingerichtet')).toBeVisible();
+  await expect(page.getByText('Vollständig geschützt')).toBeVisible();
   await expectAccessible(page);
 
   // The e-mail summary setting lives on "Abo & Konto".
@@ -133,14 +165,4 @@ test('protection score, summary setting and escalation delay (US-28, US-30, OW-0
   await expect(page.getByText('Gespeichert.')).toBeVisible();
   await page.reload();
   await expect(page.getByLabel('Wie oft?')).toHaveValue('weekly');
-
-  await page.goto('/konto');
-  await page.getByRole('link', { name: 'Notfallkontakt einladen' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Wann benachrichtigen wir den Kontakt?' }),
-  ).toBeVisible();
-  await page.getByLabel('Wenn Sie nicht reagieren, nach').selectOption({ label: '3 Minuten' });
-  await expect(page.getByText('Gespeichert.')).toBeVisible();
-  await page.reload();
-  await expect(page.getByLabel('Wenn Sie nicht reagieren, nach')).toHaveValue('3');
 });

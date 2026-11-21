@@ -1,144 +1,91 @@
-import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import {
+  alertIdOf,
+  API_URL,
+  appDevice,
+  escalationDue,
   expectAccessible,
+  expectNoAlertMail,
   ownerWithActiveDecal,
   scannerPage,
   sql,
   uniqueEmail,
-  waitForMail,
+  waitForAppPush,
+  waitForEscalationSms,
 } from './helpers';
 
-/** The owner taps a reply link from the alert e-mail (any device, no sign-in needed). */
-async function replyLink(request: APIRequestContext, email: string, reply = 'coming') {
-  const mail = await waitForMail(request, email, 'alert_received');
-  const m = new RegExp(`(https?://\\S+/antwort\\?r=${reply}#t=[A-Za-z0-9_-]+)`).exec(mail.text);
-  expect(m, 'reply link in the alert e-mail').not.toBeNull();
-  return m![1]!;
-}
-
-async function inviteContact(page: Page, contactEmail: string) {
-  await page.goto('/konto');
-  await page.getByRole('link', { name: 'Notfallkontakte verwalten' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Notfallkontakte' })).toBeVisible();
-  await page.getByLabel('Name des Kontakts').fill('Kim');
-  await page.getByLabel('Handynummer des Kontakts').fill(`0151 ${String(Date.now()).slice(-8)}`);
-  await page.getByLabel('E-Mail-Adresse des Kontakts').fill(contactEmail);
-  await page.getByLabel('Ihr Name').fill('Jonas');
-  await page.getByRole('button', { name: 'Einladung senden' }).click();
-  await expect(page.getByText(/Einladung gesendet/)).toBeVisible();
-}
-
-async function acceptInvitation(
-  browser: Browser,
-  request: APIRequestContext,
-  contactEmail: string,
-) {
-  const mail = await waitForMail(request, contactEmail, 'ec_invite');
-  const link = /(https?:\/\/\S+\/notfallkontakt#t=[A-Za-z0-9_-]+)/.exec(mail.text)![1]!;
-  const ctx = await browser.newContext({ locale: 'de-DE' });
-  const page = await ctx.newPage();
-  await page.goto(link);
-  await expect(
-    page.getByText('Jonas möchte Sie als Notfallkontakt bei ParkShield eintragen.'),
-  ).toBeVisible();
-  await expectAccessible(page);
-  await page.getByRole('button', { name: 'Zustimmen' }).click();
-  await expect(page.getByText('Danke! Sie sind jetzt Notfallkontakt für Jonas.')).toBeVisible();
-  await ctx.close();
-}
-
-test('owner replies "Ich komme" from the e-mail; the scanner sees it at once (US-23, US-22)', async ({
+/**
+ * Owner replies since 2026-11-21: alerts reach the owner by app push only; without a reaction a
+ * reminder push follows after 10 minutes and one SMS after 30 minutes. The SMS carries the view link
+ * `/v/<token>`, whose page has the same reply buttons as the app („Ich komme“, …).
+ */
+test('no reaction: reminder push, then one SMS whose view link answers „Ich komme“; the scanner sees it (US-23, US-22)', async ({
   page,
   request,
   browser,
 }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(120_000);
   const email = uniqueEmail('reply');
   const url = await ownerWithActiveDecal(page, request, email);
+  const app = await appDevice(request, email);
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Licht brennt noch' }).click();
   await scan.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });
+  const alertId = await alertIdOf(scan);
+  await waitForAppPush(request, app.fcmToken, 'alert', alertId);
 
-  // A normal alert without Push stops at e-mail, which carries the three reply buttons.
-  const link = await replyLink(request, email);
+  // Due times are set at once; nothing else goes out with the alert (no SMS, no e-mail).
+  const [due] = await sql<{ remind: number; sms: number; stage: string }>(
+    `SELECT extract(epoch FROM remind_at - created_at)::int AS remind,
+            extract(epoch FROM sms_due_at - created_at)::int AS sms, escalation_stage AS stage
+       FROM alerts WHERE id = $1`,
+    [alertId],
+  );
+  expect(due).toEqual({ remind: 600, sms: 1800, stage: 'none' });
+
+  // 10 minutes later: the reminder push (generic payload).
+  await escalationDue(alertId, 'reminder');
+  const reminder = await waitForAppPush(request, app.fcmToken, 'reminder', alertId);
+  expect(reminder.body.message.data).toEqual({ alertId, kind: 'reminder' });
+
+  // 30 minutes: one SMS with the view link, one GSM-7 segment, no plate.
+  await escalationDue(alertId, 'sms');
+  const sms = await waitForEscalationSms(request, alertId);
+  expect(sms.body.length).toBeLessThanOrEqual(160);
+  expect(sms.body).not.toMatch(/K-AB|1234/);
+  const view = /(https?:\/\/\S+\/v\/[A-Za-z0-9_-]+)/.exec(sms.body)?.[1];
+  expect(view, 'view link in the SMS').toBeTruthy();
+  await expectNoAlertMail(request, email);
+
   const owner = await browser.newContext({ locale: 'de-DE' });
   const phone = await owner.newPage();
-  await phone.goto(link);
+  await phone.goto(view!);
+  await phone.waitForLoadState('networkidle');
   await expect(phone.getByText(/Licht brennt noch bei „Der Blaue“/)).toBeVisible();
   for (const name of ['Ich komme', 'In ca. 30 Min', 'Bin nicht in der Nähe']) {
     await expect(phone.getByRole('button', { name })).toBeVisible();
   }
   await expectAccessible(phone);
   // Opening the link changed nothing yet (NT-02).
-  await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible();
+  await expect(scan.getByText(/Der Fahrzeughalter ist unterwegs/)).toHaveCount(0);
 
   await phone.getByRole('button', { name: 'Ich komme' }).click();
   await expect(phone.getByText('Danke! Die Person sieht, dass Sie unterwegs sind.')).toBeVisible();
   await expect(scan.getByText(/Der Fahrzeughalter ist unterwegs/)).toBeVisible({
-    timeout: 5_000,
+    timeout: 10_000,
   });
 
   // The same link a second time.
-  await phone.goto(link);
   await phone.reload();
   await expect(phone.getByText('Sie haben bereits geantwortet: „Ich komme“.')).toBeVisible();
   await owner.close();
   await ctx.close();
 });
 
-test('emergency contact: invitation, consent, and escalation on "Bin nicht in der Nähe" (US-24, NT-10)', async ({
-  page,
-  request,
-  browser,
-}) => {
-  test.setTimeout(120_000);
-  const email = uniqueEmail('escalate');
-  const contact = uniqueEmail('kim');
-  const url = await ownerWithActiveDecal(page, request, email);
-  // Trusted contacts and escalation are PREMIUM only (the upgrade itself is tested in billing).
-  await sql(
-    `UPDATE subscriptions SET plan = 'premium' WHERE user_id = (SELECT id FROM users WHERE email = $1)`,
-    [email],
-  );
-  await inviteContact(page, contact);
-  await expect(page.getByText(/Wartet auf Zustimmung bis/)).toBeVisible();
-  await expectAccessible(page);
-
-  await acceptInvitation(browser, request, contact);
-  await waitForMail(request, email, 'ec_decided');
-  await page.reload();
-  await expect(page.getByText('Bestätigt', { exact: true })).toBeVisible();
-  // Off until the owner switches it on.
-  await page.getByRole('button', { name: 'Eskalation einschalten' }).click();
-  await expect(page.getByRole('button', { name: 'Eskalation ausschalten' })).toBeVisible();
-
-  const { ctx, page: scan } = await scannerPage(browser, url);
-  await scan.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
-  await scan.getByRole('button', { name: 'Warnung senden' }).click();
-  const link = await replyLink(request, email, 'not_nearby');
-  const owner = await browser.newContext({ locale: 'de-DE' });
-  const phone = await owner.newPage();
-  await phone.goto(link);
-  await phone.getByRole('button', { name: 'Bin nicht in der Nähe' }).click();
-  await expect(
-    phone.getByText('Danke! Wir benachrichtigen jetzt Ihren Notfallkontakt.'),
-  ).toBeVisible();
-
-  const mail = await waitForMail(request, contact, 'escalation');
-  expect(mail.text).toContain('Fahrzeug versperrt Ausfahrt');
-  expect(mail.text).toContain('„Der Blaue“');
-  expect(mail.text).not.toContain('K-AB');
-  await expect(scan.getByText('Eine Vertrauensperson wurde benachrichtigt.')).toBeVisible({
-    timeout: 10_000,
-  });
-  await owner.close();
-  await ctx.close();
-});
-
-test('without a contact, "Bin nicht in der Nähe" shows the scanner who can help (NT-10, SC-13)', async ({
+test('„Bin nicht in der Nähe“ from the app shows the scanner who can help (NT-10, SC-13)', async ({
   page,
   request,
   browser,
@@ -146,39 +93,34 @@ test('without a contact, "Bin nicht in der Nähe" shows the scanner who can help
   test.setTimeout(90_000);
   const email = uniqueEmail('notnear');
   const url = await ownerWithActiveDecal(page, request, email);
+  const app = await appDevice(request, email);
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
   await scan.getByRole('button', { name: 'Warnung senden' }).click();
-  const link = await replyLink(request, email, 'not_nearby');
-  const owner = await browser.newContext({ locale: 'de-DE' });
-  const phone = await owner.newPage();
-  await phone.goto(link);
-  await phone.getByRole('button', { name: 'Bin nicht in der Nähe' }).click();
-  await expect(phone.getByText(/nicht in der Nähe sind, und bekommt Hinweise/)).toBeVisible();
-  await expect(scan.getByText(/Fahrer ist nicht in der Nähe/)).toBeVisible({ timeout: 5_000 });
+  const alertId = await alertIdOf(scan);
+  await waitForAppPush(request, app.fcmToken, 'alert', alertId);
+
+  const r = await request.post(`${API_URL}/v1/app/alerts/${alertId}/ack`, {
+    headers: app.headers,
+    data: { reply: 'not_nearby' },
+  });
+  expect(r.status()).toBe(200);
+  await expect(scan.getByText(/Fahrer ist nicht in der Nähe/)).toBeVisible({ timeout: 10_000 });
   await expect(scan.getByRole('heading', { name: 'Was Sie jetzt tun können' })).toBeVisible();
   await expect(scan.getByRole('link', { name: '112' })).toHaveAttribute('href', 'tel:112');
-  await owner.close();
-  await ctx.close();
-});
+  await expectAccessible(scan);
 
-test('owner changes the channel order (US-22, OW-05)', async ({ page, request }) => {
-  await ownerWithActiveDecal(page, request, uniqueEmail('order'));
-  await page.goto('/konto/benachrichtigungen');
-  const order = page.getByRole('list', { name: 'Reihenfolge der Kanäle' });
-  await expect(order.getByRole('listitem')).toHaveText([
-    /1\. App/,
-    /2\. Push/,
-    /3\. E-Mail/,
-    /4\. SMS/,
-  ]);
-  await expect(page.getByRole('button', { name: 'App nach oben' })).toBeDisabled();
-  await page.getByRole('button', { name: 'E-Mail nach oben' }).click();
-  await expect(page.getByText('Reihenfolge gespeichert.')).toBeVisible();
-  const saved = [/1\. App/, /2\. E-Mail/, /3\. Push/, /4\. SMS/];
-  await expect(order.getByRole('listitem')).toHaveText(saved);
-  await page.reload();
-  await expect(order.getByRole('listitem')).toHaveText(saved);
-  await expect(page.getByText(/WhatsApp/)).toHaveCount(0);
-  await expectAccessible(page);
+  // A reply stops the escalation: no reminder, no SMS.
+  const [row] = await sql<{
+    stopped: boolean;
+    reason: string;
+    remind: Date | null;
+    sms: Date | null;
+  }>(
+    `SELECT escalation_stopped_at IS NOT NULL AS stopped, escalation_stop_reason AS reason,
+            remind_at AS remind, sms_due_at AS sms FROM alerts WHERE id = $1`,
+    [alertId],
+  );
+  expect(row).toMatchObject({ stopped: true, remind: null, sms: null });
+  await ctx.close();
 });

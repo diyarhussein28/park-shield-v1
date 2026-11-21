@@ -3,18 +3,21 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import {
+  alertIdOf,
+  appDevice,
   expectAccessible,
   ownerWithActiveDecal,
   scannerPage,
   sql,
   uniqueEmail,
+  waitForAppPush,
   waitForMail,
 } from './helpers';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const OPS_URL = process.env.OPS_BASE_URL ?? 'http://localhost:3001';
 
-test('history shows the alert with its text; reporting blocks that scanner (US-31)', async ({
+test('history shows the alert with its text; „Absender blockieren“ ends the chat, stops the escalation and blocks that scanner (US-31)', async ({
   page,
   request,
   browser,
@@ -26,7 +29,7 @@ test('history shows the alert with its text; reporting blocks that scanner (US-3
   await scan.getByLabel('Ihre Nachricht').fill('Bitte Auto umparken');
   await scan.getByRole('button', { name: 'Nachricht senden' }).click();
   await expect(scan.getByRole('heading', { name: 'Status Ihrer Warnung' })).toBeVisible();
-  await ctx.close();
+  const alertId = await alertIdOf(scan);
 
   await page.goto('/konto');
   await page.getByRole('link', { name: 'Verlauf ansehen' }).click();
@@ -44,6 +47,25 @@ test('history shows the alert with its text; reporting blocks that scanner (US-3
       'Blockiert. Diese Person kann „Der Blaue“ 30 Tage lang nicht mehr benachrichtigen.',
     ),
   ).toBeVisible();
+  // The chat is locked at once: the scanner sees it has ended and cannot write any more.
+  await expect(scan.getByText('Der Chat wurde beendet.')).toBeVisible({ timeout: 10_000 });
+  await expect(scan.getByLabel('Ihre Antwort')).toBeHidden();
+  const [state] = await sql<{ chat: string; stop: string; remind: Date | null; sms: Date | null }>(
+    `SELECT c.status || '|' || c.close_reason AS chat, a.escalation_stop_reason AS stop,
+            a.remind_at AS remind, a.sms_due_at AS sms
+       FROM alerts a JOIN chat_sessions c ON c.alert_id = a.id WHERE a.id = $1`,
+    [alertId],
+  );
+  expect(state).toMatchObject({ chat: 'closed|blocked', stop: 'blocked', remind: null, sms: null });
+  // The same scanner cannot alert this car again (existing abuse module, no new identifiers).
+  await scan.getByRole('button', { name: /Weitere Warnung senden/ }).click();
+  await scan.getByRole('button', { name: 'Licht brennt noch' }).click();
+  await scan.getByRole('button', { name: 'Warnung senden' }).click();
+  await expect(scan.getByRole('alert')).toHaveText(
+    'Ihre Nachricht konnte nicht zugestellt werden.',
+  );
+  await ctx.close();
+
   await page.reload();
   await expect(card.getByText('Blockiert', { exact: true })).toBeVisible();
   await expect(card.getByRole('button', { name: 'Absender blockieren' })).toHaveCount(0);
@@ -55,25 +77,35 @@ test('"Warnung nicht bekommen?" explains the latest attempts (SP-05)', async ({
   browser,
 }) => {
   test.setTimeout(90_000);
-  const url = await ownerWithActiveDecal(page, request, uniqueEmail('help'));
+  const email = uniqueEmail('help');
+  const url = await ownerWithActiveDecal(page, request, email);
+  await page.goto('/konto/zustellung');
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Warnung nicht bekommen?' }),
+  ).toBeVisible();
+  await expect(page.getByText('Keine App mit aktivierten Mitteilungen.')).toBeVisible();
+  await expect(
+    page.getByText('Handynummer bestätigt: SMS nach 30 Minuten ohne Reaktion.'),
+  ).toBeVisible();
+
+  const app = await appDevice(request, email);
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Licht brennt noch' }).click();
   await scan.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });
+  await waitForAppPush(request, app.fcmToken, 'alert', await alertIdOf(scan));
   await ctx.close();
 
-  await page.goto('/konto/zustellung');
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Warnung nicht bekommen?' }),
-  ).toBeVisible();
-  await expect(page.getByText(/Kein Gerät mit Push/)).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('ParkShield-App auf 1 Gerät eingerichtet.')).toBeVisible();
   const attempts = page.getByRole('list', { name: 'Letzte Zustellversuche' });
   await expect(attempts.getByRole('listitem').first()).toContainText(
-    'Licht brennt noch bei „Der Blaue“ · E-Mail',
+    'Licht brennt noch bei „Der Blaue“ · App',
   );
   await expect(attempts.getByRole('listitem').first()).toContainText('Gesendet');
+  await expect(attempts.getByText(/E-Mail/)).toHaveCount(0);
   await expectAccessible(page);
 });
 

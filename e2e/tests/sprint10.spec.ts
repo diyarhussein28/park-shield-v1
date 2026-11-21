@@ -35,7 +35,7 @@ test('withdrawal: finance refunds a fresh subscription, the customer gets the cr
   await finance.waitForLoadState('networkidle');
   await expect(finance.getByLabel(/^Widerruf/)).toBeChecked();
   await finance.getByRole('button', { name: 'Berechnen' }).click();
-  const quote = finance.getByRole('definition').filter({ hasText: /9,97/ });
+  const quote = finance.getByRole('definition').filter({ hasText: /^19,95\s€$/ });
   await expect(quote).toBeVisible();
   await expect(finance.getByText(/Das Abo endet mit der Erstattung sofort/)).toBeVisible();
   await expectAccessible(finance);
@@ -49,7 +49,7 @@ test('withdrawal: finance refunds a fresh subscription, the customer gets the cr
   );
 
   const mail = await waitForMail(request, email, 'refund_issued');
-  expect(mail.text).toMatch(/9,97\s€/);
+  expect(mail.text).toMatch(/19,95\s€/);
   // The contract has ended, so the decal no longer works.
   const scan = await browser.newContext({ locale: 'de-DE' });
   expect((await (await scan.newPage()).goto(url))!.status()).toBe(404);
@@ -87,8 +87,9 @@ test('promo code from ops is valid at checkout at once (US-40, AD-13)', async ({
   await signUp(page, request, uniqueEmail('promo'));
   await page.getByLabel(/Gutscheincode/).fill(code.toLowerCase());
   await page.getByLabel(/Ich verlange ausdrücklich/).check();
-  await page.getByRole('button', { name: 'Zahlungspflichtig bestellen' }).click();
-  await expect(page.getByText(/Betrag: 5,00/)).toBeVisible();
+  await page.getByRole('button', { name: /Zahlungspflichtig bestellen/ }).click();
+  // 50 % off the single plan's 20 €.
+  await expect(page.getByText(/Betrag: 10,00/)).toBeVisible();
 });
 
 test('partner batch: the scanner offers set-up and the owner claims the decal (US-39, AD-07)', async ({
@@ -231,9 +232,9 @@ test('help centre: search, article, contact form opens a ticket (US-44, SP-01)',
   await expect(page.getByRole('heading', { level: 1, name: 'Hilfe' })).toBeVisible();
   await expectAccessible(page);
   await page.getByLabel('Hilfe durchsuchen').fill('iPhone');
-  await page.getByRole('link', { name: 'Push-Benachrichtigungen auf dem iPhone' }).click();
+  await page.getByRole('link', { name: 'Mitteilungen auf dem iPhone' }).click();
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Push-Benachrichtigungen auf dem iPhone' }),
+    page.getByRole('heading', { level: 1, name: 'Mitteilungen auf dem iPhone' }),
   ).toBeVisible();
   await expectAccessible(page);
 

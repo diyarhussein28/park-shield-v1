@@ -1,10 +1,20 @@
 import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
-import { expectAccessible, signUp, uniqueEmail, waitForMail } from './helpers';
+import {
+  alertIdOf,
+  appDevice,
+  expectAccessible,
+  expectNoAlertMail,
+  API_URL,
+  signUp,
+  sql,
+  uniqueEmail,
+  waitForAppPush,
+} from './helpers';
 
 async function ownerWithVehicle(page: Page, request: APIRequestContext, email: string) {
   await signUp(page, request, email);
   await page.getByLabel(/Ich verlange ausdrücklich/).check();
-  await page.getByRole('button', { name: 'Zahlungspflichtig bestellen' }).click();
+  await page.getByRole('button', { name: /Zahlungspflichtig bestellen/ }).click();
   await page.getByRole('button', { name: 'Testzahlung ausführen' }).click();
   await expect(page.getByText(/^Vertragsnummer: PS-/)).toBeVisible({ timeout: 15_000 });
   await page.goto('/konto/fahrzeuge');
@@ -40,6 +50,7 @@ test('owner test scan activates the decal, then a stranger scans (US-12, US-14, 
   test.setTimeout(90_000);
   const email = uniqueEmail('scan');
   await ownerWithVehicle(page, request, email);
+  const app = await appDevice(request, email);
   const url = await testWindowUrl(page);
   expect(url).toMatch(/\/s\/[0-9A-HJKMNP-TV-Z]{10}$/);
 
@@ -49,7 +60,8 @@ test('owner test scan activates the decal, then a stranger scans (US-12, US-14, 
   await test1.page.getByRole('button', { name: 'Licht brennt noch' }).click();
   await test1.page.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(test1.page.getByText('Test gesendet.', { exact: false })).toBeVisible();
-  await waitForMail(request, email, 'alert_test');
+  // The test reaches the owner's app like a real alert (push only, no e-mail).
+  await waitForAppPush(request, app.fcmToken, 'test', await alertIdOf(test1.page));
   await page.reload();
   await expect(page.getByText(/Zuletzt erfolgreich getestet am/)).toBeVisible();
   await test1.ctx.close();
@@ -83,8 +95,11 @@ test('owner test scan activates the decal, then a stranger scans (US-12, US-14, 
   await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });
-  const mail = await waitForMail(request, email, 'alert_received');
-  expect(mail.text).toContain('Fahrzeug versperrt Ausfahrt');
+  // App push only, generic: the alert id and the kind, never the problem, plate or nickname.
+  const push = await waitForAppPush(request, app.fcmToken, 'alert', await alertIdOf(scan));
+  expect(push.body.message.data).toEqual({ alertId: await alertIdOf(scan), kind: 'alert' });
+  expect(JSON.stringify(push.body)).not.toMatch(/versperrt|Der Blaue|K-AB|1234/);
+  await expectNoAlertMail(request, email);
 
   // Survives a reload in the same session; language switches in place; no cookies were ever set.
   await scan.reload();
@@ -103,6 +118,7 @@ test('custom messages are filtered before they are sent (US-15)', async ({
 }) => {
   const email = uniqueEmail('text');
   await ownerWithVehicle(page, request, email);
+  const app = await appDevice(request, email);
   const url = await testWindowUrl(page);
   const owner = await scannerPage(browser, url); // use up the test window first
   await owner.page.getByRole('button', { name: 'Licht brennt noch' }).click();
@@ -119,22 +135,59 @@ test('custom messages are filtered before they are sent (US-15)', async ({
   await scan.getByLabel('Ihre Nachricht').fill('Ihr Kofferraum steht offen');
   await scan.getByRole('button', { name: 'Nachricht senden' }).click();
   await expect(scan.getByRole('heading', { name: 'Status Ihrer Warnung' })).toBeVisible();
-  const mail = await waitForMail(request, email, 'alert_received');
-  expect(mail.text).toContain('Ihr Kofferraum steht offen');
-  expect(mail.text).not.toContain('0171');
+  // The text reaches the owner only inside the app (never in the push payload, never by e-mail).
+  const alertId = await alertIdOf(scan);
+  const push = await waitForAppPush(request, app.fcmToken, 'alert', alertId);
+  expect(JSON.stringify(push.body)).not.toContain('Kofferraum');
+  const detail = (await (
+    await request.get(`${API_URL}/v1/app/alerts/${alertId}`, { headers: app.headers })
+  ).json()) as { message: string | null };
+  expect(detail.message).toBe('Ihr Kofferraum steht offen');
+  await expectNoAlertMail(request, email);
   await ctx.close();
 });
 
-test('revoking a code makes the old decal inactive; replacement is paid (US-13, SC-07)', async ({
+test('„Sperren“ makes the old decal inactive and creates no new code; a new code is free (US-13, SC-07)', async ({
   page,
   request,
   browser,
 }) => {
-  await ownerWithVehicle(page, request, uniqueEmail('revoke'));
+  const email = uniqueEmail('revoke');
+  await ownerWithVehicle(page, request, email);
   const oldUrl = await testWindowUrl(page);
-  page.once('dialog', (d) => void d.accept());
-  await page.getByRole('button', { name: 'Code sperren und neuen ausstellen' }).click();
-  await expect(page.getByText(/Neuer Code ausgestellt/)).toBeVisible();
+  const tokens = () =>
+    sql<{ status: string }>(
+      `SELECT t.status FROM qr_tokens t JOIN vehicles v ON v.id = t.vehicle_id
+        WHERE v.owner_user_id = (SELECT id FROM users WHERE email = $1) ORDER BY t.created_at`,
+      [email],
+    );
+  expect((await tokens()).map((t) => t.status)).toEqual(['assigned']);
+
+  // The dialog says exactly what happens before anything is locked.
+  await page.getByRole('button', { name: 'Sperren', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Code wirklich sperren?' });
+  await expect(dialog).toBeVisible();
+  for (const line of [
+    'Der alte Aufkleber funktioniert sofort nicht mehr.',
+    'Es wird nicht automatisch ein neuer Code erstellt.',
+    'Einen neuen Code erstellen Sie danach selbst, kostenlos.',
+    /^Drucken und Zusenden lassen kostet 3\s?€ einmalig, selbst drucken ist kostenlos\.$/,
+  ])
+    await expect(dialog.getByText(line)).toBeVisible();
+  await expectAccessible(page);
+  await dialog.getByRole('button', { name: 'Ja, Code jetzt sperren' }).click();
+  await expect(page.getByText('Der Code ist gesperrt.', { exact: false })).toBeVisible();
+
+  // No replacement: the vehicle has no active code and says so, in the detail and the overview.
+  expect((await tokens()).map((t) => t.status)).toEqual(['revoked']);
+  await expect(
+    page.getByText('Kein aktiver Code – Ihr Fahrzeug ist nicht geschützt').first(),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Aufkleber testen' })).toHaveCount(0);
+  await expect(
+    page.getByText('Erstellen Sie zuerst einen neuen Code', { exact: false }),
+  ).toBeVisible();
+  await expectAccessible(page);
 
   const { ctx, page: scan, res } = await scannerPage(browser, oldUrl);
   expect(res.status()).toBe(404);
@@ -144,22 +197,22 @@ test('revoking a code makes the old decal inactive; replacement is paid (US-13, 
   await expectAccessible(scan);
   await ctx.close();
 
-  // The included decal comes first (free); the paid replacement is offered once it is used.
-  const included = page.locator('form').filter({ hasText: 'Inklusive Aufkleber bestellen' });
-  await included.getByLabel('Name', { exact: true }).fill('Jonas Beispiel');
-  await included.getByLabel('Straße und Hausnummer').fill('Domstraße 1');
-  await included.getByLabel('Postleitzahl').fill('50667');
-  await included.getByLabel('Ort').fill('Köln');
-  await included.getByRole('button', { name: 'Inklusive Aufkleber bestellen' }).click();
-  await expect(page.getByText(/^Bestellt!/)).toBeVisible();
+  await page.goto('/konto/fahrzeuge');
+  await expect(
+    page.getByText('Kein aktiver Code – Ihr Fahrzeug ist nicht geschützt').first(),
+  ).toBeVisible();
+  await page.goto('/konto');
+  await expect(
+    page.getByText('Kein aktiver Code – Ihr Fahrzeug ist nicht geschützt').first(),
+  ).toBeVisible();
+  await page.waitForLoadState('networkidle');
 
-  const replacement = page.locator('form').filter({ hasText: 'Ersatzaufkleber bestellen' });
-  await replacement.getByLabel('Name', { exact: true }).fill('Jonas Beispiel');
-  await replacement.getByLabel('Straße und Hausnummer').fill('Domstraße 1');
-  await replacement.getByLabel('Postleitzahl').fill('50667');
-  await replacement.getByLabel('Ort').fill('Köln');
-  await replacement.getByRole('button', { name: /Ersatzaufkleber bestellen/ }).click();
-  await expect(page.getByText(/Betrag: 5,90/)).toBeVisible();
-  await page.getByRole('button', { name: 'Testzahlung ausführen' }).click();
-  await expect(page.getByText('Danke! Ihr Ersatzaufkleber wird gedruckt.')).toBeVisible();
+  // „Neuen Code erstellen“ is an explicit, free action; it never needs a payment.
+  await page.getByRole('button', { name: 'Neuen Code erstellen' }).first().click();
+  await expect(page.getByText('Kein aktiver Code – Ihr Fahrzeug ist nicht geschützt')).toHaveCount(
+    0,
+  );
+  await expect(page).not.toHaveURL(/checkout/);
+  expect((await tokens()).map((t) => t.status)).toEqual(['revoked', 'assigned']);
+  await expectAccessible(page);
 });

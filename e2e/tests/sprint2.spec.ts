@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
-import { expectAccessible, linkIn, signUp, uniqueEmail, waitForMail } from './helpers';
+import { expectAccessible, linkIn, signUp, sql, uniqueEmail, waitForMail } from './helpers';
 
 test.describe('landing and legal pages (US-04)', () => {
-  test('shows prices incl. VAT and the Premium date (only Plus and Premium), and is accessible', async ({
+  test('shows the single plan (20 € / year incl. VAT, one vehicle), no Plus or Premium, and is accessible', async ({
     page,
   }) => {
     await page.goto('/');
@@ -10,11 +10,13 @@ test.describe('landing and legal pages (US-04)', () => {
       'Ihre Handynummer gehört nicht hinter die Windschutzscheibe.',
     );
     const pricing = page.locator('#preise');
-    await expect(pricing.getByText('10 € / Jahr inkl. 19 % MwSt.')).toBeVisible();
-    await expect(pricing.getByText('15 € / Jahr inkl. 19 % MwSt.')).toBeVisible();
-    await expect(pricing.getByText('Verfügbar ab 9. November 2027')).toBeVisible();
-    // The Business plan was removed.
-    await expect(pricing.getByText('Business')).toHaveCount(0);
+    await expect(pricing.getByRole('heading', { name: 'ParkShield', exact: true })).toBeVisible();
+    await expect(pricing.getByText(/^20\s?€\s?\/ Jahr inkl\. 19 % MwSt\.$/)).toBeVisible();
+    await expect(pricing.getByText('Für 1 Fahrzeug')).toBeVisible();
+    // One plan (owner decision 2026-11-21): no plan comparison, no upgrade, no other prices.
+    await expect(pricing.getByRole('heading', { level: 3 })).toHaveCount(1);
+    const body = (await page.locator('body').innerText()).replace(/Plus Jakarta Sans/g, '');
+    expect(body).not.toMatch(/\bPlus\b|Premium|Business|10 €|15 €/);
     await expect(page.getByRole('link', { name: 'Verträge hier kündigen' })).toBeVisible();
     await expectAccessible(page);
   });
@@ -37,7 +39,7 @@ test.describe('landing and legal pages (US-04)', () => {
 });
 
 test.describe('sign-up, annual checkout, cancellation (US-05, US-06, US-07)', () => {
-  test('full journey: magic link → Plus checkout → active → cancel with receipt', async ({
+  test('full journey: magic link → single plan checkout → active → cancel with receipt', async ({
     page,
     request,
   }) => {
@@ -46,17 +48,18 @@ test.describe('sign-up, annual checkout, cancellation (US-05, US-06, US-07)', ()
     await expectAccessible(page);
 
     // Immediate-start request is mandatory before paying: the button stays off until it is ticked.
-    await expect(page.getByRole('button', { name: 'Zahlungspflichtig bestellen' })).toBeDisabled();
+    const order = page.getByRole('button', { name: 'Zahlungspflichtig bestellen – 20 € / Jahr' });
+    await expect(order).toBeDisabled();
     await expect(page.getByText('Bitte bestätigen Sie den sofortigen Beginn')).toBeVisible();
     await page.getByLabel(/Ich verlange ausdrücklich/).check();
-    await page.getByRole('button', { name: 'Zahlungspflichtig bestellen' }).click();
+    await order.click();
 
     await expect(page).toHaveURL(/\/dev\/checkout\?session=cs_fake_/);
-    await expect(page.getByText(/Betrag: 10,00/)).toBeVisible();
+    await expect(page.getByText(/Betrag: 20,00/)).toBeVisible();
     await page.getByRole('button', { name: 'Testzahlung ausführen' }).click();
 
     await expect(page).toHaveURL(/\/konto\?checkout=success/);
-    await expect(page.getByText('ParkShield Plus')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/^ParkShield · 20\s?€ \/ Jahr$/)).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('Aktiv', { exact: true })).toBeVisible();
     const contract = (await page.getByText(/^Vertragsnummer: PS-/).textContent())!.replace(
       'Vertragsnummer: ',
@@ -68,11 +71,35 @@ test.describe('sign-up, annual checkout, cancellation (US-05, US-06, US-07)', ()
     await expect(
       page.getByRole('link', { name: /Rechnung DEV-\d{4}-\d+ vom .* \(PDF\)/ }),
     ).toBeVisible();
+    await expect(page.getByText(/Premium|Upgrade/)).toHaveCount(0);
+    // One card „Vertrag“: during the withdrawal period (§ 356a BGB) the withdrawal button comes first.
+    const card = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { level: 2, name: 'Vertrag', exact: true }) });
+    await expect(
+      card.getByText(/Sie können bis .* ohne Angabe von Gründen widerrufen\./),
+    ).toBeVisible();
+    await expect(card.getByRole('link', { name: 'Vertrag widerrufen' })).toHaveAttribute(
+      'href',
+      '/widerrufen',
+    );
+    await expect(card.getByRole('link', { name: 'Vertrag hier kündigen' })).toBeVisible();
     await expectAccessible(page);
     const welcome = await waitForMail(request, email, 'contract_confirmation');
     expect(welcome.text).toContain(contract);
 
-    await page.getByRole('main').getByRole('link', { name: 'Verträge hier kündigen' }).click();
+    // After the withdrawal period only the cancel part remains.
+    await sql(
+      `UPDATE subscriptions SET created_at = now() - interval '20 days'
+        WHERE user_id = (SELECT id FROM users WHERE email = $1)`,
+      [email],
+    );
+    await page.reload();
+    await expect(card.getByRole('link', { name: 'Vertrag hier kündigen' })).toBeVisible();
+    await expect(card.getByRole('link', { name: 'Vertrag widerrufen' })).toHaveCount(0);
+    await expect(card.getByText(/ohne Angabe von Gründen widerrufen/)).toHaveCount(0);
+
+    await card.getByRole('link', { name: 'Vertrag hier kündigen' }).click();
     await expect(page.getByText(`Gekündigt wird Ihr Vertrag ${contract}`)).toBeVisible();
     await expectAccessible(page);
     await page.getByRole('button', { name: 'Jetzt kündigen' }).click();
@@ -94,7 +121,7 @@ test.describe('sign-up, annual checkout, cancellation (US-05, US-06, US-07)', ()
     const email = uniqueEmail('ohnelogin');
     await signUp(page, request, email);
     await page.getByLabel(/Ich verlange ausdrücklich/).check();
-    await page.getByRole('button', { name: 'Zahlungspflichtig bestellen' }).click();
+    await page.getByRole('button', { name: /Zahlungspflichtig bestellen/ }).click();
     await page.getByRole('button', { name: 'Testzahlung ausführen' }).click();
     await expect(page.getByText(/^Vertragsnummer: PS-/)).toBeVisible({ timeout: 15_000 });
     const contract = (await page.getByText(/^Vertragsnummer: PS-/).textContent())!.replace(

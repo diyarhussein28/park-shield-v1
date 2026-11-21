@@ -69,6 +69,8 @@ test('a new account completes name, address and a verified mobile number before 
   ).toBeVisible();
 
   await verifyPhone(page);
-  await expect(page.getByRole('button', { name: /Zahlungspflichtig bestellen – 20 €/ })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: /Zahlungspflichtig bestellen – 20 €/ }),
+  ).toBeVisible();
   await expectAccessible(page);
 });

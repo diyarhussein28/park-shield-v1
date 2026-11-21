@@ -2,18 +2,22 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 import {
   alertIdOf,
   API_URL,
-  appSession,
+  appDevice,
+  escalationDue,
   expectAccessible,
+  expectNoAlertMail,
   ownerWithActiveDecal,
   sql,
   uniqueEmail,
-  waitForMail,
+  waitForAppPush,
+  waitForEscalationSms,
 } from './helpers';
 
 /**
  * Phase 2 alert photos, end to end: a scanner attaches 2 photos (one from the live camera, one through
- * the file-picker fallback), e-mail and SMS carry the same view link and no photo, the owner sees the
- * photos in the app (bearer session) and on the view page, „Missbrauch melden“ deletes them everywhere.
+ * the file-picker fallback), the app push carries neither photo nor link (no e-mail), the escalation
+ * SMS carries only the view link, the owner sees the photos in the app (bearer session) and on the view
+ * page, „Missbrauch melden“ deletes them everywhere.
  *
  * Needs the stack started with ALERT_PHOTOS_ENABLED=true (CI sets it). Locally the test is skipped with
  * a hint when the scanner page offers no photos; in CI that is a failure.
@@ -75,7 +79,7 @@ async function galleryJpeg(page: Page): Promise<Buffer> {
   return Buffer.from(dataUrl.split(',')[1]!, 'base64');
 }
 
-test('alert photos: 2 photos → same view link in e-mail and SMS → app → „Missbrauch melden“ → gone', async ({
+test('alert photos: 2 photos → generic push, view link in the SMS → app → „Missbrauch melden“ → gone', async ({
   page,
   request,
   browser,
@@ -84,37 +88,8 @@ test('alert photos: 2 photos → same view link in e-mail and SMS → app → �
   const email = uniqueEmail('photos');
   const url = await ownerWithActiveDecal(page, request, email);
 
-  // PREMIUM, so the alert also goes out by SMS (Plus gets photos too, without SMS). The upgrade
-  // itself is tested in billing; here the subscription is switched in the database.
-  await sql(
-    `UPDATE subscriptions SET plan = 'premium' WHERE user_id = (SELECT id FROM users WHERE email = $1)`,
-    [email],
-  );
-  await page.goto('/konto/benachrichtigungen');
-  await page.waitForLoadState('networkidle');
-  const card = page.getByRole('region', { name: 'Ihre Handynummer' });
-  const phone = `0151${String(Date.now()).slice(-8)}`;
-  const e164 = `+49${phone.slice(1)}`;
-  await card.getByLabel('Handynummer').fill(phone);
-  await card.getByLabel(/^Per SMS/).check();
-  await card.getByRole('button', { name: 'Code per SMS senden' }).click();
-  let otp = '';
-  await expect
-    .poll(
-      async () => {
-        const { messages } = (await (await request.get(`${API_URL}/v1/dev/sms`)).json()) as {
-          messages: { to: string; tag: string; body: string }[];
-        };
-        const m = messages.find((x) => x.to === e164 && x.tag === 'sms_otp');
-        otp = /(\d{6})/.exec(m?.body ?? '')?.[1] ?? '';
-        return otp;
-      },
-      { timeout: 15_000 },
-    )
-    .toMatch(/^\d{6}$/);
-  await card.getByLabel('6-stelliger Code').fill(otp);
-  await card.getByRole('button', { name: 'Bestätigen' }).click();
-  await expect(card.getByText('Ihre Handynummer ist bestätigt.', { exact: false })).toBeVisible();
+  // The owner's app (alerts go by app push only); the SMS after 30 minutes carries the view link.
+  const app = await appDevice(request, email);
 
   // --- The scanner: notice first, then the live camera, then the file-picker fallback. ------------
   const { ctx, page: scan } = await scannerWithCamera(browser, url);
@@ -167,29 +142,21 @@ test('alert photos: 2 photos → same view link in e-mail and SMS → app → �
   );
   expect(stored).toBe(2);
 
-  // --- E-mail and SMS: the same view link, and only the link. -----------------------------------
-  const mail = await waitForMail(request, email, 'alert_received_photos');
-  const token = VIEW.exec(mail.text)?.[1];
+  // --- The push carries no photo and no link; no e-mail at all. ---------------------------------
+  const push = await waitForAppPush(request, app.fcmToken, 'alert', alertId);
+  expect(push.body.message.data).toEqual({ alertId, kind: 'alert' });
+  expect(JSON.stringify(push.body)).not.toMatch(/\/v\/|jpe?g|Beschädigung/i);
+  await expectNoAlertMail(request, email);
+
+  // --- 30 minutes without a reaction: one SMS with the view link, and only the link. ------------
+  await escalationDue(alertId, 'sms');
+  const sms = await waitForEscalationSms(request, alertId);
+  const token = VIEW.exec(sms.body)?.[1];
   expect(token).toBeTruthy();
-  let sms: { to: string; body: string } | undefined;
-  await expect
-    .poll(
-      async () => {
-        const { messages } = (await (await request.get(`${API_URL}/v1/dev/sms`)).json()) as {
-          messages: { to: string; tag: string; body: string }[];
-        };
-        sms = messages.find((m) => m.to === e164 && VIEW.test(m.body));
-        return Boolean(sms);
-      },
-      { timeout: 20_000 },
-    )
-    .toBe(true);
-  expect(VIEW.exec(sms!.body)![1]).toBe(token);
-  expect(sms!.body.length).toBeLessThanOrEqual(160);
-  expect(sms!.body).not.toMatch(/K-AB/);
+  expect(sms.body.length).toBeLessThanOrEqual(160);
+  expect(sms.body).not.toMatch(/K-AB/);
 
   // --- The app: the photos with the app session, streamed and never cached. ----------------------
-  const app = await appSession(request, email);
   const detail = await request.get(`${API_URL}/v1/app/alerts/${alertId}`, { headers: app.headers });
   expect(detail.status()).toBe(200);
   const shown = (await detail.json()) as {

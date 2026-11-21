@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import {
+  appDevice,
   expectAccessible,
   ownerWithActiveDecal,
   scannerPage,
@@ -18,6 +19,7 @@ test('support opens Customer 360 and the trace; break-glass needs a second perso
   // Unique per run: approvers see every open request, including the other project's.
   const ticket = `ZM-${Date.now() % 1_000_000}${Math.floor(Math.random() * 100)}`;
   const url = await ownerWithActiveDecal(page, request, email);
+  await appDevice(request, email);
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Licht brennt noch' }).click();
   await scan.getByRole('button', { name: 'Warnung senden' }).click();
@@ -40,7 +42,9 @@ test('support opens Customer 360 and the trace; break-glass needs a second perso
   // Delivery trace: attempts, never content.
   await support.getByRole('link', { name: 'Zustellverlauf' }).first().click();
   await expect(support.getByText('Freitexte werden hier nie angezeigt.')).toBeVisible();
-  await expect(support.getByRole('table', { name: 'Zustellversuche' })).toContainText('E-Mail');
+  const trace = support.getByRole('table', { name: 'Zustellversuche' });
+  await expect(trace).toContainText('App');
+  await expect(trace).not.toContainText('E-Mail');
   await expectAccessible(support);
   await support.goto(customerUrl);
   await support.waitForLoadState('networkidle'); // hydrated: the buttons below are interactive
@@ -50,7 +54,7 @@ test('support opens Customer 360 and the trace; break-glass needs a second perso
     .getByLabel('Begründung (mind. 10 Zeichen)')
     .fill('Abschleppdienst braucht das Kennzeichen');
   await support.getByLabel('Ticketnummer').fill(ticket);
-  await support.getByRole('button', { name: 'Freigabe anfordern' }).click();
+  await support.getByRole('button', { name: 'Freigabe anfordern', exact: true }).click();
   await expect(support.getByText(/Angefordert\. Eine zweite Person muss freigeben/)).toBeVisible();
 
   const admin = await staffBrowser(browser, 'admin', ['admin']);
