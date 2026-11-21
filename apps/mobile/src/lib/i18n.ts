@@ -21,7 +21,7 @@ const de = {
   pushTitle: 'Mitteilungen erlauben',
   pushWhy: 'Ohne Mitteilungen erfahren Sie nicht sofort von Problemen an Ihrem Fahrzeug.',
   pushWhat:
-    'Eine Mitteilung enthält nur die Art der Warnung, etwa „Ausfahrt blockiert“. Alles Weitere laden wir sicher, wenn Sie die App öffnen. Mit „Ich komme“ direkt in der Mitteilung antworten Sie sofort.',
+    'Eine Mitteilung zeigt nur „Neue Warnung zu Ihrem Fahrzeug“, nicht einmal die Art der Warnung. Alles Weitere laden wir sicher, wenn Sie die App öffnen. Mit „Ich komme“ direkt in der Mitteilung antworten Sie sofort.',
   pushAllow: 'Weiter zur Abfrage',
   pushLater: 'Später',
   pushDeniedBanner:
@@ -415,7 +415,7 @@ const en: Record<Key, string> = {
   pushTitle: 'Allow notifications',
   pushWhy: 'Without notifications you do not learn about problems with your vehicle right away.',
   pushWhat:
-    'A notification contains only the type of alert, such as “Exit blocked”. We load everything else securely when you open the app. Tap “I’m coming” right in the notification to answer at once.',
+    'A notification only says “New alert for your vehicle”, not even the type of alert. We load everything else securely when you open the app. Tap “I’m coming” right in the notification to answer at once.',
   pushAllow: 'Continue',
   pushLater: 'Later',
   pushDeniedBanner:
