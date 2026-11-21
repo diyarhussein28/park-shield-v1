@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-21 (API stages 1–3 written; website portal stage 1–2 done; scanner page redesigned; app stage 1–2 and API tests in progress)._
+_Last updated: 2026-11-21 19:40 UTC (5-hour limit was hit at ~18:00 and reset; API tests and app screens resumed). Latest WIP commit on main: e24195b._
 
 ---
 
@@ -169,6 +169,21 @@ committed to this public repo). Ask the owner for them if you need the pixels. V
   Baseline before this work: 46 files / 509 tests green.
 - Build the shared packages first: `npx turbo run build --filter=@parkshield/shared --filter=@parkshield/i18n`.
 - Node 24 (`/opt/node24/bin` in the cloud container).
+
+## 4a. State of the work in the tree (if you take over now)
+
+- **API tests** (`apps/api/src/**/*.test.ts`): being rewritten for the new rules; partially done
+  (billing, sync, channels, letters, escalation.test.ts new, sms-templates, back-office, orders,
+  preferences, scan). Still open at the stop: privacy, profile, routes (security registry), the
+  Stage 3 block tests. Run `cd apps/api && npx vitest run`, fix until green.
+- **App** (`apps/mobile`): Stage 1+2 screens partially done (abo contract card, subscription,
+  profil phone step, alert detail escalation stage + „Erledigt“, vehicle Sperren + print screen
+  `fahrzeug/drucken/[id].tsx`). Still open at the stop: push-off warning banner component,
+  „Kein aktiver Code“ component on Home/Vehicles, notifications screen cleanup, Jest tests.
+- **Not started:** Stage 3 UI (block buttons app + web history), Stage 4 app (Home without alert
+  cards + tab badge, on-device vehicle photo with expo-image-picker, design refresh after
+  „Design speichern“), E2E updates for phone-before-checkout / Sperren dialog / removed pages, a full
+  manual run of the stack as a real user.
 
 ## 5. Next steps (in order)
 
