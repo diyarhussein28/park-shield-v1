@@ -20,6 +20,7 @@ test('support opens Customer 360 and the trace; break-glass needs a second perso
   const url = await ownerWithActiveDecal(page, request, email);
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Licht brennt noch' }).click();
+  await scan.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });
@@ -140,6 +141,7 @@ test('abuse centre: owner report handled; a new filter word is live at once (US-
   const url = await ownerWithActiveDecal(page, request, email);
   const first = await scannerPage(browser, url);
   await first.page.getByRole('button', { name: 'Licht brennt noch' }).click();
+  await first.page.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(first.page.getByRole('heading', { name: 'Status Ihrer Warnung' })).toBeVisible();
   await first.ctx.close();
   await page.goto('/konto/verlauf');

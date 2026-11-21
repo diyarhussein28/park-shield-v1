@@ -53,6 +53,7 @@ test('live chat: the owner opens it from the app, both write, the owner closes i
     });
   });
   await scan.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
+  await scan.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });
@@ -142,7 +143,7 @@ test('live chat: the owner opens it from the app, both write, the owner closes i
     headers: app.headers,
   });
   expect((await closed.json()).status).toBe('closed');
-  await expect(scan.getByText('Der Chat wurde beendet. Vielen Dank für Ihre Hilfe!')).toBeVisible({
+  await expect(scan.getByText('Der Chat wurde beendet.')).toBeVisible({
     timeout: 10_000,
   });
   await expect(scan.getByLabel('Ihre Antwort')).toBeHidden();
@@ -207,6 +208,7 @@ test('PREMIUM escalation: the trusted contact gets one SMS, taps „Ich komme" o
 
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
+  await scan.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });

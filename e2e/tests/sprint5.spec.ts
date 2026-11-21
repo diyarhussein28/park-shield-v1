@@ -33,6 +33,7 @@ async function ownerWithVehicle(page: Page, request: APIRequestContext, email: s
   // Use up the test window, so the next scans are real alerts.
   const own = await scanner(page.context().browser()!, url);
   await own.page.getByRole('button', { name: 'Licht brennt noch' }).click();
+  await own.page.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(own.page.getByText('Test gesendet.', { exact: false })).toBeVisible();
   await own.ctx.close();
   return url;
@@ -59,6 +60,7 @@ test('friendly limit message, then guidance with the right numbers after expiry 
 
   const { ctx, page: scan } = await scanner(browser, url);
   await scan.getByRole('button', { name: 'Licht brennt noch' }).click();
+  await scan.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(scan.getByRole('heading', { name: 'Status Ihrer Warnung' })).toBeVisible();
   const id = await latestAlert(email);
 
@@ -66,10 +68,12 @@ test('friendly limit message, then guidance with the right numbers after expiry 
   // (sliding window, `alert.scanner_vehicle`), then a friendly wait.
   const second = await scanner(browser, url);
   await second.page.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
+  await second.page.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(second.page.getByRole('heading', { name: 'Status Ihrer Warnung' })).toBeVisible();
   await second.ctx.close();
   const again = await scanner(browser, url);
   await again.page.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
+  await again.page.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(again.page.getByRole('alert')).toHaveText(
     /Sie haben das Limit für Benachrichtigungen überschritten\. Bitte versuchen Sie es später erneut \(in ca\. \d+ Min\.\)\./,
   );
@@ -104,6 +108,7 @@ test('"Ich warte noch" reminds the owner once (US-18, SC-14)', async ({
   const url = await ownerWithVehicle(page, request, email);
   const { ctx, page: scan } = await scanner(browser, url);
   await scan.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
+  await scan.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });
@@ -135,7 +140,7 @@ test('a suspicious decal can be reported (US-19, SC-15)', async ({ page, request
   await expect(open).toHaveAttribute('aria-expanded', 'false');
   await open.click();
   await expect(open).toHaveAttribute('aria-expanded', 'true');
-  await expect(scan.getByText(/führen immer zu pkshd\.de/)).toBeVisible();
+  await expect(scan.getByText(/führen immer zu park-shield\.de/)).toBeVisible();
   await scan.getByLabel('Was ist Ihnen aufgefallen? (freiwillig)').fill('Aufkleber überklebt');
   await expectAccessible(scan);
   await scan.getByRole('button', { name: 'Meldung senden' }).click();
@@ -186,6 +191,7 @@ test('push devices: list, alert delivery and removal; iPhone guide (US-20)', asy
 
   const { ctx, page: scan } = await scanner(browser, url);
   await scan.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
+  await scan.getByRole('button', { name: 'Warnung senden' }).click();
   await expect
     .poll(
       async () => {

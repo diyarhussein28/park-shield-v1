@@ -44,9 +44,11 @@ test('quiet hours mute normal alerts; urgent ones still come through (US-26)', a
 
   const one = await scanAs(browser, url, 1);
   await one.page.getByRole('button', { name: 'Licht brennt noch' }).click();
+  await one.page.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(one.page.getByText('Ihre Warnung wurde gesendet.')).toBeVisible();
   const two = await scanAs(browser, url, 2);
   await two.page.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
+  await two.page.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(two.page.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });

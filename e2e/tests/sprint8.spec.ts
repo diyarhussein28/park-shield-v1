@@ -58,6 +58,7 @@ test('"Warnung nicht bekommen?" explains the latest attempts (SP-05)', async ({
   const url = await ownerWithActiveDecal(page, request, uniqueEmail('help'));
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Licht brennt noch' }).click();
+  await scan.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });

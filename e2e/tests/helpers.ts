@@ -182,6 +182,7 @@ export async function ownerWithActiveDecal(
   const url = (await link.getAttribute('href'))!;
   const own = await scannerPage(page.context().browser()!, url);
   await own.page.getByRole('button', { name: 'Licht brennt noch' }).click();
+  await own.page.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(own.page.getByText('Test gesendet.', { exact: false })).toBeVisible();
   await own.ctx.close();
   return url;

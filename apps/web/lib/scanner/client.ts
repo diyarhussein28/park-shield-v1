@@ -12,18 +12,21 @@ const $ = (id) => document.getElementById(id);
 let lang = d.lang;
 const t = (k, v) => (d.strings[lang][k] || k).replace(/\\{(\\w+)\\}/g, (_, n) => (v && v[n] != null ? v[n] : ''));
 const time = (iso) => new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-let current = null, timer = null, last = null, busy = false, verification = null;
+let current = null, timer = null, last = null, busy = false, verification = null, sel = null;
 const FRAG = /^#a=([0-9a-f-]{36})\\.([A-Za-z0-9_-]{20,100})(?:\\.([A-Za-z0-9_-]{20,100}))?$/;
 function remember(c) { history.replaceState(null, '', c ? '#a=' + c.id + '.' + c.token + (c.chat ? '.' + c.chat : '') : location.pathname); }
 
 function applyLang() {
   document.documentElement.lang = lang;
   document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = t(el.dataset.t); });
-  document.querySelectorAll('.type').forEach((el) => { el.textContent = el.dataset[lang]; });
+  document.querySelectorAll('[data-tp]').forEach((el) => { el.placeholder = t(el.dataset.tp); });
+  document.querySelectorAll('[data-ta]').forEach((el) => el.setAttribute('aria-label', t(el.dataset.ta)));
+  document.querySelectorAll('[data-de]').forEach((el) => { el.textContent = el.dataset[lang]; });
   document.querySelectorAll('.lang').forEach((el) => el.setAttribute('aria-pressed', String(el.dataset.lang === lang)));
   if (d.backAt) $('backat').textContent = t('backAt', { time: time(d.backAt) });
   if ($('ph')) phRender();
   counter();
+  ticks();
   if (last) render(last);
 }
 document.querySelectorAll('.lang').forEach((b) => b.addEventListener('click', () => { lang = b.dataset.lang; applyLang(); }));
@@ -32,7 +35,7 @@ function counter() { const m = $('msg'); if (m) $('count').textContent = t('coun
 function error(text) { const e = $('error'); e.textContent = text || ''; e.hidden = !text; }
 function setBusy(on) {
   busy = on;
-  document.querySelectorAll('.type, #send').forEach((b) => { b.disabled = on; });
+  document.querySelectorAll('.type, #custom-open, #send, #go').forEach((b) => { b.disabled = on; });
   $('busy').hidden = !on;
 }
 
@@ -167,28 +170,39 @@ let retake = -1, stream = null, noticeOk = false;
 const MAXP = 2, MAX_SIDE = 1600, TARGET = 300 * 1024, HARD = 500 * 1024;
 function phStatus(text) { const s = $('ph-status'); if (s) s.textContent = text || ''; }
 function phClear() { photos.splice(0).forEach((p) => URL.revokeObjectURL(p.url)); phRender(); }
+// Two slots: a filled one shows the thumbnail with "retake" and "delete", an empty one "+ Foto n hinzufügen".
+function phButton(cls, text, aria, onClick) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = cls; b.textContent = text;
+  if (aria) b.setAttribute('aria-label', aria);
+  b.addEventListener('click', onClick);
+  return b;
+}
 function phRender() {
   const list = $('ph-list');
   if (!list) return;
   list.textContent = '';
-  photos.forEach((p, i) => {
+  for (let i = 0; i < MAXP; i++) {
     const li = document.createElement('li');
-    const img = document.createElement('img');
-    img.src = p.url; img.alt = t('photoAlt', { n: i + 1 });
-    const again = document.createElement('button');
-    again.type = 'button'; again.className = 'secondary'; again.textContent = t('photoRetake');
-    again.setAttribute('aria-label', t('photoRetake') + ' – ' + img.alt);
-    again.addEventListener('click', () => phAdd(i));
-    const del = document.createElement('button');
-    del.type = 'button'; del.className = 'secondary'; del.textContent = t('photoDelete');
-    del.setAttribute('aria-label', t('photoDelete') + ' – ' + img.alt);
-    del.addEventListener('click', () => { URL.revokeObjectURL(photos[i].url); photos.splice(i, 1); phRender(); $('ph-add').focus(); });
-    li.append(img, again, del);
+    const p = photos[i];
+    if (p) {
+      const img = document.createElement('img');
+      img.src = p.url; img.alt = t('photoAlt', { n: i + 1 });
+      li.append(img,
+        phButton('secondary', t('photoRetake'), t('photoRetake') + ' – ' + img.alt, () => phAdd(i)),
+        phButton('secondary', t('photoDelete'), t('photoDelete') + ' – ' + img.alt, () => { URL.revokeObjectURL(photos[i].url); photos.splice(i, 1); phRender(); phFocus(); }));
+    } else {
+      const b = phButton('slot', '', null, () => phAdd(-1));
+      const plus = document.createElement('span');
+      plus.className = 'plus'; plus.setAttribute('aria-hidden', 'true'); plus.textContent = '+';
+      b.append(plus, document.createTextNode(t('photoAdd', { n: i + 1 })));
+      li.appendChild(b);
+    }
     list.appendChild(li);
-  });
-  $('ph-add').disabled = photos.length >= MAXP;
+  }
   phStatus(photos.length ? t('photoCount', { count: photos.length }) : '');
 }
+function phFocus() { const b = $('ph-list').querySelector('.slot') || $('ph-list').querySelector('button'); if (b) b.focus(); }
 function phAdd(i) {
   retake = i;
   if (noticeOk) { openCamera(); return; }
@@ -238,12 +252,11 @@ function keep(blob) {
   else if (photos.length < MAXP) photos.push(p);
   retake = -1;
   phRender();
-  $('ph-add').disabled ? $('ph-list').querySelector('button').focus() : $('ph-add').focus();
+  phFocus();
 }
 if ($('ph')) {
-  $('ph-add').addEventListener('click', () => phAdd(-1));
   $('ph-ok').addEventListener('click', () => { noticeOk = true; $('ph-notice').hidden = true; openCamera(); });
-  $('ph-cancel').addEventListener('click', () => { $('ph-notice').hidden = true; $('ph-add').focus(); });
+  $('ph-cancel').addEventListener('click', () => { $('ph-notice').hidden = true; phFocus(); });
   $('ph-shot').addEventListener('click', async () => {
     const v = $('ph-video');
     if (!v.videoWidth) return;
@@ -251,8 +264,8 @@ if ($('ph')) {
     stopCamera();
     keep(await compress(c));
   });
-  $('ph-close').addEventListener('click', () => { stopCamera(); $('ph-add').focus(); });
-  $('ph-cam').addEventListener('keydown', (e) => { if (e.key === 'Escape') { stopCamera(); $('ph-add').focus(); } });
+  $('ph-close').addEventListener('click', () => { stopCamera(); phFocus(); });
+  $('ph-cam').addEventListener('keydown', (e) => { if (e.key === 'Escape') { stopCamera(); phFocus(); } });
   $('ph-file').addEventListener('change', async () => {
     const f = $('ph-file').files[0];
     if (!f) return;
@@ -270,16 +283,29 @@ if ($('ph')) {
   window.addEventListener('pagehide', stopCamera);
 }
 
-document.querySelectorAll('.type').forEach((b) => b.addEventListener('click', () => {
-  if (b.dataset.type === 'custom') { $('pick').hidden = true; $('custom').hidden = false; $('msg').focus(); }
-  else send(b.dataset.type);
-}));
+// Tap a problem to select it (aria-pressed), then "Warnung senden": two taps without note or photos.
+function select(type) {
+  sel = type;
+  document.querySelectorAll('.type').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.type === type)));
+}
+document.querySelectorAll('.type').forEach((b) => b.addEventListener('click', () => { select(b.dataset.type); error(''); }));
+$('go').addEventListener('click', () => {
+  if (!sel) { error(t('chooseFirst')); $('pick').querySelector('.type').focus(); return; }
+  send(sel, $('note').value.trim() || undefined);
+});
+if ($('custom-open')) $('custom-open').addEventListener('click', () => {
+  // The custom message starts with the short note, if there is one.
+  if (!$('msg').value && $('note').value.trim()) $('msg').value = $('note').value.trim();
+  counter();
+  $('pick').hidden = true; $('go').hidden = true; $('custom').hidden = false; error(''); $('msg').focus();
+});
 $('msg').addEventListener('input', counter);
 $('custom').addEventListener('submit', (e) => { e.preventDefault(); const v = $('msg').value.trim(); if (v) send('custom', v); });
-$('back').addEventListener('click', () => { $('custom').hidden = true; $('pick').hidden = false; error(''); });
+$('back').addEventListener('click', () => { $('custom').hidden = true; $('pick').hidden = false; $('go').hidden = false; error(''); $('custom-open').focus(); });
 $('another').addEventListener('click', () => {
   remember(null); current = null; last = null; clearTimeout(timer); chatStop();
-  $('status').hidden = true; $('custom').hidden = true; $('pick').hidden = false; $('msg').value = ''; counter();
+  $('status').hidden = true; $('custom').hidden = true; $('pick').hidden = false; $('go').hidden = false; $('emergency-line').hidden = true;
+  $('msg').value = ''; $('note').value = ''; select(null); error(''); counter();
   if ($('ph')) { phClear(); $('ph').hidden = false; }
   $('pick').querySelector('.type').focus();
 });
@@ -289,11 +315,12 @@ function render(s) {
   last = s;
   const delivered = !!s.deliveredAt || s.status === 'delivered' || s.status === 'acknowledged' || s.status === 'escalated';
   const steps = $('steps').children;
-  steps[0].className = 'done';
-  steps[1].className = delivered ? 'done' : '';
   const finalKey = FINAL[s.status];
-  steps[2].textContent = t(finalKey || 'stepAcknowledged');
-  steps[2].className = 'final' + (finalKey ? ' done' : '');
+  const step = (i, done) => { steps[i].classList.toggle('done', done); steps[i].querySelector('.st').hidden = !done; };
+  step(0, true);
+  step(1, delivered);
+  steps[2].querySelector('.lbl').textContent = t(finalKey || 'stepAcknowledged');
+  step(2, !!finalKey);
   const lines = [];
   let tone = 'info';
   if (s.status === 'acknowledged') {
@@ -305,9 +332,8 @@ function render(s) {
   } else if (s.status === 'escalated') { tone = 'warn'; lines.push(t('escalated')); }
   else if (s.status === 'expired') { tone = 'warn'; lines.push(t('expired')); }
   else lines.push(s.isTest ? t('testSent') : s.seenAt ? t('seen') : delivered ? t('delivered') : t('sent'));
-  const box = $('result');
-  box.className = 'note ' + tone;
-  box.textContent = lines.join(' ');
+  $('result').className = 'note inote ' + tone;
+  $('result-text').textContent = lines.join(' ');
   const canWait = s.status === 'acknowledged' && !s.waitingSentAt && s.waitingAvailableAt && Date.parse(s.waitingAvailableAt) <= Date.now();
   $('waitbox').hidden = !canWait;
   guide(s.country, !s.isTest && (s.status === 'expired' || (s.status === 'acknowledged' && s.ownerReply === 'not_nearby')));
@@ -381,7 +407,7 @@ async function poll() {
 // --- Owner-initiated live chat (Socket.io, loaded only now). No storage: the token is in memory and in
 // the fragment. Wake Lock keeps the screen on while waiting; the socket reconnects when the page is
 // visible again or the network returns.
-let io = null, sock = null, chatState = 'locked', wake = null, ioLoading = null, typingTimer = null, closedShown = false;
+let io = null, sock = null, chatState = 'locked', wake = null, ioLoading = null, typingTimer = null, closedShown = false, opened = false, readAt = 0;
 // The person at the vehicle has a message limit (the owner none): what is left, and of how many.
 let chatLeft = null, chatMax = null;
 function loadIo() {
@@ -412,26 +438,54 @@ function chatLimits(st) {
   if (st.limits && typeof st.limits.maxPerSide === 'number') chatMax = st.limits.maxPerSide;
   chatCount();
 }
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+// Owner: grey bubble on the left with a car avatar and "Fahrzeughalter · 12:55" above. Own: blue bubble on
+// the right with the time and a read marker (✓ sent, ✓✓ read by the owner) below.
 function addMsg(m) {
   if (document.getElementById('m-' + m.id)) return;
-  const li = document.createElement('li');
+  const li = el('li', m.from);
   li.id = 'm-' + m.id;
-  li.className = m.from;
-  const who = document.createElement('small');
-  who.textContent = (m.from === 'scanner' ? t('chatYou') : t('chatOwner')) + ' · ' + time(m.at);
-  li.appendChild(who);
-  li.appendChild(document.createTextNode(m.text));
+  if (m.from === 'scanner') {
+    li.dataset.at = String(Date.parse(m.at));
+    const meta = el('small', null, time(m.at) + ' ');
+    meta.append(el('span', 'tick'), el('span', 'sr tick-sr'));
+    li.append(el('span', 'sr you'), el('p', 'bub', m.text), meta);
+  } else {
+    const box = el('div');
+    const who = el('small', 'who');
+    who.dataset.at = m.at;
+    box.append(who, el('p', 'bub', m.text));
+    li.append($('tpl-av').content.cloneNode(true), box);
+  }
   $('chat-log').appendChild(li);
+  ticks();
   li.scrollIntoView({ block: 'nearest' });
 }
+// Labels and read markers of the chat, again after a language switch.
+function ticks() {
+  document.querySelectorAll('#chat-log .you').forEach((x) => { x.textContent = t('chatYou') + ':'; });
+  document.querySelectorAll('#chat-log .who').forEach((x) => { x.textContent = t('chatOwner') + ' · ' + time(x.dataset.at); });
+  document.querySelectorAll('#chat-log li.scanner').forEach((li) => {
+    const read = readAt > 0 && Number(li.dataset.at) <= readAt;
+    li.querySelector('.tick').textContent = read ? '✓✓' : '✓';
+    li.querySelector('.tick').setAttribute('aria-hidden', 'true');
+    li.querySelector('.tick-sr').textContent = t(read ? 'chatRead' : 'stepSent');
+  });
+}
+function seen(at) { const v = Date.parse(at); if (v > readAt) { readAt = v; ticks(); } }
 function chatShow(st) {
   chatState = st.status;
   chatLimits(st);
+  if (st.openedAt) opened = true;
+  if (st.readByOther) seen(st.readByOther);
   if (st.status === 'locked') { $('chat').hidden = true; return; }
-  if (st.status === 'closed') { chatClosed(); (st.messages || []).forEach(addMsg); if ((st.messages || []).length) $('chat').hidden = false; $('chat-form').hidden = true; return; }
-  $('chat').hidden = false;
-  $('chat-form').hidden = false;
   (st.messages || []).forEach(addMsg);
+  if (st.status === 'closed') { chatClosed(); return; }
+  opened = true;
+  $('chat').hidden = false;
+  $('chat-intro').hidden = false;
+  $('chat-form').hidden = false;
+  $('chat-rules').hidden = false;
 }
 function alertUser() {
   // The chat opened: sound, vibration and the tab title, so a phone in a pocket notices.
@@ -442,9 +496,15 @@ function alertUser() {
     if (A) { const ctx = new A(); const o = ctx.createOscillator(); const g = ctx.createGain(); o.frequency.value = 880; g.gain.value = 0.08; o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.25); }
   } catch (e) {}
 }
+// Closed for any reason (time limits, alert closed, the owner ended or blocked it): the input goes away
+// and a neutral note says so. It never says why.
 function chatClosed() {
   chatState = 'closed';
+  $('chat').hidden = false;
+  $('chat-intro').hidden = !opened;
   $('chat-form').hidden = true;
+  $('chat-rules').hidden = true;
+  $('chat-err').hidden = true;
   $('keep').hidden = true;
   $('chat-typing').hidden = true;
   wakeOff();
@@ -456,10 +516,11 @@ async function chatStart() {
   if (!current || sock) return;
   sock = io('/chat', { path: '/v1/socket.io', addTrailingSlash: false, auth: { role: 'scanner', alertId: current.id, token: current.chat, lang }, transports: ['websocket', 'polling'], reconnection: true, reconnectionDelayMax: 10000 });
   sock.on('chat:state', (st) => { chatShow(st); if (st.status !== 'closed') wakeOn(); });
-  sock.on('chat:opened', (st) => { chatShow(st); alertUser(); wakeOn(); $('chat-msg').focus(); });
+  sock.on('chat:opened', (st) => { opened = true; chatShow(st); alertUser(); wakeOn(); $('chat-msg').focus(); });
   sock.on('chat:message', (m) => { addMsg(m); if (m.from === 'owner') { $('chat-typing').hidden = true; if (document.visibilityState === 'visible') sock.emit('chat:seen'); } });
   sock.on('chat:typing', (x) => { if (x.from !== 'owner') return; $('chat-typing').hidden = !x.typing; clearTimeout(typingTimer); if (x.typing) typingTimer = setTimeout(() => { $('chat-typing').hidden = true; }, 6000); });
   sock.on('chat:closed', () => chatClosed());
+  sock.on('chat:seen', (x) => { if (x && x.by === 'owner' && x.at) seen(x.at); });
   sock.on('chat:error', (x) => {
     if (x.error === 'limit_reached') { chatLeft = 0; chatCount(); }
     chatErr({ filtered: 'chatFiltered', limit_reached: 'chatLimit', too_long: 'chatTooLong', chat_not_active: 'chatNotActive', rate_limited: 'chatRate' }[x.error] || 'chatError');
@@ -498,7 +559,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('online', () => { if (sock && !sock.connected) sock.connect(); });
 
 function showStatus() {
-  $('pick').hidden = true; $('custom').hidden = true; $('status').hidden = false;
+  $('pick').hidden = true; $('custom').hidden = true; $('go').hidden = true; $('status').hidden = false;
   if ($('ph')) { stopCamera(); $('ph').hidden = true; }
   render(last || { status: 'dispatched' });
   $('status').focus();

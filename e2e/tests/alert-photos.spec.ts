@@ -118,7 +118,7 @@ test('alert photos: 2 photos → same view link in e-mail and SMS → app → �
 
   // --- The scanner: notice first, then the live camera, then the file-picker fallback. ------------
   const { ctx, page: scan } = await scannerWithCamera(browser, url);
-  const add = scan.getByRole('button', { name: 'Foto hinzufügen' });
+  const add = scan.getByRole('button', { name: 'Foto 1 hinzufügen' });
   const offered = await add
     .waitFor({ state: 'visible', timeout: 10_000 })
     .then(() => true)
@@ -145,15 +145,17 @@ test('alert photos: 2 photos → same view link in e-mail and SMS → app → �
     (window as unknown as { __psCamera: boolean }).__psCamera = false;
   });
   const chooser = scan.waitForEvent('filechooser');
-  await add.click();
+  await scan.getByRole('button', { name: 'Foto 2 hinzufügen' }).click();
   await (
     await chooser
   ).setFiles({ name: 'garage.jpg', mimeType: 'image/jpeg', buffer: await galleryJpeg(scan) });
   await expect(scan.getByText('2 von 2 Fotos ausgewählt')).toBeVisible();
-  await expect(add).toBeDisabled();
+  await expect(scan.getByRole('button', { name: /^Foto \d hinzufügen$/ })).toHaveCount(0);
   await expectAccessible(scan);
 
   await scan.getByRole('button', { name: 'Beschädigung / Parkschaden entdeckt' }).click();
+
+  await scan.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 30_000,
   });

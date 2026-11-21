@@ -57,6 +57,7 @@ test('owner replies "Ich komme" from the e-mail; the scanner sees it at once (US
   const url = await ownerWithActiveDecal(page, request, email);
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Licht brennt noch' }).click();
+  await scan.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
   });
@@ -116,6 +117,7 @@ test('emergency contact: invitation, consent, and escalation on "Bin nicht in de
 
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
+  await scan.getByRole('button', { name: 'Warnung senden' }).click();
   const link = await replyLink(request, email, 'not_nearby');
   const owner = await browser.newContext({ locale: 'de-DE' });
   const phone = await owner.newPage();
@@ -146,6 +148,7 @@ test('without a contact, "Bin nicht in der Nähe" shows the scanner who can help
   const url = await ownerWithActiveDecal(page, request, email);
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
+  await scan.getByRole('button', { name: 'Warnung senden' }).click();
   const link = await replyLink(request, email, 'not_nearby');
   const owner = await browser.newContext({ locale: 'de-DE' });
   const phone = await owner.newPage();

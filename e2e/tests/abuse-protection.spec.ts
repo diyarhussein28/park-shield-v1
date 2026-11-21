@@ -61,6 +61,7 @@ test('the scanner page touches no cookie and no storage API, also across a reloa
   const url = await ownerWithActiveDecal(page, request, uniqueEmail('nostorage'));
   const s = await scanner(browser, url);
   await s.page.getByRole('button', { name: 'Licht brennt noch' }).click();
+  await s.page.getByRole('button', { name: 'Warnung senden' }).click();
   // „Gesendet" is only a moment before „benachrichtigt": wait for the status block itself.
   await expect(s.page.getByRole('heading', { name: 'Status Ihrer Warnung' })).toBeVisible();
   // The status survives a reload through the URL fragment, not through storage.
@@ -102,6 +103,7 @@ test('Protected Mode: optional phone check on the scanner page, content shown af
   await s.page.getByRole('button', { name: 'Bestätigen', exact: true }).click();
   await expect(s.page.getByText('Nummer bestätigt.', { exact: false })).toBeVisible();
   await s.page.getByRole('button', { name: 'Licht brennt noch' }).click();
+  await s.page.getByRole('button', { name: 'Warnung senden' }).click();
   // „Gesendet" is only a moment before „benachrichtigt": wait for the status block itself.
   await expect(s.page.getByRole('heading', { name: 'Status Ihrer Warnung' })).toBeVisible();
   expect(await s.touched()).toEqual([]);

@@ -260,6 +260,12 @@ test.describe('accessibility audit (US-45)', () => {
     await page.goto(scanUrl);
     await tabTo('Licht brennt noch');
     await page.keyboard.press('Enter');
+    await expect(page.getByRole('button', { name: 'Licht brennt noch' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await tabTo('Warnung senden');
+    await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: 'Status Ihrer Warnung' })).toBeVisible({
       timeout: 15_000,
     });

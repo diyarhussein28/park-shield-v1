@@ -47,6 +47,7 @@ test('owner test scan activates the decal, then a stranger scans (US-12, US-14, 
   const test1 = await scannerPage(browser, url);
   await expect(test1.page.getByText(/Testmodus/)).toBeVisible();
   await test1.page.getByRole('button', { name: 'Licht brennt noch' }).click();
+  await test1.page.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(test1.page.getByText('Test gesendet.', { exact: false })).toBeVisible();
   await waitForMail(request, email, 'alert_test');
   await page.reload();
@@ -60,14 +61,14 @@ test('owner test scan activates the decal, then a stranger scans (US-12, US-14, 
   expect(csp).toContain("default-src 'none'");
   expect(csp).toMatch(/script-src 'sha256-[^']+'/);
   expect(res.headers()['set-cookie']).toBeUndefined();
-  // Whole page incl. inline JS, CSS and both languages' texts (~17 KB compressed). Raised from 40 KB
-  // for the live chat UI; the hard budget is 90 KB (AGENTS.md §7).
-  expect((await res.body()).length).toBeLessThan(55_000);
+  // Whole page incl. inline JS, CSS, SVG icons and both languages' texts (~21 KB compressed). Raised
+  // from 55 KB for the redesign (2026-11-21); the hard budget is 90 KB (AGENTS.md §7).
+  expect((await res.body()).length).toBeLessThan(80_000);
   await expect(scan.getByRole('heading', { level: 1 })).toHaveText('Was ist los?');
   await expect(scan.getByText('„Der Blaue“')).toBeVisible();
   await expect(scan.getByText('Blau', { exact: true })).toBeVisible();
-  await expect(scan.getByText('Echte Seite: pkshd.de')).toBeVisible();
-  await expect(scan.getByText('ParkShield verlangt nie eine Zahlung')).toBeVisible();
+  await expect(scan.getByText('Nur echt auf park-shield.de')).toBeVisible();
+  await expect(scan.getByText('ParkShield verlangt nie eine Zahlung.')).toBeVisible();
   await expect(scan.getByText(/K-AB|1234/)).toHaveCount(0);
   await expectAccessible(scan);
   await scan.emulateMedia({ colorScheme: 'dark' });
@@ -76,6 +77,8 @@ test('owner test scan activates the decal, then a stranger scans (US-12, US-14, 
     expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(48);
 
   await scan.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();
+
+  await scan.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(scan.getByRole('heading', { name: 'Status Ihrer Warnung' })).toBeVisible();
   await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
     timeout: 15_000,
@@ -103,6 +106,7 @@ test('custom messages are filtered before they are sent (US-15)', async ({
   const url = await testWindowUrl(page);
   const owner = await scannerPage(browser, url); // use up the test window first
   await owner.page.getByRole('button', { name: 'Licht brennt noch' }).click();
+  await owner.page.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(owner.page.getByText('Test gesendet.', { exact: false })).toBeVisible();
   await owner.ctx.close();
 
