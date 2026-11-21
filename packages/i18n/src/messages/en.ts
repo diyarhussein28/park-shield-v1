@@ -477,7 +477,7 @@ const en: typeof de = {
     phoneRequiredIntro:
       'Your mobile number is required: if you do not respond to an alert for 30 minutes, we send you an SMS. Whoever scans never sees your number.',
     phonePrivacy:
-      'We only use your number for this SMS and for notices about your account, never for advertising. It is stored encrypted.',
+      'We only use your number for the SMS when you have not reacted to an alert for 30 minutes, and for the confirmation code. Never for advertising. It is stored encrypted.',
     phoneVerified: 'Verified',
     phoneChangeNumber: 'Change number',
     phoneChangeHint: 'The new number applies only once you have confirmed it with the SMS code.',

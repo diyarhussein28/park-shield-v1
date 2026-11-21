@@ -56,3 +56,40 @@ export const shareDecalPdf = (vehicleId: string) => shareDecalFile(vehicleId, 'p
 export async function printDecalPdf(vehicleId: string): Promise<void> {
   await withDecalFile(vehicleId, 'pdf', (file) => Print.printAsync({ uri: file.uri }));
 }
+
+/**
+ * The decal preview (GET /v1/vehicles/:id/decal.svg) of the vehicle's current code and design. The
+ * token id is part of the URL as a cache-busting key, so a new code never shows the old QR from the
+ * image cache; a changed design changes the URL through its template and headline.
+ */
+export function decalPreviewUrl(
+  vehicle: { id: string; decal: { tokenId: string; template: string; cta: string } | null },
+  extra: Record<string, string> = {},
+): string | null {
+  const d = vehicle.decal;
+  if (!d) return null;
+  return `${API_URL}/v1/vehicles/${vehicle.id}/decal.svg?${new URLSearchParams({
+    template: d.template,
+    cta: d.cta,
+    k: d.tokenId,
+    ...extra,
+  })}`;
+}
+
+/*
+ * „Design speichern“, „Sperren“ and „Neuen Code erstellen“ change what every screen shows of a decal.
+ * Screens that show one (Start, Fahrzeuge, the vehicle page) subscribe and reload at once, so the new
+ * design is visible without switching tabs (Stage 4.3).
+ */
+const listeners = new Set<() => void>();
+
+export function onDecalChange(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+export function decalChanged(): void {
+  for (const l of [...listeners]) l();
+}

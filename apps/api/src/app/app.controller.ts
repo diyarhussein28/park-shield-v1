@@ -205,7 +205,10 @@ export class AppController {
   /** „Erledigt“: marks the alert resolved; a stop condition for the reminder and the SMS. */
   @Post('alerts/:alertId/resolve')
   @HttpCode(200)
-  async resolve(@CurrentUser() user: AuthContext, @Param('alertId', ParseUUIDPipe) alertId: string) {
+  async resolve(
+    @CurrentUser() user: AuthContext,
+    @Param('alertId', ParseUUIDPipe) alertId: string,
+  ) {
     const r = await this.alerts.resolve(user.userId, alertId);
     this.gateway.alertChanged(alertId);
     return r;

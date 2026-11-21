@@ -500,6 +500,55 @@ describe('„Absender blockieren“ (Stage 3)', () => {
     });
   });
 
+  it('the portal report („Absender blockieren“ in the history) closes the chat and stops too', async () => {
+    const x = await setup();
+    const ip = '203.0.113.60';
+    const a = await alert(x.code, 'blocking', ip);
+    const res = await h.app.inject({
+      method: 'POST',
+      url: `/v1/alerts/${a.alertId}/report`,
+      headers: x.s.headers,
+      payload: { reason: 'harassment' },
+    });
+    expect(res.statusCode, res.body).toBeLessThan(300);
+    expect(res.json()).toMatchObject({ reported: true, blocked: true });
+    expect(await h.app.get(ChatService).state(a.alertId, 'scanner')).toMatchObject({
+      status: 'closed',
+      closeReason: 'blocked',
+    });
+    expect(await row(a.alertId)).toMatchObject({
+      remind_at: null,
+      sms_due_at: null,
+      escalation_stop_reason: 'blocked',
+    });
+    await sql`UPDATE alerts SET remind_at = now() - interval '1 second',
+      sms_due_at = now() - interval '1 second' WHERE id = ${a.alertId}`.execute(h.db);
+    expect(await runEscalation(h)).toEqual({ reminders: 0, sms: 0 });
+    // The same scanner cannot alert this vehicle again.
+    const again = await h.app.inject({
+      method: 'POST',
+      url: `/v1/scan/${x.code}/alerts`,
+      remoteAddress: ip,
+      payload: { captcha: DEV_CAPTCHA_SOLUTION, lang: 'de', type: 'lights_on' },
+    });
+    expect(again.statusCode).toBe(403);
+    // A second report is refused, the block action after it is harmless.
+    const twice = await h.app.inject({
+      method: 'POST',
+      url: `/v1/alerts/${a.alertId}/report`,
+      headers: x.s.headers,
+      payload: { reason: 'harassment' },
+    });
+    expect(twice.statusCode).toBe(409);
+    const block = await h.app.inject({
+      method: 'POST',
+      url: `/v1/alerts/${a.alertId}/block`,
+      headers: x.s.headers,
+    });
+    expect(block.statusCode).toBe(200);
+    expect(await h.db.selectFrom('scanner_blocks').selectAll().execute()).toHaveLength(1);
+  });
+
   it('a test alert is closed and stopped, but nothing is reported to the abuse module', async () => {
     const x = await setup();
     await h.app.inject({

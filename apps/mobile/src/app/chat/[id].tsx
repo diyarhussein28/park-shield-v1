@@ -14,15 +14,18 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlockSenderButton } from '@/components/block-sender';
 import { Banner, Button, useTheme } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useChat, type ChatError } from '@/lib/chat';
 import { lang, t, type Key } from '@/lib/i18n';
 import { looksPersonal } from '@/lib/personal';
+import type { AlertDetail } from '@/lib/types';
 
 /**
  * The owner's chat with the scanner. Text only, 500 characters, 20 messages per side; quick replies;
- * a warning before personal data; "Erledigt" ends it for both sides.
+ * a warning before personal data; "Erledigt" ends it for both sides; „Absender blockieren“ ends it at
+ * once, stops the reminder and the SMS and blocks the sender (not for test alerts).
  */
 export default function Chat() {
   const c = useTheme();
@@ -31,8 +34,23 @@ export default function Chat() {
   const chat = useChat(id, true);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+  // Whether blocking is offered: not for test alerts, not when the sender is already blocked.
+  const [canBlock, setCanBlock] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void api<AlertDetail>(`/v1/app/alerts/${id}`)
+      .then((a) => {
+        if (live) setCanBlock(!a.isTest && !a.chat?.senderBlocked && a.status !== 'blocked');
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [id]);
   const list = useRef<FlatList>(null);
-  const status = chat.state?.status;
+  const endedByBlock = blocked || chat.state?.closeReason === 'blocked';
+  const status = endedByBlock ? 'closed' : chat.state?.status;
   const active = status === 'active';
   const max = chat.state?.limits.maxChars ?? 500;
   const mine = chat.messages.filter((m) => m.from === 'owner').length;
@@ -137,7 +155,23 @@ export default function Chat() {
               {chat.readAt && chat.messages.some((m) => m.from === 'owner') && (
                 <Text style={{ color: c.muted, alignSelf: 'flex-end' }}>{t('chatRead')}</Text>
               )}
-              {status === 'closed' && <Banner tone="info">{t('chatClosed')}</Banner>}
+              {endedByBlock ? (
+                <Banner tone="info" testID="chat-blocked">
+                  {t('blocked')}
+                </Banner>
+              ) : (
+                status === 'closed' && <Banner tone="info">{t('chatClosed')}</Banner>
+              )}
+              {canBlock && !endedByBlock && (
+                <BlockSenderButton
+                  alertId={id}
+                  onBlocked={() => {
+                    Keyboard.dismiss();
+                    setBlocked(true);
+                    setCanBlock(false);
+                  }}
+                />
+              )}
               {chat.error && <Banner tone="err">{t(errorKey(chat.error))}</Banner>}
               {!chat.connected && status !== 'closed' && (
                 <Banner tone="warn">

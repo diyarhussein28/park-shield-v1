@@ -136,10 +136,7 @@ export class DevController {
     if (!s) throw new NotFoundException();
     return {
       id: s.id,
-      title:
-        s.kind === 'payment'
-          ? s.description
-          : 'ParkShield',
+      title: s.kind === 'payment' ? s.description : 'ParkShield',
       amountCents: await this.amount(s),
       cancelUrl: s.cancelUrl,
       successUrl: s.successUrl,

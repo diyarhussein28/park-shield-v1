@@ -174,4 +174,3 @@ export function smsLinkText(
 /** SMS for an alert with photos (kept for callers of the Phase 2 photo feature). */
 export const smsPhotoText = (lang: 'de' | 'en', type: string, nickname: string, viewUrl: string) =>
   smsLinkText(lang, 'photos', type, nickname, viewUrl);
-

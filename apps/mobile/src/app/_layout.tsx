@@ -154,6 +154,7 @@ function Gate() {
         <Stack.Screen name="fahrzeug/[id]" options={{ title: pt('portal.vehicles') }} />
         <Stack.Screen name="fahrzeug/design/[id]" options={{ title: t('designTitle') }} />
         <Stack.Screen name="fahrzeug/drucken/[id]" options={{ title: t('printTitle') }} />
+        <Stack.Screen name="fahrzeug/foto/[id]" options={{ title: t('carPhotoTitle') }} />
         <Stack.Screen name="benachrichtigungen" options={{ title: pt('channels.title') }} />
         <Stack.Screen name="zustellung" options={{ title: pt('deliveryHelp.title') }} />
         <Stack.Screen name="kuendigen" options={{ title: pt('common.footer.cancelContract') }} />

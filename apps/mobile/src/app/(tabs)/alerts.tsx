@@ -22,7 +22,7 @@ type View_ = 'now' | 'history';
 export default function Alerts() {
   const c = useTheme();
   const router = useRouter();
-  const { data, error, reload } = useAlerts();
+  const { data, error, reload, blocked, markBlocked } = useAlerts();
   const [view, setView] = useState<View_>('now');
   const [refreshing, setRefreshing] = useState(false);
   // Open alerts first; the sort is stable, so each group stays newest first.
@@ -64,6 +64,11 @@ export default function Alerts() {
                 key={a.id}
                 alert={a}
                 onPress={() => router.push({ pathname: '/alerts/[id]', params: { id: a.id } })}
+                blocked={blocked.has(a.id)}
+                onBlocked={async () => {
+                  markBlocked(a.id);
+                  await reload();
+                }}
               />
             ))}
             {data && alerts.length === 0 && (

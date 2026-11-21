@@ -45,7 +45,7 @@ export interface ChatState {
   status: ChatStatus;
   openedAt: string | null;
   closedAt: string | null;
-  closeReason: 'owner' | 'inactivity' | 'max_duration' | 'alert_deleted' | null;
+  closeReason: 'owner' | 'inactivity' | 'max_duration' | 'alert_deleted' | 'blocked' | null;
   purged: boolean;
   /** Messages this side may still send; null = no limit (the owner, unless ops sets one). */
   remaining: number | null;

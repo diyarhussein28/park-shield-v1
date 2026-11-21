@@ -498,7 +498,7 @@ const de = {
     phoneRequiredIntro:
       'Ihre Handynummer ist Pflicht: Reagieren Sie 30 Minuten lang nicht auf eine Warnung, schicken wir Ihnen eine SMS. Wer scannt, sieht Ihre Nummer nie.',
     phonePrivacy:
-      'Wir nutzen Ihre Nummer nur für diese SMS und für Hinweise zu Ihrem Konto, nie für Werbung. Sie wird verschlüsselt gespeichert.',
+      'Wir nutzen Ihre Nummer nur für die SMS, wenn Sie auf eine Warnung 30 Minuten lang nicht reagieren, und für den Bestätigungscode. Nie für Werbung. Sie wird verschlüsselt gespeichert.',
     phoneVerified: 'Bestätigt',
     phoneChangeNumber: 'Nummer ändern',
     phoneChangeHint: 'Die neue Nummer gilt erst, wenn Sie sie mit dem SMS-Code bestätigt haben.',

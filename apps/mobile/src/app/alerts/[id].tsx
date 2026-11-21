@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { BlockSenderButton } from '@/components/block-sender';
 import { AlertTypeIcon } from '@/components/icons';
 import { Banner, Button, Card, Chip, Loading, P, Screen, useTheme } from '@/components/ui';
 import { radius, space, type as typeScale } from '@/theme/tokens';
@@ -30,6 +31,8 @@ export default function AlertScreen() {
   const [busy, setBusy] = useState<Reply | 'chat' | 'report' | 'resolve' | null>(null);
   const [headers, setHeaders] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
+  // „Absender blockieren“ went through on this screen (the detail then says so at once).
+  const [justBlocked, setJustBlocked] = useState(false);
   // „Missbrauch melden“: a second tap confirms, because the photos are deleted for good.
   const [confirmReport, setConfirmReport] = useState(false);
   const [reportResult, setReportResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(
@@ -131,7 +134,10 @@ export default function AlertScreen() {
   const lastSeen = minutesSince(chat?.scanner.lastSeenAt ?? null);
   const urgent = a.severity === 'urgent';
 
-  const chatBlock = chat && (
+  // Blocked here (chat closed with reason „blocked“) or by an earlier abuse report.
+  const blockedHere = justBlocked || chat?.closeReason === 'blocked';
+  const senderBlocked = blockedHere || Boolean(chat?.senderBlocked);
+  const chatBlock = chat && !blockedHere && (
     <View style={s.chat}>
       <Text style={[typeScale.label, { color: chat.scanner.online ? c.successFg : c.muted }]}>
         {chat.scanner.online
@@ -140,7 +146,7 @@ export default function AlertScreen() {
             ? t('senderOffline', { minutes: lastSeen })
             : t('senderOfflineNever')}
       </Text>
-      {chat.senderBlocked ? (
+      {senderBlocked ? (
         <P muted>{t('chatBlocked')}</P>
       ) : chat.purged ? (
         <P muted>{t('chatPurged')}</P>
@@ -248,6 +254,21 @@ export default function AlertScreen() {
             testID="resolve"
           />
         </View>
+      )}
+      {blockedHere && (
+        <Banner tone="info" testID="blocked">
+          {t('blocked')}
+        </Banner>
+      )}
+      {/* Stage 3: not for test alerts (nobody to block); gone once blocked. */}
+      {!a.isTest && !senderBlocked && a.status !== 'blocked' && (
+        <BlockSenderButton
+          alertId={a.id}
+          onBlocked={async () => {
+            setJustBlocked(true);
+            await load(a.revealed && a.contentHidden);
+          }}
+        />
       )}
       <EscalationState alert={a} />
       {!open && chatBlock && <Card>{chatBlock}</Card>}

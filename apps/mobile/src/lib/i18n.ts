@@ -370,6 +370,31 @@ const de = {
   resolve: 'Erledigt',
   resolveHint: 'Keine Erinnerung und keine SMS mehr für diese Warnung.',
   setupPhone: 'Handynummer für die SMS bestätigen',
+  // Stage 3/4 (2026-11-21): block sender, Home, vehicle photo
+  blockSender: 'Absender blockieren',
+  blockConfirmTitle: 'Absender blockieren?',
+  blockConfirm1: 'Der Chat endet sofort.',
+  blockConfirm2: 'Keine Erinnerung und keine SMS mehr zu dieser Warnung.',
+  blockConfirm3: 'Der Absender kann diesem Fahrzeug keine Warnungen mehr schicken.',
+  blockButton: 'Blockieren',
+  blocked: 'Absender blockiert – Chat beendet',
+  homeHello: 'Hallo {name}',
+  homeHelloNoName: 'Hallo',
+  homeEnding: 'Abo endet am {date}',
+  homeDecalTitle: 'Ihr QR-Aufkleber',
+  homeViewTest: 'Ansehen / Testen',
+  homeEditDesign: 'Design bearbeiten',
+  homeOpenAlertsLink:
+    '{count, plural, one {1 offene Warnung ansehen} other {# offene Warnungen ansehen}}',
+  carPhotoTitle: 'Foto Ihres Autos',
+  carPhotoHint: 'Tippen, um ein Foto Ihres Autos zu wählen',
+  carPhotoAlt: 'Foto von „{nickname}“',
+  carPhotoPick: 'Foto auswählen',
+  carPhotoChange: 'Anderes Foto auswählen',
+  carPhotoRemove: 'Foto entfernen',
+  carPhotoNote:
+    'Das Foto bleibt nur auf diesem Gerät. Bei einem neuen Handy oder nach Neuinstallation müssen Sie es erneut auswählen.',
+  carPhotoFailed: 'Das Foto konnte nicht übernommen werden. Bitte versuchen Sie es noch einmal.',
 } as const;
 
 export type Key = keyof typeof de;
@@ -720,6 +745,29 @@ const en: Record<Key, string> = {
   resolve: 'Done',
   resolveHint: 'No more reminder and no SMS for this alert.',
   setupPhone: 'Confirm your mobile number for the SMS',
+  blockSender: 'Block sender',
+  blockConfirmTitle: 'Block this sender?',
+  blockConfirm1: 'The chat ends at once.',
+  blockConfirm2: 'No more reminder and no SMS for this alert.',
+  blockConfirm3: 'The sender can no longer send alerts to this vehicle.',
+  blockButton: 'Block',
+  blocked: 'Sender blocked – chat ended',
+  homeHello: 'Welcome back, {name}',
+  homeHelloNoName: 'Welcome back',
+  homeEnding: 'Plan ends on {date}',
+  homeDecalTitle: 'Your QR decal',
+  homeViewTest: 'View / test',
+  homeEditDesign: 'Edit design',
+  homeOpenAlertsLink: '{count, plural, one {View 1 open alert} other {View # open alerts}}',
+  carPhotoTitle: 'Photo of your car',
+  carPhotoHint: 'Tap to choose a photo of your car',
+  carPhotoAlt: 'Photo of “{nickname}”',
+  carPhotoPick: 'Choose a photo',
+  carPhotoChange: 'Choose another photo',
+  carPhotoRemove: 'Remove photo',
+  carPhotoNote:
+    'The photo stays on this device only. On a new phone or after reinstalling the app you need to choose it again.',
+  carPhotoFailed: 'The photo could not be used. Please try again.',
 };
 
 export const messages = { de, en } as const;

@@ -231,7 +231,9 @@ export class DispatchService {
     if (!alert?.sms_sent_at || alert.is_test) return;
     const muted = await this.preferences.quietHours(alert.userId, alert.vehicle_id);
     if (muted) {
-      if (!(await this.alreadySent(alert.id, 'sms', { since: undefined } as Message, undefined, true)))
+      if (
+        !(await this.alreadySent(alert.id, 'sms', { since: undefined } as Message, undefined, true))
+      )
         await this.record({
           alertId: alert.id,
           channel: 'sms',

@@ -22,6 +22,12 @@ interface AlertsState {
   error: boolean;
   reload: () => Promise<void>;
   open: number;
+  /**
+   * Alerts whose sender was blocked in this session (the list has no flag for it), so their cards
+   * stop offering „Absender blockieren“. Memory only; cleared on sign-out.
+   */
+  blocked: ReadonlySet<string>;
+  markBlocked: (alertId: string) => void;
 }
 
 const Ctx = createContext<AlertsState | null>(null);
@@ -35,6 +41,11 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
   const { signedIn } = useAuth();
   const [data, setData] = useState<AlertList | null>(null);
   const [error, setError] = useState(false);
+  const [blocked, setBlocked] = useState<ReadonlySet<string>>(new Set());
+  const markBlocked = useCallback(
+    (id: string) => setBlocked((b) => new Set([...b, id])),
+    [],
+  );
 
   const reload = useCallback(async () => {
     try {
@@ -49,6 +60,7 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
     if (!signedIn) {
       setData(null);
       setError(false);
+      setBlocked(new Set());
       return;
     }
     void reload();
@@ -63,8 +75,15 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
   }, [signedIn, reload]);
 
   const value = useMemo(
-    () => ({ data, error, reload, open: data ? openAlertCount(data.alerts) : 0 }),
-    [data, error, reload],
+    () => ({
+      data,
+      error,
+      reload,
+      open: data ? openAlertCount(data.alerts) : 0,
+      blocked,
+      markBlocked,
+    }),
+    [data, error, reload, blocked, markBlocked],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
