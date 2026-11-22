@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-21 21:30 UTC. **All four stages implemented and tested.** API 505 tests, app Jest 148, E2E 111 passed / 9 skipped (desktop + mobile), typecheck, lint, prettier, db:check, production build and Expo export green. Nothing left open in code; see §6 for what the owner still has to do._
+_Last updated: 2026-11-22. **The seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -230,7 +230,30 @@ Still open:
    `contactOnTheWay` texts still mention contacts (unused by the flow now); a clean-up migration to drop
    the empty `emergency_contacts` table and the unused escalation columns.
 6. Findings of the real run (2026-11-22): the vehicle row „Druck oder Versand“ shows no price after the
-   welcome print was used (the print screen itself shows 3 € correctly); the Warnungen tab badge still
-   counts an alert whose sender was blocked as open; text fields are right-aligned when the device
+   welcome print was used (the print screen itself shows 3 € correctly); ~~the Warnungen tab badge still
+   counts an alert whose sender was blocked as open~~ (fixed 2026-11-22: the badge counts unopened
+   alerts from the server); text fields are right-aligned when the device
    keyboard/region is RTL (set `textAlign: 'left'` on inputs, the app is DE/EN only); the 3 € paid print
    was not paid in the run.
+
+## 7. Fix prompts of 2026-11-22 (`ParkShield-Fix-Prompts.md`, all seven done)
+
+| # | What | Where |
+| - | ---- | ----- |
+| 1 | Block state per alert from the server (`senderBlocked`, `blockedUntil`), „Blockierung aufheben“ (`POST /v1/app/alerts/:id/unblock-sender`, audited, idempotent; chat stays closed); every card of the sender updates at once | `abuse/sender-block.service.ts`, `history.service.ts`, app `alert-card.tsx`, `alerts-store.tsx` |
+| 2 | Alerts screen design (own header, blue segmented switch, tinted icon squares, pills, purple custom-message cards, block footer) | app `(tabs)/alerts.tsx`, `alert-card.tsx`, `block-sender.tsx` |
+| 3 | German by default, four onboarding slides incl. 20 € / year, „Sprache“ in Konto (device + account), full sign-out back to slide 1 | app `lib/language.ts`, `willkommen.tsx`, `lib/auth.tsx` |
+| 4 | Badge = unopened alerts from the server (`unseenCount`, `/unseen-count`, push `aps.badge`), opening an alert stops the reminder and the SMS (also when already queued), icon badge | `notifications/unseen.ts`, `app-alerts.service.ts`, `dispatch.service.ts` |
+| 5 | Website footer like the image (2 × 2 on phones, 4 columns from 768 px, § 312k / § 356a labels) | web `components/site-chrome.tsx`, i18n `common.siteFooter` |
+| 6 | One e-mail layout for every mail; contract confirmation with the PDF „Vertragsbestätigung“; sent versions in `contract_confirmations` | `mail/layout.ts`, `billing/contract-confirmation.ts` |
+| 7 | Contact form → `SUPPORT_EMAIL` (reply-to customer) + customer receipt; payments → `PAYMENT_NOTIFY_EMAIL` with the letter PDF (`payment_notifications`) | `support/*`, `billing/payment-notify.*` |
+
+Open after these:
+
+- **Mailboxes:** create `support@park-shield.de` and `payment@park-shield.de` at Strato (EU) with a
+  deletion rule for payment@ (LEGAL_REVIEW.md §11); the test server still sends support mails to
+  `SUPPORT_EMAIL=contact@park-shield.de` (server.env) until that is changed.
+- **App build:** a new EAS build is needed for prompts 1–4 (the server part is live).
+- **Lawyer:** LEGAL_REVIEW.md §10 (contract PDF, English model withdrawal form) and §11.
+- The „print-order letter“ of prompt 7 is the customer's current letter from the one generator (the
+  same PDF as the admin download); a dedicated print-order letter text would be a new letter type.
