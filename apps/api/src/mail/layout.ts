@@ -41,6 +41,11 @@ export interface MailBody {
   footnote?: string;
   /** Small text links under the button (e.g. „Missbrauch melden“). */
   links: { label: string; url: string }[];
+  /**
+   * Internal mails that are answered by replying (support requests, reply-to = the customer) leave out
+   * the „Bitte antworten Sie nicht“ line. Default: shown.
+   */
+  replyable?: boolean;
 }
 
 const T = {
@@ -196,7 +201,7 @@ export function renderLayout(body: MailBody, frame: MailFrame = DEFAULT_FRAME) {
   </tr></table>
   <p class="ps-muted" style="margin:8px 0 0 0;font-family:${FONT};font-size:13px;line-height:1.5;color:${MUTED}">${escapeHtml(address)}</p>
 </td></tr>
-<tr><td align="center" class="ps-pad ps-muted" style="padding:16px 36px 20px 36px;font-family:${FONT};font-size:13px;line-height:1.5;color:${MUTED}">${escapeHtml(t.noReply)}</td></tr>
+${body.replyable ? '' : `<tr><td align="center" class="ps-pad ps-muted" style="padding:16px 36px 20px 36px;font-family:${FONT};font-size:13px;line-height:1.5;color:${MUTED}">${escapeHtml(t.noReply)}</td></tr>`}
 </table>
 </td></tr>
 </table>
@@ -221,7 +226,7 @@ export function renderLayout(body: MailBody, frame: MailFrame = DEFAULT_FRAME) {
       .map((l) => `${l.label}: ${l.url}`)
       .join('\n'),
     address,
-    t.noReply,
+    ...(body.replyable ? [] : [t.noReply]),
   ].join('\n\n');
 
   return { html, text };

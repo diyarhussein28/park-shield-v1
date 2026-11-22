@@ -35,6 +35,7 @@ import { ProfileService } from '../profile/profile.service';
 import { returnUrls } from './app-return';
 import { createHash } from 'node:crypto';
 import { CompanyService } from '../letters/company.service';
+import { queuePaymentNotification } from './payment-notify.queue';
 import {
   contractConfirmationContent,
   contractPdfName,
@@ -353,6 +354,7 @@ export class BillingService {
       }
       if (event.kind === 'payment_completed' && event.metadata.orderId) {
         await this.orders.markPaid(event.metadata.orderId, event.paymentIntentId);
+        await this.notifyPrintOrder(event);
       }
     } catch (err) {
       await this.valkey.del(`billing:event:${event.eventId}`);
@@ -412,6 +414,16 @@ export class BillingService {
     if (!inserted) return;
     // Paid: the welcome letter follows once a vehicle exists (or at once, if one already does).
     await queueWelcomeLetterCheck(this.db, userId);
+    // payment@: the new subscription, once per Stripe event (2026-11-22).
+    await queuePaymentNotification(this.db, {
+      eventId: e.eventId,
+      kind: 'subscription',
+      userId,
+      subscriptionId: inserted.id,
+      amountCents: e.amountCents || (await this.priceFor(plan, promoCodeId ?? undefined)),
+      paymentRef: e.paymentRef ?? e.subscriptionId,
+      paidAt: new Date(),
+    });
     // Re-subscription (section 4): the old sticker is gone, so its code stops working and the
     // vehicle gets a new one; the replacement sticker is free.
     if (e.metadata.sticker === 'replace') await this.replaceStickers(userId);
@@ -527,7 +539,51 @@ export class BillingService {
    * except over a withdrawal, which is final. `canceled` (deleted) is the only thing that ends the
    * service after a cancellation; submitting one changes nothing until then.
    */
+  /** payment@ for a paid 3 € print order (free welcome prints have no payment). */
+  private async notifyPrintOrder(e: Extract<BillingEvent, { kind: 'payment_completed' }>) {
+    const order = await this.db
+      .selectFrom('decal_orders')
+      .select(['id', 'user_id', 'total_gross_cents', 'status'])
+      .where('id', '=', e.metadata.orderId!)
+      .executeTakeFirst();
+    if (!order?.user_id || order.status === 'pending_payment') return;
+    const amount = e.amountCents || order.total_gross_cents;
+    if (!amount) return;
+    await queuePaymentNotification(this.db, {
+      eventId: e.eventId,
+      kind: 'print_order',
+      userId: order.user_id,
+      orderId: order.id,
+      amountCents: amount,
+      paymentRef: e.paymentIntentId,
+      paidAt: new Date(),
+    });
+  }
+
   private async onSubscriptionUpdated(e: Extract<BillingEvent, { kind: 'subscription_updated' }>) {
+    // payment@: a paid renewal invoice (the first invoice is the new subscription above).
+    if (
+      e.invoice &&
+      e.invoice.billingReason === 'subscription_cycle' &&
+      e.invoice.amountPaidCents
+    ) {
+      const sub = await this.db
+        .selectFrom('subscriptions')
+        .select(['id', 'user_id'])
+        .where('stripe_subscription_id', '=', e.subscriptionId)
+        .executeTakeFirst();
+      if (sub?.user_id) {
+        await queuePaymentNotification(this.db, {
+          eventId: e.eventId,
+          kind: 'renewal',
+          userId: sub.user_id,
+          subscriptionId: sub.id,
+          amountCents: e.invoice.amountPaidCents,
+          paymentRef: e.invoice.paymentRef,
+          paidAt: e.invoice.paidAt,
+        });
+      }
+    }
     await this.db
       .updateTable('subscriptions')
       .set({

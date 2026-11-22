@@ -14,6 +14,7 @@ import {
   type Session,
 } from '../test/harness';
 import { OrdersService, PRINT_TOPIC } from './orders.service';
+import { PAYMENT_NOTIFY_TOPIC } from '../billing/payment-notify.service';
 import { WELCOME_LETTER_TOPIC } from '../letters/trigger';
 
 let h: Harness;
@@ -90,7 +91,8 @@ describe('printed decal orders (US-11, single plan since 2026-11-21)', () => {
     const events = await h.db
       .selectFrom('outbox_events')
       .select(['topic', 'payload'])
-      .where('topic', '<>', WELCOME_LETTER_TOPIC)
+      // The subscription's own payment@ notification is not part of the free print.
+      .where('topic', 'not in', [WELCOME_LETTER_TOPIC, PAYMENT_NOTIFY_TOPIC])
       .execute();
     expect(events).toEqual([{ topic: PRINT_TOPIC, payload: { orderId: row.id } }]);
     expect((await lastMail(h, 'order_received'))?.to).toBe('jonas@example.de');

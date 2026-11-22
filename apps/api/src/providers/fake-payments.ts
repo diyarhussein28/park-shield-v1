@@ -115,7 +115,13 @@ export class FakePayments implements Payments {
     const paymentIntentId = `pi_fake_${randomToken(9)}`;
     await this.valkey.set(key('charge', paymentIntentId), String(amountCents));
     if (session.kind === 'payment') {
-      return { kind: 'payment_completed', eventId, paymentIntentId, metadata: session.metadata };
+      return {
+        kind: 'payment_completed',
+        eventId,
+        paymentIntentId,
+        metadata: session.metadata,
+        amountCents,
+      };
     }
     const subscriptionId = `sub_fake_${randomToken(9)}`;
     await this.valkey.set(key('subscription-charge', subscriptionId), paymentIntentId);
@@ -127,6 +133,8 @@ export class FakePayments implements Payments {
       metadata: session.metadata,
       periodStart: now,
       periodEnd: new Date(now.getTime() + 365 * DAY),
+      amountCents,
+      paymentRef: paymentIntentId,
     };
   }
 

@@ -12,9 +12,16 @@ const Contact = z.object({
   email: z.email().max(254),
   name: z.string().trim().max(80).optional(),
   topic: z.enum(SUPPORT_TOPICS),
-  message: z.string().trim().min(10).max(4000),
+  message: z.string().trim().min(10).max(5000),
   captcha: captchaSolution,
   locale: z.enum(['de', 'en']).default('de'),
+  /** Which app or website version sent the form (shown to support), e.g. „web“ or „app 1.0.0“. */
+  client: z
+    .string()
+    .trim()
+    .max(40)
+    .regex(/^[\w .\-+()/]*$/)
+    .optional(),
 });
 
 @Controller('v1/support')

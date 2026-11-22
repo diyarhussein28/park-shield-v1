@@ -5,6 +5,7 @@ import { normalizeEmail, sha256 } from '../core/crypto';
 import { RateLimitService } from '../core/rate-limit.service';
 import { SettingsService } from '../core/settings.service';
 import { DB } from '../core/tokens';
+import { MailService } from '../mail/mail.service';
 import { CAPTCHA, SUPPORT_DESK, type Captcha, type SupportDesk } from '../providers/ports';
 
 export const SUPPORT_TOPICS = [
@@ -25,6 +26,14 @@ const TOPIC_DE: Record<SupportTopic, string> = {
   abuse: 'Missbrauch',
   other: 'Sonstiges',
 };
+const TOPIC_EN: Record<SupportTopic, string> = {
+  alert_missing: 'Alert not received',
+  decal: 'Decal and shipping',
+  billing: 'Payment and cancellation',
+  privacy: 'Privacy',
+  abuse: 'Abuse',
+  other: 'Other',
+};
 
 /**
  * US-44 / SP-01: the contact form opens a ticket in Zammad, the only ticket store (no ticket tables
@@ -38,6 +47,7 @@ export class SupportService {
     @Inject(CAPTCHA) private readonly captcha: Captcha,
     @Inject(RateLimitService) private readonly limits: RateLimitService,
     @Inject(SettingsService) private readonly settings: SettingsService,
+    @Inject(MailService) private readonly mail: MailService,
   ) {}
 
   async contact(
@@ -48,6 +58,7 @@ export class SupportService {
       message: string;
       captcha?: string;
       locale: 'de' | 'en';
+      client?: string;
     },
     ctx: { ipPrefix: string; auth: AuthContext | null },
   ) {
@@ -59,14 +70,24 @@ export class SupportService {
     await this.limits.enforce('support.email', sha256(email).toString('hex'));
 
     let plan: string | null = null;
+    let customerNo: string | null = null;
+    let contractNo: string | null = null;
     if (ctx.auth) {
       const s = await this.db
         .selectFrom('subscriptions')
-        .select('plan')
+        .select(['plan', 'contract_no'])
         .where('user_id', '=', ctx.auth.userId)
         .where('status', 'in', ['active', 'past_due'])
+        .orderBy('created_at', 'desc')
         .executeTakeFirst();
       plan = s?.plan ?? null;
+      contractNo = s?.contract_no ?? null;
+      const u = await this.db
+        .selectFrom('users')
+        .select('customer_no')
+        .where('id', '=', ctx.auth.userId)
+        .executeTakeFirst();
+      customerNo = u?.customer_no ?? null;
     }
     const replyHours = plan ? await this.settings.get('support.reply_hours_plus', 48) : null;
     const tags = [
@@ -75,17 +96,37 @@ export class SupportService {
       ...(ctx.auth ? ['signed_in'] : []),
       ...(plan ? [plan, `reply_${replyHours}h`] : []),
     ];
+    const client = input.client?.trim() || 'web';
+    const at = new Date();
     const footer = ctx.auth
-      ? `\n\n---\nKunden-ID: ${ctx.auth.userId}${plan ? ` · Tarif: ${plan} · Antwort binnen ${replyHours} h` : ''}`
+      ? `\n\n---\nKundennummer: ${customerNo ?? '–'} · Vertragsnummer: ${contractNo ?? '–'}${plan ? ` · Antwort binnen ${replyHours} h` : ''}`
       : '';
     const subject = `[${TOPIC_DE[input.topic]}] ${input.message.replace(/\s+/g, ' ').slice(0, 60)}`;
     const { number } = await this.desk.createTicket({
       email,
       name: input.name?.trim() || null,
       subject,
-      body: `${input.message.trim()}${footer}`,
+      body: `${input.message.trim()}${footer}\nVersion: ${client}`,
       tags,
       locale: input.locale,
+      fields: {
+        topic: TOPIC_DE[input.topic],
+        message: input.message.trim(),
+        customerNo,
+        contractNo,
+        client,
+        at,
+      },
+    });
+    // The customer's short confirmation („Wir haben Ihre Nachricht erhalten …“).
+    await this.mail.send({
+      to: email,
+      template: 'support_received',
+      locale: input.locale,
+      values: {
+        ticket: number,
+        topic: (input.locale === 'en' ? TOPIC_EN : TOPIC_DE)[input.topic],
+      },
     });
     return { ticket: number, replyHours };
   }

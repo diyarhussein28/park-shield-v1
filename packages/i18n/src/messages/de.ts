@@ -1633,7 +1633,7 @@ const de = {
     topic_other: 'Etwas anderes',
     alertHint: 'Tipp: Die Zustellungsprüfung zeigt oft schon, woran es lag.',
     message: 'Ihre Nachricht',
-    messageHint: 'Mindestens 10 Zeichen.',
+    messageHint: 'Mindestens 10, höchstens 5.000 Zeichen.',
     privacy: 'Wir speichern Ihre Nachricht in unserem Ticketsystem, um sie zu beantworten.',
     send: 'Nachricht senden',
     sentTitle: 'Danke, Ihre Nachricht ist bei uns.',

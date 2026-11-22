@@ -959,7 +959,42 @@ describe('US-44 contact form to Zammad and the ticket sidebar summary (SP-01, AD
     const t = (await tickets())[0]!;
     expect(t.email).toBe('kunde@example.de');
     expect(t.tags).toEqual(['topic_decal', 'lang_de', 'signed_in', 'standard', 'reply_48h']);
-    expect(t.body).toContain(`Kunden-ID: ${c.userId}`);
+    // Customer and contract number, never the internal id (2026-11-22).
+    const customerNo = (
+      await h.db
+        .selectFrom('users')
+        .select('customer_no')
+        .where('id', '=', c.userId)
+        .executeTakeFirstOrThrow()
+    ).customer_no;
+    const contractNo = (
+      await h.db
+        .selectFrom('subscriptions')
+        .select('contract_no')
+        .where('user_id', '=', c.userId)
+        .executeTakeFirstOrThrow()
+    ).contract_no;
+    expect(t.body).toContain(`Kundennummer: ${customerNo}`);
+    expect(t.body).toContain(`Vertragsnummer: ${contractNo}`);
+    expect(t.body).not.toContain(c.userId);
+    expect((t as unknown as { fields: Record<string, unknown> }).fields).toMatchObject({
+      topic: 'Aufkleber und Versand',
+      customerNo,
+      contractNo,
+      client: 'web',
+    });
+    // The customer gets a short confirmation in the shared layout.
+    const confirm = (await mailbox(h)).find(
+      (m) => m.tag === 'support_received' && m.to === 'kunde@example.de',
+    );
+    expect(confirm?.subject).toMatch(/^Wir haben Ihre Nachricht erhalten \(DEV-/);
+    // At most 5,000 characters.
+    expect(
+      (await contact({ email: 'lang@example.de', message: 'x'.repeat(5001) })).statusCode,
+    ).toBe(400);
+    expect(
+      (await contact({ email: 'lang@example.de', message: 'x'.repeat(5000) })).statusCode,
+    ).toBe(201);
 
     expect(
       (await contact({ email: 'a@example.de', message: 'Zu kurz?', captcha: 'falsch' })).statusCode,

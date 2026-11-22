@@ -26,6 +26,19 @@ export interface SupportTicket {
   /** e.g. "plus" for the 48 h reply promise, the topic, "signed_in". */
   tags: string[];
   locale: 'de' | 'en';
+  /**
+   * What the support e-mail shows (2026-11-22): exactly these fields and no other personal data.
+   * Customer and contract number only when signed in.
+   */
+  fields: {
+    topic: string;
+    message: string;
+    customerNo: string | null;
+    contractNo: string | null;
+    /** App or website version that sent the form. */
+    client: string;
+    at: Date;
+  };
 }
 
 /** Zammad is the only ticket store (AD-20): the contact form creates the ticket there directly. */
@@ -191,6 +204,9 @@ export type BillingEvent =
       metadata: Record<string, string>;
       periodStart: Date;
       periodEnd: Date;
+      /** What was paid and its Stripe reference (payment intent or invoice), for payment@. */
+      amountCents?: number;
+      paymentRef?: string | null;
     }
   | {
       kind: 'subscription_updated';
@@ -202,6 +218,14 @@ export type BillingEvent =
       cancelAtPeriodEnd: boolean;
       /** Billing interval of the current period, when the provider reports it. */
       interval?: 'year' | 'month';
+      /** From `invoice.paid`: the paid invoice (renewals are `subscription_cycle`). */
+      invoice?: {
+        id: string;
+        amountPaidCents: number;
+        billingReason: string;
+        paymentRef: string | null;
+        paidAt: Date;
+      };
     }
   | {
       kind: 'payment_failed';
@@ -215,6 +239,7 @@ export type BillingEvent =
       eventId: string;
       paymentIntentId: string | null;
       metadata: Record<string, string>;
+      amountCents?: number;
     }
   | {
       kind: 'charge_refunded';

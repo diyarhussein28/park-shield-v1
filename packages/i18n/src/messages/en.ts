@@ -1580,7 +1580,7 @@ const en: typeof de = {
     topic_other: 'Something else',
     alertHint: 'Tip: the delivery check often shows what went wrong.',
     message: 'Your message',
-    messageHint: 'At least 10 characters.',
+    messageHint: 'At least 10, at most 5,000 characters.',
     privacy: 'We keep your message in our ticket system to answer it.',
     send: 'Send message',
     sentTitle: 'Thank you, we have your message.',

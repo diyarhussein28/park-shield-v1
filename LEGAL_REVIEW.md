@@ -420,3 +420,22 @@ Owner decisions of 2026-11-21 (`docs/handover.md` §1, task `docs/single-plan-up
   automatische Nachricht … Bitte antworten Sie nicht auf diese E-Mail.“ Two texts that asked the
   customer to reply (new device, break-glass notice) now point to „Hilfe & Kontakt“. Open and click
   tracking stay off; the only image is our own logo (`/email/parkshield-shield.png`).
+
+## 11. Internal routing: support@ and payment@ (2026-11-22)
+
+- **Contact form → `SUPPORT_EMAIL`** (default `support@park-shield.de`): topic, message, the customer's
+  e-mail (reply-to), customer and contract number when signed in, app/web version and time; the
+  optional name is no longer passed on. The customer gets a short receipt („Wir haben Ihre Nachricht
+  erhalten …“). Friendly Captcha, rate limits per IP and per e-mail, max. 5,000 characters.
+- **Payment notifications → `PAYMENT_NOTIFY_EMAIL`** (default `payment@park-shield.de`, the only
+  recipient the code will use): every new subscription and every completed payment (20 € / year,
+  renewals, 3 € print order), once per Stripe event, with the customer's postal letter as a PDF
+  attachment (`{Kundennummer}_{Vertragsnummer}_Brief.pdf`, same generator and snapshot as the admin
+  download). The PDF contains **name and postal address**. Requirements before go-live:
+  - the payment mailbox must be **EU-hosted** (Strato: Germany) and reachable only by the people who
+    post the letters;
+  - a **deletion rule** in that mailbox, e.g. delete mails 90 days after the letter was posted (the
+    data stays in the admin panel and the encrypted letter snapshot);
+  - record it in the processing register (Art. 30 DSGVO) as an internal copy for fulfilment.
+- The mailboxes `support@` and `payment@park-shield.de` must exist at Strato before the env defaults
+  are relied on; the test server still sets `SUPPORT_EMAIL=contact@park-shield.de`.

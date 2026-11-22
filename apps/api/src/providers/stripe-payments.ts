@@ -344,6 +344,8 @@ export class StripePayments implements Payments {
         metadata: (obj.metadata as Record<string, string>) ?? {},
         periodStart: p.start ?? new Date(),
         periodEnd: p.end ?? new Date(),
+        amountCents: Number(obj.amount_total ?? 0),
+        paymentRef: refId(obj.payment_intent) ?? refId(obj.invoice) ?? sub.id,
       };
     }
     if (event.type === 'checkout.session.completed' && obj.mode === 'payment') {
@@ -352,6 +354,7 @@ export class StripePayments implements Payments {
         eventId: event.id,
         paymentIntentId: (obj.payment_intent as string | null) ?? null,
         metadata: (obj.metadata as Record<string, string>) ?? {},
+        amountCents: Number(obj.amount_total ?? 0),
       };
     }
     if (event.type === 'customer.subscription.deleted') {
@@ -370,7 +373,24 @@ export class StripePayments implements Payments {
       // Webhooks can arrive out of order: read the current state instead of trusting the payload.
       const id = event.type === 'invoice.paid' ? invoiceSubscription(obj) : String(obj.id);
       if (!id) return { kind: 'ignored', eventId: event.id, type: event.type };
-      return { ...(await this.currentState(id)), eventId: event.id };
+      const invoice =
+        event.type === 'invoice.paid'
+          ? {
+              id: String(obj.id),
+              amountPaidCents: Number(obj.amount_paid ?? 0),
+              billingReason: String(obj.billing_reason ?? ''),
+              paymentRef: refId(obj.payment_intent) ?? refId(obj.charge) ?? String(obj.id),
+              paidAt:
+                toDate(
+                  (obj.status_transitions as { paid_at?: number } | undefined)?.paid_at ?? null,
+                ) ?? new Date(),
+            }
+          : undefined;
+      return {
+        ...(await this.currentState(id)),
+        eventId: event.id,
+        ...(invoice ? { invoice } : {}),
+      };
     }
     if (event.type === 'charge.refunded') {
       const pi = obj.payment_intent;
@@ -425,6 +445,13 @@ function subInterval(sub: Record<string, unknown>): 'year' | 'month' | undefined
   )?.data?.[0];
   const i = item?.price?.recurring?.interval;
   return i === 'year' || i === 'month' ? i : undefined;
+}
+
+/** A Stripe reference that may be expanded ({ id }) or a plain id. */
+function refId(v: unknown): string | null {
+  if (typeof v === 'string' && v) return v;
+  const id = (v as { id?: unknown } | null | undefined)?.id;
+  return typeof id === 'string' ? id : null;
 }
 
 function invoiceSubscription(invoice: Record<string, unknown>): string | undefined {

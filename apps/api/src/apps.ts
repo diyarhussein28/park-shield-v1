@@ -115,6 +115,7 @@ import {
 } from './letters/letters.controller';
 import { QrExportService } from './letters/qr-export.service';
 import { WelcomeLettersService } from './letters/welcome-letters.service';
+import { PaymentNotifyService } from './billing/payment-notify.service';
 import { OutboxService } from './worker/outbox.service';
 import { SchedulerService } from './worker/scheduler.service';
 import { WorkerBootstrap } from './worker/worker.bootstrap';
@@ -283,6 +284,8 @@ export class WorkerModule {
         ProviderHealthService,
         AuditStreamService,
         AccessReviewService,
+        // payment@ mails with the letter attached (2026-11-22): sent by the worker only.
+        PaymentNotifyService,
         OutboxService,
         SchedulerService,
         WorkerBootstrap,

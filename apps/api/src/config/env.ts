@@ -96,7 +96,12 @@ export const envSchema = z.object({
     (v) => (v === '' ? undefined : v),
     z.enum(['zammad', 'email']).default('zammad'),
   ),
-  SUPPORT_EMAIL: z.string().default(''),
+  SUPPORT_EMAIL: z.string().default('support@park-shield.de'),
+  /**
+   * The only address that gets the payment notifications with the customer's letter attached
+   * (2026-11-22). The mailbox must be EU-hosted and have a deletion rule (LEGAL_REVIEW.md §11).
+   */
+  PAYMENT_NOTIFY_EMAIL: z.email().default('payment@park-shield.de'),
   ZAMMAD_GROUP: z.string().default('Support'),
   // US-45: Better Stack heartbeat (infra/monitoring output worker_heartbeat_url); empty: no heartbeat.
   HEARTBEAT_URL_WORKER: z.string().default(''),

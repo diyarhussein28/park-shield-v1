@@ -609,6 +609,22 @@ export interface Partners {
   name: string;
 }
 
+export interface PaymentNotifications {
+  amount_cents: number;
+  attachment_failed: Generated<boolean>;
+  attachment_sent_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  kind: string;
+  order_id: string | null;
+  paid_at: Timestamp;
+  payment_ref: string | null;
+  sent_at: Timestamp | null;
+  stripe_event_id: string;
+  subscription_id: string | null;
+  user_id: string;
+}
+
 export interface Permissions {
   code: string;
   description: string;
@@ -1037,6 +1053,7 @@ export interface DB {
   outbox_events: OutboxEvents;
   parking_sessions: ParkingSessions;
   partners: Partners;
+  payment_notifications: PaymentNotifications;
   permissions: Permissions;
   phone_ban_reviews: PhoneBanReviews;
   phone_bans: PhoneBans;

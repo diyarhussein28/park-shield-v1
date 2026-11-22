@@ -13,6 +13,15 @@ const values = {
   plan: 'Plus',
   contractNo: 'PS-7K3Q9X2M',
   customerNo: 'PS-2027-000042',
+  topic: 'Aufkleber und Versand',
+  preview: 'Mein Aufkleber löst sich',
+  client: 'web',
+  email: 'kunde@example.de',
+  product: 'ParkShield-Jahresabo',
+  paidAt: new Date('2027-08-03T09:15:00Z'),
+  paymentId: 'pi_3QABCDEF',
+  attachment: 'attached',
+  file: 'PS-2027-000042_PS-7K3Q9X2M_Brief.pdf',
   company: 'Malermeister <Schulz> GmbH',
   nextAttemptAt: new Date('2028-08-06T00:00:00Z'),
   nickname: 'Der Blaue',
@@ -139,8 +148,10 @@ describe('mail templates', () => {
           locale === 'de'
             ? 'Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.'
             : 'This is an automated message from ParkShield. Please do not reply to this e-mail.';
-        expect(r.text).toContain(noReply);
-        expect(r.html).toContain(noReply);
+        // Internal support mails are answered by replying: no „do not reply“ line there.
+        const replyable = name === 'support_request';
+        expect(r.text.includes(noReply)).toBe(!replyable);
+        expect(r.html.includes(noReply)).toBe(!replyable);
         for (const path of ['/hilfe', '/datenschutz', '/agb', '/widerruf']) {
           expect(r.html).toContain(`href="https://park-shield.de${path}"`);
         }

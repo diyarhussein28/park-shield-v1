@@ -1,6 +1,8 @@
 import type { Redis } from 'ioredis';
 import type { Logger } from 'pino';
 import { randomCrockford } from '../core/crypto';
+import { DEFAULT_FRAME } from '../mail/layout';
+import { renderMail } from '../mail/templates';
 import type { Mailer, SupportDesk, SupportTicket } from './ports';
 
 export const DEV_TICKETS_KEY = 'dev:zammad:tickets';
@@ -39,33 +41,43 @@ export class ZammadDesk implements SupportDesk {
   }
 }
 
-const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-
 /**
- * Support without a ticket system: each request is one e-mail to the support mailbox, with the
- * customer as reply-to, so answering is a normal reply. The reference number is in the subject.
+ * Support without a ticket system: each request is one e-mail to the support mailbox (SUPPORT_EMAIL,
+ * default support@park-shield.de), in the shared e-mail layout, with the customer as reply-to, so
+ * answering is a normal reply. The reference number is in the subject. Content (2026-11-22): topic,
+ * message, the customer's e-mail, customer and contract number when signed in, app/web version and
+ * time — no other personal data.
  */
 export class EmailSupportDesk implements SupportDesk {
   constructor(
     private readonly mailer: Mailer,
     private readonly to: string,
+    private readonly webBaseUrl: string = DEFAULT_FRAME.webBaseUrl,
   ) {}
 
   async createTicket(t: SupportTicket): Promise<{ number: string }> {
     const number = `PS-${randomCrockford(8)}`;
-    const head = [
-      `Von / From: ${t.name ?? '-'} <${t.email}>`,
-      `Sprache / Language: ${t.locale}`,
-      `Tags: ${t.tags.join(', ') || '-'}`,
-    ].join('\n');
-    await this.mailer.send({
-      to: this.to,
-      subject: `[${number}] ${t.subject}`,
-      text: `${head}\n\n${t.body}`,
-      html: `<pre style="font-family:inherit;white-space:pre-wrap">${escapeHtml(head)}\n\n${escapeHtml(t.body)}</pre>`,
-      tag: 'support_ticket',
-      replyTo: t.email,
-    });
+    const f = t.fields;
+    const rendered = renderMail(
+      'support_request',
+      'de',
+      {
+        ticket: number,
+        topic: f.topic,
+        preview: f.message.replace(/\s+/g, ' ').slice(0, 60),
+        email: t.email,
+        customerNo: f.customerNo ?? '–',
+        contractNo: f.contractNo ?? '–',
+        client: f.client,
+        at: f.at,
+        message: f.message,
+      },
+      undefined,
+      [],
+      [],
+      { ...DEFAULT_FRAME, webBaseUrl: this.webBaseUrl },
+    );
+    await this.mailer.send({ to: this.to, tag: 'support_ticket', replyTo: t.email, ...rendered });
     return { number };
   }
 }

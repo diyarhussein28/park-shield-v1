@@ -59,6 +59,8 @@ export function ContactForm() {
             message,
             captcha,
             locale,
+            // Shown to support with the request (2026-11-22).
+            client: 'web',
           },
         }),
       );
@@ -146,7 +148,7 @@ export function ContactForm() {
                       aria-describedby={describedBy}
                       required
                       minLength={10}
-                      maxLength={4000}
+                      maxLength={5000}
                       className="min-h-40"
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}

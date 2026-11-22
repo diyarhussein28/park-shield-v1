@@ -26,6 +26,11 @@ import { WELCOME_LETTER_TOPIC } from '../letters/trigger';
 import { WelcomeLettersService } from '../letters/welcome-letters.service';
 import { OutboxService } from './outbox.service';
 import { SchedulerService } from './scheduler.service';
+import {
+  PAYMENT_ATTACHMENT_TOPIC,
+  PAYMENT_NOTIFY_TOPIC,
+  PaymentNotifyService,
+} from '../billing/payment-notify.service';
 
 const HOUR = 3_600_000;
 
@@ -50,6 +55,7 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
     @Inject(ENV) private readonly env: Env,
     @Inject(AlertMediaService) private readonly media: AlertMediaService,
     @Inject(WelcomeLettersService) private readonly letters: WelcomeLettersService,
+    @Inject(PaymentNotifyService) private readonly paymentNotify: PaymentNotifyService,
     @Inject(OwnerReminderService) private readonly ownerReminders: OwnerReminderService,
   ) {}
 
@@ -65,8 +71,15 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
     this.outbox.register(EXTRAORDINARY_TOPIC, async () => {});
     // Welcome letter once paid and the first vehicle is registered (either order). Idempotent.
     this.outbox.register(WELCOME_LETTER_TOPIC, async (p) => {
-      await this.letters.check(String(p.userId));
+      const r = await this.letters.check(String(p.userId));
+      // A payment mail may still wait for this letter as its attachment.
+      if (r === 'created') await this.paymentNotify.letterCreated(String(p.userId));
     });
+    // payment@ (2026-11-22): the notification, and the letter attachment when it had to wait.
+    this.outbox.register(PAYMENT_NOTIFY_TOPIC, (p) => this.paymentNotify.send(String(p.id)));
+    this.outbox.register(PAYMENT_ATTACHMENT_TOPIC, (p) =>
+      this.paymentNotify.sendAttachment(String(p.id)),
+    );
     this.outbox.start();
     this.scheduler.every({
       name: 'subscriptions.expire',

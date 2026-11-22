@@ -16,6 +16,7 @@ import {
 } from '../test/harness';
 import { DISPATCH_TOPIC } from './scan.service';
 import { WELCOME_LETTER_TOPIC } from '../letters/trigger';
+import { PAYMENT_NOTIFY_TOPIC } from '../billing/payment-notify.queue';
 
 let h: Harness;
 let crypto: FieldCrypto;
@@ -176,7 +177,7 @@ describe('sending an alert (US-14, US-15, US-16)', () => {
     const events = await h.db
       .selectFrom('outbox_events')
       .select(['topic', 'payload'])
-      .where('topic', '<>', WELCOME_LETTER_TOPIC)
+      .where('topic', 'not in', [WELCOME_LETTER_TOPIC, PAYMENT_NOTIFY_TOPIC])
       .execute();
     expect(events).toEqual([{ topic: DISPATCH_TOPIC, payload: { alertId } }]);
 
@@ -249,7 +250,7 @@ describe('sending an alert (US-14, US-15, US-16)', () => {
         await h.db
           .selectFrom('outbox_events')
           .selectAll()
-          .where('topic', '<>', WELCOME_LETTER_TOPIC)
+          .where('topic', 'not in', [WELCOME_LETTER_TOPIC, PAYMENT_NOTIFY_TOPIC])
           .execute(),
       ).toHaveLength(0);
       const review = await h.db
@@ -295,7 +296,7 @@ describe('sending an alert (US-14, US-15, US-16)', () => {
       await h.db
         .selectFrom('outbox_events')
         .selectAll()
-        .where('topic', '<>', WELCOME_LETTER_TOPIC)
+        .where('topic', 'not in', [WELCOME_LETTER_TOPIC, PAYMENT_NOTIFY_TOPIC])
         .execute(),
     ).toHaveLength(0);
     expect(await h.db.selectFrom('alerts').selectAll().execute()).toHaveLength(1);

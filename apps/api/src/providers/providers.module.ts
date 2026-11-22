@@ -155,7 +155,7 @@ export class ProvidersModule {
             fakes.support
               ? new DevSupportDesk(valkey, logger)
               : env.SUPPORT_PROVIDER === 'email'
-                ? new EmailSupportDesk(mailer, env.SUPPORT_EMAIL)
+                ? new EmailSupportDesk(mailer, env.SUPPORT_EMAIL, env.WEB_BASE_URL)
                 : new ZammadDesk(env.ZAMMAD_URL, env.ZAMMAD_TOKEN, env.ZAMMAD_GROUP),
         },
       ],

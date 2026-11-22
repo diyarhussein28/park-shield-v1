@@ -13,6 +13,8 @@ interface TemplateSource {
   action?: string;
   /** Small grey text under the button. */
   footnote?: string;
+  /** Answered by replying (internal support mail): no „Bitte antworten Sie nicht“ line. */
+  replyable?: boolean;
 }
 
 const templates = {
@@ -377,6 +379,44 @@ const templates = {
       ],
       action: 'Zugriffsprüfung öffnen',
     },
+    // Internal (2026-11-22): a contact-form request to the support mailbox; reply-to = the customer.
+    support_request: {
+      subject: '[{ticket}] {topic}: {preview}',
+      headline: 'Neue Anfrage über das Kontaktformular',
+      lines: [
+        'Thema: {topic}\nE-Mail: {email}\nKundennummer: {customerNo}\nVertragsnummer: {contractNo}\nVersion: {client}\nEingegangen: {at, date, long} um {at, time, short} Uhr\nVorgang: {ticket}',
+        'Nachricht:\n{message}',
+        'Antworten Sie einfach auf diese E-Mail: die Antwort geht direkt an den Kunden.',
+      ],
+      replyable: true,
+    },
+    support_received: {
+      subject: 'Wir haben Ihre Nachricht erhalten ({ticket})',
+      headline: 'Vielen Dank für Ihre Nachricht',
+      lines: [
+        'Wir haben Ihre Nachricht erhalten und melden uns so schnell wie möglich, meist innerhalb von 48 Stunden.',
+        'Thema: {topic}\nVorgangsnummer: {ticket}',
+      ],
+    },
+    // Internal (2026-11-22): every new subscription and every completed payment, to the payment
+    // mailbox only (PAYMENT_NOTIFY_EMAIL). The letter PDF is attached („als Anlage“).
+    payment_notification: {
+      subject: 'Zahlung eingegangen: {product} · {customerNo}',
+      headline: 'Neue Zahlung',
+      lines: [
+        'Produkt: {product}\nBetrag: {amount}\nZahlungsdatum: {paidAt, date, long} um {paidAt, time, short} Uhr\nKundennummer: {customerNo}\nVertragsnummer: {contractNo}\nStripe-Zahlungs-ID: {paymentId}',
+        '{attachment, select, attached {Anlage: der Brief an den Kunden ({file}), identisch mit dem Download im Admin-Bereich.} failed {Anhang fehlgeschlagen. Der Brief wird automatisch nachgeschickt; bis dahin finden Sie ihn im Admin-Bereich.} pending {Anhang fehlgeschlagen: der Brief ist noch nicht erstellt (er entsteht mit dem ersten Fahrzeug) und wird dann automatisch nachgeschickt.} other {Kein Brief zu dieser Zahlung.}}',
+      ],
+      action: 'Kunde im Admin-Bereich öffnen',
+    },
+    payment_attachment: {
+      subject: 'Anhang nachgereicht: Brief {customerNo}',
+      headline: 'Der Brief zur Zahlung',
+      lines: [
+        'Zur Zahlung vom {paidAt, date, long} ({product}, Kundennummer {customerNo}, Vertragsnummer {contractNo}) liegt jetzt der Brief bei: {file}.',
+      ],
+      action: 'Kunde im Admin-Bereich öffnen',
+    },
   },
   en: {
     sign_in_code: {
@@ -728,6 +768,41 @@ const templates = {
       ],
       action: 'Open the access review',
     },
+    support_request: {
+      subject: '[{ticket}] {topic}: {preview}',
+      headline: 'New request from the contact form',
+      lines: [
+        'Topic: {topic}\nE-mail: {email}\nCustomer number: {customerNo}\nContract number: {contractNo}\nVersion: {client}\nReceived: {at, date, long} at {at, time, short}\nCase: {ticket}',
+        'Message:\n{message}',
+        'Simply reply to this e-mail: the answer goes straight to the customer.',
+      ],
+      replyable: true,
+    },
+    support_received: {
+      subject: 'We have received your message ({ticket})',
+      headline: 'Thank you for your message',
+      lines: [
+        'We have received your message and will get back to you as soon as possible, usually within 48 hours.',
+        'Topic: {topic}\nCase number: {ticket}',
+      ],
+    },
+    payment_notification: {
+      subject: 'Payment received: {product} · {customerNo}',
+      headline: 'New payment',
+      lines: [
+        'Product: {product}\nAmount: {amount}\nPayment date: {paidAt, date, long} at {paidAt, time, short}\nCustomer number: {customerNo}\nContract number: {contractNo}\nStripe payment ID: {paymentId}',
+        '{attachment, select, attached {Attached: the letter to the customer ({file}), identical to the download in the admin area.} failed {Attachment failed. The letter follows automatically; until then it is in the admin area.} pending {Attachment failed: the letter does not exist yet (it is created with the first vehicle) and follows automatically.} other {No letter for this payment.}}',
+      ],
+      action: 'Open the customer in the admin area',
+    },
+    payment_attachment: {
+      subject: 'Attachment sent: letter {customerNo}',
+      headline: 'The letter for the payment',
+      lines: [
+        'For the payment of {paidAt, date, long} ({product}, customer number {customerNo}, contract number {contractNo}) the letter is now attached: {file}.',
+      ],
+      action: 'Open the customer in the admin area',
+    },
   },
 } satisfies Record<MailLocale, Record<string, TemplateSource>>;
 
@@ -783,6 +858,7 @@ export function renderMail(
         action,
         footnote: src.footnote ? fmt(src.footnote) : undefined,
         links,
+        replyable: src.replyable,
       },
       frame,
     ),

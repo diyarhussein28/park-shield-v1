@@ -298,6 +298,13 @@ Single API test file: `cd apps/api && npx vitest run src/scan`. Single E2E file:
   (`apps/api/src/core/crypto.ts`, key versions `DATA_KEY_V<n>`); lookups use HMAC blind indexes
   (`*_bidx`). Tokens and links are stored as SHA-256 hashes only. Reply tokens are HMAC-derived
   from `SESSION_SECRET`, not stored.
+- **Internal mails** (2026-11-22): the contact form mails `SUPPORT_EMAIL` (default
+  `support@park-shield.de`, reply-to = customer, `support_request`) and the customer gets
+  `support_received`. Every new subscription, renewal and paid 3 € print queues one
+  `payment_notifications` row per Stripe event (`billing/payment-notify.queue.ts`); the worker's
+  `PaymentNotifyService` mails `PAYMENT_NOTIFY_EMAIL` only, with the customer's letter PDF from the
+  same generator as the admin download; when it cannot attach, it says „Anhang fehlgeschlagen“ and the
+  letter follows (outbox retry, and again when the welcome letter is created). LEGAL_REVIEW.md §11.
 - **E-mails** (2026-11-22): every e-mail is rendered by `mail/templates.ts` into the one layout
   `mail/layout.ts` (blue header, headline, at most one primary button, optional highlighted box such as
   the sign-in code, „Hilfe benötigt?“, footer with company data from `company_profiles`, „do not reply“
