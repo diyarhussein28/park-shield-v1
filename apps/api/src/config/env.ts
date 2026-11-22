@@ -37,7 +37,7 @@ export const envSchema = z.object({
   // webhook Authorization header value and the entitlement id. Empty key: local fake store.
   REVENUECAT_SECRET_KEY: z.string().default(''),
   REVENUECAT_WEBHOOK_AUTH: z.string().default(''),
-  REVENUECAT_ENTITLEMENT_ID: z.string().default('parkshield'),
+  REVENUECAT_ENTITLEMENT_ID: z.string().default('parkshield_pro'),
   // E-mail provider: Mailjet (EU, default; tracking switched off per message), Brevo or SendGrid.
   // Empty key: dev inbox. Brevo always rewrites links and adds an open pixel (only Enterprise can opt out).
   MAIL_PROVIDER: z.preprocess(

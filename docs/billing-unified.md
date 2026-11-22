@@ -84,11 +84,11 @@ Example: 2000, sticker 300, 10 days → 2000 − 300 − round(1700 × 10 / 365)
 ## 5. Store set-up (owner accounts)
 
 - RevenueCat project „ParkShield“, apps iOS `de.parkshield.app` and Android `de.parkshield.app`,
-  entitlement `parkshield`, product `parkshield_yearly` (yearly, 20,00 € or the closest price point),
+  entitlement `parkshield_pro`, product `parkshield_yearly` (yearly, 20,00 € or the closest price point),
   offering `default`. Webhook URL `https://<domain>/v1/webhooks/revenuecat`, Authorization header =
   `REVENUECAT_WEBHOOK_AUTH`. Customer attributes: none. No IDFA collection.
 - Server env: `REVENUECAT_SECRET_KEY` (v1 secret API key `sk_…`), `REVENUECAT_WEBHOOK_AUTH`,
-  `REVENUECAT_ENTITLEMENT_ID` (default `parkshield`).
+  `REVENUECAT_ENTITLEMENT_ID` (default `parkshield_pro`).
 - App env (public SDK keys): `EXPO_PUBLIC_REVENUECAT_IOS_KEY` (`appl_…`),
   `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` (`goog_…`). Real purchases need a development build (not Expo
   Go): Apple sandbox tester, Play internal test track, RevenueCat sandbox.

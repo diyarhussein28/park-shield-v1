@@ -18,7 +18,7 @@ const API_KEY: string | undefined =
     : process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
 
 /** The entitlement and offering set up in RevenueCat. */
-export const ENTITLEMENT_ID = 'parkshield';
+export const ENTITLEMENT_ID = 'parkshield_pro';
 
 export const isStoreBillingAvailable = () =>
   storeBillingAvailable({

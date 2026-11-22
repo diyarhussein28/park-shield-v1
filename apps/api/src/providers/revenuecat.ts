@@ -24,9 +24,14 @@ interface RcSubscriberResponse {
 const toDate = (v: string | null | undefined) => (v ? new Date(v) : null);
 
 /** RevenueCat `store` → our provider; Stripe/Amazon/promotional purchases are not store purchases. */
-export function storeProvider(store: string | null | undefined): StoreProvider | null {
+export function storeProvider(
+  store: string | null | undefined,
+  allowTestStore = false,
+): StoreProvider | null {
   if (store === 'APP_STORE' || store === 'MAC_APP_STORE') return 'app_store';
   if (store === 'PLAY_STORE') return 'play_store';
+  // RevenueCat's Test Store (sandbox without App Store Connect): only on test environments.
+  if (allowTestStore && store === 'TEST_STORE') return 'app_store';
   return null;
 }
 
@@ -35,12 +40,13 @@ export function parseSubscriber(
   appUserId: string,
   body: RcSubscriberResponse,
   entitlementId: string,
+  allowTestStore = false,
 ): StoreSubscriber | null {
   const ent = body.subscriber.entitlements[entitlementId];
   if (!ent) return null;
   const sub = body.subscriber.subscriptions[ent.product_identifier];
   if (!sub) return null;
-  const store = storeProvider(sub.store);
+  const store = storeProvider(sub.store, allowTestStore);
   if (!store) return null;
   return {
     appUserId,
@@ -66,6 +72,7 @@ export class RevenueCatStore implements StoreBilling {
   constructor(
     private readonly secretKey: string,
     private readonly entitlementId: string,
+    private readonly allowTestStore = false,
   ) {}
 
   async getSubscriber(appUserId: string): Promise<StoreSubscriber | null> {
@@ -82,6 +89,7 @@ export class RevenueCatStore implements StoreBilling {
       appUserId,
       (await res.json()) as RcSubscriberResponse,
       this.entitlementId,
+      this.allowTestStore,
     );
   }
 }

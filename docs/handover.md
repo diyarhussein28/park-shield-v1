@@ -284,7 +284,7 @@ Done (API 640+ tests, app Jest 162, typecheck, lint, prettier green):
 
 Still open (owner accounts):
 
-1. RevenueCat project, apps, entitlement `parkshield`, product `parkshield_yearly`, offering `default`,
+1. RevenueCat project, apps, entitlement `parkshield_pro`, product `parkshield_yearly`, offering `default`,
    webhook → `https://test.park-shield.de/v1/webhooks/revenuecat` with the Authorization value from
    `server.env` (`REVENUECAT_WEBHOOK_AUTH`); `REVENUECAT_SECRET_KEY` in `server.env`.
 2. App Store Connect / Play Console: the yearly subscription product (20,00 € or 19,99 €), sandbox

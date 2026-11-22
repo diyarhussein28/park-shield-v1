@@ -331,6 +331,20 @@ describe('RevenueCat adapter', () => {
       periodEnd: new Date('2028-01-01T00:00:00Z'),
     });
     expect(parseSubscriber('u1', body, 'other')).toBeNull();
+    // RevenueCat's Test Store counts only on test environments.
+    const test = {
+      subscriber: {
+        ...body.subscriber,
+        subscriptions: {
+          parkshield_yearly: {
+            ...body.subscriber.subscriptions.parkshield_yearly,
+            store: 'TEST_STORE',
+          },
+        },
+      },
+    };
+    expect(parseSubscriber('u1', test, 'parkshield')).toBeNull();
+    expect(parseSubscriber('u1', test, 'parkshield', true)?.store).toBe('app_store');
   });
 
   it('sends RevenueCat only the user UUID: no e-mail, no attributes, no advertising id', async () => {

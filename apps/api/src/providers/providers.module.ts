@@ -85,7 +85,11 @@ export class ProvidersModule {
           useFactory: (valkey: Redis) =>
             fakes.store
               ? new FakeStore(valkey)
-              : new RevenueCatStore(env.REVENUECAT_SECRET_KEY, env.REVENUECAT_ENTITLEMENT_ID),
+              : new RevenueCatStore(
+                  env.REVENUECAT_SECRET_KEY,
+                  env.REVENUECAT_ENTITLEMENT_ID,
+                  isTestEnvironment(env),
+                ),
         },
         {
           provide: PRINT,
