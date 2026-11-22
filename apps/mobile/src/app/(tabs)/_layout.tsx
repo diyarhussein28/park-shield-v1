@@ -10,14 +10,15 @@ import { useTheme } from '@/theme/tokens';
 
 /**
  * The four tabs (owner decision 2026-11-20): Start · Warnungen · Fahrzeuge · Konto, with the branded
- * tab bar; the badge on Warnungen counts open alerts. Everything else is pushed above the tabs.
+ * tab bar; the badge on Warnungen counts alerts not opened yet. Everything else is pushed above the tabs.
  */
 export default function TabsLayout() {
   const c = useTheme();
-  const { open } = useAlerts();
+  // The badge counts alerts not opened yet (server-side), not „open“ ones (2026-11-22).
+  const { unseen } = useAlerts();
   return (
     <Tabs
-      tabBar={(props) => <BrandTabBar {...props} badges={{ alerts: open }} />}
+      tabBar={(props) => <BrandTabBar {...props} badges={{ alerts: unseen }} />}
       screenOptions={{
         ...stackOptions(c),
         sceneStyle: { backgroundColor: c.bg },

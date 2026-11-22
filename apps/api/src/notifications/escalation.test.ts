@@ -139,16 +139,59 @@ describe('escalation timing', () => {
   });
 });
 
-describe('reminder push after 10 minutes', () => {
-  it('is one generic push, also after a replay; "seen" does not stop it; no e-mail', async () => {
-    const { code, app } = await setup();
-    const a = await alert(code);
+describe('badge: alerts not opened yet (2026-11-22)', () => {
+  it('counts unopened alerts on the server, sends the count with the push, 0 after opening', async () => {
+    const x = await setup();
+    const count = async () =>
+      (
+        await h.app.inject({ method: 'GET', url: '/v1/app/alerts/unseen-count', headers: x.app })
+      ).json().count as number;
+    const list = async () =>
+      (await h.app.inject({ method: 'GET', url: '/v1/app/alerts', headers: x.app })).json()
+        .unseenCount as number;
+    expect(await count()).toBe(0);
+    const a = await alert(x.code);
+    expect(await count()).toBe(1);
+    const b = await alert(x.code, 'window_open', '198.18.7.7');
+    expect(await count()).toBe(2);
+    expect(await list()).toBe(2);
+    // The push carries the icon badge (iOS aps.badge, Android notification_count).
+    const pushes = (await appPushes(h)).filter((p) => p.body.message.data.alertId === b.alertId);
+    expect(pushes[0]!.body.message.apns.payload.aps.badge).toBe(2);
+    const android = pushes[0]!.body.message.android as { notification: Record<string, unknown> };
+    expect(android.notification.notification_count).toBe(2);
+
     const seen = await h.app.inject({
       method: 'POST',
       url: `/v1/app/alerts/${a.alertId}/seen`,
-      headers: app,
+      headers: x.app,
     });
-    expect(seen.statusCode).toBe(200);
+    expect(seen.json().unseenCount).toBe(1);
+    // „Ich komme“ without opening also takes it off the badge.
+    await h.app.inject({
+      method: 'POST',
+      url: `/v1/app/alerts/${b.alertId}/ack`,
+      headers: x.app,
+      payload: { reply: 'coming' },
+    });
+    expect(await count()).toBe(0);
+    expect(await list()).toBe(0);
+    // Another owner's alerts never count.
+    await subscribe(h, 'other@example.de');
+    const other = await registerAppDevice(h, 'other@example.de', 'fcm-token-other-0000000003');
+    const r = await h.app.inject({
+      method: 'GET',
+      url: '/v1/app/alerts/unseen-count',
+      headers: other,
+    });
+    expect(r.json()).toEqual({ count: 0 });
+  });
+});
+
+describe('reminder push after 10 minutes', () => {
+  it('is one generic push, also after a replay; no e-mail', async () => {
+    const { code } = await setup();
+    const a = await alert(code);
 
     await escalationDue(h, 'reminder');
     expect(await runEscalation(h)).toEqual({ reminders: 1, sms: 0 });
@@ -328,6 +371,13 @@ describe('stop conditions cancel the reminder and the SMS', () => {
       },
       'blocked',
     ],
+    [
+      'opening the alert in the app (mark-as-seen, 2026-11-22)',
+      async (x, a) => {
+        expect((await post(x, `/v1/app/alerts/${a.alertId}/seen`)).statusCode).toBe(200);
+      },
+      'seen',
+    ],
   ];
 
   for (const [name, stop, reason] of stops) {
@@ -387,21 +437,31 @@ describe('stop conditions cancel the reminder and the SMS', () => {
     expect(await escalationSms()).toHaveLength(0);
   });
 
-  it('viewing alone („gesehen“) does not stop either step', async () => {
+  it('opening the alert after the SMS was already queued: no SMS is sent, the mark is undone', async () => {
     const x = await setup();
     const a = await alert(x.code);
-    await post(x, `/v1/app/alerts/${a.alertId}/seen`);
-    const detail = await h.app.inject({
-      method: 'GET',
-      url: `/v1/app/alerts/${a.alertId}`,
-      headers: x.app,
+    await escalationDue(h, 'sms');
+    const sweeper = h.app.get(OwnerReminderService);
+    // The sweep marked the SMS and queued its outbox event …
+    expect(await sweeper.sweepSms()).toBe(1);
+    expect((await row(a.alertId)).escalation_stage).toBe('sms_sent');
+    // … then the owner opens the alert before the worker sends it.
+    expect((await post(x, `/v1/app/alerts/${a.alertId}/seen`)).statusCode).toBe(200);
+    await h.app.get(DispatchService).escalateSms(a.alertId);
+    expect(await escalationSms()).toHaveLength(0);
+    expect(await smsDeliveries(a.alertId)).toHaveLength(0);
+    expect(await row(a.alertId)).toMatchObject({
+      sms_sent_at: null,
+      escalation_stage: 'none',
+      escalation_stop_reason: 'seen',
     });
-    expect(detail.statusCode).toBe(200);
-    const r = await row(a.alertId);
-    expect(r.escalation_stopped_at).toBeNull();
-    await escalationDue(h);
-    expect(await runEscalation(h)).toEqual({ reminders: 1, sms: 1 });
-    expect(await escalationSms()).toHaveLength(1);
+    // The same for a queued reminder push.
+    const b = await alert(x.code, 'window_open', '198.18.9.9');
+    await escalationDue(h, 'reminder', b.alertId);
+    expect(await sweeper.sweep()).toBe(1);
+    await post(x, `/v1/app/alerts/${b.alertId}/seen`);
+    await h.app.get(DispatchService).remind(b.alertId);
+    expect(await reminderPushes(b.alertId)).toHaveLength(0);
   });
 });
 

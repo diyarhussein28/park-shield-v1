@@ -69,7 +69,7 @@ test('live chat: the owner opens it from the app, both write, the owner closes i
   ).toBeVisible();
   const alertId = await alertIdOf(scan);
 
-  // Locked until the owner opens it; "seen" is shown, but is not an answer.
+  // Locked until the owner opens it; "seen" is shown (and, since 2026-11-22, stops the escalation).
   await expect(scan.getByRole('heading', { name: 'Chat mit dem Fahrzeughalter' })).toBeHidden();
   const seen = await request.post(`${API_URL}/v1/app/alerts/${alertId}/seen`, {
     headers: app.headers,
@@ -96,12 +96,12 @@ test('live chat: the owner opens it from the app, both write, the owner closes i
     headers: app.headers,
   });
   expect(opened.status()).toBe(200);
-  // Opening the chat is a reaction: no reminder push, no SMS any more.
+  // Opening the alert was already a reaction: no reminder push, no SMS any more.
   const [stopped] = await sql(
     `SELECT escalation_stop_reason AS reason, remind_at, sms_due_at FROM alerts WHERE id = $1`,
     [alertId],
   );
-  expect(stopped).toEqual({ reason: 'chat_opened', remind_at: null, sms_due_at: null });
+  expect(stopped).toEqual({ reason: 'seen', remind_at: null, sms_due_at: null });
   await expect(scan.getByRole('heading', { name: 'Chat mit dem Fahrzeughalter' })).toBeVisible({
     timeout: 10_000,
   });
@@ -208,16 +208,9 @@ test('escalation: seeing is no reaction (reminder, then exactly one SMS); „Erl
   );
   expect(testAlert).toEqual({ remind: true, no_sms: true });
 
-  // Alert 1: the owner only looks at it. „Seen“ is shown to the scanner, but it stops nothing.
+  // Alert 1: the owner does not react (does not even open it): reminder, then the one SMS.
   const one = await scanAs(browser, url, 1);
   await waitForAppPush(request, app.fcmToken, 'alert', one.alertId);
-  const seen = await request.post(`${API_URL}/v1/app/alerts/${one.alertId}/seen`, {
-    headers: app.headers,
-  });
-  expect(seen.status()).toBe(200);
-  await expect(one.page.getByText('Fahrzeughalter hat die Nachricht gesehen.')).toBeVisible({
-    timeout: 10_000,
-  });
   await escalationDue(one.alertId, 'reminder');
   await waitForAppPush(request, app.fcmToken, 'reminder', one.alertId);
   await escalationDue(one.alertId, 'sms');

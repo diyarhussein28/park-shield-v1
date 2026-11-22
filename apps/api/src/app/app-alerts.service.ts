@@ -7,6 +7,7 @@ import { ChatService } from '../chat/chat.service';
 import { DispatchService } from '../notifications/dispatch.service';
 import { stopEscalation } from '../notifications/escalation';
 import { SenderBlockService } from '../abuse/sender-block.service';
+import { unseenCount } from '../notifications/unseen';
 
 const PAGE = 30;
 
@@ -94,7 +95,14 @@ export class AppAlertsService {
       })),
       next: rows.length > PAGE ? rows[PAGE - 1]!.created_at : null,
       pushReady: await this.dispatch.hasPushDevice(userId),
+      // The Alerts tab badge: alerts not opened yet, counted on the server (not only this page).
+      unseenCount: await this.unseenCount(userId),
     };
+  }
+
+  /** Alerts the owner has not opened yet (the tab badge and the app icon badge). */
+  unseenCount(userId: string): Promise<number> {
+    return unseenCount(this.db, userId);
   }
 
   private status(status: string, expiresAt: Date, now: Date) {
@@ -241,13 +249,17 @@ export class AppAlertsService {
   }
 
   /**
-   * Opening the alert in the app: "seen". Shown to the scanner. NOT a stop condition: viewing alone
-   * does not stop the reminder or the SMS (owner decision 2026-11-21).
+   * Opening the alert in the app: "seen", shown to the scanner. Since 2026-11-22 it counts as a
+   * reaction: the same UPDATE (one transaction) cancels the pending reminder push and the SMS; the
+   * workers drop a step that was already queued (`escalation_stopped_at`). The alert leaves the badge.
    */
-  async seen(userId: string, alertId: string): Promise<{ seenAt: Date; first: boolean }> {
+  async seen(
+    userId: string,
+    alertId: string,
+  ): Promise<{ seenAt: Date; first: boolean; unseenCount: number }> {
     const row = await this.db
       .updateTable('alerts')
-      .set({ seen_at: sql`coalesce(seen_at, now())` })
+      .set({ seen_at: sql`coalesce(seen_at, now())`, ...stopEscalation('seen') })
       .where('id', '=', alertId)
       .where((eb) =>
         eb.exists(
@@ -261,6 +273,10 @@ export class AppAlertsService {
       .returning(['seen_at'])
       .executeTakeFirst();
     if (!row?.seen_at) throw new NotFoundException({ error: 'alert_not_found' });
-    return { seenAt: row.seen_at, first: Date.now() - row.seen_at.getTime() < 2_000 };
+    return {
+      seenAt: row.seen_at,
+      first: Date.now() - row.seen_at.getTime() < 2_000,
+      unseenCount: await this.unseenCount(userId),
+    };
   }
 }

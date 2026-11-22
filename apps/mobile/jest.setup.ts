@@ -23,6 +23,7 @@ jest.mock('expo-notifications', () => ({
   clearLastNotificationResponseAsync: jest.fn(async () => undefined),
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
   addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  setBadgeCountAsync: jest.fn(async () => true),
 }));
 
 jest.mock('expo-constants', () => ({

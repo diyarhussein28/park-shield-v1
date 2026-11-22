@@ -21,7 +21,7 @@ const OPEN = sql`status IN ('dispatched', 'delivered')`;
  * (30, counted from the alert). Never more than one SMS per alert; test alerts never send an SMS.
  *
  * Stop conditions (any of them cancels every pending step): „Ich komme“, any other reply, opening the
- * chat, blocking the sender, marking the alert resolved. Viewing the alert does not stop it.
+ * chat, blocking the sender, marking the alert resolved and (since 2026-11-22) opening the alert.
  *
  * Reliability: the due times are columns (source of truth). The worker sweeps them every few seconds;
  * one statement marks the step as done and queues its outbox event (FOR UPDATE SKIP LOCKED), so there is

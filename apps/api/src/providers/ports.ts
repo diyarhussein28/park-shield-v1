@@ -66,6 +66,8 @@ export interface AppPushMessage {
   ttlSeconds: number;
   /** A reminder replaces the first notification of the same alert. */
   collapseKey?: string;
+  /** The app icon badge: alerts not opened yet (also right while the app is closed). */
+  badge?: number;
 }
 
 export type AppPushResult =

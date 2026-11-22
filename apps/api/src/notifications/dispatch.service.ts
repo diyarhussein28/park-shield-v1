@@ -23,6 +23,7 @@ const SMS_HIDDEN = {
   en: 'Message from an unconfirmed sender',
 } as const;
 import { ViewTokenService } from '../alert-media/view-token.service';
+import { unseenCount } from './unseen';
 
 /** NT-06: a subscription/device is removed after "gone" or this many consecutive failures. */
 export const PUSH_MAX_FAILURES = 5;
@@ -106,6 +107,7 @@ export class DispatchService {
         'a.owner_reply',
         'a.reminded_at',
         'a.sms_sent_at',
+        'a.escalation_stopped_at',
         'a.vehicle_id',
         'v.nickname',
         'u.id as userId',
@@ -198,6 +200,8 @@ export class DispatchService {
   async remind(alertId: string): Promise<void> {
     const alert = await this.load(alertId);
     if (!alert?.reminded_at || alert.owner_reply !== null) return;
+    // The owner reacted (opened the alert, replied, …) after the sweep queued this: drop it.
+    if (alert.escalation_stopped_at) return;
     if (!['dispatched', 'delivered'].includes(alert.status)) return;
     if (alert.expires_at < new Date()) return;
     const muted = await this.preferences.muteReason({
@@ -229,6 +233,30 @@ export class DispatchService {
   async escalateSms(alertId: string): Promise<void> {
     const alert = await this.load(alertId);
     if (!alert?.sms_sent_at || alert.is_test) return;
+    // The owner reacted (e.g. opened the alert) after the sweep queued the SMS: never send it, and
+    // undo the „SMS sent“ mark unless an SMS really went out (an outbox replay after the send).
+    if (alert.escalation_stopped_at) {
+      await this.db
+        .updateTable('alerts')
+        .set({
+          sms_sent_at: null,
+          escalation_stage: sql`CASE WHEN reminded_at IS NOT NULL THEN 'reminder_sent'::escalation_stage ELSE 'none'::escalation_stage END`,
+        })
+        .where('id', '=', alert.id)
+        .where((eb) =>
+          eb.not(
+            eb.exists(
+              eb
+                .selectFrom('alert_deliveries as d')
+                .select('d.id')
+                .whereRef('d.alert_id', '=', 'alerts.id')
+                .where('d.channel', '=', 'sms'),
+            ),
+          ),
+        )
+        .execute();
+      return;
+    }
     const muted = await this.preferences.quietHours(alert.userId, alert.vehicle_id);
     if (muted) {
       if (
@@ -470,6 +498,8 @@ export class DispatchService {
       .execute();
     if (!devices.length) return 'unavailable';
     const provider = fakeProviders(this.env).fcm ? 'dev' : 'fcm';
+    // The app icon badge travels with the push, so it is right while the app is closed.
+    const badge = await unseenCount(this.db, alert.userId);
     if (!(await this.enabled('native_push'))) {
       await this.record({
         alertId: alert.id,
@@ -502,6 +532,7 @@ export class DispatchService {
           urgent: alert.severity === 'urgent' || msg.kind !== 'alert',
           ttlSeconds: PUSH_TTL_SECONDS,
           collapseKey: `alert-${alert.id}`,
+          badge,
         });
         if (r.ok) {
           // The marker stays the provider message id: it is what makes a replay skip this device.

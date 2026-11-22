@@ -22,9 +22,9 @@ import type { AlertDetail } from '@/lib/types';
 type Reply = 'coming' | 'in_30_min' | 'not_nearby';
 
 /**
- * Alert detail. Opening it marks the alert "seen" (shown to the scanner; it does not stop the reminder
- * or the SMS). „Ich komme“, a reply, opening the chat or „Erledigt“ do (2026-11-21); the screen shows
- * where the escalation stands. Photos are streamed from the API with the session (memory cache only,
+ * Alert detail. Opening it marks the alert "seen" (shown to the scanner) and, since 2026-11-22, counts
+ * as a reaction: the reminder and the SMS are cancelled, like „Ich komme“, a reply, the chat or
+ * „Erledigt“; the screen shows where the escalation stands. Photos are streamed from the API with the session (memory cache only,
  * nothing on disk) and saved to the gallery only on "Speichern".
  */
 export default function AlertScreen() {
@@ -36,7 +36,7 @@ export default function AlertScreen() {
   const [busy, setBusy] = useState<Reply | 'chat' | 'report' | 'resolve' | null>(null);
   const [headers, setHeaders] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
-  const { senderChanged } = useAlertSync();
+  const { senderChanged, markSeen } = useAlertSync();
   // „Missbrauch melden“: a second tap confirms, because the photos are deleted for good.
   const [confirmReport, setConfirmReport] = useState(false);
   const [reportResult, setReportResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(
@@ -59,8 +59,13 @@ export default function AlertScreen() {
 
   useEffect(() => {
     void authHeaders().then(setHeaders);
-    void api(`/v1/app/alerts/${id}/seen`, { body: {} }).catch(() => undefined);
-  }, [id]);
+    // Opening = seen: a reaction that cancels the reminder and the SMS (2026-11-22). The badge goes
+    // down at once and then takes the server's count.
+    markSeen(id);
+    void api<{ unseenCount?: number }>(`/v1/app/alerts/${id}/seen`, { body: {} })
+      .then((r) => markSeen(id, r.unseenCount))
+      .catch(() => undefined);
+  }, [id, markSeen]);
 
   useFocusEffect(
     useCallback(() => {

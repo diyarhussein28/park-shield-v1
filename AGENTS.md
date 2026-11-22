@@ -353,8 +353,13 @@ Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
   SMS). Never for tests (SMS), never in quiet hours (SMS, even urgent), cap `sms.monthly_cap` (20).
 - **Stop conditions** (`stopEscalation()` in `notifications/escalation.ts`): „Ich komme“, any other
   reply, opening the chat, an owner chat message, „Absender blockieren“, „Erledigt“
-  (`POST /v1/app/alerts/:id/resolve`). **Seen ≠ reaction:** `POST /v1/app/alerts/:id/seen` sets
-  `seen_at` only.
+  (`POST /v1/app/alerts/:id/resolve`) and, since 2026-11-22, **opening the alert** (`POST
+/v1/app/alerts/:id/seen` sets `seen_at` and stops the escalation in the same UPDATE; the workers
+  drop a reminder or SMS already queued, `escalation_stopped_at`).
+- **Badge** (2026-11-22): alerts not opened yet (`seen_at IS NULL`, not acknowledged/resolved, last
+  90 days), counted on the server (`notifications/unseen.ts`): `unseenCount` in `GET /v1/app/alerts`,
+  `GET /v1/app/alerts/unseen-count`, the answer of `/seen`, and the push payload (iOS `aps.badge`,
+  Android `notification_count`). The app sets the icon badge with `setBadgeCountAsync`.
 - **Trusted contacts are gone** (2026-11-21): module, pages (`/k/…`, `/notfallkontakt`) and data
   removed; the empty `emergency_contacts` table stays until a clean-up migration.
 - **Block sender** (`HistoryService.block`, `POST /v1/app/alerts/:id/block`, `POST /v1/alerts/:id/block`):

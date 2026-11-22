@@ -1,10 +1,12 @@
 import { sql } from 'kysely';
 
 /**
- * Why pending escalation steps were cancelled (owner decision 2026-11-21). Each of these is a stop
- * condition: the owner reacted. Merely viewing the alert (`seen_at`) is NOT one.
+ * Why pending escalation steps were cancelled (owner decisions 2026-11-21 and 2026-11-22). Each of
+ * these is a stop condition: the owner reacted. Since 2026-11-22 opening the alert in the app
+ * (`seen`, mark-as-seen) is one too.
  */
-export type StopReason = 'acknowledged' | 'replied' | 'chat_opened' | 'blocked' | 'resolved';
+export type StopReason =
+  'acknowledged' | 'replied' | 'chat_opened' | 'blocked' | 'resolved' | 'seen';
 
 /**
  * Columns to set (in the same UPDATE as the owner's action) so that no reminder push and no SMS is

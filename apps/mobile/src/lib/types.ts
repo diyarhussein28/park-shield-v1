@@ -30,12 +30,14 @@ export interface AlertListItem {
 
 export type EscalationStage = 'none' | 'reminder_sent' | 'sms_sent';
 export type EscalationStopReason =
-  'acknowledged' | 'replied' | 'chat_opened' | 'blocked' | 'resolved';
+  'acknowledged' | 'replied' | 'chat_opened' | 'blocked' | 'resolved' | 'seen';
 
 export interface AlertList {
   alerts: AlertListItem[];
   next: string | null;
   pushReady: boolean;
+  /** Alerts not opened yet (seen_at IS NULL), counted on the server: the tab and app icon badge. */
+  unseenCount?: number;
 }
 
 export type ChatStatus = 'locked' | 'active' | 'closed';
@@ -84,7 +86,7 @@ export interface AlertDetail {
   acknowledgedBy: { kind: 'owner'; name: string | null } | null;
   /**
    * The owner's own escalation (no trusted contacts any more): a reminder push at `reminderAt`, one SMS
-   * at `smsDueAt`, both cancelled at `stoppedAt` when the owner reacted. Viewing alone does not stop it.
+   * at `smsDueAt`, both cancelled at `stoppedAt` when the owner reacted (opening the alert counts).
    */
   escalation: {
     stage: EscalationStage;

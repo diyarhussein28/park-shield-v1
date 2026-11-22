@@ -161,6 +161,12 @@ export class AppController {
     return this.alerts.list(user.userId, d && !Number.isNaN(d.getTime()) ? d : undefined);
   }
 
+  /** The badge: alerts not opened yet (seen_at IS NULL), computed on the server. */
+  @Get('alerts/unseen-count')
+  async unseen(@CurrentUser() user: AuthContext) {
+    return { count: await this.alerts.unseenCount(user.userId) };
+  }
+
   @Get('alerts/:alertId')
   detail(
     @CurrentUser() user: AuthContext,
@@ -176,7 +182,7 @@ export class AppController {
   async seen(@CurrentUser() user: AuthContext, @Param('alertId', ParseUUIDPipe) alertId: string) {
     const r = await this.alerts.seen(user.userId, alertId);
     this.gateway.alertChanged(alertId);
-    return { seenAt: r.seenAt };
+    return { seenAt: r.seenAt, unseenCount: r.unseenCount };
   }
 
   /** „Ich komme" (button in the app or the action on the push notification). */

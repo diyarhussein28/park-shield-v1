@@ -30,6 +30,7 @@ export function fcmBody(msg: AppPushMessage) {
           channel_id: 'alerts',
           ...(msg.collapseKey ? { tag: msg.collapseKey } : {}),
           ...(msg.category ? { click_action: msg.category } : {}),
+          ...(msg.badge !== undefined ? { notification_count: msg.badge } : {}),
         },
       },
       apns: {
@@ -46,6 +47,7 @@ export function fcmBody(msg: AppPushMessage) {
             'interruption-level': msg.urgent ? 'time-sensitive' : 'active',
             ...(msg.category ? { category: msg.category } : {}),
             ...(msg.collapseKey ? { 'thread-id': msg.collapseKey } : {}),
+            ...(msg.badge !== undefined ? { badge: msg.badge } : {}),
           },
           // expo-notifications on iOS reads a remote notification's data only from `body` (the Expo
           // push format), not from the top-level keys FCM puts `data` in. Without it a tap and the
