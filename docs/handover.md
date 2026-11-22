@@ -210,14 +210,27 @@ free (80 × 80 mm with cut marks), shipped „kostenlos (Willkommensdruck)“ �
 
 ## 6. Open items after the code (owner / deploy)
 
-1. Stripe: create the 20 € yearly price (tax-inclusive) → `STRIPE_PRICE_YEARLY`; remove the old
-   `STRIPE_PRICE_PLUS_*`/`PREMIUM_*` from `server.env` (docs/status.md §4 item 9).
-2. Twilio Verify service SID for owners' numbers (`TWILIO_VERIFY_SERVICE_SID`).
-3. `SCANNER_BASE_URL=https://park-shield.de` in production; 301 from `pkshd.de/s/*` if old decals exist.
-4. New EAS app build (expo-image-picker is a new native module); try the vehicle photo on a device.
-5. Deploy to the test server (`infra/single/deploy.sh`) — migrations 20261206000000/0100/0200 run then.
-6. Lawyer: `LEGAL_REVIEW.md` §9 (price change, phone purpose, § 356a card, 3 € print withdrawal).
-7. Small follow-ups: 110/112 as tappable links on the scanner page; `scanner.escalated` /
+Done on 2026-11-21/22 (deploy and real run on the test server, see `docs/status.md` §1a):
+
+- ✅ Stripe test price 20 € / year (tax-inclusive) → `STRIPE_PRICE_YEARLY`; old `STRIPE_PRICE_PLUS_*` /
+  `PREMIUM_*` removed from `server.env`.
+- ✅ Twilio Verify service → `TWILIO_VERIFY_SERVICE_SID` (owners' numbers checked for real).
+- ✅ Deployed `1e9bc1c` (= `e19a9e4` + a CLAUDE.md change); migrations 20261206000000/0100/0200 applied.
+- ✅ EAS iOS preview build from `82d9d98` (build `74cdacab-1d7f-44a8-a0c3-985a19fef589`).
+- ✅ Test guide updated (`docs/test-guide.md`), all old test customers deleted.
+
+Still open:
+
+1. `SCANNER_BASE_URL=https://park-shield.de` in production; 301 from `pkshd.de/s/*` if old decals exist.
+2. Push on a real device: install the new build, sign in, check alert / reminder push and the „Ich
+   komme“ action (Expo Go in the simulator cannot receive FCM). Vehicle photo on a device.
+3. Next app build must include `b446f6b` (permission screen text: the push is generic).
+4. Lawyer: `LEGAL_REVIEW.md` §9 (price change, phone purpose, § 356a card, 3 € print withdrawal).
+5. Small follow-ups: 110/112 as tappable links on the scanner page; `scanner.escalated` /
    `contactOnTheWay` texts still mention contacts (unused by the flow now); a clean-up migration to drop
    the empty `emergency_contacts` table and the unused escalation columns.
-
+6. Findings of the real run (2026-11-22): the vehicle row „Druck oder Versand“ shows no price after the
+   welcome print was used (the print screen itself shows 3 € correctly); the Warnungen tab badge still
+   counts an alert whose sender was blocked as open; text fields are right-aligned when the device
+   keyboard/region is RTL (set `textAlign: 'left'` on inputs, the app is DE/EN only); the 3 € paid print
+   was not paid in the run.

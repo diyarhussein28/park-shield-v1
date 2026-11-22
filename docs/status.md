@@ -10,7 +10,7 @@ on one laptop, so **everyone (and every AI agent) on every machine reads the sam
 > The repository is **public**. Never write secrets, keys, passwords, customer data, phone numbers
 > or e-mail addresses of real customers here. Names of env vars are fine; their values are not.
 
-_Last updated: 2026-11-21 (single plan, app-only alerts, escalation — in progress, see `docs/handover.md`)._
+_Last updated: 2026-11-22 (single plan deployed to the test server and tested end to end, see §1a)._
 
 ---
 
@@ -27,6 +27,30 @@ _Last updated: 2026-11-21 (single plan, app-only alerts, escalation — in progr
 | 4   | Real keys for launch (Stripe **live**)                                         | open                                                       |
 | 5   | Move `park-shield.de` DNS from Vercel to the server, legal texts, go live      | open                                                       |
 | 6   | 100 QR decal designs with different phrases                                    | open                                                       |
+
+## 1a. Single plan on the test server (2026-11-21/22)
+
+Deployed `1e9bc1c` on 2026-11-21 (code = `e19a9e4`); migrations `20261206000000`, `…0100`, `…0200`
+applied, all test subscriptions are `standard` / `annual`. All old test customers (7) were deleted on
+2026-11-21 with their Stripe test subscriptions; the two staff accounts were kept.
+
+Real run on https://test.park-shield.de (website in Chrome, app in the iOS simulator via Expo Go):
+
+| Step | Result |
+| ---- | ------ |
+| Home page | only „ParkShield 20 € / Jahr inkl. 19 % MwSt.“, no Plus/Premium |
+| Sign-up (website magic link, app 6-digit code) | ✅ |
+| Name, address, required mobile number | ✅ landline rejected, real Twilio Verify SMS code accepted |
+| Paywall and Stripe test payment (in the app) | ✅ subscription `standard`, `annual`, 365 days |
+| Vehicle + QR code | ✅ one vehicle, add form hidden afterwards |
+| Print | ✅ self-print free (80 × 80 mm, PDF/PNG/SVG); welcome print ordered free, next one shows 3 € |
+| Scan + alert | ✅ „Genuine page: park-shield.de“, 110/112 hint, no alert e-mail |
+| Escalation | ✅ reminder stage after 10 min, **one** SMS after 30 min, delivered |
+| Block sender | ✅ app „Absender blockiert – Chat beendet“, scanner page „Der Chat wurde beendet“, timers cleared |
+| Sperren + new code | ✅ four-fact dialog, old code „nicht aktiv“, „Neuen Code erstellen“ works, same design |
+
+Not verified yet: push on a real device (needs the new EAS build, `docs/handover.md` §6), the 3 € paid
+print. Open findings: `docs/handover.md` §6 item 6.
 
 ## 2. Test server
 
@@ -62,9 +86,9 @@ _Last updated: 2026-11-21 (single plan, app-only alerts, escalation — in progr
 
 | Provider         | State                                                                                   |
 | ---------------- | --------------------------------------------------------------------------------------- |
-| Stripe           | **test mode** keys, yearly price IDs, webhook → `https://test.park-shield.de/v1/webhooks/stripe` (5 events), signed delivery verified |
+| Stripe           | **test mode** keys, single yearly price 20 € (`STRIPE_PRICE_YEARLY`, 2026-11-21), webhook → `https://test.park-shield.de/v1/webhooks/stripe` (5 events), signed delivery verified |
 | E-mail           | **Mailjet** (`MAIL_PROVIDER=mailjet`), tracking off per message, SPF + DKIM green        |
-| SMS              | Twilio, sender ID `ParkShield`, Trust Hub business profile approved, delivery verified |
+| SMS              | Twilio, sender ID `ParkShield`, Trust Hub business profile approved, delivery verified; Verify service for owners' and scanners' numbers (`TWILIO_VERIFY_SERVICE_SID`, 2026-11-21) |
 | ~~WhatsApp~~     | **Removed 2026-12** (no Meta dependency; was: **Twilio** (`WHATSAPP_PROVIDER=twilio`, 2026-11-18): Meta business verified, sender `ParkShield` online, all 8 content templates approved (`ps_test` uses the `ps_test_v2_*` SIDs), sender webhook → `https://test.park-shield.de/v1/webhooks/twilio/whatsapp`. End-to-end test passed (link number, alert, reply button). Profile: logo, description, park-shield.de, contact e-mail. Photo alerts use `ps_alert_photos_test_*` (URL button to the test domain; submitted 2026-11-18). The chat header shows the number, not the name, until Meta grants an official business account (needs a messaging limit above 250) Before the removal, from 2026-11-18 ~20:15 every WhatsApp alert failed with Twilio 63112 (Meta disabled the WhatsApp Business Account); `eacc3b4` added the fallback to the next channel, which the dispatcher keeps for late SMS failures) |
 | Print            | `PRINT_PARTNER=manual`                                                                  |
 | Support          | `SUPPORT_PROVIDER=email` → `contact@park-shield.de`                                      |
@@ -175,13 +199,10 @@ Relaxed only for testing on the test server. Restore every item before step 5:
    Before go-live: the privacy policy needs the new section on name/address (`LEGAL_REVIEW.md` §8),
    and the store privacy labels must list name and address.
 
-9. **Single plan (2026-11-21), before deploying it to the test server:** create a Stripe price
-   20.00 € / year, tax-inclusive, and set `STRIPE_PRICE_YEARLY` (the old `STRIPE_PRICE_PLUS_*` /
-   `STRIPE_PRICE_PREMIUM_*` variables are no longer read — remove them from `server.env`); set
-   `TWILIO_VERIFY_SERVICE_SID` so owners' numbers are checked with Lookup + Verify; set
-   `SCANNER_BASE_URL=https://park-shield.de` for production and, if decals with `pkshd.de` exist,
-   redirect `pkshd.de/s/*` (301) to `park-shield.de/s/*`. The new app build (EAS) is needed for the
-   new screens.
+9. **Single plan (2026-11-21):** on the test server done 2026-11-21: `STRIPE_PRICE_YEARLY` (20 €, test
+   mode) set and the old `STRIPE_PRICE_PLUS_*` / `STRIPE_PRICE_PREMIUM_*` removed, `TWILIO_VERIFY_SERVICE_SID`
+   set, new EAS build made. **Before go-live:** a live 20 € price, `SCANNER_BASE_URL=https://park-shield.de`
+   and, if decals with `pkshd.de` exist, a 301 from `pkshd.de/s/*` to `park-shield.de/s/*`.
 
 ## 4a. Launch checklist
 
