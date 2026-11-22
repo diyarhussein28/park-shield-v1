@@ -296,6 +296,10 @@ Still open (owner accounts):
    **19,99 €** — owner decision, 20,00 € is no App Store price point; the web stays 20,00 €), German
    display name „ParkShield Jahresabo“. Still open there: P8 in-app purchase key → RevenueCat iOS app,
    review screenshot of the paywall (needed when the first version is submitted).
+   ✅ 2026-11-23 RevenueCat: iOS app „ParkShield iOS“ (P8 key uploaded by the owner), product
+   `parkshield_yearly` attached to `parkshield_pro` and to the `$rc_annual` package of offering
+   `default` (next to the Test Store `yearly`). EAS `preview`: `EXPO_PUBLIC_REVENUECAT_IOS_KEY` = the
+   `appl_…` key (Apple sandbox purchases; needs a Sandbox Tester); Android still the Test Store key.
    App Store Connect / Play Console: the yearly subscription product (20,00 € or 19,99 €), sandbox
    tester, Play internal test track; EAS env `EXPO_PUBLIC_REVENUECAT_IOS_KEY` / `…_ANDROID_KEY`, new
    development build (Expo Go cannot buy).
