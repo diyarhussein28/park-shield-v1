@@ -8,12 +8,24 @@
     "production": {
       "environment": "production",
       "autoIncrement": true,
-      "env": { "EXPO_PUBLIC_API_URL": "https://park-shield.de" }
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://park-shield.de"
+      }
     },
     "preview": {
       "distribution": "internal",
       "environment": "preview",
-      "env": { "EXPO_PUBLIC_API_URL": "https://test.park-shield.de" }
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://test.park-shield.de"
+      }
+    },
+    "simulator": {
+      "extends": "preview",
+      "environment": "development",
+      "ios": {
+        "simulator": true
+      },
+      "distribution": "internal"
     }
   },
   "submit": {
