@@ -1,0 +1,2309 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`mail templates > account_deleted: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihr ParkShield-Konto ist gelöscht",
+  "text": "Ihr ParkShield-Konto ist gelöscht
+
+Wir haben Ihr Konto und Ihre Daten gelöscht. Aus unseren verschlüsselten Sicherungen verschwinden sie spätestens nach 35 Tagen.
+
+Danke, dass Sie ParkShield genutzt haben.
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > account_deleted: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Your ParkShield account has been deleted",
+  "text": "Your ParkShield account has been deleted
+
+We have deleted your account and your data. They disappear from our encrypted backups within 35 days at the latest.
+
+Thank you for using ParkShield.
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > activation_reminder: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ist Ihr Aufkleber an „Der Blaue“ schon getestet?",
+  "text": "Ist Ihr Aufkleber an „Der Blaue“ schon getestet?
+
+Ihr ParkShield-Aufkleber ist angekommen, aber noch nicht getestet. Erst nach dem Test wissen Sie sicher, dass Warnungen Sie erreichen.
+
+So geht es: Aufkleber anbringen, im Konto „Aufkleber testen“ tippen und den Code mit dem Handy scannen. Das dauert eine Minute.
+
+Aufkleber jetzt testen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > activation_reminder: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Have you tested your decal on “Der Blaue” yet?",
+  "text": "Have you tested your decal on “Der Blaue” yet?
+
+Your ParkShield decal has arrived but has not been tested yet. Only after the test do you know for sure that alerts reach you.
+
+How: apply the decal, tap “Test decal” in your account and scan the code with your phone. It takes a minute.
+
+Test the decal now: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > alert_followup: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Erinnerung: Jemand wartet an „Der Blaue“",
+  "text": "Erinnerung: Jemand wartet an „Der Blaue“
+
+Die Person, die Sie wegen „Der Blaue“ gewarnt hat (Fahrzeug versperrt Ausfahrt), wartet noch auf Sie.
+
+Bitte kommen Sie zum Fahrzeug oder antworten Sie kurz, damit sie Bescheid weiß:
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > alert_followup: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Reminder: someone is waiting at “Der Blaue”",
+  "text": "Reminder: someone is waiting at “Der Blaue”
+
+The person who alerted you about “Der Blaue” (Fahrzeug versperrt Ausfahrt) is still waiting for you.
+
+Please go to your vehicle or send a short reply so they know:
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > alert_received: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Fahrzeug versperrt Ausfahrt: „Der Blaue“",
+  "text": "Fahrzeug versperrt Ausfahrt: „Der Blaue“
+
+Jemand hat am 3. August 2027 um 11:15 Uhr Ihren ParkShield-Aufkleber an „Der Blaue“ gescannt: Fahrzeug versperrt Ausfahrt.
+
+Nachricht: „Stehe in der Einfahrt“
+
+Die Person sieht, dass Ihre Warnung angekommen ist. Tippen Sie auf „Ich komme“, dann sieht sie Ihre Antwort:
+
+Details & Fotos ansehen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > alert_received: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Fahrzeug versperrt Ausfahrt: “Der Blaue”",
+  "text": "Fahrzeug versperrt Ausfahrt: “Der Blaue”
+
+On August 3, 2027 at 11:15 AM someone scanned your ParkShield decal on “Der Blaue”: Fahrzeug versperrt Ausfahrt.
+
+Message: “Stehe in der Einfahrt”
+
+They can see that your alert has arrived. Tap “I’m coming” and they see your answer:
+
+View details & photos: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > alert_received_photos: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Fahrzeug versperrt Ausfahrt: „Der Blaue“ (mit Fotos)",
+  "text": "Fahrzeug versperrt Ausfahrt: „Der Blaue“ (mit Fotos)
+
+Jemand hat am 3. August 2027 um 11:15 Uhr Ihren ParkShield-Aufkleber an „Der Blaue“ gescannt: Fahrzeug versperrt Ausfahrt. Die Person hat Fotos angehängt.
+
+Nachricht: „Stehe in der Einfahrt“
+
+Die Fotos sehen Sie nur in der App oder über den Link unten, nie als Anhang. Tippen Sie auf „Ich komme“, dann sieht die Person Ihre Antwort:
+
+Details & Fotos ansehen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > alert_received_photos: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Fahrzeug versperrt Ausfahrt: “Der Blaue” (with photos)",
+  "text": "Fahrzeug versperrt Ausfahrt: “Der Blaue” (with photos)
+
+On August 3, 2027 at 11:15 AM someone scanned your ParkShield decal on “Der Blaue”: Fahrzeug versperrt Ausfahrt. They attached photos.
+
+Message: “Stehe in der Einfahrt”
+
+You see the photos only in the app or through the link below, never as an attachment. Tap “I’m coming” and they see your answer:
+
+View details & photos: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > alert_reminder: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Erinnerung: Fahrzeug versperrt Ausfahrt bei „Der Blaue“",
+  "text": "Erinnerung: Fahrzeug versperrt Ausfahrt bei „Der Blaue“
+
+Sie haben auf die Warnung von 11:15 Uhr noch nicht reagiert: Fahrzeug versperrt Ausfahrt bei „Der Blaue“.
+
+Hinweis: Sie haben keine App mit aktivierten Mitteilungen. Ohne Mitteilungen erfahren Sie nicht sofort von Problemen an Ihrem Fahrzeug. Installieren Sie die ParkShield-App und erlauben Sie Mitteilungen.
+
+Tippen Sie auf „Ich komme“, wenn Sie sich darum kümmern:
+
+Details & Fotos ansehen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > alert_reminder: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Reminder: Fahrzeug versperrt Ausfahrt at “Der Blaue”",
+  "text": "Reminder: Fahrzeug versperrt Ausfahrt at “Der Blaue”
+
+You have not responded to the alert from 11:15 AM yet: Fahrzeug versperrt Ausfahrt at “Der Blaue”.
+
+Note: you have no app with notifications turned on. Without notifications you do not learn about problems with your vehicle right away. Install the ParkShield app and allow notifications.
+
+Tap “I’m coming” when you take care of it:
+
+View details & photos: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > alert_test: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Test erfolgreich: „Der Blaue“",
+  "text": "Test erfolgreich: „Der Blaue“
+
+Ihr Aufkleber an „Der Blaue“ funktioniert. So kommen Warnungen bei Ihnen an.
+
+Tipp: Installieren Sie die ParkShield-App und erlauben Sie Mitteilungen, damit Sie Warnungen sofort sehen.
+
+Zum Konto: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > alert_test: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Test successful: “Der Blaue”",
+  "text": "Test successful: “Der Blaue”
+
+Your decal on “Der Blaue” works. This is how alerts reach you.
+
+Tip: install the ParkShield app and allow notifications so you see alerts immediately.
+
+Open my account: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > break_glass_notice: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Unser Support hat Ihre Daten eingesehen",
+  "text": "Unser Support hat Ihre Daten eingesehen
+
+Am 3. August 2027 um 11:15 Uhr hat eine Mitarbeiterin oder ein Mitarbeiter unseres Supports folgendes Feld eingesehen: Kennzeichen.
+
+Das geht bei uns nur mit Begründung, nach Freigabe durch eine zweite Person und für 15 Minuten. Vorgang: ZM-1234.
+
+Wenn Sie dazu Fragen haben, schreiben Sie uns über „Hilfe & Kontakt“.
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > break_glass_notice: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Our support team viewed your data",
+  "text": "Our support team viewed your data
+
+On August 3, 2027 at 11:15 AM, a member of our support team viewed this field: Kennzeichen.
+
+This is only possible with a stated reason, after approval by a second person, and for 15 minutes. Case: ZM-1234.
+
+If you have questions about it, write to us via “Help & Contact”.
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > cancel_needs_review: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihre Kündigung bei ParkShield ist eingegangen",
+  "text": "Ihre Kündigung bei ParkShield ist eingegangen
+
+Wir haben Ihre Kündigung am 3. August 2027 um 11:15 Uhr erhalten.
+
+Wir konnten sie noch keinem Vertrag zuordnen und prüfen sie jetzt von Hand. Sobald wir den Vertrag gefunden haben, bestätigen wir Ihnen das Vertragsende. Die Kündigung gilt als zu dem Zeitpunkt zugegangen, zu dem wir sie erhalten haben.
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > cancel_needs_review: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "We have received your ParkShield cancellation",
+  "text": "We have received your ParkShield cancellation
+
+We received your cancellation on August 3, 2027 at 11:15 AM.
+
+We could not match it to a contract yet and are checking it by hand. Once we have found the contract we confirm the end date. The cancellation counts as received at the time we received it.
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > cancel_received: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Bestätigung Ihrer Kündigung (PS-7K3Q9X2M)",
+  "text": "Bestätigung Ihrer Kündigung (PS-7K3Q9X2M)
+
+Wir haben Ihre Kündigung am 3. August 2027 um 11:15 Uhr erhalten.
+
+Inhalt Ihrer Kündigung: ordentliche Kündigung des Vertrags PS-7K3Q9X2M.
+
+Ihr Vertrag endet am 3. August 2028. Bis dahin bleibt Ihr Schutz voll aktiv; danach werden keine Beträge mehr abgebucht.
+
+Sie haben nicht gekündigt oder möchten es sich anders überlegen? Mit dem Link unten nehmen Sie die Kündigung bis zum Vertragsende mit einem Klick zurück.
+
+Kündigung zurücknehmen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > cancel_received: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Confirmation of your cancellation (PS-7K3Q9X2M)",
+  "text": "Confirmation of your cancellation (PS-7K3Q9X2M)
+
+We received your cancellation on August 3, 2027 at 11:15 AM.
+
+Content of your cancellation: ordinary cancellation of contract PS-7K3Q9X2M.
+
+Your contract ends on August 3, 2028. Your protection stays fully active until then; nothing is charged afterwards.
+
+You did not cancel, or changed your mind? The link below takes the cancellation back with one click until the end date.
+
+Take back the cancellation: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > cancel_revoked: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihre Kündigung wurde zurückgenommen",
+  "text": "Ihre Kündigung wurde zurückgenommen
+
+Sie haben Ihre Kündigung des Vertrags PS-7K3Q9X2M zurückgenommen. Ihr Vertrag läuft unverändert weiter.
+
+Wenn Sie das nicht waren, können Sie jederzeit erneut über „Verträge hier kündigen“ kündigen.
+
+Zum Konto: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > cancel_revoked: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Your cancellation was taken back",
+  "text": "Your cancellation was taken back
+
+You took back the cancellation of contract PS-7K3Q9X2M. Your contract continues unchanged.
+
+If this was not you, you can cancel again at any time via “Cancel contract here”.
+
+Open my account: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > code_revoked_by_us: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Wir haben den Code an „Der Blaue“ gesperrt",
+  "text": "Wir haben den Code an „Der Blaue“ gesperrt
+
+Wir haben an Ihrem Aufkleber für „Der Blaue“ auffällig viele Warnungen oder Meldungen gesehen und den Code zu Ihrem Schutz gesperrt. Er hat jetzt einen neuen Code.
+
+Der Ersatzaufkleber ist für Sie kostenlos. Bestellen Sie ihn im Konto; bis er da ist, können Sie ihn als PDF ausdrucken.
+
+Ersatzaufkleber bestellen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > code_revoked_by_us: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "We revoked the code on “Der Blaue”",
+  "text": "We revoked the code on “Der Blaue”
+
+We saw unusually many alerts or reports on your decal for “Der Blaue” and revoked the code to protect you. It now has a new code.
+
+The replacement decal is free for you. Order it in your account; until it arrives you can print it as a PDF.
+
+Order replacement decal: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > contract_confirmation: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihre Vertragsbestätigung für ParkShield (PS-7K3Q9X2M)",
+  "text": "Vielen Dank! Ihr Vertrag ist abgeschlossen.
+
+Tarif: ParkShield – ein Fahrzeug, alles inklusive. Preis: 10,00 € pro Jahr inkl. 19 % MwSt.
+
+Vertragsnummer: PS-7K3Q9X2M
+Kundennummer: PS-2027-000042
+Vertragsbeginn: 3. August 2027
+Nächste Verlängerung: 3. August 2028
+
+Laufzeit und Verlängerung: Die erste Laufzeit beträgt 12 Monate.
+
+Ihre Erklärung vom 3. August 2027 um 11:14 Uhr: „Ich verlange ausdrücklich …“
+
+Im Anhang finden Sie Ihre Vertragsbestätigung als PDF mit den bei Vertragsschluss gültigen AGB, der Widerrufsbelehrung und dem Muster-Widerrufsformular (Fassung 2026-11-26).
+
+Kündigen können Sie jederzeit über „Verträge hier kündigen“ unten auf jeder Seite, widerrufen innerhalb der Widerrufsfrist über „Vertrag widerrufen“.
+
+Zum Konto: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > contract_confirmation: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Your contract confirmation for ParkShield (PS-7K3Q9X2M)",
+  "text": "Thank you! Your contract is concluded.
+
+Plan: ParkShield – one vehicle, everything included. Price: 10,00 € per year incl. 19% VAT.
+
+Contract number: PS-7K3Q9X2M
+Customer number: PS-2027-000042
+Start: August 3, 2027
+Next renewal: August 3, 2028
+
+Term and renewal: Die erste Laufzeit beträgt 12 Monate.
+
+Your declaration of August 3, 2027 at 11:14 AM: “Ich verlange ausdrücklich …”
+
+Attached is your contract confirmation as a PDF with the terms, the withdrawal policy and the model withdrawal form as they applied when the contract was concluded (version 2026-11-26). The German version is binding.
+
+You can cancel at any time via “Cancel contract” at the bottom of every page, and withdraw within the withdrawal period via “Withdraw from contract”.
+
+Open my account: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > decal_health: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Funktioniert Ihr Aufkleber an „Der Blaue“ noch?",
+  "text": "Funktioniert Ihr Aufkleber an „Der Blaue“ noch?
+
+Ihr Aufkleber wurde seit 11 Monaten weder gescannt noch getestet. Sonne und Waschanlage können ihn ausbleichen.
+
+Ein kurzer Testscan zeigt, ob er noch gut lesbar ist. Falls nicht, bestellen Sie einfach einen Ersatz.
+
+Aufkleber testen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > decal_health: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Is your decal on “Der Blaue” still working?",
+  "text": "Is your decal on “Der Blaue” still working?
+
+Your decal has not been scanned or tested for 11 months. Sun and car washes can fade it.
+
+A quick test scan shows whether it is still easy to read. If not, simply order a replacement.
+
+Test the decal: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > decal_returned: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihr Aufkleber für „Der Blaue“ kam zurück",
+  "text": "Ihr Aufkleber für „Der Blaue“ kam zurück
+
+Die Sendung mit Ihrem Aufkleber für „Der Blaue“ wurde nicht zugestellt und kam zu uns zurück.
+
+Bitte schreiben Sie uns kurz, an welche Adresse wir ihn noch einmal schicken sollen. Der neue Versand ist für Sie kostenlos. Bis dahin können Sie den Aufkleber im Konto als PDF ausdrucken.
+
+Support kontaktieren: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > decal_returned: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Your decal for “Der Blaue” came back",
+  "text": "Your decal for “Der Blaue” came back
+
+The parcel with your decal for “Der Blaue” could not be delivered and came back to us.
+
+Please tell us briefly where we should send it again. The new shipment is free for you. Until then you can print the decal as a PDF in your account.
+
+Contact support: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > decal_shipped: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihr Aufkleber ist unterwegs",
+  "text": "Ihr Aufkleber ist unterwegs
+
+Ihr ParkShield-Aufkleber für „Der Blaue“ wurde versandt. Sendungsnummer: 00340434161234567890.
+
+Bringen Sie ihn nach der Ankunft an und testen Sie ihn einmal: erst dann ist Ihr Schutz vollständig.
+
+Zum Fahrzeug: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > decal_shipped: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Your decal is on its way",
+  "text": "Your decal is on its way
+
+Your ParkShield decal for “Der Blaue” has been shipped. Tracking number: 00340434161234567890.
+
+Once it arrives, apply it and test it once: only then is your protection complete.
+
+Open vehicle: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > deletion_requested: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihr ParkShield-Konto wird gelöscht",
+  "text": "Ihr ParkShield-Konto wird gelöscht
+
+Wir löschen Ihr Konto und alle Daten am 4. August 2027 um 11:15 Uhr. Ihre Aufkleber funktionieren ab sofort nicht mehr.
+
+Bis dahin können Sie die Löschung mit dem Link unten abbrechen. Die Aufkleber-Codes bleiben gesperrt; neue stellen Sie im Konto aus.
+
+Rechnungen bewahrt unser Zahlungsdienstleister Stripe auf, weil das Gesetz es verlangt (8 Jahre).
+
+Löschung abbrechen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > deletion_requested: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Your ParkShield account will be deleted",
+  "text": "Your ParkShield account will be deleted
+
+We will delete your account and all data on August 4, 2027 at 11:15 AM. Your decals stop working now.
+
+Until then you can cancel the deletion with the link below. The decal codes stay revoked; you can issue new ones in your account.
+
+Invoices are kept by our payment provider Stripe because the law requires it (8 years).
+
+Cancel deletion: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > dsr_due_soon: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "2 Datenschutz-Anfragen: Frist in 7 Tagen",
+  "text": "2 Datenschutz-Anfragen: Frist in 7 Tagen
+
+2 Anfragen müssen bis spätestens 10. August 2027 erledigt sein.
+
+Warteschlange öffnen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > dsr_due_soon: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "2 privacy requests: deadline in 7 days",
+  "text": "2 privacy requests: deadline in 7 days
+
+2 requests have to be completed by August 10, 2027 at the latest.
+
+Open the queue: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > dsr_export_ready: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihre Daten stehen bereit",
+  "text": "Ihre Daten stehen bereit
+
+Danke für die Bestätigung. Melden Sie sich an und laden Sie Ihre Daten als JSON und PDF herunter.
+
+Daten herunterladen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > dsr_export_ready: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Your data is ready",
+  "text": "Your data is ready
+
+Thank you for confirming. Sign in and download your data as JSON and PDF.
+
+Download data: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > dsr_verify: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Bitte bestätigen Sie Ihre Datenschutz-Anfrage",
+  "text": "Bitte bestätigen Sie Ihre Datenschutz-Anfrage
+
+Wir haben eine Datenschutz-Anfrage für diese E-Mail-Adresse erhalten (z. B. Auskunft oder Löschung).
+
+Damit niemand anderes in Ihrem Namen handelt, bestätigen Sie bitte, dass die Anfrage von Ihnen kommt. Ohne Bestätigung tun wir nichts.
+
+Anfrage bestätigen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > dsr_verify: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Please confirm your privacy request",
+  "text": "Please confirm your privacy request
+
+We received a privacy request for this e-mail address (for example access or erasure).
+
+So that nobody else can act in your name, please confirm that the request comes from you. Without confirmation we do nothing.
+
+Confirm request: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > ec_deactivated: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Eskalation an Vertrauenspersonen pausiert",
+  "text": "Eskalation an Vertrauenspersonen pausiert
+
+Ihr Tarif ist nicht mehr Premium. Die Eskalation an Ihre Vertrauenspersonen ist deshalb ab sofort aus, und Ihre Vertrauenspersonen werden nicht mehr benachrichtigt.
+
+Wir bewahren die Kontakte 30 Tage lang deaktiviert auf, bis 2. September 2027. Wechseln Sie bis dahin wieder zu Premium, sind sie sofort wieder aktiv; danach löschen wir sie.
+
+Tarif ansehen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > ec_deactivated: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Escalation to trusted contacts paused",
+  "text": "Escalation to trusted contacts paused
+
+Your plan is no longer Premium. Escalation to your trusted contacts is therefore off from now on, and they are no longer notified.
+
+We keep the contacts deactivated for 30 days, until September 2, 2027. If you switch back to Premium by then, they are active again at once; after that we delete them.
+
+View plans: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > ec_decided: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Kim ist jetzt Ihr Notfallkontakt",
+  "text": "Kim ist jetzt Ihr Notfallkontakt
+
+Kim hat zugestimmt. Bei dringenden Warnungen, auf die Sie nicht reagieren, informieren wir Kim per E-Mail.
+
+Notfallkontakte verwalten: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > ec_decided: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Kim is now your emergency contact",
+  "text": "Kim is now your emergency contact
+
+Kim agreed. If you do not respond to an urgent alert, we tell Kim by e-mail.
+
+Manage emergency contacts: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > ec_invite: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Jonas möchte Sie als Vertrauensperson bei ParkShield hinterlegen",
+  "text": "Hallo Kim,
+
+Jonas nutzt ParkShield: Wer ein Problem mit dem geparkten Auto bemerkt, kann den Fahrer anonym benachrichtigen. Reagiert der Fahrer bei einem dringenden Problem nicht, möchte Jonas Sie per SMS und E-Mail informieren.
+
+Sie erfahren dann nur, was los ist und welches Fahrzeug es ist (die Bezeichnung, die Jonas gewählt hat), kein Kennzeichen und keine Nachricht. Mit „Ich komme“ zeigen Sie, dass Sie sich kümmern; jede Nachricht enthält einen Link zum Abmelden.
+
+Ohne Ihre Zustimmung schicken wir Ihnen nichts. Ohne Antwort oder nach einer Ablehnung löschen wir Ihre Daten nach 14 Tagen.
+
+Annehmen oder ablehnen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > ec_invite: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Jonas would like you as a trusted contact on ParkShield",
+  "text": "Hello Kim,
+
+Jonas uses ParkShield: anyone who notices a problem with the parked car can notify the driver anonymously. If the driver does not respond to an urgent problem, Jonas would like us to tell you by SMS and e-mail.
+
+You would only learn what is wrong and which vehicle it is (the label Jonas chose): no licence plate and no message. With “I’m coming” you show that you take care of it; every message has a link to opt out.
+
+Without your consent we send you nothing. Without an answer, or after you decline, we delete your details after 14 days.
+
+Accept or decline: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > escalation: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "ParkShield: Fahrzeug versperrt Ausfahrt bei „Der Blaue“",
+  "text": "Hallo Kim,
+
+Jonas hat Sie als Vertrauensperson hinterlegt. Gerade wurde gemeldet: Fahrzeug versperrt Ausfahrt beim Fahrzeug „Der Blaue“. Der Fahrer hat noch nicht reagiert.
+
+Können Sie sich darum kümmern? Dann tippen Sie auf „Ich komme“: Der Fahrer und die Person am Fahrzeug sehen, dass jemand unterwegs ist, und niemand weiteres wird benachrichtigt.
+
+Sie erhalten diese Nachricht, weil Sie zugestimmt haben.
+
+Ich komme: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > escalation: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "ParkShield: Fahrzeug versperrt Ausfahrt at “Der Blaue”",
+  "text": "Hello Kim,
+
+Jonas added you as a trusted contact. Someone just reported: Fahrzeug versperrt Ausfahrt at the vehicle “Der Blaue”. The driver has not responded yet.
+
+Can you take care of it? Then tap “I’m coming”: the driver and the person at the vehicle see that someone is on the way, and nobody else is notified.
+
+You receive this because you agreed to it.
+
+I’m coming: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > fair_use_reached: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "SMS-Kontingent für diesen Monat aufgebraucht",
+  "text": "SMS-Kontingent für diesen Monat aufgebraucht
+
+Die 10 SMS-Nachrichten Ihres Tarifs für diesen Monat sind aufgebraucht.
+
+Warnungen erreichen Sie bis zum Monatsende per Push und E-Mail. Schalten Sie Push ein, falls noch nicht geschehen.
+
+Push einschalten: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > fair_use_reached: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "SMS allowance used up for this month",
+  "text": "SMS allowance used up for this month
+
+The 10 SMS messages in your plan for this month are used up.
+
+Until the end of the month, alerts reach you by push and e-mail. Turn on push if you have not yet.
+
+Turn on push: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > fair_use_warning: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "SMS: 8 von 10 Nachrichten in diesem Monat",
+  "text": "SMS: 8 von 10 Nachrichten in diesem Monat
+
+Sie haben diesen Monat bereits 8 von 10 SMS-Nachrichten Ihres Tarifs genutzt.
+
+Danach erreichen Warnungen Sie weiter per Push und E-Mail, ab dem 1. des nächsten Monats wieder per SMS.
+
+Benachrichtigungen ansehen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > fair_use_warning: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "SMS: 8 of 10 messages this month",
+  "text": "SMS: 8 of 10 messages this month
+
+You have already used 8 of the 10 SMS messages in your plan this month.
+
+After that, alerts still reach you by push and e-mail, and by SMS again from the 1st of next month.
+
+View notifications: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > magic_link: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihr Anmeldelink für ParkShield",
+  "text": "Hallo,
+
+mit diesem Link melden Sie sich bei ParkShield an. Er ist 15 Minuten gültig und funktioniert nur einmal.
+
+Wenn Sie keinen Link angefordert haben, können Sie diese E-Mail ignorieren.
+
+Jetzt anmelden: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > magic_link: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Your ParkShield sign-in link",
+  "text": "Hello,
+
+use this link to sign in to ParkShield. It is valid for 15 minutes and works only once.
+
+If you did not request a link, you can ignore this e-mail.
+
+Sign in now: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > new_device: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Neue Anmeldung bei ParkShield",
+  "text": "Neue Anmeldung bei ParkShield
+
+Ihr Konto wurde am 3. August 2027 um 11:15 auf einem neuen Gerät verwendet: Chrome · Windows.
+
+Waren Sie das nicht? Melden Sie sich an und entfernen Sie unbekannte Geräte, oder schreiben Sie uns über „Hilfe & Kontakt“.
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > new_device: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "New sign-in to ParkShield",
+  "text": "New sign-in to ParkShield
+
+Your account was used on a new device on August 3, 2027 at 11:15 AM: Chrome · Windows.
+
+Not you? Sign in and remove unknown devices, or write to us via “Help & Contact”.
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > order_received: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihr Aufkleber ist in Produktion",
+  "text": "Ihr Aufkleber ist in Produktion
+
+Wir drucken Ihren ParkShield-Aufkleber für „Der Blaue“. Der Versand dauert meist 3 bis 5 Werktage.
+
+Bis er ankommt, können Sie das PDF zum Selbstausdrucken nutzen.
+
+PDF herunterladen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > order_received: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Your decal is being printed",
+  "text": "Your decal is being printed
+
+We are printing your ParkShield decal for “Der Blaue”. Delivery usually takes 3 to 5 working days.
+
+Until it arrives, you can use the print-at-home PDF.
+
+Download PDF: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > payment_failed: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihre Zahlung für ParkShield hat nicht geklappt",
+  "text": "Ihre Zahlung für ParkShield hat nicht geklappt
+
+Wir konnten die Verlängerung Ihres Abos nicht abbuchen. Ihr Schutz bleibt vorerst aktiv.
+
+Wir versuchen es am 6. August 2028 erneut. Bitte prüfen Sie bis dahin Ihre Zahlungsmethode.
+
+Zahlungsmethode prüfen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > payment_failed: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Your ParkShield payment did not go through",
+  "text": "Your ParkShield payment did not go through
+
+We could not collect the renewal of your subscription. Your protection stays active for now.
+
+We will try again on August 6, 2028. Please check your payment method before then.
+
+Check payment method: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > payment_failed_final: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihr ParkShield-Schutz endet",
+  "text": "Ihr ParkShield-Schutz endet
+
+Auch der letzte Versuch, die Verlängerung abzubuchen, ist fehlgeschlagen. Ihr Abo endet, und Ihre Aufkleber werden inaktiv.
+
+Sie können jederzeit in Ihrem Konto ein neues Abo abschließen.
+
+Zum Konto: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > payment_failed_final: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Your ParkShield protection is ending",
+  "text": "Your ParkShield protection is ending
+
+The last attempt to collect your renewal also failed. Your subscription ends and your decals become inactive.
+
+You can start a new subscription in your account at any time.
+
+Open my account: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > provider_health_alert: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Anbieter-Status: 2 Änderungen",
+  "text": "Anbieter-Status: 2 Änderungen
+
+sms.failures: CRITICAL
+
+Details und Kill Switches stehen in der Ops-App unter „Anbieter“.
+
+Anbieter-Status öffnen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > provider_health_alert: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Provider status: 2 changes",
+  "text": "Provider status: 2 changes
+
+sms.failures: CRITICAL
+
+Details and kill switches are in the ops app under “Providers”.
+
+Open provider status: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > push_denied: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Mitteilungen für ParkShield sind ausgeschaltet",
+  "text": "Mitteilungen für ParkShield sind ausgeschaltet
+
+Sie haben der ParkShield-App auf Chrome · Windows keine Mitteilungen erlaubt.
+
+Ohne Mitteilungen erfahren Sie nicht sofort von Problemen an Ihrem Fahrzeug. Warnungen kommen dann nur per E-Mail und SMS. Sie können Mitteilungen jederzeit in den Einstellungen Ihres Handys für ParkShield einschalten.
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > push_denied: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Notifications for ParkShield are turned off",
+  "text": "Notifications for ParkShield are turned off
+
+You have not allowed the ParkShield app on Chrome · Windows to send notifications.
+
+Without notifications you do not learn about problems with your vehicle right away. Alerts then only arrive by e-mail and SMS. You can turn notifications on for ParkShield in your phone’s settings at any time.
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > push_removed: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Push-Benachrichtigungen auf Chrome · Windows ausgeschaltet",
+  "text": "Push-Benachrichtigungen auf Chrome · Windows ausgeschaltet
+
+Wir konnten Push-Benachrichtigungen an Chrome · Windows nicht mehr zustellen und haben das Gerät deshalb entfernt.
+
+Warnungen erreichen Sie weiter per E-Mail. Öffnen Sie Ihr Konto auf dem Gerät, um Push wieder einzuschalten.
+
+Push wieder einschalten: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > push_removed: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Push notifications turned off on Chrome · Windows",
+  "text": "Push notifications turned off on Chrome · Windows
+
+We could no longer deliver push notifications to Chrome · Windows, so we removed the device.
+
+Alerts still reach you by e-mail. Open your account on that device to turn push back on.
+
+Turn push back on: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > refund_issued: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Wir haben Ihnen 7,42 € erstattet",
+  "text": "Wir haben Ihnen 7,42 € erstattet
+
+Wir haben Ihnen 7,42 € erstattet (Gutschrift GS-2027-000001). Das Geld ist meist nach 5 bis 10 Werktagen auf Ihrem Konto.
+
+Ihr Abo ist damit beendet, Ihre Aufkleber sind ab sofort inaktiv. Die Gutschrift finden Sie in Ihrem Konto.
+
+Zum Konto: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > refund_issued: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "We refunded 7,42 €",
+  "text": "We refunded 7,42 €
+
+We refunded 7,42 € to you (credit note GS-2027-000001). The money usually arrives within 5 to 10 working days.
+
+Your subscription has ended, your decals are inactive from now on. You will find the credit note in your account.
+
+Go to account: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > renewal_reminder: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihr ParkShield-Vertrag verlängert sich am 3. August 2028",
+  "text": "Ihr ParkShield-Vertrag verlängert sich am 3. August 2028
+
+Ihr Vertrag PS-7K3Q9X2M verlängert sich am 3. August 2028, wenn Sie nicht vorher kündigen.
+
+Danach kostet er 10,00 € pro Monat, inklusive 19 % Umsatzsteuer.
+
+Die erste Laufzeit beträgt 12 Monate.
+
+Kündigen können Sie jederzeit ohne Anmeldung über den Link unten.
+
+Verträge hier kündigen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > renewal_reminder: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Your ParkShield contract renews on August 3, 2028",
+  "text": "Your ParkShield contract renews on August 3, 2028
+
+Your contract PS-7K3Q9X2M renews on August 3, 2028 unless you cancel before.
+
+It then costs 10,00 € per month, including 19% VAT.
+
+Die erste Laufzeit beträgt 12 Monate.
+
+You can cancel at any time without signing in via the link below.
+
+Cancel contract here: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > sign_in_code: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihr ParkShield-Anmeldecode: 482913",
+  "text": "Hallo,
+
+Ihr ParkShield-Anmeldecode lautet:
+
+482913
+Gültig für 15 Minuten
+
+In der App anmelden: https://park-shield.de/x
+
+Geben Sie den Code in der ParkShield-App ein oder tippen Sie auf „In der App anmelden“. Code und Link funktionieren nur einmal. Wenn Sie nichts angefordert haben, können Sie diese E-Mail ignorieren.
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > sign_in_code: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Your ParkShield sign-in code: 482913",
+  "text": "Hello,
+
+Your ParkShield sign-in code is:
+
+482913
+Valid for 15 minutes
+
+Sign in in the app: https://park-shield.de/x
+
+Enter the code in the ParkShield app or tap “Sign in in the app”. The code and the link work only once. If you did not request anything, you can ignore this e-mail.
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > staff_expired: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "2 Ops-Zugänge wurden wegen Inaktivität entzogen",
+  "text": "2 Ops-Zugänge wurden wegen Inaktivität entzogen
+
+Seit 90 Tagen ohne Anmeldung, die Rollen sind entfernt: sms.failures: CRITICAL.
+
+Wer den Zugang wieder braucht, bekommt die Rollen in der Ops-App unter „Mitarbeitende“ neu.
+
+Zugriffsprüfung öffnen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > staff_expired: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "2 ops accounts lost access after inactivity",
+  "text": "2 ops accounts lost access after inactivity
+
+No sign-in for 90 days, the roles were removed: sms.failures: CRITICAL.
+
+Anyone who needs access again gets the roles back in the ops app under “Staff”.
+
+Open the access review: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > staff_invite: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihr Zugang zu ParkShield Ops",
+  "text": "Hallo Anna,
+
+für Sie wurde ein Zugang zur ParkShield-Ops-App angelegt. Richten Sie innerhalb von 72 Stunden einen Passkey ein. Der Link funktioniert nur im VPN.
+
+Passwörter gibt es nicht. Wenn Sie diesen Zugang nicht erwartet haben, melden Sie sich bitte sofort beim Security-Team.
+
+Passkey einrichten: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > staff_invite: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Your access to ParkShield Ops",
+  "text": "Hello Anna,
+
+an account for the ParkShield ops app has been created for you. Set up a passkey within 72 hours. The link only works on the VPN.
+
+There are no passwords. If you did not expect this access, please tell the security team at once.
+
+Set up passkey: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > staff_review_due: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Zugriffsprüfung der Ops-App ist fällig",
+  "text": "Zugriffsprüfung der Ops-App ist fällig
+
+Alle 90 Tage prüfen wir, wer welche Rolle in der Ops-App hat. Die Prüfung ist jetzt fällig.
+
+Bitte bestätigen oder entziehen Sie jeden Zugang; die Prüfung wird im Audit-Log festgehalten.
+
+Zugriffsprüfung öffnen: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > staff_review_due: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "The ops access review is due",
+  "text": "The ops access review is due
+
+Every 90 days we check who has which role in the ops app. The review is due now.
+
+Please confirm or remove each account; the review is recorded in the audit log.
+
+Open the access review: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > summary: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihre ParkShield-Übersicht",
+  "text": "Ihre ParkShield-Übersicht
+
+Seit 3. Juli 2027: 2 Warnungen zu Ihren Fahrzeugen.
+
+1 Fahrzeug, davon 1 mit aktivem Aufkleber. Ihr Schutz: 75 %.
+
+Diese Übersicht ist ein Service zu Ihrem Abo. Wie oft sie kommt, stellen Sie im Konto ein.
+
+Zum Konto: https://park-shield.de/x
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > summary: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Your ParkShield summary",
+  "text": "Your ParkShield summary
+
+Since July 3, 2027: 2 alerts about your vehicles.
+
+1 vehicle, 1 with an active decal. Your protection: 75 %.
+
+This summary is a service of your subscription. Choose how often it comes in your account.
+
+Open my account: https://park-shield.de/x
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > withdrawal_received: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Eingangsbestätigung Ihres Widerrufs",
+  "text": "Eingangsbestätigung Ihres Widerrufs
+
+Wir haben Ihren Widerruf am 3. August 2027 um 11:15 Uhr erhalten.
+
+Inhalt Ihres Widerrufs: Name: Anna · Vertrag: PS-7K3Q9X2M · E-Mail für diese Bestätigung: anna@example.de.
+
+Wir bearbeiten Ihren Widerruf und informieren Sie über die Erstattung.
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > withdrawal_received: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Receipt of your withdrawal",
+  "text": "Receipt of your withdrawal
+
+We received your withdrawal on August 3, 2027 at 11:15 AM.
+
+Content of your withdrawal: name: Anna · contract: PS-7K3Q9X2M · e-mail for this receipt: anna@example.de.
+
+We are processing your withdrawal and will inform you about the refund.
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;

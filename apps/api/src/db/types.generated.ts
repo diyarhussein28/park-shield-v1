@@ -361,6 +361,17 @@ export interface ContactChannels {
   verified_at: Timestamp | null;
 }
 
+export interface ContractConfirmations {
+  id: Generated<string>;
+  immediate_start_consent_id: string | null;
+  legal_doc_version: string;
+  locale: string;
+  pdf_sha256: Buffer;
+  renewal_mode: string;
+  sent_at: Generated<Timestamp>;
+  subscription_id: string;
+}
+
 export interface DataSubjectRequests {
   completed_at: Timestamp | null;
   created_at: Generated<Timestamp>;
@@ -1002,6 +1013,7 @@ export interface DB {
   consent_records: ConsentRecords;
   consents: Consents;
   contact_channels: ContactChannels;
+  contract_confirmations: ContractConfirmations;
   data_subject_requests: DataSubjectRequests;
   decal_order_items: DecalOrderItems;
   decal_orders: DecalOrders;

@@ -122,6 +122,13 @@ export interface PrintPartner {
   submit(job: PrintJob): Promise<{ reference: string }>;
 }
 
+/** A file attached to an e-mail (e.g. the PDF „Vertragsbestätigung“). */
+export interface MailAttachment {
+  filename: string;
+  contentType: string;
+  content: Buffer;
+}
+
 export interface OutgoingMail {
   to: string;
   subject: string;
@@ -131,6 +138,7 @@ export interface OutgoingMail {
   tag: string;
   /** Where a reply goes (support mails: the customer). */
   replyTo?: string;
+  attachments?: MailAttachment[];
 }
 
 export interface Mailer {

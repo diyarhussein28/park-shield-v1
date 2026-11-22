@@ -32,6 +32,14 @@ export class BrevoMailer implements Mailer {
         htmlContent: mail.html,
         tags: [mail.tag],
         ...(mail.replyTo ? { replyTo: { email: mail.replyTo } } : {}),
+        ...(mail.attachments?.length
+          ? {
+              attachment: mail.attachments.map((a) => ({
+                name: a.filename,
+                content: a.content.toString('base64'),
+              })),
+            }
+          : {}),
       }),
       signal: AbortSignal.timeout(15_000),
     });
@@ -69,6 +77,15 @@ export class MailjetMailer implements Mailer {
             TextPart: mail.text,
             HTMLPart: mail.html,
             ...(mail.replyTo ? { ReplyTo: { Email: mail.replyTo } } : {}),
+            ...(mail.attachments?.length
+              ? {
+                  Attachments: mail.attachments.map((a) => ({
+                    ContentType: a.contentType,
+                    Filename: a.filename,
+                    Base64Content: a.content.toString('base64'),
+                  })),
+                }
+              : {}),
             TrackOpens: 'disabled',
             TrackClicks: 'disabled',
             // Template name only (no personal data), for the provider's logs.
@@ -114,6 +131,16 @@ export class SendGridMailer implements Mailer {
         ],
         categories: [mail.tag],
         ...(mail.replyTo ? { reply_to: { email: mail.replyTo } } : {}),
+        ...(mail.attachments?.length
+          ? {
+              attachments: mail.attachments.map((a) => ({
+                content: a.content.toString('base64'),
+                filename: a.filename,
+                type: a.contentType,
+                disposition: 'attachment',
+              })),
+            }
+          : {}),
         // No click or open tracking: links stay as they are and nobody is tracked (hard rule 2).
         tracking_settings: {
           click_tracking: { enable: false, enable_text: false },
@@ -134,9 +161,19 @@ export class DevMailer implements Mailer {
   ) {}
 
   async send(mail: OutgoingMail): Promise<void> {
+    // Attachments are kept base64-encoded so the dev inbox and tests can open them.
+    const attachments = mail.attachments?.map((a) => ({
+      filename: a.filename,
+      contentType: a.contentType,
+      size: a.content.length,
+      base64: a.content.toString('base64'),
+    }));
     await this.valkey
       .multi()
-      .lpush(DEV_MAILBOX_KEY, JSON.stringify({ ...mail, sentAt: new Date().toISOString() }))
+      .lpush(
+        DEV_MAILBOX_KEY,
+        JSON.stringify({ ...mail, attachments, sentAt: new Date().toISOString() }),
+      )
       .ltrim(DEV_MAILBOX_KEY, 0, 49)
       .exec();
     this.logger.info({ tag: mail.tag }, 'dev mail stored in local inbox');

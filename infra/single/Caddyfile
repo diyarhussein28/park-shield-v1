@@ -72,8 +72,9 @@
 	# /v/*: the owner's photo view link from a notification (Phase 2), token-protected like /antwort.
 	# /auth/open: the bridge page of the app's sign-in e-mail (never signs in on load);
 	# /k/*: a trusted contact's escalation link; /app/*: the app's sign-in link and alert deep links when
-	# the app is not installed; /.well-known/*: Universal Links / App Links verification.
-	@scanner_web path /auth/open /s/* /antwort /antwort/* /v/* /k/* /app/* /notfallkontakt /.well-known/* /_next/*
+	# the app is not installed; /.well-known/*: Universal Links / App Links verification;
+	# /email/*: the logo in our e-mails (public static file, no data).
+	@scanner_web path /auth/open /s/* /antwort /antwort/* /v/* /k/* /app/* /notfallkontakt /.well-known/* /_next/* /email/*
 	handle @scanner_web {
 		reverse_proxy 127.0.0.1:3000
 	}

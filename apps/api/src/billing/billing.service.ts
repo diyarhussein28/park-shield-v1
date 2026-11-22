@@ -33,6 +33,13 @@ import { PAYMENTS, type BillingEvent, type PaidPlan, type Payments } from '../pr
 import { queueWelcomeLetterCheck } from '../letters/trigger';
 import { ProfileService } from '../profile/profile.service';
 import { returnUrls } from './app-return';
+import { createHash } from 'node:crypto';
+import { CompanyService } from '../letters/company.service';
+import {
+  contractConfirmationContent,
+  contractPdfName,
+  renderContractConfirmationPdf,
+} from './contract-confirmation';
 
 const LIVE = ['active', 'past_due'] as const;
 /** The single plan's name on contracts and confirmations (owner decision 2026-11-21). */
@@ -77,6 +84,7 @@ export class BillingService {
     @Inject(TagsService) private readonly tags: TagsService,
     @Inject(TokensService) private readonly tokens: TokensService,
     @Inject(ProfileService) private readonly profiles: ProfileService,
+    @Inject(CompanyService) private readonly company: CompanyService,
   ) {}
 
   /** The one plan (kept as a list so old clients keep working). */
@@ -416,7 +424,7 @@ export class BillingService {
     }
     const user = await this.db
       .selectFrom('users')
-      .select(['email', 'preferred_lang'])
+      .select(['email', 'preferred_lang', 'customer_no'])
       .where('id', '=', userId)
       .executeTakeFirstOrThrow();
     const locale = user.preferred_lang;
@@ -425,8 +433,26 @@ export class BillingService {
       ? await this.legalTexts.version(consent.text_key, consent.locale, consent.text_version)
       : null;
     const price = await this.priceFor(plan, promoCodeId ?? undefined);
-    // § 312f BGB: the contract confirmation on a durable medium, with the terms and the withdrawal
-    // policy as they applied at conclusion and the immediate-start declaration with its time.
+    const customerNo = user.customer_no ?? '–';
+    // § 312f BGB: the contract confirmation on a durable medium (2026-11-22): the e-mail in the one
+    // layout and the PDF „Vertragsbestätigung“ with the contract data, renewal and cancellation
+    // rules, the accepted AGB, the Widerrufsbelehrung, the Muster-Widerrufsformular, the
+    // immediate-start declaration with its time and the included services.
+    const company = (await this.company.current()).data;
+    const content = contractConfirmationContent({
+      locale,
+      customerNo,
+      contractNo,
+      price: euro(price, locale),
+      startedAt: e.periodStart,
+      renewsAt: periodEnd,
+      renewalMode,
+      docVersion: LEGAL_DOC_VERSION,
+      consent: consent && consentText ? { text: consentText.body, at: consent.accepted_at } : null,
+      company,
+      webBaseUrl: this.env.WEB_BASE_URL,
+    });
+    const pdf = await renderContractConfirmationPdf(content, { created: new Date(), contractNo });
     await this.mail.send({
       to: user.email,
       template: 'contract_confirmation',
@@ -434,6 +460,7 @@ export class BillingService {
       values: {
         plan: PLAN_NAME,
         contractNo,
+        customerNo,
         price: euro(price, locale),
         startedAt: e.periodStart,
         periodEnd,
@@ -441,11 +468,28 @@ export class BillingService {
         consentAt: consent?.accepted_at ?? e.periodStart,
         consentText: consentText?.body ?? '',
         docVersion: LEGAL_DOC_VERSION,
-        agbText: legalPlainText(locale, 'agb', renewalMode),
-        widerrufText: legalPlainText(locale, 'widerruf', renewalMode),
       },
       actionUrl: `${this.env.WEB_BASE_URL}/konto`,
+      attachments: [
+        {
+          filename: contractPdfName(locale, contractNo),
+          contentType: 'application/pdf',
+          content: pdf,
+        },
+      ],
     });
+    // Which document versions went out with this contract (the PDF is not stored, its hash is).
+    await this.db
+      .insertInto('contract_confirmations')
+      .values({
+        subscription_id: inserted.id,
+        locale,
+        legal_doc_version: LEGAL_DOC_VERSION,
+        renewal_mode: renewalMode,
+        immediate_start_consent_id: e.metadata.consentId ?? null,
+        pdf_sha256: createHash('sha256').update(pdf).digest(),
+      })
+      .execute();
   }
 
   private async replaceStickers(userId: string): Promise<void> {

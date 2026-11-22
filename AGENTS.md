@@ -298,6 +298,13 @@ Single API test file: `cd apps/api && npx vitest run src/scan`. Single E2E file:
   (`apps/api/src/core/crypto.ts`, key versions `DATA_KEY_V<n>`); lookups use HMAC blind indexes
   (`*_bidx`). Tokens and links are stored as SHA-256 hashes only. Reply tokens are HMAC-derived
   from `SESSION_SECRET`, not stored.
+- **E-mails** (2026-11-22): every e-mail is rendered by `mail/templates.ts` into the one layout
+  `mail/layout.ts` (blue header, headline, at most one primary button, optional highlighted box such as
+  the sign-in code, „Hilfe benötigt?“, footer with company data from `company_profiles`, „do not reply“
+  line), HTML + plain text, own hosted logo only (`apps/web/public/email/`), no tracking. Attachments go
+  through `OutgoingMail.attachments` (Mailjet/Brevo/SendGrid; the dev inbox keeps them base64). The
+  contract confirmation attaches the PDF „Vertragsbestätigung“ (`billing/contract-confirmation.ts`) and
+  records the sent versions in `contract_confirmations`.
 - **Welcome letter and QR export** (`apps/api/src/letters/`). Outbox topic `welcome_letter.check`
   is queued at checkout and at the first vehicle; the handler creates version 1 once both hold
   (idempotent, advisory lock). The letter is a frozen snapshot (customer number `users.customer_no`,

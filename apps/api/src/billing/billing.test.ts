@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { LEGAL_DOC_VERSION } from '@parkshield/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { FakePayments } from '../providers/fake-payments';
 import { PAYMENTS } from '../providers/ports';
@@ -134,13 +136,30 @@ describe('annual checkout (US-06)', () => {
       .select('withdrawal_waiver_at')
       .executeTakeFirstOrThrow();
     expect(row.withdrawal_waiver_at).toBeInstanceOf(Date);
-    const welcome = await lastMail(h, 'contract_confirmation');
+    const welcome = (await lastMail(h, 'contract_confirmation')) as
+      | (Awaited<ReturnType<typeof lastMail>> & {
+          attachments?: { filename: string; contentType: string; base64: string }[];
+        })
+      | undefined;
     expect(welcome?.text).toContain(sub.contractNo);
-    expect(welcome?.text).toContain('Wertersatz');
-    // § 312f BGB: terms, withdrawal policy and the declaration with its time are in the e-mail.
-    expect(welcome?.text).toContain('Allgemeine Geschäftsbedingungen');
-    expect(welcome?.text).toContain('Widerrufsbelehrung');
+    expect(welcome?.text).toMatch(/20,00\s€ pro Jahr inkl\. 19 % MwSt\./);
+    expect(welcome?.text).toContain('Nächste Verlängerung');
     expect(welcome?.text).toContain('Ich verlange ausdrücklich');
+    // § 312f BGB: the PDF „Vertragsbestätigung“ is attached; which versions went out is stored.
+    expect(welcome?.attachments).toHaveLength(1);
+    const pdf = welcome!.attachments![0]!;
+    expect(pdf.filename).toBe(`Vertragsbestaetigung_${sub.contractNo}.pdf`);
+    expect(pdf.contentType).toBe('application/pdf');
+    const file = Buffer.from(pdf.base64, 'base64');
+    expect(file.subarray(0, 5).toString()).toBe('%PDF-');
+    const sent = await h.db
+      .selectFrom('contract_confirmations')
+      .select(['legal_doc_version', 'renewal_mode', 'pdf_sha256', 'immediate_start_consent_id'])
+      .executeTakeFirstOrThrow();
+    expect(sent.legal_doc_version).toBe(LEGAL_DOC_VERSION);
+    expect(sent.renewal_mode).toBe('annual');
+    expect(sent.immediate_start_consent_id).not.toBeNull();
+    expect(sent.pdf_sha256.equals(createHash('sha256').update(file).digest())).toBe(true);
     const consents = await h.db
       .selectFrom('consent_records')
       .select(['type', 'text_version', 'source'])

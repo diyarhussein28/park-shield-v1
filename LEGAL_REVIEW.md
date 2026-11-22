@@ -401,3 +401,22 @@ Owner decisions of 2026-11-21 (`docs/handover.md` §1, task `docs/single-plan-up
   escalation and uses only the existing abuse module (server-side `scanner_ref`/`block_ref`, phone ban
   for confirmed senders, Protected Mode); no fingerprinting, cookies or client-side storage. The
   scanner only sees „Der Chat wurde beendet.“
+
+## 10. Contract confirmation PDF and the unified e-mail layout (2026-11-22)
+
+- **Contract confirmation (§ 312f BGB):** the e-mail `contract_confirmation` now carries the PDF
+  „Vertragsbestätigung“ (`apps/api/src/billing/contract-confirmation.ts`): contract data (customer and
+  contract number, start, next renewal, 20 € incl. MwSt.), renewal and cancellation rules, the AGB in
+  the accepted version, the Widerrufsbelehrung, the Muster-Widerrufsformular, the immediate-start
+  declaration with its timestamp, and the included services (push, reminder, SMS escalation, photos,
+  chat, one free printed sticker with shipping, free self-printing, 3 € per further shipped print or
+  shipped new code after „Sperren“). The full AGB and Widerrufsbelehrung moved from the e-mail body into
+  the PDF. Which versions were sent is stored in `contract_confirmations` (doc version, renewal mode,
+  consent id, SHA-256 of the PDF; the PDF itself is not stored). To check: is the PDF attachment
+  sufficient as the durable medium, the wording of every section, and the English model withdrawal form
+  (the English Widerrufsbelehrung has no form of its own yet). `// TODO [LEGAL REVIEW]` in the code.
+- **Every e-mail** uses one layout with the footer company name and address from the company settings,
+  links to Hilfe-Center, Datenschutz, AGB and Widerrufsbelehrung, and the line „Dies ist eine
+  automatische Nachricht … Bitte antworten Sie nicht auf diese E-Mail.“ Two texts that asked the
+  customer to reply (new device, break-glass notice) now point to „Hilfe & Kontakt“. Open and click
+  tracking stay off; the only image is our own logo (`/email/parkshield-shield.png`).

@@ -1,24 +1,30 @@
 import { IntlMessageFormat } from 'intl-messageformat';
+import { DEFAULT_FRAME, renderLayout, type MailFrame } from './layout';
 
 export type MailLocale = 'de' | 'en';
 
 interface TemplateSource {
   subject: string;
+  /** The body headline; default: a greeting in the first line („Hallo,“), else the subject. */
+  headline?: string;
   lines: string[];
+  /** A highlighted box (e.g. the sign-in code) with an optional note under it. */
+  highlight?: { value: string; note?: string };
   action?: string;
+  /** Small grey text under the button. */
+  footnote?: string;
 }
 
 const templates = {
   de: {
     sign_in_code: {
       subject: 'Ihr ParkShield-Anmeldecode: {code}',
-      lines: [
-        'Hallo,',
-        'Ihr Anmeldecode: {code} (gültig 15 Minuten)',
-        'Geben Sie den Code in der ParkShield-App ein. Oder tippen Sie unten auf „In der App anmelden“.',
-        'Code und Link funktionieren nur einmal. Wenn Sie nichts angefordert haben, können Sie diese E-Mail ignorieren.',
-      ],
+      headline: 'Hallo,',
+      lines: ['Ihr ParkShield-Anmeldecode lautet:'],
+      highlight: { value: '{code}', note: 'Gültig für 15 Minuten' },
       action: 'In der App anmelden',
+      footnote:
+        'Geben Sie den Code in der ParkShield-App ein oder tippen Sie auf „In der App anmelden“. Code und Link funktionieren nur einmal. Wenn Sie nichts angefordert haben, können Sie diese E-Mail ignorieren.',
     },
     magic_link: {
       subject: 'Ihr Anmeldelink für ParkShield',
@@ -33,21 +39,22 @@ const templates = {
       subject: 'Neue Anmeldung bei ParkShield',
       lines: [
         'Ihr Konto wurde am {when, date, long} um {when, time, short} auf einem neuen Gerät verwendet: {device}.',
-        'Waren Sie das nicht? Melden Sie sich an und entfernen Sie unbekannte Geräte, oder antworten Sie auf diese E-Mail.',
+        'Waren Sie das nicht? Melden Sie sich an und entfernen Sie unbekannte Geräte, oder schreiben Sie uns über „Hilfe & Kontakt“.',
       ],
     },
-    // § 312f BGB: contract confirmation on a durable medium. TODO [LEGAL REVIEW]
+    // § 312f BGB: contract confirmation on a durable medium; the full terms, the withdrawal policy,
+    // the model withdrawal form and the declaration are in the attached PDF „Vertragsbestätigung“.
+    // TODO [LEGAL REVIEW]
     contract_confirmation: {
-      subject: 'Ihre Vertragsbestätigung für ParkShield {plan} ({contractNo})',
+      subject: 'Ihre Vertragsbestätigung für ParkShield ({contractNo})',
+      headline: 'Vielen Dank! Ihr Vertrag ist abgeschlossen.',
       lines: [
-        'Vielen Dank! Hiermit bestätigen wir Ihren Vertrag.',
-        'Vertragsnummer: {contractNo} · Tarif: ParkShield {plan} · Preis: {price} für die ersten 12 Monate, inklusive 19 % Umsatzsteuer · Vertragsbeginn: {startedAt, date, long} · erste Laufzeit bis {periodEnd, date, long}.',
+        'Tarif: ParkShield – ein Fahrzeug, alles inklusive. Preis: {price} pro Jahr inkl. 19 % MwSt.',
+        'Vertragsnummer: {contractNo}\nKundennummer: {customerNo}\nVertragsbeginn: {startedAt, date, long}\nNächste Verlängerung: {periodEnd, date, long}',
         'Laufzeit und Verlängerung: {renewalRule}',
         'Ihre Erklärung vom {consentAt, date, long} um {consentAt, time, short} Uhr: „{consentText}“',
-        'Kündigen können Sie jederzeit über „Verträge hier kündigen“ unten auf jeder Seite, widerrufen innerhalb der Widerrufsfrist über „Vertrag widerrufen“. Ihre Rechnung finden Sie in Ihrem Konto.',
-        'Nachfolgend die bei Vertragsschluss gültigen Allgemeinen Geschäftsbedingungen und die Widerrufsbelehrung (Fassung {docVersion}):',
-        '{agbText}',
-        '{widerrufText}',
+        'Im Anhang finden Sie Ihre Vertragsbestätigung als PDF mit den bei Vertragsschluss gültigen AGB, der Widerrufsbelehrung und dem Muster-Widerrufsformular (Fassung {docVersion}).',
+        'Kündigen können Sie jederzeit über „Verträge hier kündigen“ unten auf jeder Seite, widerrufen innerhalb der Widerrufsfrist über „Vertrag widerrufen“.',
       ],
       action: 'Zum Konto',
     },
@@ -298,7 +305,7 @@ const templates = {
       lines: [
         'Am {when, date, long} um {when, time, short} Uhr hat eine Mitarbeiterin oder ein Mitarbeiter unseres Supports folgendes Feld eingesehen: {field}.',
         'Das geht bei uns nur mit Begründung, nach Freigabe durch eine zweite Person und für 15 Minuten. Vorgang: {ticket}.',
-        'Wenn Sie dazu Fragen haben, antworten Sie einfach auf diese E-Mail.',
+        'Wenn Sie dazu Fragen haben, schreiben Sie uns über „Hilfe & Kontakt“.',
       ],
     },
     dsr_verify: {
@@ -374,13 +381,12 @@ const templates = {
   en: {
     sign_in_code: {
       subject: 'Your ParkShield sign-in code: {code}',
-      lines: [
-        'Hello,',
-        'Your sign-in code: {code} (valid for 15 minutes)',
-        'Enter the code in the ParkShield app. Or tap “Sign in in the app” below.',
-        'The code and the link work only once. If you did not request anything, you can ignore this e-mail.',
-      ],
+      headline: 'Hello,',
+      lines: ['Your ParkShield sign-in code is:'],
+      highlight: { value: '{code}', note: 'Valid for 15 minutes' },
       action: 'Sign in in the app',
+      footnote:
+        'Enter the code in the ParkShield app or tap “Sign in in the app”. The code and the link work only once. If you did not request anything, you can ignore this e-mail.',
     },
     magic_link: {
       subject: 'Your ParkShield sign-in link',
@@ -395,20 +401,19 @@ const templates = {
       subject: 'New sign-in to ParkShield',
       lines: [
         'Your account was used on a new device on {when, date, long} at {when, time, short}: {device}.',
-        'Not you? Sign in and remove unknown devices, or reply to this e-mail.',
+        'Not you? Sign in and remove unknown devices, or write to us via “Help & Contact”.',
       ],
     },
     contract_confirmation: {
-      subject: 'Your contract confirmation for ParkShield {plan} ({contractNo})',
+      subject: 'Your contract confirmation for ParkShield ({contractNo})',
+      headline: 'Thank you! Your contract is concluded.',
       lines: [
-        'Thank you! This confirms your contract.',
-        'Contract number: {contractNo} · Plan: ParkShield {plan} · Price: {price} for the first 12 months, including 19% VAT · Start: {startedAt, date, long} · first term until {periodEnd, date, long}.',
+        'Plan: ParkShield – one vehicle, everything included. Price: {price} per year incl. 19% VAT.',
+        'Contract number: {contractNo}\nCustomer number: {customerNo}\nStart: {startedAt, date, long}\nNext renewal: {periodEnd, date, long}',
         'Term and renewal: {renewalRule}',
         'Your declaration of {consentAt, date, long} at {consentAt, time, short}: “{consentText}”',
-        'You can cancel at any time via “Cancel contract here” at the bottom of every page, and withdraw within the withdrawal period via “Withdraw from contract”. Your invoice is in your account.',
-        'Below are the terms and the withdrawal policy as they applied when the contract was concluded (version {docVersion}). The German version is binding.',
-        '{agbText}',
-        '{widerrufText}',
+        'Attached is your contract confirmation as a PDF with the terms, the withdrawal policy and the model withdrawal form as they applied when the contract was concluded (version {docVersion}). The German version is binding.',
+        'You can cancel at any time via “Cancel contract” at the bottom of every page, and withdraw within the withdrawal period via “Withdraw from contract”.',
       ],
       action: 'Open my account',
     },
@@ -653,7 +658,7 @@ const templates = {
       lines: [
         'On {when, date, long} at {when, time, short}, a member of our support team viewed this field: {field}.',
         'This is only possible with a stated reason, after approval by a second person, and for 15 minutes. Case: {ticket}.',
-        'If you have questions about it, simply reply to this e-mail.',
+        'If you have questions about it, write to us via “Help & Contact”.',
       ],
     },
     dsr_verify: {
@@ -736,12 +741,6 @@ const BERLIN_FORMATS = {
   time: { short: { hour: 'numeric', minute: '2-digit', timeZone: TZ } },
 } as const;
 
-const escapeHtml = (s: string) =>
-  s.replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
-  );
-
 export function renderMail(
   template: MailTemplate,
   locale: MailLocale,
@@ -751,29 +750,41 @@ export function renderMail(
   replies: { label: string; url: string }[] = [],
   /** Small text links below the main action (e.g. "Missbrauch melden"). */
   links: { label: string; url: string }[] = [],
+  /** Website and company data for the shared layout (footer, logo, help and legal links). */
+  frame: MailFrame = DEFAULT_FRAME,
 ): { subject: string; text: string; html: string } {
   const src: TemplateSource = templates[locale][template];
   const fmt = (s: string) =>
     String(new IntlMessageFormat(s, locale, BERLIN_FORMATS).format(values));
   const subject = fmt(src.subject);
-  const lines = src.lines.map(fmt).filter((l) => l.trim() !== ''); // optional lines render empty
+  let lines = src.lines.map(fmt).filter((l) => l.trim() !== ''); // optional lines render empty
+  let headline = src.headline ? fmt(src.headline) : undefined;
+  // A greeting in the first line („Hallo Anna,“) becomes the headline, as in the design.
+  if (!headline && lines[0] && /^(Hallo|Hello)\b[^.!?]{0,40},$/.test(lines[0])) {
+    headline = lines[0];
+    lines = lines.slice(1);
+  }
   const action = src.action && actionUrl ? { label: fmt(src.action), url: actionUrl } : undefined;
-  const button = (a: { label: string; url: string }, primary: boolean) =>
-    `<a href="${escapeHtml(a.url)}" style="display:inline-block;margin:0 8px 8px 0;${primary ? 'background:#1d4ed8;color:#fff' : 'background:#e2e8f0;color:#0f172a'};padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:600">${escapeHtml(a.label)}</a>`;
-
-  const text = [
-    ...lines,
-    ...replies.map((r) => `${r.label}: ${r.url}`),
-    ...(action ? ['', `${action.label}: ${action.url}`] : []),
-    ...links.map((l) => `${l.label}: ${l.url}`),
-    '',
-    '— ParkShield',
-  ].join('\n\n');
-  const html = `<!doctype html><html lang="${locale}"><body style="font-family:system-ui,Segoe UI,Arial,sans-serif;font-size:16px;line-height:1.5;color:#0f172a">
-${lines.map((l) => `<p>${escapeHtml(l).replace(/\n/g, '<br>')}</p>`).join('\n')}
-${replies.length ? `<p>${replies.map((r, i) => button(r, i === 0)).join('')}</p>` : ''}
-${action ? `<p>${button(action, replies.length === 0)}</p>` : ''}
-${links.length ? `<p style="font-size:14px">${links.map((l) => `<a href="${escapeHtml(l.url)}" style="color:#475569">${escapeHtml(l.label)}</a>`).join(' · ')}</p>` : ''}
-<p style="color:#475569">— ParkShield</p></body></html>`;
-  return { subject, text, html };
+  return {
+    subject,
+    ...renderLayout(
+      {
+        locale,
+        subject,
+        headline: headline ?? subject,
+        lines,
+        highlight: src.highlight
+          ? {
+              value: fmt(src.highlight.value),
+              note: src.highlight.note ? fmt(src.highlight.note) : undefined,
+            }
+          : undefined,
+        replies,
+        action,
+        footnote: src.footnote ? fmt(src.footnote) : undefined,
+        links,
+      },
+      frame,
+    ),
+  };
 }

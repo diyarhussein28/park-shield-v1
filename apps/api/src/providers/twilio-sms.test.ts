@@ -153,6 +153,33 @@ describe('Mailjet mailer', () => {
     expect(msg.HTMLPart).toContain('#t=abc');
   });
 
+  it('attaches files (the PDF „Vertragsbestätigung“) base64-encoded, tracking still off', async () => {
+    const fetch = vi.fn(
+      async (_u: string | URL | Request, _i?: RequestInit) =>
+        new Response(JSON.stringify({ Messages: [{ Status: 'success' }] }), { status: 200 }),
+    );
+    const pdf = Buffer.from('%PDF-1.3 test');
+    await new MailjetMailer('key', 'secret', 'ParkShield <hallo@park-shield.de>', fetch).send({
+      to: 'kunde@example.de',
+      subject: 'Ihre Vertragsbestätigung',
+      text: 't',
+      html: 'h',
+      tag: 'contract_confirmation',
+      attachments: [
+        { filename: 'Vertragsbestaetigung_PS-1.pdf', contentType: 'application/pdf', content: pdf },
+      ],
+    });
+    const msg = JSON.parse(String(fetch.mock.calls[0]![1]!.body)).Messages[0];
+    expect(msg.Attachments).toEqual([
+      {
+        ContentType: 'application/pdf',
+        Filename: 'Vertragsbestaetigung_PS-1.pdf',
+        Base64Content: pdf.toString('base64'),
+      },
+    ]);
+    expect(msg).toMatchObject({ TrackOpens: 'disabled', TrackClicks: 'disabled' });
+  });
+
   it('throws on HTTP errors and on a non-success status', async () => {
     const failing = (status: number, body: unknown) =>
       new MailjetMailer(
