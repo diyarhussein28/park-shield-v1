@@ -76,6 +76,9 @@ export interface HistoryAlert {
   deliveries: { channel: string; status: string; reason: string | null }[];
   reported: boolean;
   canBlock: boolean;
+  /** The sender is blocked by the owner right now (server-side, 2026-11-22). */
+  senderBlocked: boolean;
+  blockedUntil: string | null;
   hiddenContent: boolean;
   verifiedSender: boolean;
   photos?: { count: number; viewPath: string | null };

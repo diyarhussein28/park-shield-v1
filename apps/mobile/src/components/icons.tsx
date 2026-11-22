@@ -62,6 +62,12 @@ export const APP_ICON_PATHS = {
   user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z M4 21a8 8 0 0 1 16 0',
   mapPin:
     'M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11Z M12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z',
+  /** „Absender blockieren“: a circle with a slash. */
+  ban: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M5.6 5.6l12.8 12.8',
+  /** „Blockierung aufheben“: an open circle with a check. */
+  unlock: 'M7 11V7a5 5 0 0 1 9.9-1 M5 11h14v10H5z',
+  /** Test alerts: a laboratory flask. */
+  flask: 'M9 3h6 M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3 M7.5 15h9',
 } as const;
 
 const PATHS = { ...ICON_PATHS, ...APP_ICON_PATHS };

@@ -69,6 +69,8 @@ const detail = (over: Partial<AlertDetail> = {}): AlertDetail => ({
     canOpen: true,
     senderBlocked: false,
   },
+  senderBlocked: false,
+  blockedUntil: null,
   ...over,
 });
 

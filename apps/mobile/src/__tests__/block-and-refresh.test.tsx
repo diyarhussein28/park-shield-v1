@@ -96,6 +96,8 @@ const item = (over: Partial<AlertListItem>): AlertListItem => ({
   vehicle: { id: VEHICLE, nickname: 'Blue' },
   photoCount: 0,
   chatStatus: 'active',
+  senderBlocked: false,
+  blockedUntil: null,
   ...over,
 });
 
@@ -142,10 +144,14 @@ const detail = (over: Partial<AlertDetail> = {}): AlertDetail => ({
     canOpen: false,
     senderBlocked: false,
   },
+  senderBlocked: false,
+  blockedUntil: null,
   ...over,
 });
 const blockedDetail = () =>
   detail({
+    senderBlocked: true,
+    blockedUntil: '2026-12-19T12:05:00Z',
     escalation: {
       ...detail().escalation,
       stoppedAt: '2026-11-19T12:05:00Z',
@@ -169,18 +175,34 @@ beforeEach(async () => {
 });
 
 describe('„Absender blockieren“ (Stage 3)', () => {
-  it('on the alert card: confirms, calls /block, then the card says so; never on test alerts', async () => {
-    global.fetch = jest.fn((url: string) =>
-      url.endsWith('/block')
-        ? respond(BLOCKED)
-        : url.endsWith('/v1/app/alerts')
-          ? respond({
-              alerts: [item({}), item({ id: 'test-1', isTest: true })],
-              next: null,
-              pushReady: true,
-            })
-          : respond({ alerts: [] }),
-    ) as unknown as typeof fetch;
+  it('on the alert card: confirms, calls /block, then every card of that sender says so; never on test alerts', async () => {
+    const UNTIL = new Date(Date.now() + 30 * 86_400_000 - 60_000).toISOString();
+    const SAME = 'same-sender-2';
+    let blocked = false;
+    global.fetch = jest.fn((url: string) => {
+      if (url.endsWith('/block')) {
+        blocked = true;
+        return respond({ ...BLOCKED, senderBlocked: true, blockedUntil: UNTIL });
+      }
+      if (url.endsWith('/unblock-sender')) {
+        blocked = false;
+        return respond({ unblocked: true, senderBlocked: false, blockedUntil: null });
+      }
+      // The server decides which alerts share the sender: here ALERT and SAME, not OTHER.
+      const b = { senderBlocked: blocked, blockedUntil: blocked ? UNTIL : null };
+      return url.endsWith('/v1/app/alerts')
+        ? respond({
+            alerts: [
+              item(b),
+              item({ id: SAME, ...b }),
+              item({ id: 'other-3' }),
+              item({ id: 'test-1', isTest: true }),
+            ],
+            next: null,
+            pushReady: true,
+          })
+        : respond({ alerts: [] });
+    }) as unknown as typeof fetch;
     const ask = confirmBlock();
     await render(
       <AlertsProvider>
@@ -190,9 +212,24 @@ describe('„Absender blockieren“ (Stage 3)', () => {
     expect(screen.queryByTestId('block-test-1')).toBeNull();
     await fireEvent.press(await screen.findByTestId(`block-${ALERT}`));
     expect(ask).toHaveBeenCalled();
-    expect(await screen.findByText(t('blocked'))).toBeTruthy();
+    // Both cards of the blocked sender, without a tab switch; the other sender keeps its button.
+    await waitFor(() => expect(screen.getAllByTestId('sender-blocked')).toHaveLength(2));
+    expect(screen.getAllByText(`${t('senderBlocked')} · noch 30 Tage`)).toHaveLength(2);
     expect(calls()).toContain(`POST /v1/app/alerts/${ALERT}/block`);
     expect(screen.queryByTestId(`block-${ALERT}`)).toBeNull();
+    expect(screen.queryByTestId(`block-${SAME}`)).toBeNull();
+    expect(screen.getByTestId('block-other-3')).toBeTruthy();
+
+    // „Blockierung aufheben“: asks first, then the buttons come back on both cards.
+    jest.spyOn(Alert, 'alert').mockImplementation((title, _m, buttons) => {
+      expect(title).toBe(t('unblockConfirmTitle'));
+      buttons?.[1]?.onPress?.();
+    });
+    await fireEvent.press(screen.getByTestId(`unblock-${SAME}`));
+    expect(await screen.findByTestId(`block-${ALERT}`)).toBeTruthy();
+    expect(screen.getByTestId(`block-${SAME}`)).toBeTruthy();
+    expect(screen.queryByTestId('sender-blocked')).toBeNull();
+    expect(calls()).toContain(`POST /v1/app/alerts/${SAME}/unblock-sender`);
   });
 
   it('cancelling the dialog blocks nothing', async () => {

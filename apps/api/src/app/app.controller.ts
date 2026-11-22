@@ -202,6 +202,22 @@ export class AppController {
     return r;
   }
 
+  /**
+   * „Blockierung aufheben“ (2026-11-22): ends the owner's active block of this alert's sender for this
+   * vehicle (audited). New alerts from the sender arrive again; the closed chat stays closed.
+   * Idempotent; other owners get 404.
+   */
+  @Post('alerts/:alertId/unblock-sender')
+  @HttpCode(200)
+  async unblockSender(
+    @CurrentUser() user: AuthContext,
+    @Param('alertId', ParseUUIDPipe) alertId: string,
+  ) {
+    const r = await this.history.unblock(user.userId, alertId);
+    this.gateway.alertChanged(alertId);
+    return r;
+  }
+
   /** „Erledigt“: marks the alert resolved; a stop condition for the reminder and the SMS. */
   @Post('alerts/:alertId/resolve')
   @HttpCode(200)

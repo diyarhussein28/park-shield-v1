@@ -8,6 +8,7 @@ import { FairUseService } from '../notifications/fair-use.service';
 import { PreferencesService } from '../preferences/preferences.service';
 import { PhoneBansService } from '../abuse/phone-bans.service';
 import { ProtectionService } from '../abuse/protection.service';
+import { SenderBlockService } from '../abuse/sender-block.service';
 import { ViewTokenService } from '../alert-media/view-token.service';
 import { ChatService } from '../chat/chat.service';
 import { stopEscalation } from '../notifications/escalation';
@@ -34,6 +35,7 @@ export class HistoryService {
     @Inject(PhoneBansService) private readonly phoneBans: PhoneBansService,
     @Inject(ViewTokenService) private readonly viewTokens: ViewTokenService,
     @Inject(ChatService) private readonly chat: ChatService,
+    @Inject(SenderBlockService) private readonly senderBlocks: SenderBlockService,
   ) {}
 
   async list(userId: string) {
@@ -54,6 +56,9 @@ export class HistoryService {
         'a.expires_at',
         'a.created_at',
         'a.block_ref',
+        'a.qr_token_id',
+        'a.vehicle_id',
+        'a.verified_phone_hash',
         'a.content_hidden',
         sql<boolean>`a.verified_phone_hash IS NOT NULL`.as('verified'),
         'v.id as vehicleId',
@@ -71,7 +76,7 @@ export class HistoryService {
     if (!alerts.length) return { alerts: [] };
 
     const ids = alerts.map((a) => a.id);
-    const [deliveries, reports, media, links] = await Promise.all([
+    const [deliveries, reports, media, links, blockState] = await Promise.all([
       this.db
         .selectFrom('alert_deliveries')
         .select(['alert_id', 'channel', 'status', 'suppressed_reason', 'error_code', 'queued_at'])
@@ -99,6 +104,8 @@ export class HistoryService {
         .where('alert_id', 'in', ids)
         .where('expires_at', '>', sql<Date>`now()`)
         .execute(),
+      // Computed on the server for every alert, so all alerts of a blocked sender say so.
+      this.senderBlocks.stateFor(alerts),
     ]);
     const photoCount = new Map(media.map((m) => [m.alert_id, Number(m.n)]));
     const linked = new Set(links.map((l) => l.alert_id));
@@ -138,6 +145,8 @@ export class HistoryService {
             reason: d.suppressed_reason ?? d.error_code,
           })),
           reported: reported.has(a.id),
+          senderBlocked: blockState.get(a.id)?.senderBlocked ?? false,
+          blockedUntil: blockState.get(a.id)?.blockedUntil ?? null,
           photos: {
             count: photoCount.get(a.id) ?? 0,
             viewPath: linked.has(a.id) ? `/v/${this.viewTokens.tokenFor(a.id)}` : null,
@@ -201,10 +210,41 @@ export class HistoryService {
           note: note?.trim().slice(0, 500) || null,
         })
         .execute();
-      const recent = a.created_at.getTime() > Date.now() - BLOCK_DAYS * 86_400_000;
-      let blocked = false;
-      if (a.block_ref && recent) {
-        // The block_ref is per vehicle: it cannot block this person anywhere else (02-architecture §5).
+      const { blocked, phoneBanned } = await this.applyBlock(trx, a);
+      const protectedMode = await this.protection.afterReport(trx, a.vehicle_id);
+      return { reported: true, blocked: blocked || phoneBanned, phoneBanned, protectedMode };
+    });
+  }
+
+  /**
+   * The abuse-module block itself: the per-vehicle scanner block for 30 days (only for alerts of the
+   * last 30 days, whose reference is still meaningful) and the 12-month phone ban for a confirmed
+   * number. Idempotent: an active block is kept as it is.
+   */
+  private async applyBlock(
+    trx: Pick<Db, 'selectFrom' | 'insertInto'>,
+    a: {
+      created_at: Date;
+      block_ref: Buffer | null;
+      qr_token_id: string | null;
+      vehicle_id: string;
+      verified_phone_hash: Buffer | null;
+    },
+  ) {
+    const recent = a.created_at.getTime() > Date.now() - BLOCK_DAYS * 86_400_000;
+    let blocked = false;
+    if (a.block_ref && recent) {
+      const active = await trx
+        .selectFrom('scanner_blocks')
+        .select('ref')
+        .where('ref', '=', a.block_ref)
+        .where((eb) =>
+          a.qr_token_id ? eb('qr_token_id', '=', a.qr_token_id) : eb('qr_token_id', 'is', null),
+        )
+        .where('expires_at', '>', sql<Date>`now()`)
+        .executeTakeFirst();
+      // The block_ref is per vehicle: it cannot block this person anywhere else (02-architecture §5).
+      if (!active) {
         await trx
           .insertInto('scanner_blocks')
           .values({
@@ -214,15 +254,48 @@ export class HistoryService {
             expires_at: sql`now() + make_interval(days => ${BLOCK_DAYS})`,
           })
           .execute();
-        blocked = true;
       }
-      const phoneBanned = Boolean(a.verified_phone_hash);
-      if (a.verified_phone_hash) {
-        await this.phoneBans.banForVehicle(trx, a.verified_phone_hash, a.vehicle_id);
-      }
-      const protectedMode = await this.protection.afterReport(trx, a.vehicle_id);
-      return { reported: true, blocked: blocked || phoneBanned, phoneBanned, protectedMode };
-    });
+      blocked = true;
+    }
+    const phoneBanned = Boolean(a.verified_phone_hash);
+    if (a.verified_phone_hash) {
+      await this.phoneBans.banForVehicle(trx, a.verified_phone_hash, a.vehicle_id);
+    }
+    return { blocked, phoneBanned };
+  }
+
+  /** The alert with the identifiers the abuse module blocks on; only the owner's own alerts. */
+  private senderOf(userId: string, alertId: string) {
+    return this.db
+      .selectFrom('alerts as a')
+      .innerJoin('vehicles as v', 'v.id', 'a.vehicle_id')
+      .select([
+        'a.id',
+        'a.is_test',
+        'a.created_at',
+        'a.vehicle_id',
+        'a.qr_token_id',
+        'a.block_ref',
+        'a.verified_phone_hash',
+      ])
+      .where('a.id', '=', alertId)
+      .where('v.owner_user_id', '=', userId)
+      .where('a.status', '<>', 'blocked')
+      .executeTakeFirst();
+  }
+
+  /**
+   * „Blockierung aufheben“ (2026-11-22): ends the owner's active block of this alert's sender for
+   * this vehicle (scanner block and phone ban set expired, audit entry). The sender can send new
+   * alerts again; the chat the block closed stays closed. Idempotent.
+   */
+  async unblock(userId: string, alertId: string) {
+    const a = await this.senderOf(userId, alertId);
+    if (!a) throw new NotFoundException();
+    const { unblocked } = a.is_test
+      ? { unblocked: false }
+      : await this.db.transaction().execute((trx) => this.senderBlocks.unblock(trx, userId, a));
+    return { unblocked, ...(await this.senderBlocks.stateOf(a)) };
   }
 
   /**
@@ -235,14 +308,7 @@ export class HistoryService {
    * changes nothing more.
    */
   async block(userId: string, alertId: string) {
-    const a = await this.db
-      .selectFrom('alerts as a')
-      .innerJoin('vehicles as v', 'v.id', 'a.vehicle_id')
-      .select(['a.id', 'a.is_test'])
-      .where('a.id', '=', alertId)
-      .where('v.owner_user_id', '=', userId)
-      .where('a.status', '<>', 'blocked')
-      .executeTakeFirst();
+    const a = await this.senderOf(userId, alertId);
     if (!a) throw new NotFoundException();
     const chatClosed = await this.chat.closeBlocked(a.id);
     await this.db
@@ -251,16 +317,28 @@ export class HistoryService {
       .where('id', '=', a.id)
       .execute();
     // A test alert has no stranger behind it: nothing to block in the abuse module.
-    if (a.is_test) return { blocked: true, chatClosed, phoneBanned: false, protectedMode: false };
-    const r = await this.report(userId, a.id, 'blocked', undefined).catch((err: unknown) => {
-      if (err instanceof ConflictException) return null; // reported before: the block already exists
-      throw err;
+    if (a.is_test) {
+      return {
+        blocked: true,
+        chatClosed,
+        phoneBanned: false,
+        protectedMode: false,
+        senderBlocked: false,
+        blockedUntil: null,
+      };
+    }
+    const r = await this.report(userId, a.id, 'blocked', undefined).catch(async (err: unknown) => {
+      if (!(err instanceof ConflictException)) throw err;
+      // Reported before (and maybe unblocked since): block again without a second report.
+      const again = await this.db.transaction().execute((trx) => this.applyBlock(trx, a));
+      return { phoneBanned: again.phoneBanned, protectedMode: false };
     });
     return {
       blocked: true,
       chatClosed,
-      phoneBanned: r?.phoneBanned ?? false,
-      protectedMode: r?.protectedMode ?? false,
+      phoneBanned: r.phoneBanned,
+      protectedMode: r.protectedMode,
+      ...(await this.senderBlocks.stateOf(a)),
     };
   }
 

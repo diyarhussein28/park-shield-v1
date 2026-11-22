@@ -104,6 +104,7 @@ import { ScanController } from './scan/scan.controller';
 import { ScanService } from './scan/scan.service';
 import { ScannerRefService } from './scan/scanner-ref.service';
 import { PhoneBansService } from './abuse/phone-bans.service';
+import { SenderBlockService } from './abuse/sender-block.service';
 import { ProtectionService } from './abuse/protection.service';
 import { ScannerVerificationService } from './abuse/verification.service';
 import { CompanyService } from './letters/company.service';
@@ -136,6 +137,7 @@ const domainProviders = [
   ScannerRefService,
   ProtectionService,
   PhoneBansService,
+  SenderBlockService,
   ScannerVerificationService,
   ScanService,
   DispatchService,

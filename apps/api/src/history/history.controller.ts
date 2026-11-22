@@ -63,6 +63,15 @@ export class HistoryController {
     return r;
   }
 
+  /** „Blockierung aufheben“ on the website history (same as the app's unblock-sender). */
+  @Post('alerts/:id/unblock-sender')
+  @HttpCode(200)
+  async unblock(@CurrentUser() user: AuthContext, @Param('id', ParseUUIDPipe) id: string) {
+    const r = await this.history.unblock(user.userId, id);
+    this.gateway.alertChanged(id);
+    return r;
+  }
+
   /** Abuse protection §4: hidden content of an unconfirmed sender, shown on request ("Anzeigen"). */
   @Get('alerts/:id/hidden-content')
   hiddenContent(@CurrentUser() user: AuthContext, @Param('id', ParseUUIDPipe) id: string) {

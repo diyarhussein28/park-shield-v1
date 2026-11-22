@@ -23,11 +23,12 @@ interface AlertsState {
   reload: () => Promise<void>;
   open: number;
   /**
-   * Alerts whose sender was blocked in this session (the list has no flag for it), so their cards
-   * stop offering „Absender blockieren“. Memory only; cleared on sign-out.
+   * After „Absender blockieren“ / „Blockierung aufheben“: shows the new state on that card at once
+   * (optimistic), then reloads, because only the server knows which other alerts share the sender
+   * (`senderBlocked` per alert). `version` goes up so other views (history, detail) reload too.
    */
-  blocked: ReadonlySet<string>;
-  markBlocked: (alertId: string) => void;
+  senderChanged: (alertId: string, blocked: boolean, until?: string | null) => Promise<void>;
+  version: number;
 }
 
 const Ctx = createContext<AlertsState | null>(null);
@@ -41,8 +42,7 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
   const { signedIn } = useAuth();
   const [data, setData] = useState<AlertList | null>(null);
   const [error, setError] = useState(false);
-  const [blocked, setBlocked] = useState<ReadonlySet<string>>(new Set());
-  const markBlocked = useCallback((id: string) => setBlocked((b) => new Set([...b, id])), []);
+  const [version, setVersion] = useState(0);
 
   const reload = useCallback(async () => {
     try {
@@ -53,11 +53,28 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const senderChanged = useCallback(
+    async (alertId: string, blocked: boolean, until: string | null = null) => {
+      setData((d) =>
+        d
+          ? {
+              ...d,
+              alerts: d.alerts.map((a) =>
+                a.id === alertId ? { ...a, senderBlocked: blocked, blockedUntil: until } : a,
+              ),
+            }
+          : d,
+      );
+      await reload();
+      setVersion((v) => v + 1);
+    },
+    [reload],
+  );
+
   useEffect(() => {
     if (!signedIn) {
       setData(null);
       setError(false);
-      setBlocked(new Set());
       return;
     }
     void reload();
@@ -77,10 +94,10 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
       error,
       reload,
       open: data ? openAlertCount(data.alerts) : 0,
-      blocked,
-      markBlocked,
+      senderChanged,
+      version,
     }),
-    [data, error, reload, blocked, markBlocked],
+    [data, error, reload, senderChanged, version],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
@@ -89,4 +106,14 @@ export function useAlerts(): AlertsState {
   const v = useContext(Ctx);
   if (!v) throw new Error('useAlerts outside AlertsProvider');
   return v;
+}
+
+const NO_SYNC = { senderChanged: async () => undefined, version: 0 };
+
+/**
+ * Block / unblock sync for screens that may render outside the tabs (a detail opened from a
+ * notification, tests): the shared store when there is one, else a no-op.
+ */
+export function useAlertSync(): Pick<AlertsState, 'senderChanged' | 'version'> {
+  return useContext(Ctx) ?? NO_SYNC;
 }

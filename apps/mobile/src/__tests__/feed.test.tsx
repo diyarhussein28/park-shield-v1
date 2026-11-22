@@ -56,6 +56,8 @@ const alert = (over: Partial<AlertListItem> = {}): AlertListItem => ({
   vehicle: { id: 'v1', nickname: 'Blue' },
   photoCount: 0,
   chatStatus: null,
+  senderBlocked: false,
+  blockedUntil: null,
   ...over,
 });
 const subscription = (over: object = {}) => ({

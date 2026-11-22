@@ -549,6 +549,119 @@ describe('„Absender blockieren“ (Stage 3)', () => {
     expect(await h.db.selectFrom('scanner_blocks').selectAll().execute()).toHaveLength(1);
   });
 
+  it('every alert of the blocked sender reports the block (server-side), others do not', async () => {
+    const x = await setup();
+    await setSetting(h, 'ratelimit.alert.scanner_vehicle', { max: 5, windowSeconds: 3600 });
+    const ip = '203.0.113.70';
+    const first = await alert(x.code, 'lights_on', ip);
+    const second = await alert(x.code, 'blocking', ip);
+    // Another network (the reference uses the /24 prefix): another sender.
+    const stranger = await alert(x.code, 'window_open', '198.18.5.9');
+    const list = async () =>
+      (await h.app.inject({ method: 'GET', url: '/v1/app/alerts', headers: x.app })).json()
+        .alerts as { id: string; senderBlocked: boolean; blockedUntil: string | null }[];
+    expect((await list()).every((a) => !a.senderBlocked && a.blockedUntil === null)).toBe(true);
+
+    const res = await h.app.inject({
+      method: 'POST',
+      url: `/v1/app/alerts/${second.alertId}/block`,
+      headers: x.app,
+    });
+    expect(res.json()).toMatchObject({ blocked: true, senderBlocked: true });
+    const byId = new Map((await list()).map((a) => [a.id, a]));
+    expect(byId.get(first.alertId)!.senderBlocked).toBe(true);
+    expect(byId.get(second.alertId)!.senderBlocked).toBe(true);
+    expect(byId.get(stranger.alertId)!.senderBlocked).toBe(false);
+    const until = new Date(byId.get(first.alertId)!.blockedUntil!).getTime();
+    expect(until - Date.now()).toBeGreaterThan(29.9 * 86_400_000);
+    // The detail and the website history say the same.
+    const detail = (
+      await h.app.inject({
+        method: 'GET',
+        url: `/v1/app/alerts/${first.alertId}`,
+        headers: x.app,
+      })
+    ).json();
+    expect(detail).toMatchObject({ senderBlocked: true });
+    const history = (
+      await h.app.inject({ method: 'GET', url: '/v1/alerts', headers: x.s.headers })
+    ).json().alerts as { id: string; senderBlocked: boolean }[];
+    expect(history.find((a) => a.id === first.alertId)!.senderBlocked).toBe(true);
+    expect(history.find((a) => a.id === stranger.alertId)!.senderBlocked).toBe(false);
+  });
+
+  it('„Blockierung aufheben“ ends the block (audited, idempotent), the chat stays closed', async () => {
+    const x = await setup();
+    const ip = '203.0.113.80';
+    const a = await alert(x.code, 'blocking', ip);
+    const unblock = (headers: Record<string, string>, id = a.alertId) =>
+      h.app.inject({ method: 'POST', url: `/v1/app/alerts/${id}/unblock-sender`, headers });
+    await h.app.inject({
+      method: 'POST',
+      url: `/v1/app/alerts/${a.alertId}/block`,
+      headers: x.app,
+    });
+    const send = () =>
+      h.app.inject({
+        method: 'POST',
+        url: `/v1/scan/${x.code}/alerts`,
+        remoteAddress: ip,
+        payload: { captcha: DEV_CAPTCHA_SOLUTION, lang: 'de', type: 'lights_on' },
+      });
+    expect((await send()).statusCode).toBe(403);
+
+    // Another owner cannot lift it.
+    await subscribe(h, 'other@example.de');
+    const other = await registerAppDevice(h, 'other@example.de', 'fcm-token-other-0000000002');
+    expect((await unblock(other)).statusCode).toBe(404);
+    expect((await send()).statusCode).toBe(403);
+
+    const res = await unblock(x.app);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toEqual({ unblocked: true, senderBlocked: false, blockedUntil: null });
+    const audit = await h.db
+      .selectFrom('audit_logs')
+      .select(['action', 'actor_kind'])
+      .where('entity_id', '=', a.alertId)
+      .where('action', '=', 'sender.unblock')
+      .execute();
+    expect(audit).toEqual([{ action: 'sender.unblock', actor_kind: 'customer' }]);
+    // Idempotent.
+    expect((await unblock(x.app)).json()).toEqual({
+      unblocked: false,
+      senderBlocked: false,
+      blockedUntil: null,
+    });
+    // The chat closed by the block is not reopened; the sender can alert again.
+    expect(await h.app.get(ChatService).state(a.alertId, 'owner')).toMatchObject({
+      status: 'closed',
+      closeReason: 'blocked',
+    });
+    expect((await send()).statusCode).toBe(201);
+    // Blocking again after an unblock blocks again (no second abuse report).
+    const again = await h.app.inject({
+      method: 'POST',
+      url: `/v1/app/alerts/${a.alertId}/block`,
+      headers: x.app,
+    });
+    expect(again.json()).toMatchObject({ senderBlocked: true });
+    expect(
+      await h.db
+        .selectFrom('abuse_reports')
+        .select('id')
+        .where('alert_id', '=', a.alertId)
+        .execute(),
+    ).toHaveLength(1);
+  });
+
+  it('requires a session', async () => {
+    const r = await h.app.inject({
+      method: 'POST',
+      url: '/v1/app/alerts/00000000-0000-4000-8000-000000000000/unblock-sender',
+    });
+    expect(r.statusCode).toBe(401);
+  });
+
   it('a test alert is closed and stopped, but nothing is reported to the abuse module', async () => {
     const x = await setup();
     await h.app.inject({

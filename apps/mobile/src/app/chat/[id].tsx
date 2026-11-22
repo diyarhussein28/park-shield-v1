@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlockSenderButton } from '@/components/block-sender';
 import { Banner, Button, useTheme } from '@/components/ui';
+import { useAlertSync } from '@/lib/alerts-store';
 import { api } from '@/lib/api';
 import { useChat, type ChatError } from '@/lib/chat';
 import { lang, t, type Key } from '@/lib/i18n';
@@ -35,13 +36,18 @@ export default function Chat() {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  const { senderChanged } = useAlertSync();
   // Whether blocking is offered: not for test alerts, not when the sender is already blocked.
   const [canBlock, setCanBlock] = useState(false);
   useEffect(() => {
     let live = true;
     void api<AlertDetail>(`/v1/app/alerts/${id}`)
       .then((a) => {
-        if (live) setCanBlock(!a.isTest && !a.chat?.senderBlocked && a.status !== 'blocked');
+        if (live) {
+          setCanBlock(
+            !a.isTest && !a.senderBlocked && !a.chat?.senderBlocked && a.status !== 'blocked',
+          );
+        }
       })
       .catch(() => undefined);
     return () => {
@@ -165,10 +171,12 @@ export default function Chat() {
               {canBlock && !endedByBlock && (
                 <BlockSenderButton
                   alertId={id}
-                  onBlocked={() => {
+                  onBlocked={(r) => {
                     Keyboard.dismiss();
                     setBlocked(true);
                     setCanBlock(false);
+                    // The alert list, the detail and the history show the block at once.
+                    void senderChanged(id, true, r.blockedUntil);
                   }}
                 />
               )}

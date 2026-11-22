@@ -359,6 +359,11 @@ Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
   removed; the empty `emergency_contacts` table stays until a clean-up migration.
 - **Block sender** (`HistoryService.block`, `POST /v1/app/alerts/:id/block`, `POST /v1/alerts/:id/block`):
   chat closed at once (`close_reason = 'blocked'`), escalation stopped, existing abuse module report.
+  The block state is computed on the server per alert (`senderBlocked`, `blockedUntil` in
+  `/v1/app/alerts`, the detail and `/v1/alerts`; `abuse/sender-block.service.ts`): same `block_ref`
+  for the vehicle or same confirmed phone hash, nothing else. „Blockierung aufheben“:
+  `POST /v1/app/alerts/:id/unblock-sender` (also `/v1/alerts/:id/unblock-sender`) sets the owner's
+  blocks expired and writes the audit entry `sender.unblock`; the chat the block closed stays closed.
 - **Live chat**: Socket.io on the public API, namespace `/chat`, path `/v1/socket.io` **without a
   trailing slash** (Next.js would redirect `/v1/socket.io/`). Scanner auth = alert id + chat token
   (URL fragment, handshake payload only); owner auth = app session. Locked until the owner opens it;

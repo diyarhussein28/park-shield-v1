@@ -40,7 +40,8 @@ export default function TabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen name="alerts" options={{ title: t('alertsTitle') }} />
+      {/* Own header in the screen: logo, wordmark and the large title (design 2026-11-22). */}
+      <Tabs.Screen name="alerts" options={{ title: t('alertsTitle'), headerShown: false }} />
       <Tabs.Screen name="fahrzeuge" options={{ title: pt('portal.vehiclesTitle') }} />
       <Tabs.Screen name="konto" options={{ title: t('tabAccount') }} />
     </Tabs>

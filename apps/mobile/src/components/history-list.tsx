@@ -3,6 +3,12 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Badge, Choice, Field, H3 } from '@/components/form';
 import { Banner, Button, Card, P, useTheme } from '@/components/ui';
+import {
+  BlockSenderButton,
+  SenderBlockedStatus,
+  UnblockSenderButton,
+} from '@/components/block-sender';
+import { useAlertSync } from '@/lib/alerts-store';
 import { api } from '@/lib/api';
 import { lang } from '@/lib/i18n';
 import { errorText, openInBrowser, type HistoryAlert } from '@/lib/portal';
@@ -18,13 +24,16 @@ export function HistoryList() {
   const router = useRouter();
   const [alerts, setAlerts] = useState<HistoryAlert[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // `version` goes up after every block / unblock anywhere in the app: reload, because the server
+  // decides which alerts share the blocked sender.
+  const { version, senderChanged } = useAlertSync();
 
   useFocusEffect(
     useCallback(() => {
       void api<{ alerts: HistoryAlert[] }>('/v1/alerts')
         .then((r) => setAlerts(r.alerts))
         .catch((err) => setError(errorText(err)));
-    }, []),
+    }, [version]),
   );
 
   return (
@@ -41,11 +50,17 @@ export function HistoryList() {
         <AlertCard
           key={a.id}
           alert={a}
-          onReported={() =>
+          onSenderChanged={(blocked, until) => {
             setAlerts(
-              (list) => list?.map((x) => (x.id === a.id ? { ...x, reported: true } : x)) ?? null,
-            )
-          }
+              (list) =>
+                list?.map((x) =>
+                  x.id === a.id
+                    ? { ...x, reported: true, senderBlocked: blocked, blockedUntil: until }
+                    : x,
+                ) ?? null,
+            );
+            void senderChanged(a.id, blocked, until);
+          }}
         />
       ))}
     </View>
@@ -54,7 +69,13 @@ export function HistoryList() {
 
 const hs = StyleSheet.create({ list: { gap: 12 } });
 
-function AlertCard({ alert: a, onReported }: { alert: HistoryAlert; onReported: () => void }) {
+function AlertCard({
+  alert: a,
+  onSenderChanged,
+}: {
+  alert: HistoryAlert;
+  onSenderChanged: (blocked: boolean, until: string | null) => void;
+}) {
   const c = useTheme();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<(typeof REASONS)[number]>('harassment');
@@ -73,7 +94,7 @@ function AlertCard({ alert: a, onReported }: { alert: HistoryAlert; onReported: 
       await api(`/v1/portal/alerts/${a.id}/report-abuse`, { method: 'POST' });
       setPhotoCount(0);
       setResult({ tone: 'ok', text: pt('alertView.reportDone') });
-      onReported();
+      onSenderChanged(true, null);
     } catch (err) {
       setResult({ tone: 'err', text: errorText(err) });
     } finally {
@@ -113,7 +134,7 @@ function AlertCard({ alert: a, onReported }: { alert: HistoryAlert; onReported: 
       if (r.protectedMode) lines.push(pt('history.protectedOn', { nickname }));
       setResult({ tone: 'ok', text: lines.join(' ') });
       setOpen(false);
-      onReported();
+      onSenderChanged(r.blocked, null);
     } catch (err) {
       setResult({ tone: 'err', text: errorText(err) });
     } finally {
@@ -186,8 +207,23 @@ function AlertCard({ alert: a, onReported }: { alert: HistoryAlert; onReported: 
       )}
       {result && <Banner tone={result.tone}>{result.text}</Banner>}
       {!a.isTest &&
-        (a.reported ? (
-          !result && <Badge>{pt('history.reported')}</Badge>
+        (a.senderBlocked ? (
+          // Blocked (here or from any other alert of the same sender): status and „Aufheben“.
+          <View style={{ gap: 4 }}>
+            <SenderBlockedStatus until={a.blockedUntil} />
+            <UnblockSenderButton
+              alertId={a.id}
+              onUnblocked={(r) => onSenderChanged(r.senderBlocked, r.blockedUntil)}
+            />
+          </View>
+        ) : a.reported ? (
+          // Reported before and unblocked since: block again without a second report.
+          a.canBlock && (
+            <BlockSenderButton
+              alertId={a.id}
+              onBlocked={(r) => onSenderChanged(true, r.blockedUntil)}
+            />
+          )
         ) : open ? (
           <View style={{ gap: 10 }}>
             <H3>{pt('history.reportTitle')}</H3>

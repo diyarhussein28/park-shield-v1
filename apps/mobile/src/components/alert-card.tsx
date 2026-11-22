@@ -1,13 +1,20 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { lang, t } from '@/lib/i18n';
 import type { AlertListItem } from '@/lib/types';
-import { radius, space, type as typeScale, useTheme } from '@/theme/tokens';
-import { BlockSenderButton, type BlockResult } from './block-sender';
-import { AlertTypeIcon } from './icons';
-import { Chip } from './ui';
+import { radius, space, type as typeScale, useTheme, type Theme } from '@/theme/tokens';
+import {
+  BlockSenderButton,
+  blockedText,
+  SenderBlockedStatus,
+  UnblockSenderButton,
+} from './block-sender';
+import { Icon, alertTypeIcon, type IconName } from './icons';
+
+/** Done = „Ich komme“ or „Erledigt“ (resolved). */
+export const isDone = (a: AlertListItem) => a.acknowledged || Boolean(a.resolved);
 
 export function statusLabel(a: AlertListItem): string {
-  if (a.acknowledged) return t('acknowledged');
+  if (isDone(a)) return t('acknowledged');
   if (a.status === 'expired') return t('expired');
   // The owner did not react for 30 minutes: the one SMS went out.
   if (a.escalationStage === 'sms_sent') return t('escalated');
@@ -15,17 +22,20 @@ export function statusLabel(a: AlertListItem): string {
   return t('open');
 }
 
-const statusTone = (a: AlertListItem) =>
-  a.acknowledged
+type Tone = 'info' | 'ok' | 'neutral' | 'urgent';
+
+const statusTone = (a: AlertListItem): Tone =>
+  isDone(a)
     ? 'ok'
     : a.status === 'expired'
       ? 'neutral'
-      : a.severity === 'urgent'
+      : a.severity === 'urgent' && !a.seenAt
         ? 'urgent'
         : 'info';
 
-const time = (iso: string) =>
-  new Intl.DateTimeFormat(lang(), {
+/** „21.11., 23:11“ (de) · „11/21, 11:11 PM“ (en). */
+export const shortTime = (iso: string) =>
+  new Intl.DateTimeFormat(lang() === 'en' ? 'en-US' : 'de-DE', {
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',
@@ -33,62 +43,125 @@ const time = (iso: string) =>
   }).format(new Date(iso));
 
 /**
- * One alert in the feed: type icon, type, vehicle, time, status chip; urgent ones with a red stripe.
- * „Absender blockieren“ right on the card (Stage 3), never for test alerts; once blocked the card says
- * so instead.
+ * The soft purple of „Eigene Nachricht“ cards (design 2026-11-22). Not a theme token: it is used on
+ * this card only; both pairs keep AA contrast for the icon on its container.
+ */
+const PURPLE = {
+  light: { bg: '#faf7ff', border: '#c4b5fd', box: '#ede9fe', icon: '#6d28d9' },
+  dark: { bg: '#1c1631', border: '#5b3fa8', box: '#2e1f57', icon: '#c4b5fd' },
+};
+
+/** Pill colours: Gesehen soft blue, Erledigt soft green, Test soft grey. */
+const pillColors = (c: Theme, tone: Tone) =>
+  ({
+    info: [c.infoBg, c.infoFg],
+    ok: [c.successBg, c.successFg],
+    neutral: [c.secondary, c.secondaryFg],
+    urgent: [c.dangerBg, c.dangerText],
+  })[tone];
+
+function Pill({ tone, icon, label }: { tone: Tone; icon?: IconName; label: string }) {
+  const c = useTheme();
+  const [bg, fg] = pillColors(c, tone);
+  return (
+    <View
+      accessible
+      accessibilityLabel={label}
+      style={[s.pill, { backgroundColor: bg }]}
+      testID={`pill-${tone}`}
+    >
+      {icon && <Icon name={icon} size={15} color={fg!} />}
+      <Text style={[typeScale.caption, { color: fg, fontWeight: '700' }]}>{label}</Text>
+    </View>
+  );
+}
+
+/**
+ * One alert in the Warnungen tab (design 2026-11-22): a white rounded card on the light background,
+ * a rounded-square icon tinted by the alert type, title and short time, vehicle and photo count,
+ * status pills, and below a divider the block action — or, once the sender is blocked (server-side,
+ * every alert of that sender), the blocked state and „Blockierung aufheben“. Never for test alerts.
  */
 export function AlertCard({
   alert: a,
   onPress,
-  blocked,
-  onBlocked,
+  onSenderChanged,
 }: {
   alert: AlertListItem;
   onPress: () => void;
-  blocked?: boolean;
-  onBlocked?: (r: BlockResult) => void | Promise<void>;
+  onSenderChanged?: (blocked: boolean, until: string | null) => void | Promise<void>;
 }) {
   const c = useTheme();
+  const dark = useColorScheme() === 'dark';
   const urgent = a.severity === 'urgent';
+  const custom = a.type.code === 'custom';
+  const purple = PURPLE[dark ? 'dark' : 'light'];
   const type = lang() === 'en' ? a.type.en : a.type.de;
+  const status = statusLabel(a);
+  const done = isDone(a);
+  const photos = a.photoCount ? t('photos', { count: a.photoCount }) : null;
+  const subtitle = [`„${a.vehicle.nickname}“`, photos].filter(Boolean).join(' · ');
+  const time = shortTime(a.createdAt);
+  const cardBg = custom ? purple.bg : dark ? c.surface : c.bg;
+  const border = urgent && !done ? c.urgent : custom ? purple.border : c.border;
+  const boxBg = urgent ? c.dangerBg : custom ? purple.box : c.infoBg;
+  const iconColor = urgent ? c.urgent : custom ? purple.icon : c.primary;
+  const footer = !a.isTest && onSenderChanged;
+
   return (
     <View
-      style={[s.wrap, { backgroundColor: c.surface, borderColor: urgent ? c.urgent : c.border }]}
+      testID={`alert-card-${a.id}`}
+      style={[s.wrap, { backgroundColor: cardBg, borderColor: border }]}
     >
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={`${type}, ${a.vehicle.nickname}, ${statusLabel(a)}`}
+        accessibilityLabel={[
+          type,
+          a.vehicle.nickname,
+          photos,
+          time,
+          status,
+          a.isTest ? t('test') : null,
+          a.senderBlocked ? blockedText(a.blockedUntil) : null,
+        ]
+          .filter(Boolean)
+          .join(', ')}
         style={({ pressed }) => [s.card, { opacity: pressed ? 0.85 : 1 }]}
       >
-        {urgent && (
-          <View testID="urgent-stripe" style={[s.stripe, { backgroundColor: c.urgent }]} />
-        )}
-        <AlertTypeIcon code={a.type.code} urgent={urgent} size={24} />
+        <View style={[s.box, { backgroundColor: boxBg }]}>
+          <Icon name={alertTypeIcon(a.type.code)} size={26} color={iconColor} />
+        </View>
         <View style={s.text}>
           <View style={s.head}>
             <Text style={[typeScale.body, s.type, { color: c.fg }]}>{type}</Text>
-            <Text style={[typeScale.caption, { color: c.muted }]}>{time(a.createdAt)}</Text>
+            <Text style={[typeScale.caption, s.time, { color: c.muted }]}>{time}</Text>
           </View>
-          <Text style={[typeScale.label, { color: c.muted, fontWeight: '400' }]}>
-            „{a.vehicle.nickname}“{a.photoCount ? ` · ${t('photos', { count: a.photoCount })}` : ''}
-          </Text>
-          <View style={s.chips}>
-            <Chip tone={statusTone(a)}>{statusLabel(a)}</Chip>
-            {a.isTest && <Chip tone="neutral">{t('test')}</Chip>}
+          <Text style={[typeScale.label, { color: c.muted, fontWeight: '400' }]}>{subtitle}</Text>
+          <View style={s.pills}>
+            <Pill tone={statusTone(a)} icon={done ? 'check' : undefined} label={status} />
+            {a.isTest && <Pill tone="neutral" icon="flask" label={t('test')} />}
           </View>
         </View>
       </Pressable>
-      {!a.isTest && (blocked || onBlocked) && (
-        <View style={s.actions}>
-          {blocked ? (
-            <Chip tone="neutral">{t('blocked')}</Chip>
+      {footer && (
+        <View style={[s.footer, { borderTopColor: custom ? purple.border : c.border }]}>
+          {a.senderBlocked ? (
+            <>
+              <SenderBlockedStatus until={a.blockedUntil} />
+              <UnblockSenderButton
+                alertId={a.id}
+                variant="link"
+                testID={`unblock-${a.id}`}
+                onUnblocked={(r) => onSenderChanged(r.senderBlocked, r.blockedUntil)}
+              />
+            </>
           ) : (
             <BlockSenderButton
               alertId={a.id}
-              variant="ghost"
-              onBlocked={onBlocked!}
+              variant="link"
               testID={`block-${a.id}`}
+              onBlocked={(r) => onSenderChanged(true, r.blockedUntil)}
             />
           )}
         </View>
@@ -98,18 +171,32 @@ export function AlertCard({
 }
 
 const s = StyleSheet.create({
-  wrap: { borderWidth: 1, borderRadius: radius.lg, overflow: 'hidden' },
-  card: {
-    flexDirection: 'row',
-    gap: space.md,
-    padding: space.lg,
-    paddingLeft: space.lg + 4,
-    alignItems: 'flex-start',
+  wrap: { borderWidth: 1, borderRadius: radius.lg + 2, overflow: 'hidden' },
+  card: { flexDirection: 'row', gap: space.lg, padding: space.lg, alignItems: 'flex-start' },
+  box: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  actions: { paddingHorizontal: space.lg, paddingBottom: space.sm, alignItems: 'flex-start' },
-  stripe: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
   text: { flex: 1, gap: space.xs },
   head: { flexDirection: 'row', justifyContent: 'space-between', gap: space.sm },
   type: { fontWeight: '700', flexShrink: 1 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: 2 },
+  time: { flexShrink: 0, paddingTop: 2 },
+  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.xs },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: space.md,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+  },
+  footer: {
+    borderTopWidth: 1,
+    marginHorizontal: space.lg,
+    paddingVertical: space.xs,
+    gap: 0,
+  },
 });

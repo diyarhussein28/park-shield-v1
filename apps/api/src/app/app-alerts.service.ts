@@ -6,6 +6,7 @@ import { CRYPTO, DB } from '../core/tokens';
 import { ChatService } from '../chat/chat.service';
 import { DispatchService } from '../notifications/dispatch.service';
 import { stopEscalation } from '../notifications/escalation';
+import { SenderBlockService } from '../abuse/sender-block.service';
 
 const PAGE = 30;
 
@@ -20,6 +21,7 @@ export class AppAlertsService {
     @Inject(CRYPTO) private readonly crypto: FieldCrypto,
     @Inject(ChatService) private readonly chat: ChatService,
     @Inject(DispatchService) private readonly dispatch: DispatchService,
+    @Inject(SenderBlockService) private readonly senderBlocks: SenderBlockService,
   ) {}
 
   private base(userId: string) {
@@ -46,6 +48,11 @@ export class AppAlertsService {
         'a.owner_reply',
         'a.acknowledged_by',
         'a.escalation_stage',
+        'a.resolved_at',
+        'a.vehicle_id',
+        'a.qr_token_id',
+        'a.block_ref',
+        'a.verified_phone_hash',
         'v.id as vehicleId',
         'v.nickname',
         't.label_de',
@@ -64,6 +71,8 @@ export class AppAlertsService {
     if (before) q = q.where('a.created_at', '<', before);
     const rows = await q.execute();
     const now = new Date();
+    // Block state per alert, computed here: every alert of a blocked sender says so (2026-11-22).
+    const blocks = await this.senderBlocks.stateFor(rows.slice(0, PAGE));
     return {
       alerts: rows.slice(0, PAGE).map((r) => ({
         id: r.id,
@@ -75,10 +84,13 @@ export class AppAlertsService {
         seenAt: r.seen_at,
         acknowledged: r.owner_reply === 'coming' || r.acknowledged_by !== null,
         acknowledgedBy: r.acknowledged_by,
+        resolved: r.resolved_at !== null,
         escalationStage: r.escalation_stage,
         vehicle: { id: r.vehicleId, nickname: r.nickname },
         photoCount: Number(r.photoCount ?? 0),
         chatStatus: r.chatStatus,
+        senderBlocked: blocks.get(r.id)?.senderBlocked ?? false,
+        blockedUntil: blocks.get(r.id)?.blockedUntil ?? null,
       })),
       next: rows.length > PAGE ? rows[PAGE - 1]!.created_at : null,
       pushReady: await this.dispatch.hasPushDevice(userId),
@@ -113,6 +125,10 @@ export class AppAlertsService {
         'a.escalation_stop_reason',
         'a.custom_message_enc',
         'a.content_hidden',
+        'a.vehicle_id',
+        'a.qr_token_id',
+        'a.block_ref',
+        'a.verified_phone_hash',
         'v.id as vehicleId',
         'v.nickname',
         'v.owner_user_id',
@@ -122,7 +138,7 @@ export class AppAlertsService {
       .where('a.id', '=', alertId)
       .executeTakeFirst();
     if (!a) throw new NotFoundException({ error: 'alert_not_found' });
-    const [allMedia, report, chat, blocked] = await Promise.all([
+    const [allMedia, report, chat, blocked, own] = await Promise.all([
       this.db
         .selectFrom('alert_media')
         .select([
@@ -146,6 +162,7 @@ export class AppAlertsService {
         .executeTakeFirst(),
       this.chat.state(a.id, 'owner'),
       this.chat.senderBlocked(a.id),
+      this.senderBlocks.stateOf(a),
     ]);
     const media = allMedia
       .filter((m) => !m.deleted_at && m.wrapped_key)
@@ -190,6 +207,9 @@ export class AppAlertsService {
       photoCount: media.length,
       photosGone,
       reported: Boolean(report),
+      // The owner's own block of this sender (scanner reference or confirmed number), with its end.
+      senderBlocked: own.senderBlocked,
+      blockedUntil: own.blockedUntil,
       chat: chat
         ? { ...chat, canOpen: chat.status === 'locked' && !blocked, senderBlocked: blocked }
         : null,

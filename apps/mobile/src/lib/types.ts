@@ -15,11 +15,17 @@ export interface AlertListItem {
   seenAt: string | null;
   acknowledged: boolean;
   acknowledgedBy: string | null;
+  /** „Erledigt“ was tapped (POST /v1/app/alerts/:id/resolve). */
+  resolved?: boolean;
   /** Owner escalation (2026-11-21): reminder push after 10 min, one SMS after 30 min. */
   escalationStage: EscalationStage;
   vehicle: { id: string; nickname: string };
   photoCount: number;
   chatStatus: ChatStatus | null;
+  /** The owner blocked this alert's sender (same scanner reference or confirmed number); server-side. */
+  senderBlocked: boolean;
+  /** When that block ends (ISO); null when not blocked. */
+  blockedUntil: string | null;
 }
 
 export type EscalationStage = 'none' | 'reminder_sent' | 'sms_sent';
@@ -99,6 +105,9 @@ export interface AlertDetail {
   photosGone: 'abuse_report' | 'retention' | null;
   /** „Missbrauch melden“ was used for this alert (here, on the website or from the e-mail link). */
   reported: boolean;
+  /** The owner's own block of this sender, computed on the server (see AlertListItem). */
+  senderBlocked: boolean;
+  blockedUntil: string | null;
   chat: (ChatState & { canOpen: boolean; senderBlocked: boolean }) | null;
 }
 
