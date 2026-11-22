@@ -11,7 +11,9 @@ import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 import { api, setUnauthorizedHandler } from './api';
 import { lang } from './i18n';
+import { clearAccountFlags } from './prefs';
 import { registerDevice, unregisterDevice } from './push';
+import { removeAllVehiclePhotos } from './vehicle-photo';
 import { clearSession, getSession, setSession } from './session';
 
 interface Auth {
@@ -108,10 +110,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [start],
   );
 
+  /**
+   * „Abmelden“ (2026-11-22): the push token is removed on the server, the session is revoked there,
+   * the tokens leave the Keychain/Keystore, and every personal thing on this phone goes (flags, car
+   * photos). Signing out flips `signedIn`, which clears the in-memory stores (alerts, profile, lock).
+   * Only the app language stays. The caller resets navigation to the first onboarding slide.
+   */
   const signOut = useCallback(async () => {
     await unregisterDevice();
     await api('/v1/auth/logout', { body: {} }).catch(() => undefined);
     await clearSession();
+    await clearAccountFlags();
+    try {
+      removeAllVehiclePhotos();
+    } catch {
+      // nothing stored
+    }
+    redeemed.clear();
     setSignedIn(false);
   }, []);
 

@@ -1,5 +1,3 @@
-import { getLocales } from 'expo-localization';
-
 /** German is the source language, English the second (same rule as the website). */
 const de = {
   error: 'Das hat nicht geklappt. Bitte versuchen Sie es noch einmal.',
@@ -98,9 +96,9 @@ const de = {
     'Der Test läuft bis {time} Uhr. Scannen Sie jetzt den Aufkleber mit der Handykamera.',
   accountProfile: 'Profil',
   accountCustomerNo: 'Kundennummer',
-  accountMailLang: 'Sprache der E-Mails',
+  accountMailLang: 'Sprache',
   accountMailLangHint:
-    'In dieser Sprache schicken wir Ihnen E-Mails und Benachrichtigungen. Die App folgt der Sprache Ihres Handys.',
+    'In dieser Sprache zeigen wir die App und schicken Ihnen E-Mails und Benachrichtigungen. Die App startet auf Deutsch; Ihre Wahl gilt für dieses Handy und Ihr Konto.',
   appDevices: 'Handys mit dieser App',
   appDevicesNone: 'Noch kein Handy mit Mitteilungen angemeldet.',
   appDevice: '{platform}, App {version}, zuletzt aktiv am {date}',
@@ -147,16 +145,21 @@ const de = {
   homeTitle: 'Start',
   obSkip: 'Überspringen',
   obNext: 'Weiter',
-  obPage: 'Seite {n} von 3',
-  ob1Title: 'Jemand sieht ein Problem an Ihrem Auto',
-  ob1Text: 'Die Person scannt den Aufkleber an Ihrer Scheibe. Ohne App, ohne Konto.',
-  ob2Title: 'Sie erfahren es sofort',
-  ob2Text: 'Per App – und per SMS, wenn Sie nicht reagieren.',
-  ob3Title: 'Sie antworten, anonym',
+  obPage: 'Seite {n} von 4',
+  ob1Title: 'Ihr Auto ist erreichbar – ohne Ihre Nummer',
+  ob1Text:
+    'ParkShield ist ein QR-Aufkleber für Ihr Auto. Sieht jemand ein Problem, scannt er ihn und sagt Ihnen Bescheid – ohne App und ohne Konto.',
+  ob2Title: 'So funktionieren Warnungen',
+  ob2Text:
+    'Sie bekommen sofort eine Mitteilung in der App und antworten mit einem Tipp. Reagieren Sie nicht, erinnern wir Sie nach 10 Minuten und schicken nach 30 Minuten eine SMS.',
+  ob3Title: 'Ihre Daten bleiben privat',
   ob3Text:
-    'Ein Tipp auf „Ich komme“ genügt. Niemand sieht Ihre Nummer, Ihren Namen oder Ihr Kennzeichen.',
-  obStart: 'Los geht’s',
-  obHaveAccount: 'Ich habe schon ein Konto',
+    'Niemand sieht Ihre Telefonnummer, Ihren Namen oder Ihr Kennzeichen. Server in Deutschland, keine Werbung, kein Tracking.',
+  ob4Title: 'Alles drin für 20 € im Jahr',
+  ob4Text:
+    'Ein Tarif für ein Fahrzeug, inkl. MwSt.: Warnungen, Erinnerung, SMS, Chat und ein gedruckter Aufkleber mit Versand. Der Vertrag verlängert sich um ein Jahr, wenn Sie nicht vor Ende der Laufzeit kündigen.',
+  obStart: 'Registrieren',
+  obHaveAccount: 'Anmelden',
   newAccount: 'Neu hier? Konto erstellen',
   signUpTitle: 'Konto erstellen',
   signUpStep: 'Schritt {step} von {total}',
@@ -219,7 +222,7 @@ const de = {
   groupHelp: 'Hilfe und Daten',
   planRow: 'Abo und Rechnungen',
   planNone: 'Noch kein Abo',
-  appLanguage: 'Sprache der E-Mails',
+  appLanguage: 'Sprache',
   paywallTitle: 'Ihr Schutz für ein Jahr',
   paywallIntro: 'Ein Jahr, ein fester Preis. Keine Werbung, kein Tracking, Server in Deutschland.',
   paywallPerYear: 'pro Jahr',
@@ -490,9 +493,9 @@ const en: Record<Key, string> = {
   decalTestOpen: 'The test is open until {time}. Scan the decal with your phone camera now.',
   accountProfile: 'Profile',
   accountCustomerNo: 'Customer number',
-  accountMailLang: 'E-mail language',
+  accountMailLang: 'Language',
   accountMailLangHint:
-    'We send you e-mails and notifications in this language. The app follows the language of your phone.',
+    'We show the app and send you e-mails and notifications in this language. The app starts in German; your choice applies to this phone and your account.',
   appDevices: 'Phones with this app',
   appDevicesNone: 'No phone with notifications signed in yet.',
   appDevice: '{platform}, app {version}, last active on {date}',
@@ -537,15 +540,21 @@ const en: Record<Key, string> = {
   homeTitle: 'Home',
   obSkip: 'Skip',
   obNext: 'Next',
-  obPage: 'Page {n} of 3',
-  ob1Title: 'Someone notices a problem with your car',
-  ob1Text: 'They scan the decal on your windscreen. No app, no account.',
-  ob2Title: 'You know at once',
-  ob2Text: 'In the app – and by SMS if you do not react.',
-  ob3Title: 'You reply, anonymously',
-  ob3Text: 'One tap on “I’m coming” is enough. Nobody sees your number, your name or your plate.',
-  obStart: 'Get started',
-  obHaveAccount: 'I already have an account',
+  obPage: 'Page {n} of 4',
+  ob1Title: 'Your car is reachable – without your number',
+  ob1Text:
+    'ParkShield is a QR decal for your car. Anyone who sees a problem scans it and lets you know – no app, no account.',
+  ob2Title: 'How alerts work',
+  ob2Text:
+    'You get a notification in the app at once and reply with one tap. If you do not react, we remind you after 10 minutes and send an SMS after 30 minutes.',
+  ob3Title: 'Your data stays private',
+  ob3Text:
+    'Nobody sees your phone number, your name or your plate. Servers in Germany, no ads, no tracking.',
+  ob4Title: 'Everything included for €20 a year',
+  ob4Text:
+    'One plan for one vehicle, incl. VAT: alerts, reminder, SMS, chat and one printed decal with shipping. The contract renews for one year unless you cancel before the end of the term.',
+  obStart: 'Sign up',
+  obHaveAccount: 'Sign in',
   newAccount: 'New here? Create an account',
   signUpTitle: 'Create account',
   signUpStep: 'Step {step} of {total}',
@@ -606,7 +615,7 @@ const en: Record<Key, string> = {
   groupHelp: 'Help and data',
   planRow: 'Plan and invoices',
   planNone: 'No plan yet',
-  appLanguage: 'E-mail language',
+  appLanguage: 'Language',
   paywallTitle: 'Your protection for one year',
   paywallIntro: 'One year, one fixed price. No ads, no tracking, servers in Germany.',
   paywallPerYear: 'per year',
@@ -785,14 +794,6 @@ const en: Record<Key, string> = {
 export const messages = { de, en } as const;
 export type Lang = keyof typeof messages;
 
-export function deviceLang(): Lang {
-  try {
-    return getLocales()[0]?.languageCode === 'en' ? 'en' : 'de';
-  } catch {
-    return 'de';
-  }
-}
-
 /** Minimal ICU: {name} and {count, plural, one {…} other {…}} with # for the number. */
 export function format(template: string, values: Record<string, string | number> = {}): string {
   const plural = /\{(\w+), plural, one \{([^}]*)\} other \{([^}]*)\}\}/g;
@@ -804,10 +805,20 @@ export function format(template: string, values: Record<string, string | number>
     .replace(/\{(\w+)\}/g, (_, k: string) => (values[k] !== undefined ? String(values[k]) : ''));
 }
 
-let current: Lang = deviceLang();
+/** German by default, before sign-in and without asking (owner decision 2026-11-22). */
+export const DEFAULT_LANG: Lang = 'de';
+let current: Lang = DEFAULT_LANG;
+const langListeners = new Set<(l: Lang) => void>();
 export const setLang = (l: Lang) => {
+  if (l === current) return;
   current = l;
+  for (const fn of langListeners) fn(l);
 };
+/** Called on every language switch (the root layout re-renders the whole app with it). */
+export function onLangChange(fn: (l: Lang) => void): () => void {
+  langListeners.add(fn);
+  return () => langListeners.delete(fn);
+}
 export const lang = () => current;
 export const t = (key: Key, values?: Record<string, string | number>) =>
   format(messages[current][key], values);

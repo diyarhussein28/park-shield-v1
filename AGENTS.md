@@ -389,7 +389,7 @@ Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
   **Konto** (grouped list: plan → `/abo`, notifications, „Ihre Angaben“, Face ID
   switch, delivery help, data, help, sign-out) — with the branded `BrandTabBar`; every other screen is
   pushed above the tabs. The routing rules are the pure `gateTarget()` in `src/app/_layout.tsx`: first
-  launch → `/willkommen` (three onboarding scenes) → `/registrieren` (e-mail + 6-digit code) →
+  launch → `/willkommen` (four onboarding slides: what it is, alerts, privacy, 20 € / year) → `/registrieren` (e-mail + 6-digit code) →
   `/profil?flow=signup` (name, address, **required** mobile number with SMS code) → `/app-sperre` (Face ID offer) →
   `/tarif` (paywall) → `/erfolg` (success moments) → add the car; accounts without a profile or
   without a verified number get the blocking `/profil?flow=complete` (alerts are never blocked). **Profile gate:** the API answers
@@ -407,6 +407,11 @@ Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
   test checks values and contrast); headings use Plus Jakarta Sans (`assets/fonts`, OFL), body text
   the system font; illustrations in `src/components/art.tsx`; icons and the logo are the website's SVG
   paths plus a few app-only ones (`src/components/icons.tsx`, via react-native-svg).
+  **Language** (2026-11-22): German on a fresh install, before sign-in, without asking; „Sprache“ in
+  Konto switches to English and saves it on the device (`ps.lang`, `lib/language.ts`) and in the
+  account (`preferredLang`). **Abmelden** removes the push token and revokes the session on the server,
+  deletes the session, flags and car photos from the phone (only the language stays), clears the
+  in-memory stores and resets navigation to the first onboarding slide.
   Start Metro from `apps/mobile`, never from the repo root.
   Push needs a development or store build with Firebase (Expo Go shows the UI only).
 

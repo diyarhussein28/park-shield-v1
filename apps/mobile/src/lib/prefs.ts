@@ -26,15 +26,23 @@ export async function getFlag(flag: Flag): Promise<boolean> {
   return v;
 }
 
+/** The value set or read in this run, if any (no Keychain read): for synchronous routing decisions. */
+export const peekFlag = (flag: Flag): boolean | undefined => cache.get(flag);
+
 export async function setFlag(flag: Flag, on: boolean): Promise<void> {
   cache.set(flag, on);
   if (on) await SecureStore.setItemAsync(KEY[flag], '1', OPTS).catch(() => undefined);
   else await SecureStore.deleteItemAsync(KEY[flag], OPTS).catch(() => undefined);
 }
 
-/** Sign-out: the next account on this phone starts without the previous one's choices. */
+/**
+ * Sign-out: the next person on this phone starts from the first onboarding slide, without the previous
+ * account's choices. Only the language (a non-personal device setting) survives.
+ */
 export async function clearAccountFlags(): Promise<void> {
   await Promise.all(
-    (['lockEnabled', 'setupDismissed', 'pushAsked'] as const).map((f) => setFlag(f, false)),
+    (['onboarded', 'lockEnabled', 'setupDismissed', 'pushAsked'] as const).map((f) =>
+      setFlag(f, false),
+    ),
   );
 }

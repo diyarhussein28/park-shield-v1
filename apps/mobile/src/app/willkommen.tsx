@@ -20,11 +20,12 @@ import { t } from '@/lib/i18n';
 import { setFlag } from '@/lib/prefs';
 import { radius, space, type as typeScale, useTheme } from '@/theme/tokens';
 
-const SCENES = [1, 2, 3] as const;
+const SCENES = [1, 2, 3, 4] as const;
 
 /**
- * First launch (§5.2): three short scenes with the decal idea, skippable, page dots, then
- * „Los geht’s“ (new account) or „Ich habe schon ein Konto“ (sign in).
+ * First launch and after „Abmelden“ (§5.2, 2026-11-22): four short slides in German by default —
+ * what ParkShield is, how alerts work, privacy, the price (20 € / year) — skippable, page dots, then
+ * „Registrieren“ or „Anmelden“.
  */
 export default function Welcome() {
   const c = useTheme();
@@ -95,7 +96,7 @@ export default function Welcome() {
           accessibilityRole="adjustable"
           accessibilityLabel={t('obPage', { n: page + 1 })}
           onAccessibilityAction={(e) => {
-            if (e.nativeEvent.actionName === 'increment') go(Math.min(page + 1, 2));
+            if (e.nativeEvent.actionName === 'increment') go(Math.min(page + 1, SCENES.length - 1));
             if (e.nativeEvent.actionName === 'decrement') go(Math.max(page - 1, 0));
           }}
           accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}

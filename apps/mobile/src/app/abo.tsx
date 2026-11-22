@@ -12,6 +12,7 @@ import {
 import { Banner, Button, Card, P, Screen, Title, useTheme } from '@/components/ui';
 import { api } from '@/lib/api';
 import { lang, t } from '@/lib/i18n';
+import { LANG_NAMES, switchLanguage } from '@/lib/language';
 import {
   downloadAndShare,
   errorText,
@@ -187,9 +188,9 @@ export default function Subscription() {
           <Segmented
             legend={t('accountMailLang')}
             options={['de', 'en'] as const}
-            value={me.preferredLang}
-            onChange={(v) => void patchMe({ preferredLang: v }, pt('summarySettings.saved'))}
-            label={(v) => (v === 'de' ? 'Deutsch' : 'English')}
+            value={lang()}
+            onChange={(v) => void switchLanguage(v)}
+            label={(v) => LANG_NAMES[v]}
           />
           <P muted>{t('accountMailLangHint')}</P>
         </Card>

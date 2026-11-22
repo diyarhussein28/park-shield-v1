@@ -9,10 +9,11 @@ import { LockScreen } from '@/components/lock-screen';
 import { Loading } from '@/components/ui';
 import { AlertsProvider } from '@/lib/alerts-store';
 import { AuthProvider, useAuth } from '@/lib/auth';
-import { t } from '@/lib/i18n';
+import { onLangChange, t, type Lang } from '@/lib/i18n';
+import { loadLang } from '@/lib/language';
 import { allowedWhileLocked, LockProvider, useLock } from '@/lib/lock';
 import { pt } from '@/lib/portal-i18n';
-import { getFlag } from '@/lib/prefs';
+import { getFlag, peekFlag } from '@/lib/prefs';
 import { ProfileProvider, useProfile } from '@/lib/profile';
 import {
   configureNotifications,
@@ -92,7 +93,8 @@ function Gate() {
     const target = gateTarget({
       signedIn,
       first: segments[0] ?? '',
-      onboarded,
+      // Sign-out clears the flag in this run: the next stop is the first onboarding slide.
+      onboarded: peekFlag('onboarded') ?? onboarded,
       profileComplete: complete,
       phoneVerified,
       newAccount,
@@ -172,11 +174,17 @@ function Gate() {
 
 export default function RootLayout() {
   // Heading typeface (titles only), bundled; the app starts with the system font if loading fails.
+  // German unless this phone saved English (2026-11-22); a switch re-renders every screen.
+  const [language, setLanguage] = useState<Lang | null>(null);
+  useEffect(() => {
+    void loadLang().then(setLanguage);
+    return onLangChange(setLanguage);
+  }, []);
   const [fontsLoaded, fontError] = useFonts({
     [HEADING_FONT]: require('../../assets/fonts/PlusJakartaSans_800ExtraBold.ttf'),
     [HEADING_FONT_BOLD]: require('../../assets/fonts/PlusJakartaSans_700Bold.ttf'),
   });
-  if (!fontsLoaded && !fontError) return null;
+  if ((!fontsLoaded && !fontError) || !language) return null;
   return (
     <SafeAreaProvider>
       <AuthProvider>
@@ -184,7 +192,7 @@ export default function RootLayout() {
         <ProfileProvider>
           <LockProvider>
             <AlertsProvider>
-              <Gate />
+              <Gate key={language} />
             </AlertsProvider>
           </LockProvider>
         </ProfileProvider>

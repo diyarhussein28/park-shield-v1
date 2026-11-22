@@ -197,7 +197,7 @@ function Phone({
 }
 
 /** The three onboarding scenes: someone scans, you are told, you answer anonymously. */
-export function OnboardingArt({ scene, width = 260 }: { scene: 1 | 2 | 3; width?: number }) {
+export function OnboardingArt({ scene, width = 260 }: { scene: 1 | 2 | 3 | 4; width?: number }) {
   const c = useTheme();
   return (
     <Frame
@@ -275,6 +275,30 @@ export function OnboardingArt({ scene, width = 260 }: { scene: 1 | 2 | 3; width?
             strokeWidth={2}
           />
           <Path d="M164 115h46" stroke={c.muted} strokeWidth={3.5} strokeLinecap="round" />
+        </G>
+      )}
+      {scene === 4 && (
+        <G>
+          {/* The price: a decal card with a check, and a euro coin. */}
+          <Rect
+            x={58}
+            y={44}
+            width={96}
+            height={96}
+            rx={16}
+            fill={c.bg}
+            stroke={c.primary}
+            strokeWidth={3}
+          />
+          <Decal x={74} y={60} size={64} c={c} />
+          <Circle cx={182} cy={108} r={34} fill={c.accent} />
+          <Path
+            d="M194 92a16 16 0 1 0 0 32 M168 103h20 M168 113h20"
+            stroke={c.accentFg}
+            strokeWidth={5}
+            fill="none"
+            strokeLinecap="round"
+          />
         </G>
       )}
     </Frame>

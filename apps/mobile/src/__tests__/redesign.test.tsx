@@ -211,15 +211,21 @@ describe('routing gate', () => {
 });
 
 describe('onboarding', () => {
-  it('three scenes with dots, skippable, then „Los geht’s“ or „Ich habe schon ein Konto“', async () => {
+  it('four German slides (what, alerts, privacy, 20 € price), skippable, then „Registrieren“ or „Anmelden“', async () => {
     await render(<Welcome />);
-    expect(screen.getByText(t('ob1Title'))).toBeTruthy();
+    // A fresh install is German without asking (2026-11-22).
+    expect(screen.getByText('Ihr Auto ist erreichbar – ohne Ihre Nummer')).toBeTruthy();
     expect(screen.queryByText(t('ob2Title'))).toBeNull(); // other pages hidden from VoiceOver
-    expect(screen.getByLabelText(t('obPage', { n: 1 }))).toBeTruthy();
+    expect(screen.getByLabelText('Seite 1 von 4')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('ob-next'));
     expect(screen.getByLabelText(t('obPage', { n: 2 }))).toBeTruthy();
+    expect(t('ob2Text')).toMatch(/10 Minuten.*30 Minuten eine SMS/);
+    expect(t('ob3Title')).toBe('Ihre Daten bleiben privat');
+    expect(t('ob4Title')).toBe('Alles drin für 20 € im Jahr');
     await fireEvent.press(screen.getByLabelText(t('obSkip')));
-    expect(screen.getByLabelText(t('obPage', { n: 3 }))).toBeTruthy();
+    expect(screen.getByLabelText(t('obPage', { n: 4 }))).toBeTruthy();
+    expect(screen.getByLabelText('Registrieren')).toBeTruthy();
+    expect(screen.getByLabelText('Anmelden')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('ob-start'));
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/registrieren'));
     expect(await getFlag('onboarded')).toBe(true);

@@ -3,7 +3,8 @@ import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
 import { Alert, Linking } from 'react-native';
 import { shareDecalPdf } from '@/lib/decal';
-import { t } from '@/lib/i18n';
+import { lang, t } from '@/lib/i18n';
+import { saveLang } from '@/lib/language';
 import { pt } from '@/lib/portal-i18n';
 import { euro, longDate, type PortalVehicle, type SubscriptionSummary } from '@/lib/portal';
 import { setSession } from '@/lib/session';
@@ -530,7 +531,7 @@ describe('subscription and checkout in the app', () => {
     expect(screen.queryByTestId('withdraw')).toBeNull();
   });
 
-  it('Konto: the plan card comes first; the e-mail language is a segmented choice', async () => {
+  it('Konto: the plan card comes first; the language is a segmented choice', async () => {
     api({
       'GET /v1/me': () => json(me),
       'GET /v1/billing/subscription': () => json({ subscription: subscription() }),
@@ -551,6 +552,9 @@ describe('subscription and checkout in the app', () => {
     expect(english.props.accessibilityRole).toBe('radio');
     await fireEvent.press(english);
     await waitFor(() => expect(sent('PATCH', '/v1/me')).toEqual({ preferredLang: 'en' }));
+    // The same choice switches the app and is kept on this device (2026-11-22).
+    await waitFor(() => expect(lang()).toBe('en'));
+    await saveLang('de');
   });
 
   it('without a plan the subscription screen leads to the plans', async () => {

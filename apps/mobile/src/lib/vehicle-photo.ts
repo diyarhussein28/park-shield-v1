@@ -87,3 +87,15 @@ function deleteQuietly(name: string) {
     // already gone
   }
 }
+
+/** Sign-out: every car photo of the previous account leaves this phone. */
+export function removeAllVehiclePhotos(): void {
+  const index = readIndex();
+  for (const name of Object.values(index)) deleteQuietly(name);
+  try {
+    const f = indexFile();
+    if (f.exists) f.delete();
+  } catch {
+    // nothing stored
+  }
+}

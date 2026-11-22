@@ -1,5 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
-import { t } from '@/lib/i18n';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { lang, setLang, t } from '@/lib/i18n';
+import { loadLang, saveLang } from '@/lib/language';
 import { pt } from '@/lib/portal-i18n';
 import { setSession } from '@/lib/session';
 import SignIn from '@/app/anmelden';
@@ -8,9 +10,17 @@ import Account from '@/app/(tabs)/konto';
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
 const mockSignOut = jest.fn(async () => undefined);
+const mockDismissAll = jest.fn();
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, replace: mockReplace, back: jest.fn(), navigate: jest.fn() }),
+  useRouter: () => ({
+    push: mockPush,
+    replace: mockReplace,
+    back: jest.fn(),
+    navigate: jest.fn(),
+    canDismiss: () => true,
+    dismissAll: mockDismissAll,
+  }),
   useLocalSearchParams: () => ({}),
   useFocusEffect: (cb: () => void) => {
     const { useEffect } = jest.requireActual<typeof import('react')>('react');
@@ -119,6 +129,33 @@ it('Konto has every former „Mehr“ item, the lock switch, and sign-out as the
   expect(screen.getByText(t('appVersion', { version: '1.0.0' }))).toBeTruthy();
   await fireEvent.press(screen.getByTestId('sign-out'));
   expect(mockSignOut).toHaveBeenCalled();
+  // Back to the first onboarding slide, with nothing of the app beneath it (2026-11-22).
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/willkommen'));
+  expect(mockDismissAll).toHaveBeenCalled();
+});
+
+it('„Sprache“ in Konto: German by default; English is saved on the device and in the account', async () => {
+  const store = (jest.requireMock('expo-secure-store') as { __store: Map<string, string> }).__store;
+  expect(lang()).toBe('de');
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
+    buttons?.find((b) => b.text === 'English')?.onPress?.();
+  });
+  await render(<Account />);
+  const row = await screen.findByTestId('row-language');
+  expect(screen.getByText('Deutsch')).toBeTruthy();
+  await fireEvent.press(row);
+  expect(alert).toHaveBeenCalled();
+  await waitFor(() => expect(lang()).toBe('en'));
+  expect(store.get('ps.lang')).toBe('en');
+  const patch = (global.fetch as jest.Mock).mock.calls.find(
+    ([u, i]: [string, RequestInit | undefined]) => u.endsWith('/v1/me') && i?.method === 'PATCH',
+  ) as [string, RequestInit] | undefined;
+  expect(JSON.parse(String(patch?.[1].body))).toEqual({ preferredLang: 'en' });
+  // Persists: the next start reads the saved choice.
+  setLang('de');
+  expect(await loadLang()).toBe('en');
+  expect(lang()).toBe('en');
+  await saveLang('de');
 });
 
 it('sign-in shows the website logo and wordmark', async () => {

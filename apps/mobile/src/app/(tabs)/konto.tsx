@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Group, Row, SwitchRow } from '@/components/list';
 import { Banner } from '@/components/ui';
@@ -8,11 +8,11 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { biometricInfo, biometricName, type BiometricKind } from '@/lib/biometrics';
 import { APP_VERSION } from '@/lib/config';
-import { t } from '@/lib/i18n';
+import { lang, t } from '@/lib/i18n';
+import { LANG_NAMES, switchLanguage } from '@/lib/language';
 import { useLock } from '@/lib/lock';
 import type { PortalMe, SubscriptionSummary } from '@/lib/portal';
 import { pt } from '@/lib/portal-i18n';
-import { clearAccountFlags } from '@/lib/prefs';
 import { useProfile } from '@/lib/profile';
 import { radius, space, type as typeScale, useTheme } from '@/theme/tokens';
 
@@ -121,6 +121,21 @@ export default function Account() {
             onPress={() => router.push({ pathname: '/profil', params: { flow: 'edit' } })}
             testID="row-profile"
           />
+          <Row
+            icon="globe"
+            title={t('accountMailLang')}
+            detail={LANG_NAMES[lang()]}
+            onPress={() =>
+              Alert.alert(t('accountMailLang'), t('accountMailLangHint'), [
+                ...(['de', 'en'] as const).map((l) => ({
+                  text: LANG_NAMES[l],
+                  onPress: () => void switchLanguage(l),
+                })),
+                { text: t('lockCancel'), style: 'cancel' as const },
+              ])
+            }
+            testID="row-language"
+          />
         </Group>
 
         <Group
@@ -168,9 +183,11 @@ export default function Account() {
             destructive
             title={t('signOut')}
             onPress={() =>
-              void signOut()
-                .then(clearAccountFlags)
-                .then(() => router.replace('/anmelden'))
+              void signOut().then(() => {
+                // Back to the first onboarding slide, with nothing of the app left to go back to.
+                if (router.canDismiss()) router.dismissAll();
+                router.replace('/willkommen');
+              })
             }
             testID="sign-out"
           />
