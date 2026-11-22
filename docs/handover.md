@@ -287,7 +287,11 @@ Still open (owner accounts):
 1. ✅ 2026-11-22: RevenueCat webhook → `https://test.park-shield.de/v1/webhooks/revenuecat` (test event
    received and stored), `REVENUECAT_WEBHOOK_AUTH` and the v1 `REVENUECAT_SECRET_KEY` in `server.env`
    (REST call verified). Still open: App Store / Play apps in RevenueCat (P8 key, product), offering.
-2. App Store Connect / Play Console: the yearly subscription product (20,00 € or 19,99 €), sandbox
+2. ✅ 2026-11-22: EAS env `preview` has `EXPO_PUBLIC_REVENUECAT_IOS_KEY` / `…_ANDROID_KEY` = the
+   RevenueCat **Test Store** public key (sandbox purchases without the stores; the API accepts
+   `TEST_STORE` only on test environments). Offering `default` (current) has the Test Store `yearly`
+   package. Replace both with the `appl_…` / `goog_…` keys once the store apps exist.
+   App Store Connect / Play Console: the yearly subscription product (20,00 € or 19,99 €), sandbox
    tester, Play internal test track; EAS env `EXPO_PUBLIC_REVENUECAT_IOS_KEY` / `…_ANDROID_KEY`, new
    development build (Expo Go cannot buy).
 3. Stripe test webhook: add `payment_intent.succeeded` and `charge.refunded` to the endpoint's events.
