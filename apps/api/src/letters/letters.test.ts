@@ -205,6 +205,7 @@ describe('snapshot and content', () => {
       url: `/v1/vehicles/${v.id}/order-included`,
       headers: s.headers,
       payload: {
+        personalizationConfirmed: true,
         address: {
           name: 'Firma Beispiel',
           line1: 'Werkstraße 1',

@@ -41,7 +41,8 @@ const plate = z
   .max(12)
   .regex(/^[A-Za-zÄÖÜäöü0-9 -]+$/);
 const Vehicle = z.object({
-  nickname: z.string().trim().min(1).max(60),
+  // Printed on the personalised sticker (Part B): 2–20 characters, basic punctuation, no bad words.
+  nickname: z.string().trim().refine(vehicleLabelOk, { message: 'label_invalid' }),
   plate,
   makeModel: z.string().trim().max(80).nullish(),
   color: z.string().trim().max(30).nullish(),
@@ -59,6 +60,8 @@ const Claim = z.object({ code: z.string().trim().min(10).max(16) });
 const Preview = Design.partial().extend({
   product: z.enum(DECAL_PRODUCTS).default('uv_vinyl_sticker'),
 });
+
+import { vehicleLabelOk } from './vehicle-label';
 
 function checkCta(cta: string | undefined) {
   if (cta === undefined) return;
@@ -164,13 +167,14 @@ export class VehiclesController {
     @Res() reply: FastifyReply,
   ) {
     checkCta(q.cta);
-    const { token, code } = await this.vehicles.currentToken(user.userId, id);
+    const { token, code, vehicle } = await this.vehicles.currentToken(user.userId, id);
     const spec = layoutDecal({
       code,
       scannerBaseUrl: this.env.SCANNER_BASE_URL,
       template: q.template ?? (token.design_template_id as never),
       cta: q.cta ?? token.cta_header,
       product: q.product,
+      label: vehicle.nickname,
     });
     return reply
       .header('content-type', 'image/svg+xml; charset=utf-8')
@@ -214,13 +218,14 @@ export class VehiclesController {
   }
 
   private async homeSpec(userId: string, id: string) {
-    const { token, code } = await this.vehicles.currentToken(userId, id);
+    const { token, code, vehicle } = await this.vehicles.currentToken(userId, id);
     return layoutDecal({
       code,
       scannerBaseUrl: this.env.SCANNER_BASE_URL,
       template: token.design_template_id as never,
       cta: token.cta_header,
       product: 'uv_vinyl_sticker',
+      label: vehicle.nickname,
     });
   }
 
@@ -231,13 +236,14 @@ export class VehiclesController {
     @Param('id', ParseUUIDPipe) id: string,
     @Res() reply: FastifyReply,
   ) {
-    const { token, code } = await this.vehicles.currentToken(user.userId, id);
+    const { token, code, vehicle } = await this.vehicles.currentToken(user.userId, id);
     const spec = layoutDecal({
       code,
       scannerBaseUrl: this.env.SCANNER_BASE_URL,
       template: token.design_template_id as never,
       cta: token.cta_header,
       product: 'uv_vinyl_sticker',
+      label: vehicle.nickname,
     });
     const pdf = await renderHomePdf(spec, 'ParkShield-Aufkleber', user.preferredLang);
     return reply

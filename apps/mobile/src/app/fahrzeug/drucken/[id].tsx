@@ -1,11 +1,12 @@
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { Image } from 'expo-image';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { NoCodeCard } from '@/components/no-code';
 import { AddressForm } from '@/components/vehicle-forms';
 import { Banner, Button, Card, Chip, Loading, P, Screen, Title, useTheme } from '@/components/ui';
-import { api } from '@/lib/api';
-import { printDecalPdf, shareDecalFile, type DecalFile } from '@/lib/decal';
+import { api, authHeaders } from '@/lib/api';
+import { decalPreviewUrl, printDecalPdf, shareDecalFile, type DecalFile } from '@/lib/decal';
 import { lang, t } from '@/lib/i18n';
 import {
   appReturnUrl,
@@ -83,7 +84,7 @@ export default function PrintScreen() {
       ) : (
         <>
           <SelfPrint vehicleId={v.id} />
-          <Shipped vehicleId={v.id} options={options} onOrdered={load} />
+          <Shipped vehicle={v} options={options} onOrdered={load} />
         </>
       )}
       {orders.length > 0 && (
@@ -181,23 +182,47 @@ function SelfPrint({ vehicleId }: { vehicleId: string }) {
   );
 }
 
+/** „3 €“ for whole euros (the button text of the spec), else „3,50 €“. */
+export function shortEuro(cents: number, locale: string): string {
+  if (cents % 100 === 0) return `${cents / 100} €`;
+  return euro(cents, locale);
+}
+
 /**
- * „Drucken und zusenden lassen“: the price is on the card and on the button before the owner confirms.
- * Free (welcome print or a replacement granted by support): ordered at once. Otherwise Stripe's page
- * opens in the app (back through /app/zurueck, like the subscription).
+ * „Drucken und zusenden lassen“ (B1): the price is on the card before anything is confirmed. One
+ * confirmation step follows on the same screen: the preview with the chosen design and the vehicle
+ * label (both printed on the decal, the plate never), „Design ändern“ back to the design screen, the
+ * postal address (required, prefilled), the notice that personalised goods have no right of
+ * withdrawal, and „Jetzt drucken und zusenden“ (welcome print) or „3 € bezahlen und zusenden“
+ * (Stripe's page inside the app, never an in-app purchase). Only that confirmation places the order;
+ * the API stores the design snapshot with it.
  */
 function Shipped({
-  vehicleId,
+  vehicle,
   options,
   onOrdered,
 }: {
-  vehicleId: string;
+  vehicle: PortalVehicle;
   options: PrintOptions;
   onOrdered: () => Promise<void>;
 }) {
+  const c = useTheme();
+  const router = useRouter();
+  const [step, setStep] = useState<'choose' | 'confirm'>('choose');
   const [result, setResult] = useState<'done' | 'canceled' | null>(null);
+  const [headers, setHeaders] = useState<Record<string, string> | null>(null);
   const free = options.shipped.free;
-  const price = euro(options.shipped.priceCents, lang());
+  const price = shortEuro(options.shipped.priceCents, lang());
+  const p = options.personalization;
+  const label = p?.label ?? vehicle.nickname;
+  const labelValid = p?.labelValid ?? true;
+  const template = p?.template ?? vehicle.decal?.template;
+  const preview = decalPreviewUrl(vehicle, p ? { template: p.template, cta: p.cta } : {});
+
+  useEffect(() => {
+    void authHeaders().then(setHeaders);
+  }, []);
+
   return (
     <Card>
       <View testID="print-ship">
@@ -209,29 +234,109 @@ function Shipped({
       </View>
       {result === 'done' && <Banner tone="ok">{t('printShipDone')}</Banner>}
       {result === 'canceled' && <Banner tone="info">{t('payCanceled')}</Banner>}
-      {/* TODO [LEGAL REVIEW] withdrawal right for the paid print order (decal with a personal code). */}
-      <AddressForm
-        intro={t('printShipText')}
-        submitLabel={free ? t('printShipSubmitFree') : t('printShipSubmitPaid', { price })}
-        onSubmit={async (address) => {
-          setResult(null);
-          const order = await api<OrderResult>(`/v1/vehicles/${vehicleId}/order-print`, {
-            body: { address, appReturn: appReturnUrl() },
-          });
-          if (order.free) setResult('done');
-          else {
-            // The order exists unpaid; Stripe's page with the price opens inside the app.
-            const pay = await payInApp(async () => order);
-            setResult(pay.result === 'success' ? 'done' : 'canceled');
-          }
-          await onOrdered();
-        }}
-      />
+      {step === 'choose' ? (
+        <>
+          <P>{t('printShipText')}</P>
+          <Button
+            label={t('printShipStart')}
+            onPress={() => {
+              setResult(null);
+              setStep('confirm');
+            }}
+            testID="ship-start"
+          />
+        </>
+      ) : (
+        <View style={s.confirm} testID="ship-confirm">
+          <Text accessibilityRole="header" style={[typeScale.heading, { color: c.fg }]}>
+            {t('printConfirmTitle')}
+          </Text>
+          <P muted>{t('printConfirmIntro')}</P>
+          {preview && headers && (
+            <View style={[s.preview, { borderColor: c.border }]}>
+              <Image
+                testID="ship-preview"
+                source={{ uri: preview, headers }}
+                contentFit="contain"
+                style={s.previewImage}
+                accessible={false}
+              />
+            </View>
+          )}
+          <P>{t('printConfirmLabel', { label })}</P>
+          {template && (
+            <P>
+              {t('printConfirmDesign', {
+                design: pt(`decal.template_${template}` as MessageKey),
+              })}
+            </P>
+          )}
+          <Button
+            variant="secondary"
+            label={t('printChangeDesign')}
+            onPress={() =>
+              router.push({ pathname: '/fahrzeug/design/[id]', params: { id: vehicle.id } })
+            }
+            testID="ship-design"
+          />
+          {!labelValid && (
+            <>
+              <Banner tone="err">{t('printLabelInvalid', { label })}</Banner>
+              <Button
+                variant="secondary"
+                label={t('printEditName')}
+                onPress={() =>
+                  router.push({ pathname: '/fahrzeug/[id]', params: { id: vehicle.id } })
+                }
+                testID="ship-edit-name"
+              />
+            </>
+          )}
+          <Text accessibilityRole="header" style={[typeScale.heading, { color: c.fg }]}>
+            {t('printAddressTitle')}
+          </Text>
+          {/* TODO [LEGAL REVIEW] § 312g Abs. 2 Nr. 1 BGB: no withdrawal right for the printed sticker. */}
+          <View testID="ship-notice">
+            <Banner tone="info">{t('printPersonalNotice')}</Banner>
+          </View>
+          <AddressForm
+            intro={t('printShipText')}
+            initial={options.addressPrefill ?? null}
+            disabled={!labelValid}
+            submitLabel={free ? t('printConfirmFree') : t('printConfirmPaid', { price })}
+            onSubmit={async (address) => {
+              setResult(null);
+              const order = await api<OrderResult>(`/v1/vehicles/${vehicle.id}/order-print`, {
+                body: { address, personalizationConfirmed: true, appReturn: appReturnUrl() },
+              });
+              if (order.free) setResult('done');
+              else {
+                // The order exists unpaid; Stripe's page with the price opens inside the app.
+                const pay = await payInApp(async () => order);
+                setResult(pay.result === 'success' ? 'done' : 'canceled');
+              }
+              setStep('choose');
+              await onOrdered();
+            }}
+          />
+          <Button variant="ghost" label={t('back')} onPress={() => setStep('choose')} />
+        </View>
+      )}
     </Card>
   );
 }
 
 const s = StyleSheet.create({
+  confirm: { gap: 12 },
+  preview: {
+    alignSelf: 'center',
+    width: 180,
+    height: 180,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 8,
+  },
+  previewImage: { width: '100%', height: '100%' },
   head: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   row: { flexDirection: 'row', gap: 10 },
   half: { flex: 1 },

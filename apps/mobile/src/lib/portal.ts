@@ -4,6 +4,7 @@ import * as Linking from 'expo-linking';
 import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
 import { ApiError, authHeaders } from './api';
+import type { BillingProvider, RefundRoute } from './billing';
 import { API_URL } from './config';
 import { lang, t } from './i18n';
 import { pt } from './portal-i18n';
@@ -123,9 +124,22 @@ export interface Usage {
 export interface PrintOptions {
   selfPrint: { priceCents: number };
   shipped: { priceCents: number; free: boolean; welcomePrint: boolean };
+  /** B1: what is printed on the decal (the vehicle label and the chosen design). */
+  personalization?: { label: string; labelValid: boolean; template: DecalTemplate; cta: string };
+  /** A7: the sign-up address, to prefill the shipping address. */
+  addressPrefill?: {
+    name: string;
+    line1: string;
+    line2?: string | null;
+    postalCode: string;
+    city: string;
+    country: 'DE';
+  } | null;
 }
 
 export interface PortalMe {
+  /** The user UUID (= RevenueCat app_user_id). */
+  id?: string;
   email: string;
   customerNo: string | null;
   preferredLang: 'de' | 'en';
@@ -145,6 +159,15 @@ export interface SubscriptionSummary {
   interval: 'year' | 'month';
   renewalMode: 'annual' | 'monthly_after_first_term';
   withdrawalOpenUntil: string | null;
+  /** Where it was bought (docs/billing-unified.md); Stripe for older API answers. */
+  provider?: BillingProvider;
+  unifiedStatus?:
+    'ACTIVE' | 'CANCEL_SCHEDULED' | 'BILLING_ISSUE' | 'EXPIRED' | 'REFUNDED' | 'WITHDRAWN';
+  willRenew?: boolean;
+  /** Store subscription management (RevenueCat), store subscriptions only. */
+  managementUrl?: string | null;
+  stickerValueCents?: number;
+  refundRoute?: RefundRoute | null;
 }
 
 export type TokenStatus = 'in_stock' | 'assigned' | 'revoked';
@@ -216,6 +239,7 @@ export function errorText(err: unknown): string {
     if (err.body?.error === 'profile_incomplete') return pt('profile.needed');
     if (err.body?.error === 'phone_required') return t('phoneRequiredError');
     if (err.body?.error === 'code_active') return t('codeActive');
+    if (err.body?.error === 'label_invalid') return t('labelInvalid');
   }
   return pt('auth.genericError');
 }

@@ -10,6 +10,10 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
  *   EXPO_PUBLIC_API_URL   API origin, default https://park-shield.de (local: http://<LAN-IP>:3000)
  *   GOOGLE_SERVICES_JSON  path to google-services.json (Android FCM), default ./firebase/google-services.json
  *   GOOGLE_SERVICE_PLIST  path to GoogleService-Info.plist (iOS), default ./firebase/GoogleService-Info.plist
+ *   EXPO_PUBLIC_REVENUECAT_IOS_KEY / EXPO_PUBLIC_REVENUECAT_ANDROID_KEY
+ *                         RevenueCat public SDK keys (appl_… / goog_…) for the App Store / Google Play
+ *                         subscription (docs/billing-unified.md). Empty, or in Expo Go: the Stripe
+ *                         checkout stays as a test-only fallback. Real purchases need a dev/store build.
  *
  * No analytics or advertising SDKs. TODO [LEGAL REVIEW] App Store / Play Store privacy labels.
  */

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
+import { labelProblem, type LabelProblem } from '@/lib/billing';
+import { t } from '@/lib/i18n';
 import { errorText } from '@/lib/portal';
 import { pt } from '@/lib/portal-i18n';
 import { Field } from './form';
@@ -12,6 +14,14 @@ export interface VehicleInput {
   color: string;
   makeModel: string;
 }
+
+/** The form's message for a vehicle label that cannot be printed. */
+export const labelErrorText = (p: LabelProblem) =>
+  p === 'required'
+    ? t('labelErrRequired')
+    : p === 'length'
+      ? t('labelErrLength')
+      : t('labelErrChars');
 
 /** Nickname, plate, colour, make and model (web: VehicleForm). */
 export function VehicleForm({
@@ -35,7 +45,10 @@ export function VehicleForm({
     makeModel: initial?.makeModel ?? '',
   });
   const [busy, setBusy] = useState(false);
+  const [touched, setTouched] = useState(false);
   const set = (k: keyof VehicleInput) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  // B1: the name is printed on the decal, so it follows the label rules (server: label_invalid).
+  const problem = labelProblem(form.nickname);
 
   const submit = async () => {
     setBusy(true);
@@ -52,8 +65,12 @@ export function VehicleForm({
         label={pt('vehicles.nickname')}
         hint={pt('vehicles.nicknameHint')}
         value={form.nickname}
-        onChangeText={set('nickname')}
-        maxLength={60}
+        onChangeText={(v) => {
+          setTouched(true);
+          set('nickname')(v);
+        }}
+        error={touched && problem ? labelErrorText(problem) : null}
+        maxLength={20}
       />
       <Field
         label={pt('vehicles.plate')}
@@ -82,7 +99,7 @@ export function VehicleForm({
       <Button
         label={submitLabel}
         busy={busy}
-        disabled={!form.nickname.trim() || form.plate.trim().length < 2}
+        disabled={Boolean(problem) || form.plate.trim().length < 2}
         onPress={() => void submit()}
       />
     </View>
@@ -103,22 +120,43 @@ export function AddressForm({
   intro,
   submitLabel,
   onSubmit,
+  initial,
+  disabled,
 }: {
   intro: string;
   submitLabel: string;
   onSubmit: (a: Address) => Promise<void>;
+  /** The API's prefill (print options `addressPrefill`); wins over the sign-up profile. */
+  initial?: {
+    name: string;
+    line1: string;
+    line2?: string | null;
+    postalCode: string;
+    city: string;
+  } | null;
+  disabled?: boolean;
 }) {
   // Prefilled with the sign-up address (Germany only: decals ship within Germany), so nobody
   // types it twice; it can still be changed for this order.
   const signup = useOptionalProfile()?.data?.profile;
   const fromSignup = signup?.country === 'DE';
-  const [a, setA] = useState({
-    name: fromSignup ? `${signup.firstName} ${signup.lastName}` : '',
-    line1: fromSignup ? signup.street : '',
-    line2: '',
-    postalCode: fromSignup ? signup.postalCode : '',
-    city: fromSignup ? signup.city : '',
-  });
+  const [a, setA] = useState(
+    initial
+      ? {
+          name: initial.name,
+          line1: initial.line1,
+          line2: initial.line2 ?? '',
+          postalCode: initial.postalCode,
+          city: initial.city,
+        }
+      : {
+          name: fromSignup ? `${signup.firstName} ${signup.lastName}` : '',
+          line1: fromSignup ? signup.street : '',
+          line2: '',
+          postalCode: fromSignup ? signup.postalCode : '',
+          city: fromSignup ? signup.city : '',
+        },
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof a) => (v: string) => setA((x) => ({ ...x, [k]: v }));
@@ -169,7 +207,13 @@ export function AddressForm({
       <Field label={pt('order.city')} value={a.city} onChangeText={set('city')} />
       <P muted>{pt('order.countryNote')}</P>
       {error && <Banner tone="err">{error}</Banner>}
-      <Button label={submitLabel} busy={busy} disabled={!valid} onPress={() => void submit()} />
+      <Button
+        label={submitLabel}
+        busy={busy}
+        disabled={!valid || disabled}
+        onPress={() => void submit()}
+        testID="address-submit"
+      />
     </View>
   );
 }

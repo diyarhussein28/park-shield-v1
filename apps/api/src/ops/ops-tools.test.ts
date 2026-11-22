@@ -386,6 +386,7 @@ describe('abuse centre (US-38, AD-08/09/10)', () => {
       url: `/v1/vehicles/${c.v.id}/order-replacement`,
       headers: c.s.headers,
       payload: {
+        personalizationConfirmed: true,
         address: {
           name: 'Jonas',
           line1: 'Domstraße 1',
@@ -406,10 +407,10 @@ describe('abuse centre (US-38, AD-08/09/10)', () => {
   });
 
   it('flags a scanner who alerts many vehicles; a global block lasts until the end of the day', async () => {
-    const a = await customer('a@example.de', 'A');
-    const b = await customer('b@example.de', 'B');
-    const c = await customer('c@example.de', 'C');
-    const d = await customer('d@example.de', 'D');
+    const a = await customer('a@example.de', 'Auto A');
+    const b = await customer('b@example.de', 'Auto B');
+    const c = await customer('c@example.de', 'Auto C');
+    const d = await customer('d@example.de', 'Auto D');
     for (const x of [a, b, c])
       expect((await scan(x.code, { type: 'lights_on' }, '203.0.113.66')).statusCode).toBe(201);
     const mod = await staffAs('mod@parkshield.de', ['abuse_moderator']);

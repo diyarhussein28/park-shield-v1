@@ -85,6 +85,10 @@ export const SETTINGS: Record<string, Def> = {
   'prices.plan_year_cents': { group: 'limits', schema: int(100, 100_000), default: 2000 },
   // A printed and shipped decal after the free welcome print (one-time Stripe payment).
   'prices.print_shipped_cents': { group: 'limits', schema: int(0, 5000), default: 300 },
+  // B2 (2026-11-22): value of the personalised sticker incl. shipping included in the yearly price
+  // (incl. VAT). Stored on each subscription at purchase; withheld on a withdrawal after
+  // personalisation (§ 312g Abs. 2 Nr. 1 BGB). TODO [LEGAL REVIEW]
+  'prices.sticker_value_cents': { group: 'limits', schema: int(0, 2000), default: 300 },
 
   'abuse.code_alerts_per_hour': { group: 'abuse', schema: int(1, 1000), default: 10 },
   'abuse.scanner_vehicles_per_day': { group: 'abuse', schema: int(1, 100), default: 3 },
@@ -122,7 +126,8 @@ export const SETTINGS: Record<string, Def> = {
   'photos.abuse_upload_block_hours': { group: 'abuse', schema: int(1, 720), default: 24 },
 
   'refunds.withdrawal_days': { group: 'refunds', schema: int(14, 30), default: 14 },
-  // The decal is an accessory, not custom-made: no § 312g deduction. TODO [LEGAL REVIEW]
+  // Replaced by `prices.sticker_value_cents` (personalised sticker, 2026-11-22); kept for old ops
+  // screens only, no longer read by the refund calculation. TODO [LEGAL REVIEW]
   'refunds.custom_decal_cost_cents': { group: 'refunds', schema: int(0, 2000), default: 0 },
   'withdrawal.require_decal_return': { group: 'refunds', schema: bool, default: false },
 

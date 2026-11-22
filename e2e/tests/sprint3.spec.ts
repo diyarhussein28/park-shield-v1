@@ -75,8 +75,12 @@ test('vehicle, decal design, print options: self-print free, first shipped print
   // „Drucken und zusenden lassen“: the first one is the free welcome print.
   const shipped = print.getByRole('listitem').filter({ hasText: 'Drucken und zusenden lassen' });
   await expect(shipped.getByText('kostenlos (Willkommensdruck)')).toBeVisible();
+  // Part B: one confirmation step (preview, label, address, no-withdrawal notice) before the order.
+  await shipped.getByRole('button', { name: 'Weiter: Aufkleber prüfen' }).click();
+  await expect(shipped.getByText(/individuell gedruckt/)).toBeVisible();
+  await expect(shipped.getByRole('link', { name: 'Design ändern' })).toBeVisible();
   await fillAddress(shipped);
-  await shipped.getByRole('button', { name: 'Kostenlos bestellen' }).click();
+  await shipped.getByRole('button', { name: 'Jetzt drucken und zusenden' }).click();
   await expect(page.getByText(/^Bestellt!/)).toBeVisible();
   await waitForMail(request, email, 'order_received');
 
@@ -113,8 +117,9 @@ test('vehicle, decal design, print options: self-print free, first shipped print
   await expect(shipped.getByText(/^3\s?€ einmalig inkl\. MwSt\.$/)).toBeVisible();
   await expect(self.getByRole('heading', { name: 'Selbst drucken – kostenlos' })).toBeVisible();
   await expectAccessible(page);
+  await shipped.getByRole('button', { name: 'Weiter: Aufkleber prüfen' }).click();
   await fillAddress(shipped);
-  await shipped.getByRole('button', { name: /^Weiter zur Zahlung \(3\s?€\)$/ }).click();
+  await shipped.getByRole('button', { name: /^3\s?€ bezahlen und zusenden$/ }).click();
   await expect(page).toHaveURL(/\/dev\/checkout\?session=cs_fake_/);
   await expect(page.getByText(/Betrag: 3,00/)).toBeVisible();
   await page.getByRole('button', { name: 'Testzahlung ausführen' }).click();

@@ -80,3 +80,17 @@ jest.mock('expo-font', () => ({
   loadAsync: jest.fn(async () => undefined),
   isLoaded: () => true,
 }));
+
+// RevenueCat (App Store / Google Play subscription): no native store in tests.
+jest.mock('react-native-purchases', () => ({
+  __esModule: true,
+  default: {
+    PURCHASES_ERROR_CODE: { PURCHASE_CANCELLED_ERROR: '1' },
+    configure: jest.fn(),
+    logIn: jest.fn(async () => ({ customerInfo: {}, created: false })),
+    logOut: jest.fn(async () => ({})),
+    getOfferings: jest.fn(async () => ({ current: null, all: {} })),
+    purchasePackage: jest.fn(async () => ({ customerInfo: {} })),
+    restorePurchases: jest.fn(async () => ({})),
+  },
+}));

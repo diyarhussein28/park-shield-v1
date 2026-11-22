@@ -92,9 +92,9 @@ describe('the three scanner limits (US-17)', () => {
 
   it('limits one scanner across vehicles, all or nothing', async () => {
     await setSetting(h, 'ratelimit.alert.scanner_global', { max: 2, windowSeconds: 3600 });
-    const a = await vehicle('a@example.de', 'A');
-    const b = await vehicle('b@example.de', 'B');
-    const c = await vehicle('c@example.de', 'C');
+    const a = await vehicle('a@example.de', 'Auto A');
+    const b = await vehicle('b@example.de', 'Auto B');
+    const c = await vehicle('c@example.de', 'Auto C');
     expect((await send(a.code)).statusCode).toBe(201);
     expect((await send(b.code)).statusCode).toBe(201);
     const third = await send(c.code);

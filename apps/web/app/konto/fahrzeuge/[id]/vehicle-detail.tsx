@@ -6,6 +6,7 @@ import {
   CTA_SUGGESTIONS,
   DECAL_PRODUCTS,
   DECAL_TEMPLATES,
+  isValidVehicleLabel,
   type DecalProduct,
   type DecalTemplate,
 } from '@parkshield/shared';
@@ -121,7 +122,13 @@ function Designer({ vehicle, onSaved }: { vehicle: Vehicle; onSaved: (v: Vehicle
   }
 
   return (
-    <Section title={t('decal.title')} icon="zap" intro={t('portal.designIntro')}>
+    <Section
+      id="design"
+      title={t('decal.title')}
+      icon="zap"
+      intro={t('portal.designIntro')}
+      className="scroll-mt-6"
+    >
       <div className="grid gap-6 xl:grid-cols-2">
         <Stack gap={6}>
           <ChoiceGroup
@@ -197,15 +204,29 @@ type Address = {
 
 function AddressForm({
   intro,
+  initial,
   submitLabel,
+  submitDisabled,
+  beforeSubmit,
   onSubmit,
 }: {
   intro?: string;
+  /** Prefill (the sign-up address); the owner may change it for this shipment. */
+  initial?: Address | null;
   submitLabel: string;
+  submitDisabled?: boolean;
+  /** Shown right above the button (the personalisation notice). */
+  beforeSubmit?: ReactNode;
   onSubmit: (address: Address) => Promise<void>;
 }) {
   const { t } = useI18n();
-  const [a, setA] = useState({ name: '', line1: '', line2: '', postalCode: '', city: '' });
+  const [a, setA] = useState({
+    name: initial?.name ?? '',
+    line1: initial?.line1 ?? '',
+    line2: initial?.line2 ?? '',
+    postalCode: initial?.postalCode ?? '',
+    city: initial?.city ?? '',
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof a) => (e: { target: { value: string } }) =>
@@ -277,8 +298,9 @@ function AddressForm({
       <Text muted className="text-sm">
         {t('order.countryNote')}
       </Text>
+      {beforeSubmit}
       {error && <Notice tone="danger">{error}</Notice>}
-      <Button type="submit" busy={busy} className="w-fit">
+      <Button type="submit" busy={busy} disabled={submitDisabled} className="w-fit">
         {submitLabel}
       </Button>
     </form>
@@ -398,7 +420,11 @@ function PrintOptionsSection({
   const { t } = useI18n();
   const euro = useEuro();
   const [ordered, setOrdered] = useState(false);
+  // Part B (2026-11-22): one confirmation step before „Drucken und zusenden lassen“ is ordered.
+  const [confirming, setConfirming] = useState(false);
   const shipped = options.shipped;
+  const label = options.personalization?.label ?? vehicle.nickname;
+  const labelValid = options.personalization?.labelValid ?? isValidVehicleLabel(label);
   const price = shipped.free
     ? shipped.welcomePrint
       ? t('order.priceWelcome')
@@ -446,26 +472,66 @@ function PrintOptionsSection({
               <Badge tone={shipped.free ? 'success' : 'info'}>{price}</Badge>
             </div>
             <Text>{t('order.shippedText')}</Text>
-            <AddressForm
-              submitLabel={
-                shipped.free
-                  ? t('order.submitFree')
-                  : t('order.submitPaid', { price: euro(shipped.priceCents) })
-              }
-              onSubmit={async (address) => {
-                const r = await api<{ id?: string; url: string; free: boolean }>(
-                  `${base}/order-print`,
-                  { body: { address } },
-                );
-                if (!r.free) {
-                  // 3 € one-time payment on Stripe's page; back to this page with ?order=paid|canceled.
-                  window.location.assign(r.url);
-                  return;
-                }
-                setOrdered(true);
-                await onOrdered();
-              }}
-            />
+            {!confirming ? (
+              <Button
+                variant="secondary"
+                className="w-fit"
+                onClick={() => setConfirming(true)}
+                data-testid="print-confirm-open"
+              >
+                {t('order.confirmNext')}
+              </Button>
+            ) : (
+              <div className="flex flex-col gap-4" data-testid="print-confirm">
+                <h4 className="font-bold">{t('order.confirmTitle')}</h4>
+                <Text>{t('order.confirmIntro')}</Text>
+                <img
+                  src={`${base}/decal.svg?${new URLSearchParams({
+                    template: options.personalization?.template ?? vehicle.decal.template,
+                    cta: options.personalization?.cta ?? vehicle.decal.cta,
+                  })}`}
+                  alt={t('decal.previewAlt', {
+                    cta: options.personalization?.cta ?? vehicle.decal.cta,
+                  })}
+                  className="w-full max-w-xs rounded-xl border border-border bg-surface"
+                />
+                <Text>{t('order.confirmLabel', { label })}</Text>
+                <a href="#design" className="w-fit font-semibold underline">
+                  {t('order.confirmDesign')}
+                </a>
+                {!labelValid && <Notice tone="danger">{t('order.labelInvalid')}</Notice>}
+                <AddressForm
+                  initial={options.addressPrefill ?? null}
+                  submitDisabled={!labelValid}
+                  submitLabel={
+                    shipped.free
+                      ? t('order.confirmFree')
+                      : t('order.confirmPaid', { price: euro(shipped.priceCents) })
+                  }
+                  beforeSubmit={
+                    // TODO [LEGAL REVIEW] § 312g Abs. 2 Nr. 1 BGB notice before the order (personalised sticker).
+                    <Notice tone="info">{t('order.personalizedNotice')}</Notice>
+                  }
+                  onSubmit={async (address) => {
+                    const r = await api<{ id?: string; url: string; free: boolean }>(
+                      `${base}/order-print`,
+                      { body: { address, personalizationConfirmed: true } },
+                    );
+                    if (!r.free) {
+                      // 3 € one-time payment on Stripe's page; back to this page with ?order=paid|canceled.
+                      window.location.assign(r.url);
+                      return;
+                    }
+                    setOrdered(true);
+                    setConfirming(false);
+                    await onOrdered();
+                  }}
+                />
+                <Button variant="ghost" className="w-fit" onClick={() => setConfirming(false)}>
+                  {t('order.confirmBack')}
+                </Button>
+              </div>
+            )}
           </li>
         </ol>
       )}

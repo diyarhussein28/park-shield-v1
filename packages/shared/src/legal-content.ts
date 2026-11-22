@@ -5,7 +5,9 @@
 type Locale = 'de' | 'en';
 
 /** Bump when a text a customer agrees to changes; stored with the contract confirmation. */
-export const LEGAL_DOC_VERSION = '2026-11-26';
+// 2026-11-28: personalised sticker excluded from withdrawal, Wertersatz after the sticker value, store
+// purchases (Apple/Google), RevenueCat in the privacy policy (Part A/B of the billing task).
+export const LEGAL_DOC_VERSION = '2026-11-28';
 
 /** What the texts depend on at runtime (app_settings), so a switch needs no code change. */
 export interface LegalContext {
@@ -101,13 +103,15 @@ const de = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
           // TODO [LEGAL REVIEW] Mandatory phone number for the escalation SMS (owner decision 2026-11-21).
           'Ihre Handynummer ist bei der Registrierung Pflicht. Wir bestätigen sie mit einem SMS-Code (Twilio Verify) und prüfen, ob es eine Mobilfunknummer ist (Twilio Lookup). Wir nutzen sie ausschließlich, um Ihnen eine SMS zu senden, wenn Sie auf eine Warnung 30 Minuten lang nicht reagiert haben (Art. 6 Abs. 1 lit. b DSGVO, Vertragserfüllung). Wir speichern die Nummer verschlüsselt und zeigen sie im Konto nur gekürzt an.',
           'Rechnungen bewahren wir aufgrund gesetzlicher Pflichten auf (Art. 6 Abs. 1 lit. c DSGVO, § 147 AO, § 14b UStG).',
+          // TODO [LEGAL REVIEW] In-app subscriptions through Apple/Google and RevenueCat (Part A, 2026-11-22).
+          'Schließen Sie das Abo in unserer iPhone- oder Android-App ab, kaufen Sie es bei Apple (App Store) oder Google (Google Play); Apple bzw. Google ist dann Verkäufer und verarbeitet Ihre Zahlungsdaten in eigener Verantwortung. Damit wir wissen, ob Ihr Abo aktiv ist, nutzen wir den Dienst RevenueCat (RevenueCat, Inc., USA) als Auftragsverarbeiter (Art. 6 Abs. 1 lit. b DSGVO). RevenueCat erhält nur eine zufällige Kundenkennung (UUID) und die Kaufdaten des Stores (Produkt, Kaufzeitpunkt, Laufzeit, Status, Transaktionsnummer), keine E-Mail-Adresse, keinen Namen und keine Werbe-ID. Die Übermittlung in die USA erfolgt auf Grundlage von EU-Standardvertragsklauseln (Art. 46 Abs. 2 lit. c DSGVO) und eines Vertrags zur Auftragsverarbeitung.',
           'E-Mail-Adressen, die einen Anmeldelink angefordert, aber nie bestätigt haben, löschen wir nach 24 Stunden.',
         ],
       },
       {
         heading: '4. Empfänger und Auftragsverarbeiter',
         paragraphs: [
-          'Contabo GmbH (Hosting und verschlüsselte Datensicherungen, München, Deutschland); Mailjet (E-Mail ohne Öffnungs- und Klick-Tracking, Sinch Mailjet SAS, Frankreich); Twilio Ireland Limited, Irland (nur nach Ihrer Einwilligung: SMS; dabei überträgt Twilio Daten in die USA auf Grundlage des EU-US Data Privacy Framework und von EU-Standardvertragsklauseln); Stripe (Zahlungen, Irland); Friendly Captcha (Sicherheitsprüfung ohne Cookies, Deutschland); unsere Druckerei (Versand des Aufklebers, Deutschland); Sentry (Fehlerprotokolle ohne personenbezogene Daten, EU). Mit allen bestehen Verträge zur Auftragsverarbeitung.',
+          'Contabo GmbH (Hosting und verschlüsselte Datensicherungen, München, Deutschland); Mailjet (E-Mail ohne Öffnungs- und Klick-Tracking, Sinch Mailjet SAS, Frankreich); Twilio Ireland Limited, Irland (nur nach Ihrer Einwilligung: SMS; dabei überträgt Twilio Daten in die USA auf Grundlage des EU-US Data Privacy Framework und von EU-Standardvertragsklauseln); Stripe (Zahlungen auf der Website und gedruckte Aufkleber, Irland); RevenueCat, Inc., USA (Abo-Status bei Käufen in der App über Apple oder Google; nur Kundenkennung und Kaufdaten; EU-Standardvertragsklauseln); Friendly Captcha (Sicherheitsprüfung ohne Cookies, Deutschland); unsere Druckerei (Versand des Aufklebers, Deutschland); Sentry (Fehlerprotokolle ohne personenbezogene Daten, EU). Mit allen bestehen Verträge zur Auftragsverarbeitung.',
         ],
       },
       {
@@ -143,8 +147,10 @@ const de = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
       {
         heading: '§ 3 Preise und Zahlung',
         paragraphs: [
-          // TODO [LEGAL REVIEW] Price, welcome print and the 3 € print order (owner decision 2026-11-21).
-          'ParkShield kostet 20 € pro Jahr inklusive 19 % Umsatzsteuer für ein Fahrzeug und wird jährlich im Voraus berechnet. Enthalten sind App-Mitteilungen, Erinnerung, SMS-Eskalation, Fotos bei Warnungen, Chat und ein gedruckter Aufkleber inklusive Versand (Willkommensdruck). Jeder weitere gedruckte und zugesandte Aufkleber kostet einmalig 3 € inklusive Umsatzsteuer und Versand; das PDF zum Selbstausdrucken ist jederzeit kostenlos.',
+          // TODO [LEGAL REVIEW] Price, welcome print and the 3 € print order (owner decision 2026-11-21);
+          // the personalised sticker and its value (Part B, 2026-11-22).
+          'ParkShield kostet 20 € pro Jahr inklusive 19 % Umsatzsteuer für ein Fahrzeug und wird jährlich im Voraus berechnet. Enthalten sind App-Mitteilungen, Erinnerung, SMS-Eskalation, Fotos bei Warnungen, Chat und ein gedruckter Aufkleber inklusive Versand (Willkommensdruck). Im Preis enthalten ist damit ein personalisierter Aufkleber inklusive Versand im Wert von 3 €. Er wird nach Ihren Angaben gefertigt (gewähltes Design und Ihr Fahrzeugname; das Kennzeichen wird nie gedruckt) und erst gedruckt, nachdem Sie die Gestaltung bestätigt haben. Jeder weitere gedruckte und zugesandte Aufkleber kostet einmalig 3 € inklusive Umsatzsteuer und Versand; das PDF zum Selbstausdrucken ist jederzeit kostenlos.',
+          'Schließen Sie das Abo in unserer App über den App Store (Apple) oder Google Play ab, ist Apple bzw. Google Verkäufer; Zahlung, Belege, Verlängerung und Kündigung laufen dann über Ihr Apple- bzw. Google-Konto.',
         ],
       },
       {
@@ -191,7 +197,18 @@ const de = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
         paragraphs: [
           'Wenn Sie diesen Vertrag widerrufen, zahlen wir Ihnen alle Zahlungen, die wir von Ihnen erhalten haben, unverzüglich und spätestens binnen vierzehn Tagen zurück, über dasselbe Zahlungsmittel, das Sie verwendet haben.',
           'Haben Sie verlangt, dass die Leistung während der Widerrufsfrist beginnt, zahlen Sie uns einen angemessenen Betrag, der dem Anteil der bis zum Widerruf erbrachten Leistung im Vergleich zum Gesamtumfang entspricht (Wertersatz).',
+          // TODO [LEGAL REVIEW] Wertersatz after the sticker value (Part B, 2026-11-22; formula in LEGAL_REVIEW.md §12).
+          'Den Wert des personalisierten Aufklebers (3 €) erstatten wir nicht, wenn er vor Ihrem Widerruf nach Ihren Angaben gestaltet und zum Druck bestätigt wurde. Der Wertersatz für die bis zum Widerruf genutzten Tage wird anteilig aus dem übrigen Betrag berechnet (Preis abzüglich Aufkleberwert, geteilt durch die Tage des Vertragsjahres, mal genutzte Tage). Widerrufen Sie, bevor Sie den Aufkleber bestätigt haben, ziehen wir nichts für den Aufkleber ab und versenden keinen.',
           'Den Aufkleber müssen Sie nicht zurücksenden. Mit dem Widerruf wird sein Code dauerhaft deaktiviert.',
+          // TODO [LEGAL REVIEW] Store purchases: Apple/Google decide on withdrawal and refunds.
+          'Haben Sie das Abo in unserer App über den App Store oder Google Play abgeschlossen, ist Apple bzw. Google Ihr Vertragspartner für die Zahlung. Widerruf und Erstattung beantragen Sie dann bei Apple (reportaproblem.apple.com) bzw. Google (Google-Play-Bestellverlauf); diese entscheiden über die Erstattung.',
+        ],
+      },
+      {
+        // TODO [LEGAL REVIEW] § 312g Abs. 2 Nr. 1 BGB exclusion for the personalised sticker (Part B).
+        heading: 'Ausschluss des Widerrufsrechts für den personalisierten Aufkleber',
+        paragraphs: [
+          'Das Widerrufsrecht besteht nicht bei Verträgen zur Lieferung von Waren, die nicht vorgefertigt sind und für deren Herstellung eine individuelle Auswahl oder Bestimmung durch den Verbraucher maßgeblich ist (§ 312g Abs. 2 Nr. 1 BGB). Der gedruckte ParkShield-Aufkleber wird nach Ihren Angaben gefertigt (Ihr Fahrzeugname und das von Ihnen gewählte Design). Für ihn besteht daher kein Widerrufsrecht; das gilt auch für jeden zusätzlich bestellten Aufkleber für 3 €. Ihr Widerrufsrecht für das Abo bleibt bestehen.',
         ],
       },
       {
@@ -291,6 +308,8 @@ const en = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
         heading: 'Your account',
         paragraphs: [
           'We process your e-mail address, channels, vehicles (licence plate encrypted) and alerts to provide the service. Push notifications travel end-to-end encrypted through your browser’s push service; unreachable devices are removed automatically. Your mobile number is required: we verify it with an SMS code and use it only for one SMS when you have not reacted to an alert for 30 minutes; it is stored encrypted. Two strictly necessary cookies keep you signed in securely; if you switch the language, a third one (ps_lang, one year, no personal data) remembers your choice. Unverified sign-ups are deleted after 24 h; deleted data leaves our encrypted backups within 35 days.',
+          // TODO [LEGAL REVIEW] RevenueCat (Part A, 2026-11-22).
+          'If you subscribe in our iPhone or Android app, you buy from Apple (App Store) or Google (Google Play), who process your payment data as sellers. To know whether your subscription is active we use RevenueCat (RevenueCat, Inc., USA) as our processor; it receives only a random customer ID (UUID) and the store purchase data, never your e-mail address, name or advertising ID. The transfer to the USA is based on EU Standard Contractual Clauses and a data processing agreement.',
         ],
       },
       {
@@ -308,7 +327,7 @@ const en = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
         heading: 'Summary',
         paragraphs: [
           // TODO [LEGAL REVIEW] Single plan (owner decision 2026-11-21).
-          'ParkShield costs €20 per year including 19% VAT for one vehicle, billed yearly in advance. App notifications, the reminder, SMS escalation, alert photos, chat and one printed and shipped decal (welcome print) are included. Every further printed and shipped decal costs €3 once, VAT and shipping included; the PDF to print yourself is always free.',
+          'ParkShield costs €20 per year including 19% VAT for one vehicle, billed yearly in advance. App notifications, the reminder, SMS escalation, alert photos, chat and one printed and shipped decal (welcome print) are included. Every further printed and shipped decal costs €3 once, VAT and shipping included; the PDF to print yourself is always free. The included personalised decal incl. shipping is worth €3; it is made to your specifications (your design and vehicle name, never the licence plate). Subscriptions bought in the app are sold by Apple or Google; payment, receipts and cancellation then run through your Apple or Google account.',
           renewalRule('en', ctx),
           'Cancel any time via “Cancel contract here”, even without signing in. ParkShield does not replace emergency calls: in danger, call 110 or 112.',
         ],
@@ -322,6 +341,8 @@ const en = (ctx: LegalContext): Record<LegalSlug, LegalDoc> => ({
         heading: 'Right of withdrawal',
         paragraphs: [
           `You may withdraw from this contract within fourteen days without giving reasons by sending a clear statement to ${CONTACT}. You can also withdraw online with the “Withdraw from contract” button at the bottom of every page (§ 356a BGB); we confirm receipt by e-mail at once. If you asked for the service to start immediately, you pay a proportionate amount for the service provided until withdrawal. You do not need to send the decal back; its code is switched off for good.`,
+          // TODO [LEGAL REVIEW] Part B (2026-11-22).
+          'There is no right of withdrawal for the printed decal, because it is made to your specifications (§ 312g (2) no. 1 BGB); your right to withdraw from the subscription remains. If the decal was personalised and confirmed before your withdrawal, we keep its value (€3); the value of the days used is calculated pro rata from the rest. Subscriptions bought in the App Store or on Google Play are refunded by Apple or Google.',
         ],
       },
     ],

@@ -327,6 +327,18 @@ const en: typeof de = {
     contractTitle: 'Contract',
     withdrawUntil: 'You can withdraw until {date, date, long} without giving reasons.',
     cancelButton: 'Cancel contract here',
+    providerLine:
+      '{provider, select, app_store {Bought in the App Store (Apple).} play_store {Bought on Google Play.} other {Bought on park-shield.de.}}',
+    storeManage:
+      '{provider, select, play_store {Manage subscription on Google Play} other {Manage subscription in the App Store}}',
+    storeCancelText:
+      '{provider, select, play_store {You subscribed on Google Play. Cancel it on Google Play under “Subscriptions”. We cannot cancel Google Play subscriptions ourselves.} other {You subscribed in the App Store. Cancel it in the subscription settings of your Apple account. We cannot cancel Apple subscriptions ourselves.}}',
+    storeWithdrawText:
+      '{provider, select, play_store {For purchases on Google Play, Google decides on withdrawal and refunds. Request the refund in your Google Play order history.} other {For App Store purchases, Apple decides on withdrawal and refunds. Request the refund at reportaproblem.apple.com.}}',
+    storeReceipts:
+      '{provider, select, play_store {Google sends you the receipts. You manage the payment method and the subscription on Google Play.} other {Apple sends you the receipts. You manage the payment method and the subscription in your Apple account.}}',
+    storePastDueNotice:
+      '{provider, select, play_store {Google Play could not renew your subscription. Please check your payment method on Google Play so your protection stays active.} other {Apple could not renew your subscription. Please check your payment method in your Apple account so your protection stays active.}}',
     canceledText:
       'You have cancelled. Your contract ends on {date, date, long}; your protection stays active until then.',
     paymentMethod: 'Change payment method',
@@ -808,7 +820,9 @@ const en: typeof de = {
     add: 'Add vehicle',
     nickname: 'Nickname',
     nicknameHint:
-      'Shown to the person who scans, so they know it is the right car. For example “The blue one”.',
+      'Printed on your decal and helps the person who scans recognise the right car. 2 to 20 characters, for example “The blue one”.',
+    labelRule:
+      'The vehicle name is printed on the decal: 2 to 20 characters, only letters, numbers, spaces and basic punctuation, no offensive words.',
     plate: 'Licence plate',
     plateHint: 'Stored encrypted and never shown.',
     color: 'Colour',
@@ -940,6 +954,22 @@ const en: typeof de = {
     paidNotice: 'Thank you! Your payment has arrived and your decal is being printed.',
     canceledNotice: 'The payment was cancelled. You can try again at any time.',
     needsCode: 'Create a new code first, then you can print it.',
+    confirmNext: 'Next: check your decal',
+    confirmTitle: 'Your decal before printing',
+    confirmIntro:
+      'This is how we print your decal. Please check the design, vehicle name and address.',
+    confirmLabel: 'Vehicle name on the decal: “{label}”',
+    confirmDesign: 'Change design',
+    confirmBack: 'Back',
+    personalizedNotice:
+      'Your decal is printed individually to your specifications. There is no right of withdrawal for goods made to the customer’s specifications.',
+    confirmFree: 'Print and send now',
+    confirmPaid: 'Pay {price} and send',
+    labelInvalid:
+      'This vehicle name cannot be printed. Allowed are 2 to 20 characters (letters, numbers, spaces, basic punctuation) without offensive words. Please change it under “Vehicle details”.',
+    welcomeCta: 'Design your decal and have it sent – free',
+    welcomeCtaText:
+      'Your welcome print is included. Choose the design and address, we print and send it.',
   },
   checkout: {
     title: 'Get ParkShield',
@@ -969,11 +999,17 @@ const en: typeof de = {
     stickerNoHint:
       'The old code is switched off, your vehicle gets a new one, and the replacement sticker is free.',
     stickerRequired: 'Please answer the question about the sticker.',
+    yearlyBreakdown: 'ParkShield yearly subscription: {price} / year, incl. VAT',
+    stickerIncluded: 'Included in the price: personalised decal incl. shipping worth {value}.',
+    stickerNotice:
+      'Note: the personalised decal is made to your specifications. There is no right of withdrawal for it (§ 312g (2) no. 1 BGB). Your right to withdraw from the subscription remains.',
   },
   cancel: {
     title: 'Cancel contract here',
     intro:
       'Cancel your ParkShield subscription here, with or without signing in. You get a confirmation by e-mail immediately.',
+    storeNote:
+      'Subscribed in the App Store or on Google Play? Then cancel it there, in the subscription settings of your Apple or Google account. We cannot cancel store subscriptions ourselves.',
     signedInHint: 'You are signed in. Your contract {contractNo} will be cancelled.',
     kindLabel: 'Type of cancellation',
     ordinary: 'Ordinary cancellation',

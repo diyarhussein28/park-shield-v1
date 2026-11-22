@@ -7,6 +7,7 @@ export const APP_PUSH = Symbol('APP_PUSH');
 export const SMS = Symbol('SMS');
 export const AUDIT_BUCKET = Symbol('AUDIT_BUCKET');
 export const SUPPORT_DESK = Symbol('SUPPORT_DESK');
+export const STORE_BILLING = Symbol('STORE_BILLING');
 
 /**
  * Write-once object storage for the audit stream (AD-17): S3 with Object Lock in COMPLIANCE mode.
@@ -168,6 +169,8 @@ export type PaidPlan = 'standard';
 export interface CheckoutRequest {
   customerId: string;
   plan: PaidPlan;
+  /** Shown on the subscription and its invoices (price breakdown incl. the sticker value). */
+  description?: string;
   locale: 'de' | 'en';
   stripeCouponId?: string | null;
   successUrl: string;
@@ -309,4 +312,33 @@ export interface Payments {
   /** Hosted page where the customer changes the payment method (OW-11). */
   portalUrl(customerId: string, returnUrl: string): Promise<string>;
   parseWebhook(rawBody: Buffer, signature: string | undefined): Promise<BillingEvent>;
+}
+
+/** Store subscriptions (App Store / Google Play) bought in the app, read through RevenueCat. */
+export type StoreProvider = 'app_store' | 'play_store';
+
+/**
+ * The ParkShield entitlement of one RevenueCat subscriber, read from the REST API (the truth after
+ * every webhook). Only the app user id (our user UUID) and purchase data, never e-mail or names.
+ */
+export interface StoreSubscriber {
+  appUserId: string;
+  store: StoreProvider;
+  productId: string;
+  /** Latest store transaction id (Apple/Google), when RevenueCat reports it. */
+  transactionId: string | null;
+  originalPurchaseAt: Date;
+  periodStart: Date;
+  periodEnd: Date;
+  /** Auto-renew still on (no unsubscribe detected). */
+  willRenew: boolean;
+  billingIssueAt: Date | null;
+  refundedAt: Date | null;
+  managementUrl: string | null;
+  sandbox: boolean;
+}
+
+export interface StoreBilling {
+  /** null: the subscriber has never had the ParkShield entitlement. */
+  getSubscriber(appUserId: string): Promise<StoreSubscriber | null>;
 }

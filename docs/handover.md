@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-22. **The seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -257,3 +257,38 @@ Open after these:
 - **Lawyer:** LEGAL_REVIEW.md §10 (contract PDF, English model withdrawal form) and §11.
 - The „print-order letter“ of prompt 7 is the customer's current letter from the one generator (the
   same PDF as the admin download); a dedicated print-order letter text would be a new letter type.
+
+## 8. Unified billing and the personalised sticker (2026-11-22, `ParkShield-Billing-and-Sticker-Prompt.md`)
+
+Option **A** (owner OK 2026-11-22): our backend is the entitlement hub; design and API contract in
+[billing-unified.md](billing-unified.md), legal questions in `LEGAL_REVIEW.md` §12.
+
+Done (API 640+ tests, app Jest 162, typecheck, lint, prettier green):
+
+- Migration `20261208000000_unified_billing` (provider, store ids, will_renew, refunded_at,
+  sticker_value_cents, withdrawal_notice_version; `billing_webhook_events`; order snapshot).
+- RevenueCat: adapter + fake (`providers/revenuecat.ts`), webhook `POST /v1/webhooks/revenuecat`
+  (Authorization secret, event ids once, outbox topic `store.sync`), `StoreSyncService` (REST
+  subscriber is the truth; contract mail + payment@ once per new subscription; renewals → payment@
+  only; refunds cancel unpersonalised orders), `POST /v1/billing/store/prepare|sync`, unified status in
+  `GET /v1/billing/subscription`, user id in `GET /v1/me`.
+- Stripe: durable event dedupe, `payment_intent.succeeded` and `charge.refunded`; subscription
+  description with the price breakdown; 3 € print creates a Stripe customer for store subscribers.
+- Part B: vehicle label 2–20 chars + bad-word filter, printed on every design; print confirmation step
+  (app + web) with frozen `design_snapshot`; welcome print CTA + push reminders after 1 and 3 days;
+  B4 refund formula (whole days, sticker 3 € after personalisation) with the breakdown in the refund
+  mail; store subscriptions never run our refund logic.
+- App: `react-native-purchases` (needs a new EAS build), paywall with store price, restore purchases,
+  store manage/refund routes. Web: checkout breakdown + notice, store subscriber views, print step,
+  Datenschutz (RevenueCat) and Widerrufsbelehrung `2026-11-28`.
+
+Still open (owner accounts):
+
+1. RevenueCat project, apps, entitlement `parkshield`, product `parkshield_yearly`, offering `default`,
+   webhook → `https://test.park-shield.de/v1/webhooks/revenuecat` with the Authorization value from
+   `server.env` (`REVENUECAT_WEBHOOK_AUTH`); `REVENUECAT_SECRET_KEY` in `server.env`.
+2. App Store Connect / Play Console: the yearly subscription product (20,00 € or 19,99 €), sandbox
+   tester, Play internal test track; EAS env `EXPO_PUBLIC_REVENUECAT_IOS_KEY` / `…_ANDROID_KEY`, new
+   development build (Expo Go cannot buy).
+3. Stripe test webhook: add `payment_intent.succeeded` and `charge.refunded` to the endpoint's events.
+4. Lawyer: `LEGAL_REVIEW.md` §12.

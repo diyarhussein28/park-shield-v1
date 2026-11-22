@@ -73,6 +73,7 @@ export function errorText(err: unknown, t: Translate): string {
     if (err.body?.error === 'profile_incomplete') return t('profile.needed');
     if (err.body?.error === 'phone_required') return t('checkout.phoneRequired');
     if (err.body?.error === 'code_active') return t('portal.codeActive');
+    if (err.body?.error === 'label_invalid') return t('order.labelInvalid');
   }
   return t('auth.genericError');
 }

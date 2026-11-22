@@ -1,7 +1,21 @@
 import { PLAN_PRICE_CENTS } from '@parkshield/shared/plans';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
+import type { PurchasesPackage } from 'react-native-purchases';
 import { api } from '@/lib/api';
+import {
+  STICKER_VALUE_CENTS,
+  isStoreProvider,
+  refundRouteUrl,
+  storeManageUrl,
+  type BillingProvider,
+} from '@/lib/billing';
+import {
+  isStoreBillingAvailable,
+  purchaseYearly,
+  restoreStorePurchases,
+  yearlyPackage,
+} from '@/lib/purchases';
 import { lang, t, type Key } from '@/lib/i18n';
 import {
   errorText,
@@ -9,6 +23,7 @@ import {
   longDate,
   openInBrowser,
   payInApp,
+  type PortalMe,
   type SubscriptionSummary,
 } from '@/lib/portal';
 import { pt } from '@/lib/portal-i18n';
@@ -20,6 +35,28 @@ import { Banner, Button, Card, P, Title, useTheme } from './ui';
 
 /** The one plan's price (20 € incl. VAT), formatted for the app's language. */
 export const planPrice = () => euro(PLAN_PRICE_CENTS, lang());
+
+/** „Im Preis enthalten: personalisierter Aufkleber … im Wert von 3,00 €.“ (B2). */
+export const stickerValueText = (cents: number = STICKER_VALUE_CENTS) =>
+  t('stickerValueLine', { price: euro(cents, lang()) });
+
+/** „Apple“ / „Google Play“ for a store subscription. */
+export const storeName = (p: BillingProvider | null | undefined) =>
+  p === 'play_store' ? t('storeNameGoogle') : t('storeNameApple');
+
+/** „Gekauft im App Store / bei Google Play / auf park-shield.de“. */
+export const providerText = (p: BillingProvider | null | undefined) =>
+  p === 'app_store'
+    ? t('providerAppStore')
+    : p === 'play_store'
+      ? t('providerPlayStore')
+      : t('providerWeb');
+
+/** Opens the store's subscription management (A6: our backend cannot cancel store subscriptions). */
+export const openStoreManagement = (sub: SubscriptionSummary) => {
+  const url = storeManageUrl(sub);
+  if (url) void Linking.openURL(url);
+};
 
 /** „Ihr Tarif enthält“: everything is included in the one plan (owner decision 2026-11-21). */
 export const PLAN_FEATURES: Key[] = [
@@ -61,6 +98,7 @@ export function SubscriptionInfo({ sub }: { sub: SubscriptionSummary }) {
         </Badge>
       </View>
       {sub.contractNo && <P>{pt('account.contractNo', { contractNo: sub.contractNo })}</P>}
+      <P muted>{providerText(sub.provider)}</P>
       {end && (
         <P muted>
           {sub.cancelAtPeriodEnd
@@ -79,14 +117,19 @@ export async function openPaymentPortal() {
   );
 }
 
-export function PastDue() {
+export function PastDue({ sub }: { sub?: SubscriptionSummary | null }) {
+  const store = isStoreProvider(sub?.provider);
   return (
     <Banner tone="warn">
       <P>{pt('account.pastDueNotice')}</P>
       <Button
-        label={pt('account.paymentMethod')}
+        label={
+          store
+            ? t('storeManageButton', { store: storeName(sub?.provider) })
+            : pt('account.paymentMethod')
+        }
         variant="secondary"
-        onPress={() => void openPaymentPortal()}
+        onPress={() => (store && sub ? openStoreManagement(sub) : void openPaymentPortal())}
       />
     </Banner>
   );
@@ -102,52 +145,79 @@ export type CheckoutState = 'idle' | 'confirming' | 'failed' | 'canceled';
 
 /**
  * § 312j BGB checkout (P3, P7): price, term and renewal stay visible right above the button, together
- * with the versioned immediate-start declaration (required, never pre-ticked) and „Zahlungspflichtig
- * bestellen“. Withdrawal notice, AGB/privacy links and the voucher code fold away under „Details“.
- * Stripe's page opens inside the app. Only a real success says „Zahlung erhalten“; a cancelled or
- * closed payment page says that nothing was charged (after one quiet check that it really was not paid).
+ * with the versioned immediate-start declaration (required, never pre-ticked), the personalised-sticker
+ * notice (B3, no extra checkbox) and „Zahlungspflichtig bestellen“. AGB and privacy links stay visible;
+ * the withdrawal notice and the voucher code fold away under „Details“.
+ *
+ * In a real build with the store key (A2) the subscription is an Apple / Google in-app purchase
+ * through RevenueCat: first `/v1/billing/store/prepare` (gates and the consent, exactly as on the
+ * website), then the store sheet, then `/v1/billing/store/sync`. In Expo Go and without a key the
+ * Stripe page opens inside the app (test-only fallback). Only a real success says „Zahlung erhalten“;
+ * a cancelled or closed payment says that nothing was charged.
  */
 export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
   const c = useTheme();
+  const store = isStoreBillingAvailable();
   const [promo, setPromo] = useState('');
   const [immediate, setImmediate] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [texts, setTexts] = useState<CheckoutTexts | null | 'error'>(null);
   const [resubscribe, setResubscribe] = useState(false);
+  const [live, setLive] = useState<SubscriptionSummary | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [pkg, setPkg] = useState<PurchasesPackage | null | 'error'>(null);
   const [sticker, setSticker] = useState<'keep' | 'replace' | null>(null);
   const [stickerMissing, setStickerMissing] = useState(false);
   const [state, setState] = useState<CheckoutState>('idle');
 
   useEffect(() => {
-    let live = true;
+    let on = true;
     void Promise.all([
       api<CheckoutTexts>(`/v1/legal/checkout-texts?locale=${lang()}`),
-      api<{ hadSubscription?: boolean }>('/v1/billing/subscription').catch(() => ({
-        hadSubscription: false,
-      })),
+      api<{ subscription?: SubscriptionSummary | null; hadSubscription?: boolean }>(
+        '/v1/billing/subscription',
+      ).catch(() => ({ subscription: null, hadSubscription: false })),
+      api<PortalMe>('/v1/me').catch(() => null),
     ])
-      .then(([tx, sub]) => {
-        if (!live) return;
+      .then(([tx, sub, me]) => {
+        if (!on) return;
         setTexts(tx);
         setResubscribe(Boolean(sub.hadSubscription));
+        setLive(sub.subscription ?? null);
+        setUserId(me?.id ?? null);
       })
-      .catch(() => live && setTexts('error'));
+      .catch(() => on && setTexts('error'));
+    if (store) {
+      void yearlyPackage()
+        .then((p) => on && setPkg(p ?? 'error'))
+        .catch(() => on && setPkg('error'));
+    }
     return () => {
-      live = false;
+      on = false;
     };
-  }, []);
+  }, [store]);
+
+  // The store's own price (closest price point to 20 €) when the store is used.
+  const price = store && pkg && pkg !== 'error' ? pkg.product.priceString : planPrice();
 
   const check = (sessionId: string | null) =>
     api<{ status: 'active' | 'pending' }>('/v1/billing/checkout/confirm', {
       body: sessionId ? { sessionId } : {},
     }).catch(() => ({ status: 'pending' as const }));
 
-  // Back from Stripe with success: confirm right away instead of waiting for the webhook.
-  const confirm = async (sessionId: string | null) => {
+  const syncStore = () =>
+    api<{ status: 'active' | 'pending' }>('/v1/billing/store/sync', { body: {} }).catch(() => ({
+      status: 'pending' as const,
+    }));
+
+  // Back from Stripe or the store with success: confirm right away instead of waiting for the webhook.
+  const confirm = async (probe: () => Promise<{ status: 'active' | 'pending' }>) => {
     setState('confirming');
     for (let i = 0; i < 6; i++) {
-      if ((await check(sessionId)).status === 'active') {
+      if ((await probe()).status === 'active') {
         setState('idle');
         onPaid();
         return;
@@ -157,15 +227,25 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
     setState('failed');
   };
 
-  const submit = async () => {
-    if (!immediate || !texts || texts === 'error') return;
-    if (resubscribe && !sticker) {
-      setStickerMissing(true);
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    setState('idle');
+  const submitStore = async () => {
+    if (!texts || texts === 'error' || !pkg || pkg === 'error') return;
+    // Proof of what was agreed, stored before the store sheet opens (same as the web checkout).
+    const prepared = await api<{ appUserId: string }>('/v1/billing/store/prepare', {
+      body: {
+        platform: Platform.OS === 'ios' ? 'ios' : 'android',
+        immediateStartVersion: texts.immediateStart.version,
+        termsVersion: texts.terms.version,
+      },
+    });
+    const id = prepared.appUserId || userId;
+    if (!id) throw new Error('no_user');
+    const r = await purchaseYearly(pkg, id);
+    if (r === 'canceled') setState('canceled');
+    else await confirm(syncStore);
+  };
+
+  const submitStripe = async () => {
+    if (!texts || texts === 'error') return;
     const body = {
       plan: 'standard',
       immediateStart: true,
@@ -173,19 +253,32 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
       termsVersion: texts.terms.version,
       ...(promo.trim() ? { promoCode: promo.trim() } : {}),
     };
+    const r = await payInApp((appReturn) =>
+      resubscribe
+        ? api<{ url: string }>('/v1/portal/subscriptions/renew', {
+            body: { ...body, stickerStillAttached: sticker === 'keep', appReturn },
+          })
+        : api<{ url: string }>('/v1/billing/checkout', { body: { ...body, appReturn } }),
+    );
+    if (r.result === 'success') await confirm(() => check(r.sessionId));
+    else if (r.result === 'canceled') setState('canceled');
+    // Closed by hand: almost always not paid. One quiet check, no „thank you“ (P3).
+    else if ((await check(null)).status === 'active') onPaid();
+    else setState('canceled');
+  };
+
+  const submit = async () => {
+    if (!immediate || !texts || texts === 'error') return;
+    if (!store && resubscribe && !sticker) {
+      setStickerMissing(true);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setInfo(null);
+    setState('idle');
     try {
-      const r = await payInApp((appReturn) =>
-        resubscribe
-          ? api<{ url: string }>('/v1/portal/subscriptions/renew', {
-              body: { ...body, stickerStillAttached: sticker === 'keep', appReturn },
-            })
-          : api<{ url: string }>('/v1/billing/checkout', { body: { ...body, appReturn } }),
-      );
-      if (r.result === 'success') await confirm(r.sessionId);
-      else if (r.result === 'canceled') setState('canceled');
-      // Closed by hand: almost always not paid. One quiet check, no „thank you“ (P3).
-      else if ((await check(null)).status === 'active') onPaid();
-      else setState('canceled');
+      await (store ? submitStore() : submitStripe());
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -193,10 +286,50 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
     }
   };
 
+  // „Käufe wiederherstellen“ (App Store rule): the store re-sends the purchases, our API reads them.
+  const restore = async () => {
+    if (!userId) return;
+    setRestoring(true);
+    setError(null);
+    setInfo(null);
+    try {
+      await restoreStorePurchases(userId);
+      if ((await syncStore()).status === 'active') onPaid();
+      else setInfo(t('restoreNone'));
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   if (state === 'confirming') return <Banner tone="info">{t('payChecking')}</Banner>;
   if (texts === null) return <P muted>{pt('checkout.textsLoading')}</P>;
   if (texts === 'error') return <Banner tone="err">{pt('checkout.textsMissing')}</Banner>;
 
+  // A4: never a second subscription. Say where it was bought and how to manage it.
+  if (live) {
+    return (
+      <View style={s.form} testID="already-subscribed">
+        <Banner tone="ok">{t('alreadySubscribed')}</Banner>
+        <P>{providerText(live.provider)}</P>
+        {isStoreProvider(live.provider) ? (
+          <>
+            <P muted>{t('storeManageText', { store: storeName(live.provider) })}</P>
+            <Button
+              variant="secondary"
+              label={t('storeManageButton', { store: storeName(live.provider) })}
+              onPress={() => openStoreManagement(live)}
+            />
+          </>
+        ) : (
+          <P muted>{t('manageWeb')}</P>
+        )}
+      </View>
+    );
+  }
+
+  const storeMissing = store && pkg === 'error';
   return (
     <View style={s.form}>
       {state === 'failed' && <Banner tone="warn">{pt('account.confirmFailed')}</Banner>}
@@ -207,15 +340,18 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
       )}
       <View style={[s.summary, { backgroundColor: c.surface, borderColor: c.border }]}>
         <Text style={{ color: c.fg, fontSize: 17, fontWeight: '700' }} testID="price-line">
-          {`${t('planName')} · ${t('planPriceLine', { price: planPrice() })}`}
+          {`${t('planName')} · ${t('planPriceLine', { price })}`}
         </Text>
+        <P muted>{t('paywallYearly')}</P>
         <P muted>{pt('checkout.summaryTerm')}</P>
         <P muted>
           <Text style={{ fontWeight: '700' }}>{pt('checkout.summaryRenewal')}:</Text>{' '}
           {texts.renewalRule}
         </P>
+        {/* TODO [LEGAL REVIEW] price breakdown (B2) */}
+        <P muted>{stickerValueText()}</P>
       </View>
-      {resubscribe && (
+      {!store && resubscribe && (
         <>
           <Choice
             legend={pt('checkout.stickerQuestion')}
@@ -233,20 +369,55 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
       )}
       {/* TODO [LEGAL REVIEW: mandatory immediate-start consent] text comes from legal_texts */}
       <Check label={texts.immediateStart.text} checked={immediate} onChange={setImmediate} />
+      {/* TODO [LEGAL REVIEW] § 312g Abs. 2 Nr. 1 BGB: info line next to the consent, no checkbox (B3). */}
+      <View testID="sticker-notice">
+        <P muted>{t('stickerNotice')}</P>
+      </View>
+      {storeMissing && <Banner tone="warn">{t('storeUnavailable')}</Banner>}
       {error && <Banner tone="err">{error}</Banner>}
+      {info && <Banner tone="info">{info}</Banner>}
       {/* § 312j BGB: the button names the obligation to pay and the price. */}
       <Button
-        label={t('payButton', { price: planPrice() })}
+        label={t('payButton', { price })}
         onPress={() => void submit()}
         busy={busy}
-        disabled={!immediate}
+        disabled={!immediate || (store && (!pkg || pkg === 'error'))}
         testID="pay"
       />
       <View style={s.secure}>
         <Icon name="lock" size={16} color={c.muted} />
-        <Text style={[typeScale.caption, { color: c.muted }]}>{t('paySecure')}</Text>
+        <Text style={[typeScale.caption, { color: c.muted, flexShrink: 1 }]}>
+          {store
+            ? Platform.OS === 'ios'
+              ? t('payStoreSecureIos')
+              : t('payStoreSecureAndroid')
+            : t('paySecure')}
+        </Text>
       </View>
       {!immediate && <P muted>{pt('checkout.immediateRequired')}</P>}
+      <P muted>
+        <Text style={s.link} accessibilityRole="link" onPress={() => void openInBrowser('/agb')}>
+          {pt('common.footer.terms')}
+        </Text>{' '}
+        ·{' '}
+        <Text
+          style={s.link}
+          accessibilityRole="link"
+          onPress={() => void openInBrowser('/datenschutz')}
+        >
+          {pt('common.footer.privacy')}
+        </Text>
+      </P>
+      {store && (
+        <Button
+          variant="ghost"
+          label={t('restorePurchases')}
+          onPress={() => void restore()}
+          busy={restoring}
+          disabled={!userId}
+          testID="restore"
+        />
+      )}
       <Collapsible title={t('paywallDetails')} testID="pay-details">
         <P muted>
           {pt('checkout.withdrawalNotice')}{' '}
@@ -257,29 +428,20 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
           >
             {pt('checkout.withdrawalLink')}
           </Text>
-          . {texts.terms.text}{' '}
-          <Text style={s.link} accessibilityRole="link" onPress={() => void openInBrowser('/agb')}>
-            {pt('common.footer.terms')}
-          </Text>{' '}
-          ·{' '}
-          <Text
-            style={s.link}
-            accessibilityRole="link"
-            onPress={() => void openInBrowser('/datenschutz')}
-          >
-            {pt('common.footer.privacy')}
-          </Text>
+          . {texts.terms.text}
         </P>
-        <Field
-          label={pt('checkout.promoLabel')}
-          optional={pt('common.optional')}
-          value={promo}
-          onChangeText={setPromo}
-          autoCapitalize="characters"
-          autoCorrect={false}
-          maxLength={40}
-          ltr
-        />
+        {!store && (
+          <Field
+            label={pt('checkout.promoLabel')}
+            optional={pt('common.optional')}
+            value={promo}
+            onChangeText={setPromo}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={40}
+            ltr
+          />
+        )}
       </Collapsible>
     </View>
   );
@@ -290,6 +452,11 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
  * While the withdrawal period runs (`withdrawalOpenUntil` in the future) „Vertrag widerrufen“ stays on
  * it, as visible as „Vertrag hier kündigen“ (§ 356a BGB: permanently available, prominently placed,
  * on the interface where the contract was concluded); afterwards only the cancel part remains.
+ *
+ * Store subscriptions (A6, Apple/Google are the seller): both buttons stay, but „Vertrag hier
+ * kündigen“ leads to the store's subscription management and „Vertrag widerrufen“ to the store's
+ * refund route (our refund calculation is for website subscriptions only). The screens behind
+ * `onWithdraw` / `onCancel` show the same, with our own forms kept below.
  */
 export function ContractCard({
   sub,
@@ -306,6 +473,8 @@ export function ContractCard({
     sub.withdrawalOpenUntil && new Date(sub.withdrawalOpenUntil) > now
       ? sub.withdrawalOpenUntil
       : null;
+  const store = isStoreProvider(sub.provider);
+  const name = storeName(sub.provider);
   return (
     <Card>
       <Title>{t('contractTitle')}</Title>
@@ -313,6 +482,7 @@ export function ContractCard({
       {withdrawal && (
         <View style={s.part} testID="contract-withdraw">
           <P>{t('withdrawUntil', { date: longDate(withdrawal) })}</P>
+          {store && <P muted>{t('storeWithdrawText', { store: name })}</P>}
           <Button
             variant="secondary"
             label={t('withdrawButton')}
@@ -322,7 +492,21 @@ export function ContractCard({
         </View>
       )}
       {/* TODO [LEGAL REVIEW] § 312k BGB cancellation text (annual renewal, end of the paid year). */}
-      {sub.cancelAtPeriodEnd ? (
+      {store ? (
+        <View style={s.part} testID="contract-cancel-store">
+          {sub.cancelAtPeriodEnd && sub.currentPeriodEnd && (
+            <P>{pt('account.endsOn', { date: new Date(sub.currentPeriodEnd) })}</P>
+          )}
+          <P muted>{t('storeManageText', { store: name })}</P>
+          <Button
+            variant="secondary"
+            label={t('cancelButton')}
+            onPress={() => openStoreManagement(sub)}
+            accessibilityHint={t('storeCancelButton', { store: name })}
+            testID="cancel"
+          />
+        </View>
+      ) : sub.cancelAtPeriodEnd ? (
         sub.currentPeriodEnd && (
           <P>{pt('account.endsOn', { date: new Date(sub.currentPeriodEnd) })}</P>
         )
@@ -337,6 +521,41 @@ export function ContractCard({
           />
         </View>
       )}
+    </Card>
+  );
+}
+
+/** The store's refund route for a store subscriber (A6): Apple „Problem melden“, Google Play orders. */
+export function StoreRefundCard({ sub }: { sub: SubscriptionSummary }) {
+  const url = refundRouteUrl(sub);
+  if (!isStoreProvider(sub.provider) || !url) return null;
+  const name = storeName(sub.provider);
+  return (
+    <Card>
+      <View testID="store-refund" style={s.part}>
+        <P>{t('storeWithdrawText', { store: name })}</P>
+        <Button
+          label={t('storeRefundButton', { store: name })}
+          onPress={() => void Linking.openURL(url)}
+        />
+      </View>
+    </Card>
+  );
+}
+
+/** The store's subscription management for a store subscriber (A6, „Vertrag hier kündigen“). */
+export function StoreManageCard({ sub }: { sub: SubscriptionSummary }) {
+  if (!isStoreProvider(sub.provider)) return null;
+  const name = storeName(sub.provider);
+  return (
+    <Card>
+      <View testID="store-manage" style={s.part}>
+        <P>{t('storeManageText', { store: name })}</P>
+        <Button
+          label={t('storeManageButton', { store: name })}
+          onPress={() => openStoreManagement(sub)}
+        />
+      </View>
     </Card>
   );
 }

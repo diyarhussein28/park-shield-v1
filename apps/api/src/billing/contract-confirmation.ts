@@ -27,6 +27,36 @@ export interface ContractConfirmationInput {
   consent: { text: string; at: Date } | null;
   company: { name: string; street: string; postalCode: string; city: string; email: string };
   webBaseUrl: string;
+  /** Sticker value included in the price, e.g. „3,00 €“ (B2); null for old contracts. */
+  stickerValue?: string | null;
+  /** Bought in the app through Apple/Google (they are the seller); null/undefined: Stripe. */
+  store?: 'app_store' | 'play_store' | null;
+}
+
+const STORE_NAME = {
+  de: { app_store: 'App Store (Apple)', play_store: 'Google Play (Google)' },
+  en: { app_store: 'App Store (Apple)', play_store: 'Google Play (Google)' },
+} as const;
+const STORE_SELLER = { app_store: 'Apple', play_store: 'Google' } as const;
+const REFUND_ROUTE = {
+  app_store: 'https://reportaproblem.apple.com',
+  play_store: 'https://play.google.com/store/account/orderhistory',
+} as const;
+
+/** B2 price breakdown lines (web checkout, paywall, e-mail, PDF, invoice). TODO [LEGAL REVIEW] */
+export function priceBreakdown(locale: 'de' | 'en', price: string, stickerValue?: string | null) {
+  const lines =
+    locale === 'de'
+      ? [`ParkShield Jahresabo: ${price} / Jahr, inkl. MwSt.`]
+      : [`ParkShield yearly plan: ${price} / year, incl. VAT.`];
+  if (stickerValue) {
+    lines.push(
+      locale === 'de'
+        ? `Im Preis enthalten: personalisierter Aufkleber inkl. Versand im Wert von ${stickerValue}.`
+        : `Included in the price: personalised sticker incl. shipping worth ${stickerValue}.`,
+    );
+  }
+  return lines;
 }
 
 export interface PdfSection {
@@ -107,7 +137,12 @@ export function contractConfirmationContent(i: ContractConfirmationInput): PdfCo
               'Tarif: ParkShield – ein Fahrzeug, alles inklusive',
               `Vertragsbeginn: ${date(i.startedAt, l)}`,
               `Nächste Verlängerung: ${date(i.renewsAt, l)}`,
-              `Preis: ${i.price} pro Jahr inklusive 19 % MwSt.`,
+              ...priceBreakdown('de', i.price, i.stickerValue),
+              ...(i.store
+                ? [
+                    `Gekauft über: ${STORE_NAME.de[i.store]}. Das Abo wird über ${STORE_SELLER[i.store]} abgerechnet; den Zahlungsbeleg erhalten Sie von ${STORE_SELLER[i.store]}. Dieses Dokument ist eine Vertragsbestätigung, keine Rechnung.`,
+                  ]
+                : []),
               `Anbieter: ${i.company.name}, ${i.company.street}, ${i.company.postalCode} ${i.company.city}, ${i.company.email}`,
             ]
           : [
@@ -116,24 +151,41 @@ export function contractConfirmationContent(i: ContractConfirmationInput): PdfCo
               'Plan: ParkShield – one vehicle, everything included',
               `Start: ${date(i.startedAt, l)}`,
               `Next renewal: ${date(i.renewsAt, l)}`,
-              `Price: ${i.price} per year including 19% VAT`,
+              ...priceBreakdown('en', i.price, i.stickerValue),
+              ...(i.store
+                ? [
+                    `Bought through: ${STORE_NAME.en[i.store]}. The subscription is billed by ${STORE_SELLER[i.store]}; you receive the receipt from ${STORE_SELLER[i.store]}. This document is a contract confirmation, not an invoice.`,
+                  ]
+                : []),
               `Provider: ${i.company.name}, ${i.company.street}, ${i.company.postalCode} ${i.company.city}, Germany, ${i.company.email}`,
             ],
       },
       {
         part: 'renewal',
         heading: de ? 'Laufzeit, Verlängerung und Kündigung' : 'Term, renewal and cancellation',
-        paragraphs: de
-          ? [
-              renewalRule(l, { renewalMode: i.renewalMode }),
-              `Kündigen können Sie jederzeit ohne Anmeldung über „Verträge hier kündigen“ unten auf jeder Seite unserer Website (${web}/kuendigen) oder in Ihrem Konto. Wir bestätigen den Eingang Ihrer Kündigung sofort per E-Mail mit dem Datum, zu dem der Vertrag endet.`,
-              `Innerhalb der Widerrufsfrist können Sie den Vertrag über „Vertrag widerrufen“ (${web}/widerrufen) widerrufen; Einzelheiten in der Widerrufsbelehrung unten.`,
-            ]
-          : [
-              renewalRule(l, { renewalMode: i.renewalMode }),
-              `You can cancel at any time without signing in via “Cancel contract” at the bottom of every page of our website (${web}/kuendigen) or in your account. We confirm receipt at once by e-mail with the date the contract ends.`,
-              `Within the withdrawal period you can withdraw via “Withdraw from contract” (${web}/widerrufen); details in the withdrawal policy below.`,
-            ],
+        paragraphs: i.store
+          ? de
+            ? [
+                renewalRule(l, { renewalMode: i.renewalMode }),
+                `Ihr Abo verwaltet ${STORE_SELLER[i.store]}: Kündigen können Sie jederzeit in den Abo-Einstellungen von ${STORE_NAME.de[i.store]} (in der App unter „Vertrag hier kündigen“ verlinkt).`,
+                `Über Widerruf und Erstattung entscheidet ${STORE_SELLER[i.store]}: ${REFUND_ROUTE[i.store]}. Der Button „Vertrag widerrufen“ in der App führt dorthin.`,
+              ]
+            : [
+                renewalRule(l, { renewalMode: i.renewalMode }),
+                `${STORE_SELLER[i.store]} manages your subscription: you can cancel at any time in the subscription settings of ${STORE_NAME.en[i.store]} (linked in the app under “Cancel contract”).`,
+                `${STORE_SELLER[i.store]} decides on withdrawal and refunds: ${REFUND_ROUTE[i.store]}. The “Withdraw from contract” button in the app leads there.`,
+              ]
+          : de
+            ? [
+                renewalRule(l, { renewalMode: i.renewalMode }),
+                `Kündigen können Sie jederzeit ohne Anmeldung über „Verträge hier kündigen“ unten auf jeder Seite unserer Website (${web}/kuendigen) oder in Ihrem Konto. Wir bestätigen den Eingang Ihrer Kündigung sofort per E-Mail mit dem Datum, zu dem der Vertrag endet.`,
+                `Innerhalb der Widerrufsfrist können Sie den Vertrag über „Vertrag widerrufen“ (${web}/widerrufen) widerrufen; Einzelheiten in der Widerrufsbelehrung unten.`,
+              ]
+            : [
+                renewalRule(l, { renewalMode: i.renewalMode }),
+                `You can cancel at any time without signing in via “Cancel contract” at the bottom of every page of our website (${web}/kuendigen) or in your account. We confirm receipt at once by e-mail with the date the contract ends.`,
+                `Within the withdrawal period you can withdraw via “Withdraw from contract” (${web}/widerrufen); details in the withdrawal policy below.`,
+              ],
       },
       {
         part: 'immediate_start',

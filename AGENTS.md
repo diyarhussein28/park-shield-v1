@@ -169,22 +169,23 @@ security key). Staff sign in with passkeys only; further staff are invited from 
 Every external provider has a **fake adapter** that is used while its key is empty, so the whole
 product works offline. Production refuses to start with fakes (unless `APP_ENV=ci`).
 
-| Provider                       | Env vars                                                                                                      | Fake behaviour                          |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| Stripe (payments)              | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_YEARLY` (20 €), `STRIPE_PRICE_MONTHLY` (fallback) | `/dev/checkout` simulates payment       |
-| E-mail: Mailjet (default)      | `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, `MAIL_FROM` (tracking off per message)                               | `/dev/postfach` inbox                   |
-| E-mail: Brevo (optional)       | `MAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `MAIL_FROM`                                                           | `/dev/postfach` inbox                   |
-| E-mail: SendGrid (optional)    | `MAIL_PROVIDER=sendgrid`, `SENDGRID_API_KEY`, `SENDGRID_REGION` (`global`/`eu`), `MAIL_FROM`                  | `/dev/postfach` inbox                   |
-| SMS (Twilio)                   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` (sender ID, number or `MG…`)                     | SMS in `/dev/postfach`                  |
-| Scanner phone check (Twilio)   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` (`VA…`, Fraud Guard on)                | code in `/dev/postfach`; prod: off      |
-| App push (Firebase FCM)        | `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, `FCM_PRIVATE_KEY` (service account of the Firebase project)             | pushes in `/dev/postfach` (App-Push)    |
-| App links (website)            | `APP_IOS_TEAM_ID`, `APP_IOS_BUNDLE_ID`, `APP_ANDROID_PACKAGE`, `APP_ANDROID_SHA256` (web app env)             | empty `/.well-known/*` files            |
-| Friendly Captcha               | `FRIENDLY_CAPTCHA_SITEKEY`, `FRIENDLY_CAPTCHA_API_KEY`, `NEXT_PUBLIC_FRIENDLY_CAPTCHA_SITEKEY`                | "Sicherheitsprüfung: lokal simuliert"   |
-| Print partner                  | `PRINT_PARTNER` (`manual` until a partner adapter exists)                                                     | orders written to `.local/print-outbox` |
-| Audit bucket (S3, Object Lock) | `AUDIT_BUCKET`, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`                                  | files in `.local/audit-bucket`          |
-| Zammad (support desk)          | `ZAMMAD_URL`, `ZAMMAD_TOKEN`, `ZAMMAD_GROUP`                                                                  | tickets stored locally                  |
-| Support by e-mail (instead)    | `SUPPORT_PROVIDER=email`, `SUPPORT_EMAIL`                                                                     | tickets stored locally                  |
-| Better Stack heartbeat         | `HEARTBEAT_URL_WORKER`                                                                                        | no ping                                 |
+| Provider                       | Env vars                                                                                                                                                                    | Fake behaviour                                         |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Stripe (payments)              | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_YEARLY` (20 €), `STRIPE_PRICE_MONTHLY` (fallback)                                                               | `/dev/checkout` simulates payment                      |
+| RevenueCat (in-app purchases)  | `REVENUECAT_SECRET_KEY`, `REVENUECAT_WEBHOOK_AUTH`, `REVENUECAT_ENTITLEMENT_ID` (`parkshield`); app: `EXPO_PUBLIC_REVENUECAT_IOS_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` | fake store in Valkey (tests); app falls back to Stripe |
+| E-mail: Mailjet (default)      | `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, `MAIL_FROM` (tracking off per message)                                                                                             | `/dev/postfach` inbox                                  |
+| E-mail: Brevo (optional)       | `MAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `MAIL_FROM`                                                                                                                         | `/dev/postfach` inbox                                  |
+| E-mail: SendGrid (optional)    | `MAIL_PROVIDER=sendgrid`, `SENDGRID_API_KEY`, `SENDGRID_REGION` (`global`/`eu`), `MAIL_FROM`                                                                                | `/dev/postfach` inbox                                  |
+| SMS (Twilio)                   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` (sender ID, number or `MG…`)                                                                                   | SMS in `/dev/postfach`                                 |
+| Scanner phone check (Twilio)   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` (`VA…`, Fraud Guard on)                                                                              | code in `/dev/postfach`; prod: off                     |
+| App push (Firebase FCM)        | `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, `FCM_PRIVATE_KEY` (service account of the Firebase project)                                                                           | pushes in `/dev/postfach` (App-Push)                   |
+| App links (website)            | `APP_IOS_TEAM_ID`, `APP_IOS_BUNDLE_ID`, `APP_ANDROID_PACKAGE`, `APP_ANDROID_SHA256` (web app env)                                                                           | empty `/.well-known/*` files                           |
+| Friendly Captcha               | `FRIENDLY_CAPTCHA_SITEKEY`, `FRIENDLY_CAPTCHA_API_KEY`, `NEXT_PUBLIC_FRIENDLY_CAPTCHA_SITEKEY`                                                                              | "Sicherheitsprüfung: lokal simuliert"                  |
+| Print partner                  | `PRINT_PARTNER` (`manual` until a partner adapter exists)                                                                                                                   | orders written to `.local/print-outbox`                |
+| Audit bucket (S3, Object Lock) | `AUDIT_BUCKET`, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`                                                                                                | files in `.local/audit-bucket`                         |
+| Zammad (support desk)          | `ZAMMAD_URL`, `ZAMMAD_TOKEN`, `ZAMMAD_GROUP`                                                                                                                                | tickets stored locally                                 |
+| Support by e-mail (instead)    | `SUPPORT_PROVIDER=email`, `SUPPORT_EMAIL`                                                                                                                                   | tickets stored locally                                 |
+| Better Stack heartbeat         | `HEARTBEAT_URL_WORKER`                                                                                                                                                      | no ping                                                |
 
 WhatsApp and the Business plan were removed (2026-12, migration `20261201000000_app_notifications_chat`).
 Production without every provider account: `PRINT_PARTNER=manual` writes print
@@ -204,7 +205,7 @@ Local Stripe webhooks: current Stripe CLI versions require the events to be name
 ones `StripePayments.parseWebhook` handles:
 
 ```bash
-stripe listen --events checkout.session.completed,customer.subscription.updated,customer.subscription.deleted,invoice.paid,invoice.payment_failed --forward-to localhost:4000/v1/webhooks/stripe
+stripe listen --events checkout.session.completed,customer.subscription.updated,customer.subscription.deleted,invoice.paid,invoice.payment_failed,payment_intent.succeeded,charge.refunded --forward-to localhost:4000/v1/webhooks/stripe
 ```
 
 Put the printed `whsec_…` into `STRIPE_WEBHOOK_SECRET`.
@@ -298,6 +299,13 @@ Single API test file: `cd apps/api && npx vitest run src/scan`. Single E2E file:
   (`apps/api/src/core/crypto.ts`, key versions `DATA_KEY_V<n>`); lookups use HMAC blind indexes
   (`*_bidx`). Tokens and links are stored as SHA-256 hashes only. Reply tokens are HMAC-derived
   from `SESSION_SECRET`, not stored.
+- **Unified billing** (2026-11-22, `docs/billing-unified.md`): our `subscriptions` table is the
+  entitlement hub for Stripe (web) and RevenueCat (App Store / Google Play, `billing/store-sync.service.ts`).
+  Webhook event ids are stored once in `billing_webhook_events`; RevenueCat events are synced in the
+  worker (outbox `store.sync`) from the REST subscriber. The printed sticker is personalised (vehicle
+  label on every design, `design_snapshot` frozen at the confirmation step) and its value
+  (`prices.sticker_value_cents`) is kept on a Stripe withdrawal after personalisation
+  (`computeWithdrawalRefund` in `legal/rules.ts`).
 - **Internal mails** (2026-11-22): the contact form mails `SUPPORT_EMAIL` (default
   `support@park-shield.de`, reply-to = customer, `support_request`) and the customer gets
   `support_received`. Every new subscription, renewal and paid 3 € print queues one

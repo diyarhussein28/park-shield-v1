@@ -48,6 +48,8 @@ import { ProfileService } from './profile/profile.service';
 import { SessionService } from './auth/session.service';
 import { BillingController, StripeWebhookController } from './billing/billing.controller';
 import { BillingService } from './billing/billing.service';
+import { RevenueCatWebhookController, StoreController } from './billing/store.controller';
+import { StoreSyncService } from './billing/store-sync.service';
 import { fakeProviders, isTestEnvironment, type Env } from './config/env';
 import { CoreModule } from './core/core.module';
 import { GeoService } from './core/geo.service';
@@ -72,6 +74,7 @@ import { ProvidersModule } from './providers/providers.module';
 import { EntitlementService } from './billing/entitlements.service';
 import { OrdersController } from './orders/orders.controller';
 import { OrdersService } from './orders/orders.service';
+import { WelcomePrintReminderService } from './orders/welcome-print-reminder.service';
 import { TokensService } from './vehicles/tokens.service';
 import { TagsService } from './vehicles/tags.service';
 import { CancellationsService } from './legal/cancellations.service';
@@ -125,6 +128,7 @@ const domainProviders = [
   ViewTokenService,
   AlertMediaService,
   BillingService,
+  StoreSyncService,
   EntitlementService,
   TokensService,
   TagsService,
@@ -195,6 +199,8 @@ export class PublicAppModule {
         AuthController,
         BillingController,
         StripeWebhookController,
+        StoreController,
+        RevenueCatWebhookController,
         LegalController,
         VehiclesController,
         OrdersController,
@@ -286,6 +292,7 @@ export class WorkerModule {
         AccessReviewService,
         // payment@ mails with the letter attached (2026-11-22): sent by the worker only.
         PaymentNotifyService,
+        WelcomePrintReminderService,
         OutboxService,
         SchedulerService,
         WorkerBootstrap,

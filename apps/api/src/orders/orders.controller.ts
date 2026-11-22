@@ -27,7 +27,12 @@ export const Address = z.object({
   city: z.string().trim().min(2).max(60),
   country: z.literal('DE'),
 });
-const OrderPrint = z.object({ address: Address, appReturn: AppReturn });
+// B1: the order is placed only from the personalisation confirmation step.
+const OrderPrint = z.object({
+  address: Address,
+  appReturn: AppReturn,
+  personalizationConfirmed: z.literal(true),
+});
 
 @Controller('v1')
 @UseGuards(SessionGuard)

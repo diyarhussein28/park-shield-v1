@@ -4,6 +4,7 @@ import {
   computeCancellationEnd,
   computeWithdrawalRefund,
   contractState,
+  contractYearDays,
   InvalidTagTransition,
   monthlyPriceCents,
   scannerDecision,
@@ -120,51 +121,85 @@ describe('computeCancellationEnd', () => {
   });
 });
 
-describe('computeWithdrawalRefund', () => {
+describe('computeWithdrawalRefund (B4, Stripe only)', () => {
+  const start = new Date('2027-01-10T09:00:00Z');
   const base = {
-    paidCents: 1000,
-    alreadyRefundedCents: 0,
-    periodStart: d('2027-08-03'),
-    periodEnd: d('2028-08-03'),
+    paidCents: 2000,
+    stickerValueCents: 300,
+    personalizedAt: new Date('2027-01-10T10:00:00Z'),
+    serviceStart: start,
+    contractYearDays: 365,
     immediateStartConsented: true,
   };
+  const at = (days: number, hours = 0) =>
+    new Date(start.getTime() + days * 86_400_000 + hours * 3_600_000);
 
-  it('deducts the value of the started days', () => {
-    const r = computeWithdrawalRefund({ ...base, withdrawnAt: new Date('2027-08-07T12:00:00Z') });
-    expect(r).toEqual({ daysUsed: 5, periodDays: 366, wertersatzCents: 14, refundCents: 986 });
-  });
-
-  it('counts at least one day on the first day', () => {
-    const r = computeWithdrawalRefund({ ...base, withdrawnAt: new Date('2027-08-03T08:00:00Z') });
-    expect(r.daysUsed).toBe(1);
-    expect(r.refundCents).toBe(997);
-  });
-
-  it('refunds everything without the immediate-start request', () => {
-    const r = computeWithdrawalRefund({
-      ...base,
-      immediateStartConsented: false,
-      withdrawnAt: d('2027-08-10'),
+  it('the example: 10 days after personalisation → 16,53 €', () => {
+    expect(computeWithdrawalRefund(base, at(10))).toEqual({
+      paidCents: 2000,
+      stickerExcludedCents: 300,
+      serviceBaseCents: 1700,
+      usedDays: 10,
+      contractYearDays: 365,
+      serviceValueCents: 47,
+      refundCents: 1653,
     });
-    expect(r).toMatchObject({ daysUsed: 0, wertersatzCents: 0, refundCents: 1000 });
   });
 
-  it('never refunds more than is left of the charge', () => {
-    const r = computeWithdrawalRefund({
-      ...base,
-      alreadyRefundedCents: 995,
-      withdrawnAt: d('2027-08-05'),
-    });
-    expect(r.refundCents).toBe(5);
+  it('before personalisation: no sticker deduction', () => {
+    const r = computeWithdrawalRefund({ ...base, personalizedAt: null }, at(10));
+    expect(r.stickerExcludedCents).toBe(0);
+    expect(r.serviceValueCents).toBe(55); // round(2000 × 10 / 365) = 54.79
+    expect(r.refundCents).toBe(1945);
   });
 
-  it('applies a configured deduction and never goes negative', () => {
-    const r = computeWithdrawalRefund({
-      ...base,
-      deductionCents: 2000,
-      withdrawnAt: d('2027-08-05'),
-    });
-    expect(r.refundCents).toBe(0);
+  it('personalised only after the withdrawal: no sticker deduction', () => {
+    const r = computeWithdrawalRefund({ ...base, personalizedAt: at(12) }, at(10));
+    expect(r.stickerExcludedCents).toBe(0);
+  });
+
+  it('without the immediate-start consent: no service value', () => {
+    const r = computeWithdrawalRefund({ ...base, immediateStartConsented: false }, at(10));
+    expect(r).toMatchObject({ usedDays: 0, serviceValueCents: 0, refundCents: 1700 });
+  });
+
+  it('day 0 (same day, a few hours later): whole days only', () => {
+    const r = computeWithdrawalRefund(base, at(0, 5));
+    expect(r).toMatchObject({ usedDays: 0, serviceValueCents: 0, refundCents: 1700 });
+  });
+
+  it('day 13: round(1700 × 13 / 365) = 61', () => {
+    const r = computeWithdrawalRefund(base, at(13, 23));
+    expect(r).toMatchObject({ usedDays: 13, serviceValueCents: 61, refundCents: 1639 });
+  });
+
+  it('rounds half up (1700 × 1 / 365 = 4.66 → 5; 1825 × 3 / 365 = 15)', () => {
+    expect(computeWithdrawalRefund(base, at(1)).serviceValueCents).toBe(5);
+    const even = computeWithdrawalRefund(
+      { ...base, paidCents: 2125, stickerValueCents: 300 },
+      at(3),
+    );
+    expect(even.serviceValueCents).toBe(15);
+  });
+
+  it('old contracts (sticker value 0) and printed stickers without personalized_at: no deduction', () => {
+    expect(computeWithdrawalRefund({ ...base, stickerValueCents: 0 }, at(10)).refundCents).toBe(
+      1945,
+    );
+  });
+
+  it('never refunds more than is left, never negative', () => {
+    expect(
+      computeWithdrawalRefund({ ...base, alreadyRefundedCents: 1990 }, at(2)).refundCents,
+    ).toBe(10);
+    expect(computeWithdrawalRefund({ ...base, stickerValueCents: 5000 }, at(2)).refundCents).toBe(
+      0,
+    );
+  });
+
+  it('contract year length', () => {
+    expect(contractYearDays(new Date('2027-01-10T00:00:00Z'))).toBe(365);
+    expect(contractYearDays(new Date('2027-08-03T00:00:00Z'))).toBe(366);
   });
 
   it('withdrawal period is 14 days from the contract', () => {

@@ -762,6 +762,79 @@ describe('„Vertrag“ card (§ 356a BGB)', () => {
   });
 });
 
+describe('store subscriptions (App Store / Google Play)', () => {
+  const now = new Date('2026-11-25T12:00:00Z');
+
+  it('„Vertrag hier kündigen“ opens the store management, „Vertrag widerrufen“ stays', async () => {
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+    const onCancel = jest.fn();
+    const onWithdraw = jest.fn();
+    await render(
+      <ContractCard
+        sub={subscription({
+          provider: 'app_store',
+          managementUrl: null,
+          refundRoute: 'apple',
+          withdrawalOpenUntil: '2026-12-03T12:00:00Z',
+        })}
+        onWithdraw={onWithdraw}
+        onCancel={onCancel}
+        now={now}
+      />,
+    );
+    expect(screen.getByText(t('storeManageText', { store: 'Apple' }))).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('cancel'));
+    expect(open).toHaveBeenCalledWith('https://apps.apple.com/account/subscriptions');
+    expect(onCancel).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('withdraw'));
+    expect(onWithdraw).toHaveBeenCalled();
+    open.mockRestore();
+  });
+
+  it('the paywall shows the sticker value and notice, and no purchase while a subscription is live', async () => {
+    api({
+      'GET /v1/me': () => json(me),
+      'GET /v1/billing/subscription': () =>
+        json({ subscription: subscription({ provider: 'play_store' }), hadSubscription: false }),
+      'GET /v1/legal/checkout-texts': () =>
+        json({
+          immediateStart: { version: 3, text: 'Ich verlange ausdrücklich den sofortigen Beginn.' },
+          terms: { version: 2, text: 'Es gelten unsere AGB.' },
+          renewalRule: 'Jährlich.',
+        }),
+    });
+    await render(<Plans />);
+    expect(await screen.findByTestId('already-subscribed')).toBeTruthy();
+    expect(screen.getByText(t('providerPlayStore'))).toBeTruthy();
+    expect(screen.queryByTestId('pay')).toBeNull();
+  });
+
+  it('the Stripe fallback paywall shows the price breakdown and the sticker notice', async () => {
+    api({
+      'GET /v1/me': () => json(me),
+      'GET /v1/billing/subscription': () => json({ subscription: null, hadSubscription: false }),
+      'GET /v1/legal/checkout-texts': () =>
+        json({
+          immediateStart: { version: 3, text: 'Ich verlange ausdrücklich den sofortigen Beginn.' },
+          terms: { version: 2, text: 'Es gelten unsere AGB.' },
+          renewalRule: 'Jährlich.',
+        }),
+    });
+    await render(<Plans />);
+    expect(
+      await screen.findByText(
+        'Im Preis enthalten: personalisierter Aufkleber inkl. Versand im Wert von 3,00 €.',
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Hinweis: Der personalisierte Aufkleber wird nach Ihren Angaben gefertigt. Für ihn besteht kein Widerrufsrecht (§ 312g Abs. 2 Nr. 1 BGB). Ihr Widerrufsrecht für das Abo bleibt bestehen.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByTestId('restore')).toBeNull(); // no store in tests (no key)
+  });
+});
+
 describe('print options', () => {
   const order = {
     id: 'o1',
@@ -773,15 +846,23 @@ describe('print options', () => {
     vehicleId: VEHICLE,
     nickname: 'Der Blaue',
   };
-  const routes = (shipped: object, over: Record<string, Handler> = {}) =>
+  const routes = (shipped: object, over: Record<string, Handler> = {}, extra: object = {}) =>
     api({
       [`GET /v1/vehicles/${VEHICLE}`]: () => json(vehicle()),
       [`GET /v1/vehicles/${VEHICLE}/print-options`]: () =>
-        json({ selfPrint: { priceCents: 0 }, shipped }),
+        json({
+          selfPrint: { priceCents: 0 },
+          shipped,
+          personalization: { label: 'Der Blaue', labelValid: true, template: 'classic', cta: 'x' },
+          addressPrefill: null,
+          ...extra,
+        }),
       'GET /v1/orders': () => json({ orders: [] }),
       ...over,
     });
+  /** „Weiter zur Bestätigung“, then the address in the one confirmation step (B1). */
   const address = async () => {
+    await fireEvent.press(await screen.findByTestId('ship-start'));
     await fireEvent.changeText(await screen.findByLabelText(pt('order.name')), 'Kim Muster');
     await fireEvent.changeText(screen.getByLabelText(pt('order.line1')), 'Hauptstraße 1');
     await fireEvent.changeText(screen.getByLabelText(pt('order.postalCode')), '50667');
@@ -796,7 +877,39 @@ describe('print options', () => {
     expect(screen.getByText(t('printPaper'))).toBeTruthy();
     expect(screen.getByText(t('printShipTitle'))).toBeTruthy();
     expect(screen.getByText('kostenlos (Willkommensdruck)')).toBeTruthy();
-    expect(screen.getByLabelText(t('printShipSubmitFree'))).toBeTruthy();
+    // Nothing is ordered before the confirmation step.
+    expect(screen.queryByLabelText(t('printConfirmFree'))).toBeNull();
+    await fireEvent.press(screen.getByTestId('ship-start'));
+    expect(await screen.findByLabelText(t('printConfirmFree'))).toBeTruthy();
+    expect(screen.getByText(t('printConfirmLabel', { label: 'Der Blaue' }))).toBeTruthy();
+    expect(screen.getByText(t('printPersonalNotice'))).toBeTruthy();
+    expect(t('printPersonalNotice')).toBe(
+      'Ihr Aufkleber wird nach Ihren Angaben individuell gedruckt. Für individuell angefertigte Waren besteht kein Widerrufsrecht.',
+    );
+    expect(screen.getByTestId('ship-design')).toBeTruthy();
+  });
+
+  it('prefills the address and blocks the order while the vehicle label cannot be printed', async () => {
+    routes(
+      { priceCents: 0, free: true, welcomePrint: true },
+      {},
+      {
+        personalization: { label: 'X', labelValid: false, template: 'classic', cta: 'x' },
+        addressPrefill: {
+          name: 'Kim Muster',
+          line1: 'Hauptstraße 1',
+          postalCode: '50667',
+          city: 'Köln',
+          country: 'DE',
+        },
+      },
+    );
+    await render(<PrintScreen />);
+    await fireEvent.press(await screen.findByTestId('ship-start'));
+    expect(await screen.findByDisplayValue('Kim Muster')).toBeTruthy();
+    expect(screen.getByText(t('printLabelInvalid', { label: 'X' }))).toBeTruthy();
+    expect(screen.getByTestId('ship-edit-name')).toBeTruthy();
+    expect(screen.getByTestId('address-submit').props.accessibilityState.disabled).toBe(true);
   });
 
   it('the free welcome print is ordered without a payment page', async () => {
@@ -809,7 +922,7 @@ describe('print options', () => {
     );
     await render(<PrintScreen />);
     await address();
-    await fireEvent.press(screen.getByLabelText(t('printShipSubmitFree')));
+    await fireEvent.press(screen.getByLabelText(t('printConfirmFree')));
     expect(await screen.findByText(t('printShipDone'))).toBeTruthy();
     expect(WebBrowser.openAuthSessionAsync).not.toHaveBeenCalled();
     expect(sent('POST', '/order-print')).toEqual({
@@ -820,6 +933,7 @@ describe('print options', () => {
         city: 'Köln',
         country: 'DE',
       },
+      personalizationConfirmed: true,
       appReturn: 'exp://192.168.178.25:8082/--/zurueck',
     });
   });
@@ -842,7 +956,8 @@ describe('print options', () => {
     expect(await screen.findByText(t('printShipPrice', { price }))).toBeTruthy();
     expect(t('printShipPrice', { price })).toBe(`${price} einmalig inkl. MwSt.`);
     await address();
-    await fireEvent.press(screen.getByLabelText(t('printShipSubmitPaid', { price })));
+    await fireEvent.press(screen.getByLabelText(t('printConfirmPaid', { price: '3 €' })));
+    expect(t('printConfirmPaid', { price: '3 €' })).toBe('3 € bezahlen und zusenden');
     expect(await screen.findByText(t('printShipDone'))).toBeTruthy();
     expect(WebBrowser.openAuthSessionAsync).toHaveBeenCalledWith(
       'https://checkout.stripe.com/c/pay/cs_print',

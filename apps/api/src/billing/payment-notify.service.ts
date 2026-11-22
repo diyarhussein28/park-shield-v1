@@ -73,6 +73,7 @@ export class PaymentNotifyService {
         'n.attachment_failed',
         'u.customer_no',
         's.contract_no',
+        's.provider',
       ])
       .where('n.id', '=', id)
       .executeTakeFirst();
@@ -136,6 +137,8 @@ export class PaymentNotifyService {
         customerNo,
         contractNo,
         paymentId: n.payment_ref ?? '–',
+        // A6: store purchases show the provider and the store transaction id, no Stripe id.
+        provider: n.provider ?? 'stripe',
         attachment: state,
         file,
       },

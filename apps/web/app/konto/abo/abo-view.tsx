@@ -7,10 +7,13 @@ import type { CreditNote, InvoiceSummary, Me, SubscriptionSummary } from '@/lib/
 import {
   CheckoutForm,
   Invoices,
+  isStoreSubscription,
   openPaymentPortal,
   Passkeys,
   PastDue,
   PlanFeatures,
+  storeManageUrl,
+  storeRefundUrl,
   SubscriptionInfo,
   SummarySettings,
 } from '../parts';
@@ -28,16 +31,28 @@ export function AboView({
   creditNotes: CreditNote[];
 }) {
   const { t } = useI18n();
+  const store = subscription ? isStoreSubscription(subscription) : false;
   return (
     <KontoShell title={t('portal.planTitle')} intro={t('portal.planIntro')}>
-      {subscription?.status === 'past_due' && <PastDue />}
+      {subscription?.status === 'past_due' && <PastDue sub={subscription} />}
       <Section title={t('account.subscription')} icon="card">
         {subscription ? (
           <>
             <SubscriptionInfo sub={subscription} />
-            <Button variant="secondary" onClick={() => void openPaymentPortal()} className="w-fit">
-              {t('account.paymentMethod')}
-            </Button>
+            {store ? (
+              // Apple/Google are the seller: payment method and receipts live in the store (A6).
+              <Text muted data-testid="store-receipts">
+                {t('account.storeReceipts', { provider: subscription.provider! })}
+              </Text>
+            ) : (
+              <Button
+                variant="secondary"
+                onClick={() => void openPaymentPortal()}
+                className="w-fit"
+              >
+                {t('account.paymentMethod')}
+              </Button>
+            )}
             <h3 className="font-semibold">{t('account.planIncludes')}</h3>
             <PlanFeatures />
           </>
@@ -48,7 +63,7 @@ export function AboView({
 
       {subscription && <ContractCard sub={subscription} />}
 
-      <Invoices invoices={invoices} creditNotes={creditNotes} />
+      {!store && <Invoices invoices={invoices} creditNotes={creditNotes} />}
 
       {subscription && <SummarySettings initial={me.summaryFrequency} />}
 
@@ -72,6 +87,7 @@ function ContractCard({ sub }: { sub: SubscriptionSummary }) {
   const end = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
   const withdrawable = sub.withdrawalOpenUntil ? new Date(sub.withdrawalOpenUntil) : null;
   if (!withdrawable && sub.cancelAtPeriodEnd && !end) return null;
+  if (isStoreSubscription(sub)) return <StoreContractCard sub={sub} />;
   return (
     <Section title={t('account.contractTitle')} icon="close">
       {withdrawable && (
@@ -90,6 +106,47 @@ function ContractCard({ sub }: { sub: SubscriptionSummary }) {
           <Link href="/kuendigen" className={contractButton}>
             {t('account.cancelButton')}
           </Link>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+const external = { target: '_blank', rel: 'noopener noreferrer' } as const;
+
+/**
+ * App Store / Google Play subscriptions (A6): Apple or Google is the seller. „Vertrag hier kündigen“
+ * opens the store's subscription management (we cannot cancel a store subscription), and „Vertrag
+ * widerrufen“ stays on the card but leads to the store's official refund route.
+ */
+// TODO [LEGAL REVIEW] § 312k / § 356a BGB for store purchases: is linking to the store enough?
+function StoreContractCard({ sub }: { sub: SubscriptionSummary }) {
+  const { t } = useI18n();
+  const provider = sub.provider!;
+  const end = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
+  const withdrawable = sub.withdrawalOpenUntil ? new Date(sub.withdrawalOpenUntil) : null;
+  return (
+    <Section title={t('account.contractTitle')} icon="close">
+      {withdrawable && (
+        <div
+          className="flex flex-col gap-3 border-b border-border pb-5"
+          data-testid="store-withdraw"
+        >
+          <Text>{t('account.withdrawUntil', { date: withdrawable })}</Text>
+          <Text>{t('account.storeWithdrawText', { provider })}</Text>
+          <a href={storeRefundUrl(sub)} {...external} className={contractButton}>
+            {t('common.footer.withdrawContract')}
+          </a>
+        </div>
+      )}
+      {sub.cancelAtPeriodEnd ? (
+        end && <Text>{t('account.canceledText', { date: end })}</Text>
+      ) : (
+        <div className="flex flex-col gap-3" data-testid="store-cancel">
+          <Text>{t('account.storeCancelText', { provider })}</Text>
+          <a href={storeManageUrl(sub)} {...external} className={contractButton}>
+            {t('account.cancelButton')}
+          </a>
         </div>
       )}
     </Section>

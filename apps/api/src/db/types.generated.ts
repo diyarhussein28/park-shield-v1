@@ -21,6 +21,8 @@ export type ArrayTypeImpl<T> = T extends ColumnType<infer S, infer I, infer U>
 
 export type BillingInterval = "month" | "year";
 
+export type BillingProvider = "app_store" | "play_store" | "stripe";
+
 export type BreakGlassStatus = "approved" | "expired" | "rejected" | "requested" | "used";
 
 export type ChannelType = "email" | "native_push" | "sms" | "voice" | "webpush";
@@ -261,6 +263,15 @@ export interface AuditStreamState {
   updated_at: Generated<Timestamp>;
 }
 
+export interface BillingWebhookEvents {
+  app_user_id: string | null;
+  event_id: string;
+  processed_at: Timestamp | null;
+  provider: string;
+  received_at: Generated<Timestamp>;
+  type: string;
+}
+
 export interface BreakGlassRequests {
   approved_at: Timestamp | null;
   approver_id: string | null;
@@ -398,8 +409,10 @@ export interface DecalOrderItems {
 }
 
 export interface DecalOrders {
+  canceled_at: Timestamp | null;
   created_at: Generated<Timestamp>;
   delivered_at: Timestamp | null;
+  design_snapshot: Json | null;
   id: Generated<string>;
   included_in_plan: Generated<boolean>;
   is_replacement: Generated<boolean>;
@@ -407,6 +420,7 @@ export interface DecalOrders {
   ops_note: string | null;
   organization_id: string | null;
   paid_print: Generated<boolean>;
+  personalized_at: Timestamp | null;
   print_partner_ref: string | null;
   reprint_of: string | null;
   returned_at: Timestamp | null;
@@ -810,19 +824,29 @@ export interface Subscriptions {
   id: Generated<string>;
   immediate_start_consent_id: string | null;
   interval: Generated<BillingInterval>;
+  management_url: string | null;
   monthly_scheduled_at: Timestamp | null;
   organization_id: string | null;
+  original_purchase_at: Timestamp | null;
   past_due_since: Timestamp | null;
   plan: PlanCode;
   price_locked_until: Timestamp | null;
   promo_code_id: string | null;
+  provider: Generated<BillingProvider>;
   quantity: Generated<number>;
+  refunded_at: Timestamp | null;
   renewal_mode: Generated<string>;
   renewal_reminded_for: Timestamp | null;
   status: SubscriptionState;
+  sticker_value_cents: Generated<number>;
+  store_last_transaction_id: string | null;
+  store_original_transaction_id: string | null;
+  store_product_id: string | null;
   stripe_subscription_id: string | null;
   updated_at: Generated<Timestamp>;
   user_id: string | null;
+  will_renew: Generated<boolean>;
+  withdrawal_notice_version: string | null;
   withdrawal_waiver_at: Timestamp | null;
   withdrawn_at: Timestamp | null;
 }
@@ -906,6 +930,7 @@ export interface Users {
   summary_frequency: Generated<SummaryFrequency>;
   timezone: Generated<string>;
   updated_at: Generated<Timestamp>;
+  welcome_print_reminders: Generated<number>;
   zammad_user_id: number | null;
 }
 
@@ -1022,6 +1047,7 @@ export interface DB {
   app_settings: AppSettings;
   audit_logs: AuditLogs;
   audit_stream_state: AuditStreamState;
+  billing_webhook_events: BillingWebhookEvents;
   break_glass_requests: BreakGlassRequests;
   cancellation_requests: CancellationRequests;
   chat_sessions: ChatSessions;

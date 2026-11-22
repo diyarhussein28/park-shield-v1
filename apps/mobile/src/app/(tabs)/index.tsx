@@ -10,8 +10,10 @@ import { NoCodeCard } from '@/components/no-code';
 import { quoted } from '@/components/open-alert-card';
 import { PushOffBanner } from '@/components/push-warning';
 import { PastDue } from '@/components/subscription';
+import { WelcomePrintCta } from '@/components/welcome-print-cta';
 import { Banner, Button, Chip } from '@/components/ui';
 import { api, authHeaders } from '@/lib/api';
+import { showWelcomePrintCta } from '@/lib/billing';
 import { useAlerts } from '@/lib/alerts-store';
 import { HAS_FIREBASE } from '@/lib/config';
 import { decalPreviewUrl, onDecalChange } from '@/lib/decal';
@@ -48,6 +50,7 @@ export default function Home() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [headers, setHeaders] = useState<Record<string, string> | null>(null);
   const [hidden, setHidden] = useState(true);
+  const [welcomeFree, setWelcomeFree] = useState(false);
 
   const load = useCallback(async () => {
     void reload();
@@ -56,10 +59,14 @@ export default function Home() {
       .catch(() => undefined);
     setSub(s);
     if (s) {
-      const [p, v] = await Promise.all([
+      const [p, v, o] = await Promise.all([
         api<Protection>('/v1/me/protection').catch(() => null),
         api<{ vehicles: PortalVehicle[] }>('/v1/vehicles').catch(() => ({ vehicles: [] })),
+        api<{ includedAvailable?: boolean }>('/v1/orders').catch(() => ({
+          includedAvailable: false,
+        })),
       ]);
+      setWelcomeFree(Boolean(o.includedAvailable));
       setProtection(p);
       setVehicles(v.vehicles);
       const car = v.vehicles[0];
@@ -127,7 +134,7 @@ export default function Home() {
         </Text>
         {error && <Banner tone="err">{t('offline')}</Banner>}
 
-        {sub?.status === 'past_due' && <PastDue />}
+        {sub?.status === 'past_due' && <PastDue sub={sub} />}
         {/* Alerts are push only: without it the first sign is the SMS after 30 minutes. No
             automatic permission prompt here (P6): the banner only asks on its button. */}
         {sub && <PushOffBanner pushReady={data?.pushReady} onChanged={reload} />}
@@ -262,6 +269,12 @@ export default function Home() {
             )}
           </View>
         )}
+
+        {sub &&
+          first &&
+          showWelcomePrintCta({ includedAvailable: welcomeFree, hasDecal: Boolean(decal) }) && (
+            <WelcomePrintCta vehicleId={first.id} />
+          )}
 
         {sub && decal && summary?.next && !hidden && (
           <View testID="setup-strip" style={[s.strip, { backgroundColor: c.infoBg }]}>

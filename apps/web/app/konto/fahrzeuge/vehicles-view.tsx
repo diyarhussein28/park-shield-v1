@@ -1,6 +1,6 @@
 'use client';
 
-import { PLAN_LIMIT_DEFAULTS } from '@parkshield/shared';
+import { isValidVehicleLabel, PLAN_LIMIT_DEFAULTS, VEHICLE_LABEL_MAX } from '@parkshield/shared';
 import { Button, Field, Input, Notice, Text, useI18n } from '@parkshield/ui';
 import { useState, type FormEvent } from 'react';
 import { KontoShell, Section } from '@/components/konto-shell';
@@ -8,6 +8,7 @@ import { api, ApiError, errorText } from '@/lib/api-client';
 import type { Vehicle } from '@/lib/api-server';
 import { NoActiveCode } from '../no-active-code';
 import { QrCard } from '../qr-card';
+import { WelcomePrintCta } from '../welcome-print-cta';
 
 export function VehicleForm({
   initial,
@@ -31,14 +32,27 @@ export function VehicleForm({
     makeModel: initial?.makeModel ?? '',
   });
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    setError(null);
+    // The label is printed on the decal (Part B): 2–20 characters; the API also filters bad words.
+    if (!isValidVehicleLabel(form.nickname)) {
+      setError(t('vehicles.labelRule'));
+      return;
+    }
     setBusy(true);
     try {
-      await onSubmit(form);
+      await onSubmit({ ...form, nickname: form.nickname.trim() });
+    } catch (err) {
+      setError(
+        err instanceof ApiError && err.body?.error === 'label_invalid'
+          ? t('vehicles.labelRule')
+          : errorText(err, t),
+      );
     } finally {
       setBusy(false);
     }
@@ -51,7 +65,8 @@ export function VehicleForm({
           <Input
             id={id}
             required
-            maxLength={60}
+            minLength={2}
+            maxLength={VEHICLE_LABEL_MAX}
             value={form.nickname}
             onChange={set('nickname')}
             aria-describedby={describedBy}
@@ -82,6 +97,7 @@ export function VehicleForm({
           )}
         </Field>
       </div>
+      {error && <Notice tone="danger">{error}</Notice>}
       <Button type="submit" busy={busy} className="w-fit">
         {submitLabel}
       </Button>
@@ -136,6 +152,7 @@ export function VehiclesView({ initial, subscribed }: { initial: Vehicle[]; subs
             onCreated={(nv) => setVehicles((list) => list.map((x) => (x.id === nv.id ? nv : x)))}
           />
         ))}
+      {subscribed && <WelcomePrintCta vehicles={vehicles} />}
       {vehicles.length > 0 && (
         <ul className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
           {vehicles.map((v) => (

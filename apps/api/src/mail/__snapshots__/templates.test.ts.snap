@@ -661,7 +661,9 @@ exports[`mail templates > contract_confirmation: snapshot in the shared layout (
   "subject": "Ihre Vertragsbestätigung für ParkShield (PS-7K3Q9X2M)",
   "text": "Vielen Dank! Ihr Vertrag ist abgeschlossen.
 
-Tarif: ParkShield – ein Fahrzeug, alles inklusive. Preis: 10,00 € pro Jahr inkl. 19 % MwSt.
+Tarif: ParkShield – ein Fahrzeug, alles inklusive.
+ParkShield Jahresabo: 20,00 € / Jahr, inkl. MwSt.
+Im Preis enthalten: personalisierter Aufkleber inkl. Versand im Wert von 3,00 €.
 
 Vertragsnummer: PS-7K3Q9X2M
 Kundennummer: PS-2027-000042
@@ -699,7 +701,9 @@ exports[`mail templates > contract_confirmation: snapshot in the shared layout (
   "subject": "Your contract confirmation for ParkShield (PS-7K3Q9X2M)",
   "text": "Thank you! Your contract is concluded.
 
-Plan: ParkShield – one vehicle, everything included. Price: 10,00 € per year incl. 19% VAT.
+Plan: ParkShield – one vehicle, everything included.
+ParkShield Jahresabo: 20,00 € / Jahr, inkl. MwSt.
+Im Preis enthalten: personalisierter Aufkleber inkl. Versand im Wert von 3,00 €.
 
 Contract number: PS-7K3Q9X2M
 Customer number: PS-2027-000042
@@ -712,7 +716,7 @@ Your declaration of August 3, 2027 at 11:14 AM: “Ich verlange ausdrücklich �
 
 Attached is your contract confirmation as a PDF with the terms, the withdrawal policy and the model withdrawal form as they applied when the contract was concluded (version 2026-11-26). The German version is binding.
 
-You can cancel at any time via “Cancel contract” at the bottom of every page, and withdraw within the withdrawal period via “Withdraw from contract”.
+Kündigen können Sie jederzeit über „Verträge hier kündigen“ unten auf jeder Seite, widerrufen innerhalb der Widerrufsfrist über „Vertrag widerrufen“.
 
 Open my account: https://park-shield.de/x
 
@@ -1760,7 +1764,9 @@ Betrag: 7,42 €
 Zahlungsdatum: 3. August 2027 um 11:15 Uhr
 Kundennummer: PS-2027-000042
 Vertragsnummer: PS-7K3Q9X2M
+Zahlungsweg: Stripe
 Stripe-Zahlungs-ID: pi_3QABCDEF
+Bruttopreis: 7,42 €
 
 Anlage: der Brief an den Kunden (PS-2027-000042_PS-7K3Q9X2M_Brief.pdf), identisch mit dem Download im Admin-Bereich.
 
@@ -1792,7 +1798,9 @@ Amount: 7,42 €
 Payment date: August 3, 2027 at 11:15 AM
 Customer number: PS-2027-000042
 Contract number: PS-7K3Q9X2M
+Paid via: Stripe
 Stripe payment ID: pi_3QABCDEF
+Gross price: 7,42 €
 
 Attached: the letter to the customer (PS-2027-000042_PS-7K3Q9X2M_Brief.pdf), identical to the download in the admin area.
 
@@ -1979,6 +1987,8 @@ exports[`mail templates > refund_issued: snapshot in the shared layout (DE and E
 
 Wir haben Ihnen 7,42 € erstattet (Gutschrift GS-2027-000001). Das Geld ist meist nach 5 bis 10 Werktagen auf Ihrem Konto.
 
+Gezahlt 20,00 € − personalisierter Aufkleber 3,00 € − genutzte Leistung (10 Tage) 0,47 € = Erstattung 16,53 €
+
 Ihr Abo ist damit beendet, Ihre Aufkleber sind ab sofort inaktiv. Die Gutschrift finden Sie in Ihrem Konto.
 
 Zum Konto: https://park-shield.de/x
@@ -2005,6 +2015,8 @@ exports[`mail templates > refund_issued: snapshot in the shared layout (DE and E
   "text": "We refunded 7,42 €
 
 We refunded 7,42 € to you (credit note GS-2027-000001). The money usually arrives within 5 to 10 working days.
+
+Gezahlt 20,00 € − personalisierter Aufkleber 3,00 € − genutzte Leistung (10 Tage) 0,47 € = Erstattung 16,53 €
 
 Your subscription has ended, your decals are inactive from now on. You will find the credit note in your account.
 

@@ -1,4 +1,9 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { ADDON_PRICES_CENTS, type DecalTemplate } from '@parkshield/shared';
 import { sql } from 'kysely';
 import { EntitlementService } from '../billing/entitlements.service';
@@ -19,6 +24,8 @@ import {
 } from '../providers/ports';
 import { TokensService } from '../vehicles/tokens.service';
 import { VehiclesService } from '../vehicles/vehicles.service';
+import { vehicleLabelOk } from '../vehicles/vehicle-label';
+import { ProfileService } from '../profile/profile.service';
 import { returnUrls } from '../billing/app-return';
 
 export const PRINT_TOPIC = 'print.submit';
@@ -37,6 +44,7 @@ export class OrdersService {
     @Inject(PRINT) private readonly printer: PrintPartner,
     @Inject(PAYMENTS) private readonly payments: Payments,
     @Inject(SettingsService) private readonly settings: SettingsService,
+    @Inject(ProfileService) private readonly profiles: ProfileService,
   ) {}
 
   /**
@@ -76,17 +84,81 @@ export class OrdersService {
    */
   async printOptions(userId: string, vehicleId: string) {
     // Only for the owner's own vehicle (404 otherwise, like every other vehicle route).
-    await this.vehicles.get(userId, vehicleId);
-    const [welcome, granted, price] = await Promise.all([
+    const vehicle = await this.vehicles.get(userId, vehicleId);
+    const [welcome, granted, price, design, address] = await Promise.all([
       this.includedAvailable(userId),
       this.freeReplacements(userId),
       this.printPrice(),
+      vehicle.decal
+        ? this.db
+            .selectFrom('qr_tokens')
+            .select(['design_template_id', 'cta_header'])
+            .where('id', '=', vehicle.decal.tokenId)
+            .executeTakeFirst()
+        : undefined,
+      this.profiles.postalAddress(userId),
     ]);
     const free = welcome || granted > 0;
     return {
       selfPrint: { priceCents: 0 },
       shipped: { priceCents: free ? 0 : price, free, welcomePrint: welcome },
+      // B1: what will be printed (the confirmation step shows it before the order is placed).
+      personalization: {
+        label: vehicle.nickname,
+        labelValid: vehicleLabelOk(vehicle.nickname),
+        template: design?.design_template_id ?? null,
+        cta: design?.cta_header ?? null,
+      },
+      // A7: the postal address from the sign-up profile (Apple/Google give us none).
+      addressPrefill: address
+        ? {
+            name: address.name,
+            line1: address.line1,
+            ...(address.line2 ? { line2: address.line2 } : {}),
+            postalCode: address.postalCode,
+            city: address.city,
+            country: 'DE' as const,
+          }
+        : null,
     };
+  }
+
+  /** The customer's choices frozen at confirmation (B1); printed from this, never from later edits. */
+  private snapshot(
+    token: { design_template_id: string; cta_header: string },
+    label: string,
+  ): { template: string; cta: string; label: string } {
+    return { template: token.design_template_id, cta: token.cta_header, label: label.trim() };
+  }
+
+  /**
+   * B4/B6: a withdrawal or a store refund BEFORE personalisation cancels the fulfillment order, so
+   * nothing is shipped. Confirmed (personalised) orders stay; old orders without `personalized_at`
+   * that were not printed yet are cancelled. Returns the number of cancelled orders.
+   */
+  async cancelUnpersonalized(userId: string): Promise<number> {
+    const r = await this.db
+      .updateTable('decal_orders')
+      .set({ status: 'canceled', canceled_at: sql`now()` })
+      .where('user_id', '=', userId)
+      .where('personalized_at', 'is', null)
+      .where('status', 'in', ['pending_payment', 'paid'])
+      .executeTakeFirst();
+    return Number(r.numUpdatedRows);
+  }
+
+  /** Whether a sticker was personalised for this customer before `at` (B4 sticker deduction). */
+  async personalizedBefore(userId: string, at: Date): Promise<boolean> {
+    const row = await this.db
+      .selectFrom('decal_orders')
+      .select('id')
+      .where('user_id', '=', userId)
+      .where('personalized_at', 'is not', null)
+      .where('personalized_at', '<=', at)
+      .where('status', '<>', 'pending_payment')
+      .where('status', '<>', 'canceled')
+      .executeTakeFirst();
+    return Boolean(row);
   }
 
   /**
@@ -103,6 +175,10 @@ export class OrdersService {
   ): Promise<{ id?: string; url: string; free: boolean }> {
     await this.entitlements.require(userId);
     const { token, vehicle } = await this.vehicles.currentToken(userId, vehicleId);
+    // B1: the vehicle label is printed on the sticker; it must be valid before anything is ordered.
+    if (!vehicleLabelOk(vehicle.nickname))
+      throw new UnprocessableEntityException({ error: 'label_invalid' });
+    const design = this.snapshot(token, vehicle.nickname);
     const page = `${this.env.WEB_BASE_URL}/konto/fahrzeuge/${vehicleId}`;
     // Website: back to the vehicle page; native app: through the bounce page into the app.
     const back = returnUrls(this.env, 'order', appReturn, {
@@ -140,6 +216,9 @@ export class OrdersService {
           total_gross_cents: 0,
           included_in_plan: kind === 'welcome',
           is_replacement: kind === 'granted',
+          // Confirmed in the personalisation step: frozen now, only then it enters the print queue.
+          personalized_at: sql`now()`,
+          design_snapshot: JSON.stringify(design),
         })
         .returning('id')
         .executeTakeFirstOrThrow();
@@ -175,12 +254,27 @@ export class OrdersService {
       return { id: freeId, url: back.success, free: true };
     }
 
+    // A3: the 3 € print is always a Stripe payment (physical goods never use in-app purchase), also
+    // for App Store / Google Play subscribers: their Stripe customer is created now, linked to the user.
     const user = await this.db
       .selectFrom('users')
-      .select(['stripe_customer_id'])
+      .select(['stripe_customer_id', 'email', 'preferred_lang'])
       .where('id', '=', userId)
       .executeTakeFirstOrThrow();
-    if (!user.stripe_customer_id) throw new ConflictException({ error: 'no_customer' });
+    let customerId = user.stripe_customer_id;
+    if (!customerId) {
+      customerId = await this.payments.ensureCustomer({
+        email: user.email,
+        userId,
+        locale: user.preferred_lang,
+      });
+      await this.db
+        .updateTable('users')
+        .set({ stripe_customer_id: customerId })
+        .where('id', '=', userId)
+        .where('stripe_customer_id', 'is', null)
+        .execute();
+    }
     const amount = await this.printPrice();
     const order = await this.db.transaction().execute(async (trx) => {
       const o = await trx
@@ -193,6 +287,9 @@ export class OrdersService {
           total_gross_cents: amount,
           is_replacement: true,
           paid_print: true,
+          // B5: personalised at order time (confirmed before payment); printed once paid.
+          personalized_at: sql`now()`,
+          design_snapshot: JSON.stringify(design),
         })
         .returning('id')
         .executeTakeFirstOrThrow();
@@ -207,10 +304,11 @@ export class OrdersService {
         .execute();
       return o;
     });
-    // TODO [LEGAL REVIEW] Withdrawal right for the 3 € print order (personalised code, § 312g Abs. 2
-    // Nr. 1 BGB?). Until the lawyer decides, the order is treated like any other one-time purchase.
+    // B5: the printed sticker is made to the customer's specification (design and vehicle label), so
+    // there is no right of withdrawal for it (§ 312g Abs. 2 Nr. 1 BGB); the notice is shown before the
+    // payment. TODO [LEGAL REVIEW]
     const checkout = await this.payments.createPaymentCheckout({
-      customerId: user.stripe_customer_id,
+      customerId,
       amountCents: amount,
       description:
         locale === 'en'
@@ -225,19 +323,20 @@ export class OrdersService {
   }
 
   /** Payment for an order arrived: queue it for printing (idempotent). */
-  async markPaid(orderId: string, paymentIntentId: string | null): Promise<void> {
-    await this.db.transaction().execute(async (trx) => {
+  async markPaid(orderId: string, paymentIntentId: string | null): Promise<boolean> {
+    return this.db.transaction().execute(async (trx) => {
       const r = await trx
         .updateTable('decal_orders')
         .set({ status: 'paid', stripe_payment_intent: paymentIntentId })
         .where('id', '=', orderId)
         .where('status', '=', 'pending_payment')
         .executeTakeFirst();
-      if (!Number(r.numUpdatedRows)) return;
+      if (!Number(r.numUpdatedRows)) return false;
       await trx
         .insertInto('outbox_events')
         .values({ topic: PRINT_TOPIC, payload: JSON.stringify({ orderId }) })
         .execute();
+      return true;
     });
   }
 
@@ -291,15 +390,23 @@ export class OrdersService {
         't.code_enc',
         't.cta_header',
         't.design_template_id',
+        'o.design_snapshot',
       ])
       .where('o.id', '=', orderId)
       .executeTakeFirst();
     if (!order || order.status !== 'paid') return; // already submitted, cancelled, or gone
+    // B1: the frozen snapshot of the confirmation; later design changes never reach this order.
+    const snap = order.design_snapshot as {
+      template?: string;
+      cta?: string;
+      label?: string;
+    } | null;
     const spec = layoutDecal({
       code: this.tokens.decrypt(order.code_enc),
       scannerBaseUrl: this.env.SCANNER_BASE_URL,
-      template: order.design_template_id as DecalTemplate,
-      cta: order.cta_header,
+      template: (snap?.template ?? order.design_template_id) as DecalTemplate,
+      cta: snap?.cta ?? order.cta_header,
+      label: snap?.label ?? null,
       product: order.product === 'a6_dashboard_card' ? 'a6_dashboard_card' : 'uv_vinyl_sticker',
     });
     const { reference } = await this.printer.submit({

@@ -337,6 +337,19 @@ const de = {
     contractTitle: 'Vertrag',
     withdrawUntil: 'Sie können bis {date, date, long} ohne Angabe von Gründen widerrufen.',
     cancelButton: 'Vertrag hier kündigen',
+    // Store subscriptions (A6, 2026-11-22): Apple or Google is the seller. TODO [LEGAL REVIEW]
+    providerLine:
+      '{provider, select, app_store {Gekauft im App Store (Apple).} play_store {Gekauft bei Google Play.} other {Gekauft auf park-shield.de.}}',
+    storeManage:
+      '{provider, select, play_store {Abo in Google Play verwalten} other {Abo im App Store verwalten}}',
+    storeCancelText:
+      '{provider, select, play_store {Sie haben Ihr Abo bei Google Play abgeschlossen. Kündigen Sie es in Google Play unter „Abos“. Wir selbst können Google-Play-Abos nicht kündigen.} other {Sie haben Ihr Abo im App Store abgeschlossen. Kündigen Sie es in den Abo-Einstellungen Ihres Apple-Kontos. Wir selbst können Apple-Abos nicht kündigen.}}',
+    storeWithdrawText:
+      '{provider, select, play_store {Bei Käufen über Google Play entscheidet Google über Widerruf und Erstattung. Beantragen Sie die Erstattung in Ihrem Google-Play-Bestellverlauf.} other {Bei Käufen im App Store entscheidet Apple über Widerruf und Erstattung. Beantragen Sie die Erstattung unter reportaproblem.apple.com.}}',
+    storeReceipts:
+      '{provider, select, play_store {Die Zahlungsbelege erhalten Sie von Google. Zahlungsmethode und Abo verwalten Sie in Google Play.} other {Die Zahlungsbelege erhalten Sie von Apple. Zahlungsmethode und Abo verwalten Sie in Ihrem Apple-Konto.}}',
+    storePastDueNotice:
+      '{provider, select, play_store {Google Play konnte Ihr Abo nicht verlängern. Bitte prüfen Sie Ihre Zahlungsmethode in Google Play, damit Ihr Schutz aktiv bleibt.} other {Apple konnte Ihr Abo nicht verlängern. Bitte prüfen Sie Ihre Zahlungsmethode in Ihrem Apple-Konto, damit Ihr Schutz aktiv bleibt.}}',
     canceledText:
       'Sie haben gekündigt. Ihr Vertrag endet am {date, date, long}, bis dahin bleibt Ihr Schutz aktiv.',
     paymentMethod: 'Zahlungsmethode ändern',
@@ -843,7 +856,9 @@ const de = {
     add: 'Fahrzeug hinzufügen',
     nickname: 'Spitzname',
     nicknameHint:
-      'Sieht die Person, die scannt, damit sie weiß, dass es das richtige Auto ist. Zum Beispiel „Der Blaue“.',
+      'Steht auf Ihrem Aufkleber und hilft der Person, die scannt, das richtige Auto zu erkennen. 2 bis 20 Zeichen, zum Beispiel „Der Blaue“.',
+    labelRule:
+      'Der Fahrzeugname wird auf den Aufkleber gedruckt: 2 bis 20 Zeichen, nur Buchstaben, Zahlen, Leerzeichen und einfache Satzzeichen, keine beleidigenden Wörter.',
     plate: 'Kennzeichen',
     plateHint: 'Wird verschlüsselt gespeichert und nie angezeigt.',
     color: 'Farbe',
@@ -974,13 +989,32 @@ const de = {
       'UV-beständiger Aufkleber mit Ihrem aktuellen Code und Ihrer Gestaltung, Versand innerhalb Deutschlands.',
     priceWelcome: 'kostenlos (Willkommensdruck)',
     priceFree: 'kostenlos',
-    // TODO [LEGAL REVIEW] withdrawal right for the 3 € print order (personalised code).
+    // TODO [LEGAL REVIEW] the 3 € print is personalised at order time: no withdrawal right for the
+    // printed sticker (§ 312g Abs. 2 Nr. 1 BGB), same notice before payment (B5, 2026-11-22).
     pricePaid: '{price} einmalig inkl. MwSt.',
     submitFree: 'Kostenlos bestellen',
     submitPaid: 'Weiter zur Zahlung ({price})',
     paidNotice: 'Danke! Ihre Zahlung ist eingegangen, Ihr Aufkleber wird gedruckt.',
     canceledNotice: 'Die Zahlung wurde abgebrochen. Sie können es jederzeit erneut versuchen.',
     needsCode: 'Erstellen Sie zuerst einen neuen Code, dann können Sie ihn drucken.',
+    // Part B (2026-11-22): one confirmation step before the order is placed.
+    confirmNext: 'Weiter: Aufkleber prüfen',
+    confirmTitle: 'Ihr Aufkleber vor dem Druck',
+    confirmIntro:
+      'So drucken wir Ihren Aufkleber. Bitte prüfen Sie Design, Fahrzeugnamen und Adresse.',
+    confirmLabel: 'Fahrzeugname auf dem Aufkleber: „{label}“',
+    confirmDesign: 'Design ändern',
+    confirmBack: 'Zurück',
+    // TODO [LEGAL REVIEW] § 312g Abs. 2 Nr. 1 BGB
+    personalizedNotice:
+      'Ihr Aufkleber wird nach Ihren Angaben individuell gedruckt. Für individuell angefertigte Waren besteht kein Widerrufsrecht.',
+    confirmFree: 'Jetzt drucken und zusenden',
+    confirmPaid: '{price} bezahlen und zusenden',
+    labelInvalid:
+      'Dieser Fahrzeugname kann nicht gedruckt werden. Erlaubt sind 2 bis 20 Zeichen (Buchstaben, Zahlen, Leerzeichen, einfache Satzzeichen) ohne beleidigende Wörter. Bitte ändern Sie ihn unter „Fahrzeugdaten“.',
+    welcomeCta: 'Aufkleber gestalten und zusenden lassen – kostenlos',
+    welcomeCtaText:
+      'Ihr Willkommensdruck ist inklusive. Wählen Sie Design und Adresse, wir drucken und versenden ihn.',
   },
   checkout: {
     title: 'ParkShield abschließen',
@@ -1012,11 +1046,20 @@ const de = {
     stickerNoHint:
       'Der alte Code wird gesperrt, Ihr Fahrzeug bekommt einen neuen, und der Ersatzaufkleber ist kostenlos.',
     stickerRequired: 'Bitte beantworten Sie die Frage zum Aufkleber.',
+    // Price breakdown and notice (B2, B3, 2026-11-22). TODO [LEGAL REVIEW]
+    yearlyBreakdown: 'ParkShield Jahresabo: {price} / Jahr, inkl. MwSt.',
+    stickerIncluded:
+      'Im Preis enthalten: personalisierter Aufkleber inkl. Versand im Wert von {value}.',
+    stickerNotice:
+      'Hinweis: Der personalisierte Aufkleber wird nach Ihren Angaben gefertigt. Für ihn besteht kein Widerrufsrecht (§ 312g Abs. 2 Nr. 1 BGB). Ihr Widerrufsrecht für das Abo bleibt bestehen.',
   },
   cancel: {
     title: 'Verträge hier kündigen',
     intro:
       'Kündigen Sie Ihr ParkShield-Abo hier, mit oder ohne Anmeldung. Sie erhalten sofort eine Bestätigung per E-Mail.',
+    // TODO [LEGAL REVIEW] § 312k BGB for store subscriptions
+    storeNote:
+      'Abo im App Store oder bei Google Play abgeschlossen? Dann kündigen Sie es dort in den Abo-Einstellungen Ihres Apple- oder Google-Kontos. Wir selbst können Store-Abos nicht kündigen.',
     signedInHint: 'Sie sind angemeldet. Gekündigt wird Ihr Vertrag {contractNo}.',
     kindLabel: 'Art der Kündigung',
     ordinary: 'Ordentliche Kündigung',

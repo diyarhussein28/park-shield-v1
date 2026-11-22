@@ -19,6 +19,8 @@ import {
   SMS_ESCALATE_TOPIC,
 } from '../notifications/owner-reminder.service';
 import { OrdersService, PRINT_TOPIC } from '../orders/orders.service';
+import { WelcomePrintReminderService } from '../orders/welcome-print-reminder.service';
+import { STORE_SYNC_TOPIC, StoreSyncService, type SyncHint } from '../billing/store-sync.service';
 import { RemindersService } from '../preferences/reminders.service';
 import { DISPATCH_TOPIC, FOLLOWUP_TOPIC } from '../scan/scan.service';
 import { AlertMediaService } from '../alert-media/alert-media.service';
@@ -57,6 +59,8 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
     @Inject(WelcomeLettersService) private readonly letters: WelcomeLettersService,
     @Inject(PaymentNotifyService) private readonly paymentNotify: PaymentNotifyService,
     @Inject(OwnerReminderService) private readonly ownerReminders: OwnerReminderService,
+    @Inject(StoreSyncService) private readonly storeSync: StoreSyncService,
+    @Inject(WelcomePrintReminderService) private readonly welcomePrint: WelcomePrintReminderService,
   ) {}
 
   onApplicationBootstrap() {
@@ -80,7 +84,18 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
     this.outbox.register(PAYMENT_ATTACHMENT_TOPIC, (p) =>
       this.paymentNotify.sendAttachment(String(p.id)),
     );
+    // A5: RevenueCat events (stored once by the webhook); the subscriber from the REST API is the truth.
+    this.outbox.register(STORE_SYNC_TOPIC, async (p) => {
+      await this.storeSync.sync(String(p.userId), p.hint as SyncHint | undefined);
+    });
     this.outbox.start();
+    // B1: push reminders for the welcome print after 1 and 3 days.
+    this.scheduler.every({
+      name: 'welcome_print.remind',
+      everyMs: HOUR,
+      quiet: true,
+      run: () => this.welcomePrint.sweep(),
+    });
     this.scheduler.every({
       name: 'subscriptions.expire',
       everyMs: HOUR,

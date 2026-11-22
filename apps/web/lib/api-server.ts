@@ -155,9 +155,29 @@ export interface ProfileSummary {
 export interface PrintOptions {
   selfPrint: { priceCents: number };
   shipped: { priceCents: number; free: boolean; welcomePrint: boolean };
+  /** What gets printed: the owner's vehicle label and design (docs/billing-unified.md §2). */
+  personalization?: { label: string; labelValid: boolean; template: DecalTemplate; cta: string };
+  /** The sign-up postal address, to prefill the confirmation step. */
+  addressPrefill?: PostalAddressInput | null;
 }
 
+/** Shipping address as the order API takes it (Germany only). */
+export interface PostalAddressInput {
+  name: string;
+  line1: string;
+  line2?: string;
+  postalCode: string;
+  city: string;
+  country: 'DE';
+}
+
+/** Where the subscription was bought (docs/billing-unified.md). */
+export type BillingProvider = 'stripe' | 'app_store' | 'play_store';
+export type UnifiedStatus =
+  'ACTIVE' | 'CANCEL_SCHEDULED' | 'BILLING_ISSUE' | 'EXPIRED' | 'REFUNDED' | 'WITHDRAWN';
+
 export interface Me {
+  id?: string;
   email: string;
   preferredLang: 'de' | 'en';
   summaryFrequency: 'off' | 'weekly' | 'monthly';
@@ -176,6 +196,14 @@ export interface SubscriptionSummary {
   renewalMode: 'annual' | 'monthly_after_first_term';
   /** § 356a BGB: set while the contract can still be withdrawn. */
   withdrawalOpenUntil: string | null;
+  provider?: BillingProvider;
+  unifiedStatus?: UnifiedStatus;
+  willRenew?: boolean;
+  /** Store subscriptions: the store's subscription management page. */
+  managementUrl?: string | null;
+  stickerValueCents?: number;
+  /** Store subscriptions: refunds and withdrawals go through Apple or Google. */
+  refundRoute?: 'apple' | 'google' | null;
 }
 
 /** Tag lifecycle: assigned codes work as soon as the sticker is on the car. */

@@ -84,47 +84,87 @@ export function withdrawalOpenUntil(contractStartedAt: Date, days: number): Date
   return new Date(contractStartedAt.getTime() + days * DAY);
 }
 
-export interface WithdrawalRefundInput {
+/** What the withdrawal refund needs to know about a Stripe subscription (B4). */
+export interface WithdrawalSubscription {
+  /** Amount paid for the subscription (gross cents). */
   paidCents: number;
-  alreadyRefundedCents: number;
-  periodStart: Date;
-  periodEnd: Date;
-  withdrawnAt: Date;
+  /** Already refunded for this charge (never refund more than is left). */
+  alreadyRefundedCents?: number;
+  /** Sticker value included in the price, stored at purchase (`sticker_value_cents`). */
+  stickerValueCents: number;
+  /** When the sticker was personalised (confirmed order); null: not personalised. */
+  personalizedAt: Date | null;
+  /** Start of the service (contract start / current period start). */
+  serviceStart: Date;
+  /** Days in the contract year (365 or 366). */
+  contractYearDays: number;
   /** The customer expressly asked for the immediate start (§ 356 Abs. 4, § 357a Abs. 2 BGB). */
   immediateStartConsented: boolean;
-  /** Fixed deduction (e.g. a custom-made item, § 312g Abs. 2 Nr. 1 BGB); 0 for ParkShield decals. */
-  deductionCents?: number;
 }
 
 export interface WithdrawalRefund {
-  daysUsed: number;
-  periodDays: number;
-  wertersatzCents: number;
+  paidCents: number;
+  stickerExcludedCents: number;
+  serviceBaseCents: number;
+  usedDays: number;
+  contractYearDays: number;
+  serviceValueCents: number;
   refundCents: number;
 }
 
 /**
- * Refund = paid − pro-rata value of the service until the withdrawal (per started day), only when the
- * customer asked for the immediate start; never more than what is left of the charge, never negative.
+ * B4 (2026-11-22), Stripe subscriptions only. The personalised sticker has no right of withdrawal
+ * (§ 312g Abs. 2 Nr. 1 BGB), so its value is kept once it was personalised before the withdrawal; the
+ * service days already used are paid pro rata on the rest (Wertersatz, § 357a Abs. 2 BGB):
+ *
+ *   stickerExcluded = stickerValue if personalised before the withdrawal, else 0
+ *   serviceBase     = paid − stickerExcluded
+ *   usedDays        = whole days from service start to receipt (0 without immediate-start consent)
+ *   serviceValue    = round(serviceBase × usedDays / days in the contract year)
+ *   refund          = max(0, paid − stickerExcluded − serviceValue)
+ *
+ * Example: 2000, sticker 300, 10 days → 2000 − 300 − round(1700 × 10 / 365) = 1653.
+ * TODO [LEGAL REVIEW] formula, whole days vs. started days, LEGAL_REVIEW.md §12.
  */
-export function computeWithdrawalRefund(input: WithdrawalRefundInput): WithdrawalRefund {
-  const periodDays = Math.max(
-    1,
-    Math.round((input.periodEnd.getTime() - input.periodStart.getTime()) / DAY),
-  );
-  const daysUsed = input.immediateStartConsented
+export function computeWithdrawalRefund(
+  sub: WithdrawalSubscription,
+  withdrawalReceivedAt: Date,
+): WithdrawalRefund {
+  const paid = Math.max(0, sub.paidCents);
+  const stickerExcluded =
+    sub.personalizedAt && sub.personalizedAt.getTime() <= withdrawalReceivedAt.getTime()
+      ? Math.min(paid, Math.max(0, sub.stickerValueCents))
+      : 0;
+  const serviceBase = paid - stickerExcluded;
+  const yearDays = Math.max(1, sub.contractYearDays);
+  const usedDays = sub.immediateStartConsented
     ? Math.min(
-        periodDays,
-        Math.max(1, Math.ceil((input.withdrawnAt.getTime() - input.periodStart.getTime()) / DAY)),
+        yearDays,
+        Math.max(
+          0,
+          Math.floor((withdrawalReceivedAt.getTime() - sub.serviceStart.getTime()) / DAY),
+        ),
       )
     : 0;
-  const wertersatzCents = Math.round((input.paidCents * daysUsed) / periodDays);
-  const left = Math.max(0, input.paidCents - input.alreadyRefundedCents);
-  const refundCents = Math.max(
-    0,
-    Math.min(left, input.paidCents - wertersatzCents - (input.deductionCents ?? 0)),
-  );
-  return { daysUsed, periodDays, wertersatzCents, refundCents };
+  const serviceValue = Math.round((serviceBase * usedDays) / yearDays);
+  const left = Math.max(0, paid - (sub.alreadyRefundedCents ?? 0));
+  const refund = Math.max(0, Math.min(left, paid - stickerExcluded - serviceValue));
+  return {
+    paidCents: paid,
+    stickerExcludedCents: stickerExcluded,
+    serviceBaseCents: serviceBase,
+    usedDays,
+    contractYearDays: yearDays,
+    serviceValueCents: serviceValue,
+    refundCents: refund,
+  };
+}
+
+/** Days in the contract year that starts at `start` (366 when it spans a 29 February). */
+export function contractYearDays(start: Date): number {
+  const end = new Date(start);
+  end.setUTCFullYear(end.getUTCFullYear() + 1);
+  return Math.round((end.getTime() - start.getTime()) / DAY);
 }
 
 // ---------------------------------------------------------------------------------------------------

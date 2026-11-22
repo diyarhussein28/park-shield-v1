@@ -118,7 +118,10 @@ const pub = (s: Session, method: 'GET' | 'POST', url: string, payload?: unknown)
   });
 
 async function includedOrder(c: Awaited<ReturnType<typeof customer>>) {
-  const r = await pub(c.s, 'POST', `/v1/vehicles/${c.v.id}/order-print`, { address: ADDRESS });
+  const r = await pub(c.s, 'POST', `/v1/vehicles/${c.v.id}/order-print`, {
+    address: ADDRESS,
+    personalizationConfirmed: true,
+  });
   expect(r.statusCode).toBe(200);
   expect(r.json().free).toBe(true); // the free welcome print
   return r.json().id as string;
@@ -422,20 +425,28 @@ describe('legal review queue (§ 356a, § 312k BGB)', () => {
 describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)', () => {
   it('withdrawal within 14 days: Wertersatz for the days used, Stripe refund, credit note, contract ends', async () => {
     const c = await customer();
+    // Ten whole days after the start (B4 counts whole days).
+    await h.db
+      .updateTable('subscriptions')
+      .set({
+        created_at: sql`now() - interval '10 days 1 hour'`,
+        current_period_start: sql`now() - interval '10 days 1 hour'`,
+      })
+      .where('id', '=', c.sub.id)
+      .execute();
     const finance = await staffAs(['finance']);
     const quote = await post(finance, '/ops/v1/refunds/quote', {
       kind: 'withdrawal',
       subscriptionId: c.sub.id,
     });
     expect(quote.statusCode).toBe(200);
-    // 20.00 € paid, 1 started day of 365 → 0.05 € Wertersatz; no decal printed yet.
+    // 20.00 € paid, 10 days of 365 → round(2000 × 10 / 365) = 0.55 €; no sticker personalised yet.
     expect(quote.json()).toMatchObject({
       paidCents: 2000,
-      daysUsed: 1,
-      periodDays: 365,
-      wertersatzCents: 5,
+      daysUsed: 10,
+      wertersatzCents: 55,
       decalCostCents: 0,
-      refundCents: 1995,
+      refundCents: 1945,
       endsSubscriptionNow: true,
     });
 
@@ -453,7 +464,10 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     expect(sub.status).toBe('withdrawn');
     expect((await h.app.inject({ method: 'GET', url: `/v1/scan/${c.code}` })).statusCode).toBe(404);
     const mail = await lastMail(h, 'refund_issued');
-    expect(mail?.text).toMatch(/19,95\s€/);
+    expect(mail?.text).toMatch(/19,45\s€/);
+    expect(mail?.text).toMatch(
+      /Gezahlt 20,00\s€ − genutzte Leistung \(10 Tage\) 0,55\s€ = Erstattung 19,45\s€/,
+    );
     expect(mail?.text).toContain(r.json().creditNoteNo);
 
     const again = await post(finance, '/ops/v1/refunds', {
@@ -467,7 +481,7 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     expect(notes).toEqual([
       expect.objectContaining({
         number: r.json().creditNoteNo,
-        amountCents: 1995,
+        amountCents: 1945,
         kind: 'withdrawal',
       }),
     ]);
@@ -475,7 +489,7 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     expect(file.statusCode).toBe(200);
     expect(file.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');
     expect(file.rawPayload.toString('latin1')).toMatch(
-      /Erstattungsbetrag \\\(brutto\\\): 19,95\s\x80/,
+      /Erstattungsbetrag \\\(brutto\\\): 19,45\s\x80/,
     ); // PDF escapes "(" and ")"
     const other = await signIn(h, 'fremd@example.de');
     expect(
@@ -483,7 +497,7 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     ).toBe(404);
   });
 
-  it('no decal deduction (an accessory, not custom-made) and refuses after the withdrawal period', async () => {
+  it('keeps the personalised sticker value (§ 312g Abs. 2 Nr. 1 BGB) and refuses after the withdrawal period', async () => {
     const c = await customer();
     const orderId = await includedOrder(c);
     await h.db
@@ -495,7 +509,8 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     const q = (
       await post(finance, '/ops/v1/refunds/quote', { kind: 'withdrawal', subscriptionId: c.sub.id })
     ).json();
-    expect(q).toMatchObject({ decalCostCents: 0, refundCents: 1995 });
+    // B4: personalised before the withdrawal → 3 € kept; day 0 → no service value.
+    expect(q).toMatchObject({ decalCostCents: 300, wertersatzCents: 0, refundCents: 1700 });
 
     await h.db
       .updateTable('subscriptions')

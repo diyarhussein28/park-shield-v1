@@ -221,6 +221,9 @@ export async function createHarness(
 ): Promise<Harness> {
   const env = loadEnv({
     STRIPE_SECRET_KEY: '',
+    // RevenueCat stays the fake store (subscribers set by the tests, webhook auth = dev secret).
+    REVENUECAT_SECRET_KEY: '',
+    REVENUECAT_WEBHOOK_AUTH: '',
     MAIL_PROVIDER: 'brevo',
     BREVO_API_KEY: '',
     FRIENDLY_CAPTCHA_API_KEY: '',
@@ -272,7 +275,7 @@ let settingsSeed: { key: string; value: unknown }[] | null = null;
 export async function resetState(h: Harness): Promise<void> {
   await restoreTouched(h);
   settingsSeed ??= await h.db.selectFrom('app_settings').select(['key', 'value']).execute();
-  await sql`TRUNCATE users, promo_codes, partners, outbox_events RESTART IDENTITY CASCADE`.execute(
+  await sql`TRUNCATE users, promo_codes, partners, outbox_events, billing_webhook_events RESTART IDENTITY CASCADE`.execute(
     h.db,
   );
   if (settingsSeed.length) {

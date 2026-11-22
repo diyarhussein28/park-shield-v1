@@ -27,6 +27,7 @@ import {
   LEGAL_DOC_VERSION,
   PLAN_PRICE_CENTS,
   renewalRule,
+  STICKER_VALUE_CENTS,
   type LegalSlug,
 } from '@parkshield/shared';
 import { PAYMENTS, type BillingEvent, type PaidPlan, type Payments } from '../providers/ports';
@@ -36,9 +37,11 @@ import { returnUrls } from './app-return';
 import { createHash } from 'node:crypto';
 import { CompanyService } from '../letters/company.service';
 import { queuePaymentNotification } from './payment-notify.queue';
+import { STORE_MANAGE_URL, unifiedStatus } from './unified-status';
 import {
   contractConfirmationContent,
   contractPdfName,
+  priceBreakdown,
   renderContractConfirmationPdf,
 } from './contract-confirmation';
 
@@ -128,9 +131,18 @@ export class BillingService {
     if (!s) return null;
     const days = await this.legalTexts.withdrawalDays();
     const openUntil = withdrawalOpenUntil(s.created_at, days);
+    const store = s.provider === 'stripe' ? null : s.provider;
     return {
       plan: s.plan,
       status: s.status,
+      // A4: one record for every provider; the app and the website read only this.
+      provider: s.provider,
+      unifiedStatus: unifiedStatus(s),
+      willRenew: s.will_renew && !s.cancel_at_period_end,
+      managementUrl: store ? (s.management_url ?? STORE_MANAGE_URL[store]) : null,
+      stickerValueCents: s.sticker_value_cents,
+      // A6: Apple/Google decide on withdrawal and refunds of store purchases.
+      refundRoute: store === 'app_store' ? 'apple' : store === 'play_store' ? 'google' : null,
       contractNo: s.contract_no,
       currentPeriodEnd: s.current_period_end,
       cancelAtPeriodEnd: s.cancel_at_period_end,
@@ -289,6 +301,12 @@ export class BillingService {
     return this.payments.createCheckout({
       customerId,
       plan: input.plan,
+      // B2: the price breakdown on the subscription and every invoice. TODO [LEGAL REVIEW]
+      description: priceBreakdown(
+        user.preferredLang,
+        euro(await this.yearPrice(), user.preferredLang),
+        euro(await this.stickerValue(), user.preferredLang),
+      ).join(' '),
       locale: user.preferredLang,
       stripeCouponId: promo?.stripe_coupon_id ?? null,
       successUrl: back.success,
@@ -332,7 +350,23 @@ export class BillingService {
 
   /** Applies a provider event exactly once (webhooks are retried and may arrive more than once). */
   async handle(event: BillingEvent): Promise<void> {
-    if (event.kind === 'ignored') return;
+    // A5: every Stripe event id stored once; a replay of a processed event changes nothing.
+    await this.db
+      .insertInto('billing_webhook_events')
+      .values({ provider: 'stripe', event_id: event.eventId, type: event.kind })
+      .onConflict((oc) => oc.columns(['provider', 'event_id']).doNothing())
+      .execute();
+    const seen = await this.db
+      .selectFrom('billing_webhook_events')
+      .select('processed_at')
+      .where('provider', '=', 'stripe')
+      .where('event_id', '=', event.eventId)
+      .executeTakeFirst();
+    if (seen?.processed_at) return;
+    if (event.kind === 'ignored') {
+      await this.markStripeProcessed(event.eventId);
+      return;
+    }
     const claimed = await this.valkey.set(
       `billing:event:${event.eventId}`,
       '1',
@@ -345,21 +379,48 @@ export class BillingService {
       if (event.kind === 'checkout_completed') await this.onCheckoutCompleted(event);
       if (event.kind === 'subscription_updated') await this.onSubscriptionUpdated(event);
       if (event.kind === 'payment_failed') await this.onPaymentFailed(event);
-      if (event.kind === 'charge_refunded') {
-        // Refunds are issued by us (withdrawal, ops); Stripe's notice only confirms them.
-        this.logger.info(
-          { paymentIntentId: event.paymentIntentId, refundedCents: event.amountRefundedCents },
-          'charge refunded',
-        );
-      }
+      if (event.kind === 'charge_refunded') await this.onChargeRefunded(event);
       if (event.kind === 'payment_completed' && event.metadata.orderId) {
-        await this.orders.markPaid(event.metadata.orderId, event.paymentIntentId);
-        await this.notifyPrintOrder(event);
+        // checkout.session.completed and payment_intent.succeeded both report the same payment:
+        // only the one that marks the order paid mails payment@.
+        if (await this.orders.markPaid(event.metadata.orderId, event.paymentIntentId)) {
+          await this.notifyPrintOrder(event);
+        }
       }
     } catch (err) {
       await this.valkey.del(`billing:event:${event.eventId}`);
       throw err;
     }
+    await this.markStripeProcessed(event.eventId);
+  }
+
+  private async markStripeProcessed(eventId: string) {
+    await this.db
+      .updateTable('billing_webhook_events')
+      .set({ processed_at: sql`now()` })
+      .where('provider', '=', 'stripe')
+      .where('event_id', '=', eventId)
+      .execute();
+  }
+
+  /**
+   * charge.refunded: refunds are normally issued by us (withdrawal, ops) and already recorded. A
+   * refund made in the Stripe dashboard on a 3 € order marks the order refunded and, if it was not
+   * printed yet, keeps it from being printed. Subscription refunds keep their state (ops decides).
+   */
+  private async onChargeRefunded(e: Extract<BillingEvent, { kind: 'charge_refunded' }>) {
+    this.logger.info(
+      { paymentIntentId: e.paymentIntentId, refundedCents: e.amountRefundedCents },
+      'charge refunded',
+    );
+    if (!e.paymentIntentId) return;
+    await this.db
+      .updateTable('decal_orders')
+      .set({ status: 'refunded' })
+      .where('stripe_payment_intent', '=', e.paymentIntentId)
+      .where('status', 'in', ['pending_payment', 'paid'])
+      .where('total_gross_cents', '<=', e.amountRefundedCents)
+      .execute();
   }
 
   private async onCheckoutCompleted(e: Extract<BillingEvent, { kind: 'checkout_completed' }>) {
@@ -407,6 +468,11 @@ export class BillingService {
         current_period_start: e.periodStart,
         current_period_end: periodEnd,
         contract_no: contractNo,
+        provider: 'stripe',
+        will_renew: true,
+        original_purchase_at: e.periodStart,
+        sticker_value_cents: await this.stickerValue(),
+        withdrawal_notice_version: LEGAL_DOC_VERSION,
       })
       .onConflict((oc) => oc.column('stripe_subscription_id').doNothing())
       .returning('id')
@@ -434,57 +500,125 @@ export class BillingService {
         .onConflict((oc) => oc.doNothing())
         .execute();
     }
-    const user = await this.db
-      .selectFrom('users')
-      .select(['email', 'preferred_lang', 'customer_no'])
-      .where('id', '=', userId)
-      .executeTakeFirstOrThrow();
-    const locale = user.preferred_lang;
-    const consent = e.metadata.consentId ? await this.consents.get(e.metadata.consentId) : null;
+    await this.sendContractConfirmation(inserted.id);
+  }
+
+  /** Sticker value included in the price (B2, setting `prices.sticker_value_cents`, 300). */
+  async stickerValue(): Promise<number> {
+    return Number(await this.settings.get('prices.sticker_value_cents', STICKER_VALUE_CENTS));
+  }
+
+  /**
+   * § 312f BGB: the contract confirmation on a durable medium (2026-11-22) for a NEW subscription of
+   * any provider: the e-mail in the one layout and the PDF „Vertragsbestätigung“ with the contract
+   * data, the price breakdown (B2), renewal and cancellation rules, the accepted AGB, the
+   * Widerrufsbelehrung, the Muster-Widerrufsformular and the immediate-start declaration. Store
+   * subscriptions get a „Vertragsbestätigung“ that says the receipt comes from Apple/Google (A6).
+   * Once per subscription (`contract_confirmations`); renewals never resend it.
+   */
+  async sendContractConfirmation(subscriptionId: string): Promise<void> {
+    const sent = await this.db
+      .selectFrom('contract_confirmations')
+      .select('id')
+      .where('subscription_id', '=', subscriptionId)
+      .executeTakeFirst();
+    if (sent) return;
+    const sub = await this.db
+      .selectFrom('subscriptions as s')
+      .innerJoin('users as u', 'u.id', 's.user_id')
+      .select([
+        's.id',
+        's.plan',
+        's.provider',
+        's.contract_no',
+        's.renewal_mode',
+        's.promo_code_id',
+        's.immediate_start_consent_id',
+        's.current_period_start',
+        's.current_period_end',
+        's.created_at',
+        's.sticker_value_cents',
+        'u.email',
+        'u.preferred_lang',
+        'u.customer_no',
+      ])
+      .where('s.id', '=', subscriptionId)
+      .executeTakeFirst();
+    if (!sub || !sub.contract_no) return;
+    const locale = sub.preferred_lang;
+    const store = sub.provider === 'stripe' ? null : sub.provider;
+    const consent = sub.immediate_start_consent_id
+      ? await this.consents.get(sub.immediate_start_consent_id)
+      : null;
     const consentText = consent
       ? await this.legalTexts.version(consent.text_key, consent.locale, consent.text_version)
       : null;
-    const price = await this.priceFor(plan, promoCodeId ?? undefined);
-    const customerNo = user.customer_no ?? '–';
-    // § 312f BGB: the contract confirmation on a durable medium (2026-11-22): the e-mail in the one
-    // layout and the PDF „Vertragsbestätigung“ with the contract data, renewal and cancellation
-    // rules, the accepted AGB, the Widerrufsbelehrung, the Muster-Widerrufsformular, the
-    // immediate-start declaration with its time and the included services.
+    const price =
+      sub.provider === 'stripe'
+        ? await this.priceFor('standard', sub.promo_code_id ?? undefined)
+        : await this.yearPrice();
+    const customerNo = sub.customer_no ?? '–';
+    const startedAt = sub.current_period_start ?? sub.created_at;
+    const periodEnd = sub.current_period_end ?? startedAt;
+    const renewalMode = sub.renewal_mode as 'annual' | 'monthly_after_first_term';
+    const sticker = sub.sticker_value_cents ? euro(sub.sticker_value_cents, locale) : null;
     const company = (await this.company.current()).data;
     const content = contractConfirmationContent({
       locale,
       customerNo,
-      contractNo,
+      contractNo: sub.contract_no,
       price: euro(price, locale),
-      startedAt: e.periodStart,
+      startedAt,
       renewsAt: periodEnd,
       renewalMode,
       docVersion: LEGAL_DOC_VERSION,
       consent: consent && consentText ? { text: consentText.body, at: consent.accepted_at } : null,
       company,
       webBaseUrl: this.env.WEB_BASE_URL,
+      stickerValue: sticker,
+      store,
     });
-    const pdf = await renderContractConfirmationPdf(content, { created: new Date(), contractNo });
+    const pdf = await renderContractConfirmationPdf(content, {
+      created: new Date(),
+      contractNo: sub.contract_no,
+    });
+    const de = locale === 'de';
+    const seller = store === 'app_store' ? 'Apple' : 'Google';
+    const storeName = store === 'app_store' ? 'App Store' : 'Google Play';
     await this.mail.send({
-      to: user.email,
+      to: sub.email,
       template: 'contract_confirmation',
       locale,
       values: {
         plan: PLAN_NAME,
-        contractNo,
+        contractNo: sub.contract_no,
         customerNo,
         price: euro(price, locale),
-        startedAt: e.periodStart,
+        priceLines: priceBreakdown(locale, euro(price, locale), sticker).join('\n'),
+        // TODO [LEGAL REVIEW] store purchase wording (A6).
+        storeLine: store
+          ? de
+            ? `Gekauft über ${storeName}. Das Abo rechnet ${seller} ab; den Zahlungsbeleg erhalten Sie von ${seller}. Das PDF im Anhang ist eine Vertragsbestätigung, keine Rechnung.`
+            : `Bought through ${storeName}. ${seller} bills the subscription and sends you the receipt. The attached PDF is a contract confirmation, not an invoice.`
+          : '',
+        cancelLine: store
+          ? de
+            ? `Kündigen können Sie jederzeit in den Abo-Einstellungen von ${storeName} (in der App unter „Vertrag hier kündigen“). Über Widerruf und Erstattung entscheidet ${seller}; „Vertrag widerrufen“ in der App führt dorthin.`
+            : `You can cancel at any time in the ${storeName} subscription settings (in the app under “Cancel contract”). ${seller} decides on withdrawal and refunds; “Withdraw from contract” in the app leads there.`
+          : de
+            ? 'Kündigen können Sie jederzeit über „Verträge hier kündigen“ unten auf jeder Seite, widerrufen innerhalb der Widerrufsfrist über „Vertrag widerrufen“.'
+            : 'You can cancel at any time via “Cancel contract” at the bottom of every page, and withdraw within the withdrawal period via “Withdraw from contract”.',
+        startedAt,
         periodEnd,
         renewalRule: renewalRule(locale, { renewalMode }),
-        consentAt: consent?.accepted_at ?? e.periodStart,
+        consentAt: consent?.accepted_at ?? startedAt,
         consentText: consentText?.body ?? '',
         docVersion: LEGAL_DOC_VERSION,
       },
       actionUrl: `${this.env.WEB_BASE_URL}/konto`,
       attachments: [
         {
-          filename: contractPdfName(locale, contractNo),
+          filename: contractPdfName(locale, sub.contract_no),
           contentType: 'application/pdf',
           content: pdf,
         },
@@ -494,11 +628,11 @@ export class BillingService {
     await this.db
       .insertInto('contract_confirmations')
       .values({
-        subscription_id: inserted.id,
+        subscription_id: sub.id,
         locale,
         legal_doc_version: LEGAL_DOC_VERSION,
         renewal_mode: renewalMode,
-        immediate_start_consent_id: e.metadata.consentId ?? null,
+        immediate_start_consent_id: sub.immediate_start_consent_id,
         pdf_sha256: createHash('sha256').update(pdf).digest(),
       })
       .execute();
@@ -589,6 +723,7 @@ export class BillingService {
       .set({
         status: e.status,
         cancel_at_period_end: e.cancelAtPeriodEnd,
+        will_renew: !e.cancelAtPeriodEnd && e.status !== 'canceled',
         ...(e.interval ? { interval: e.interval } : {}),
         ...(e.periodStart ? { current_period_start: e.periodStart } : {}),
         ...(e.periodEnd ? { current_period_end: e.periodEnd } : {}),

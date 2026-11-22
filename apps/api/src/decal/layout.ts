@@ -187,6 +187,12 @@ export interface DecalInput {
   template: DecalTemplate;
   cta: string;
   product: DecalProduct;
+  /**
+   * The vehicle label the customer entered (e.g. „Dodo“), printed on every design under the QR
+   * code (Part B: personalised sticker). Pre-printed stock without a vehicle has none. The licence
+   * plate is never printed.
+   */
+  label?: string | null;
 }
 
 export const FIXED_SENTENCE = 'ParkShield verlangt nie eine Zahlung';
@@ -286,8 +292,10 @@ export function layoutDecal(input: DecalInput): DecalSpec {
   const safe = 3; // keep content 3 mm inside the cut line
   const inner = W - 2 * safe;
   const headerH = card ? 27 : 16;
+  const label = input.label?.trim() || null;
   const bandH = p.band.kind === 'stripes' ? (card ? 3 : 2.2) : p.band.kind === 'line' ? 1 : 0;
-  const panel = card ? 78 : 44;
+  // With a label the QR card is a little smaller, so the label line fits above the footer.
+  const panel = card ? (label ? 74 : 78) : label ? 40 : 44;
   const quiet = card ? 5 : 3.6;
   const panelY = headerH + bandH + (card ? 5 : 2.3);
   const footerH = card ? 13 : 11.5;
@@ -360,6 +368,23 @@ export function layoutDecal(input: DecalInput): DecalSpec {
   });
   const below = panelY + panel;
 
+  // 2b. The vehicle label (personalisation), centred under the QR card.
+  let labelEnd = below;
+  if (label) {
+    const size = fit(label, inner, card ? 4.4 : 3, true);
+    prims.push({
+      kind: 'text',
+      x: safe,
+      y: below + (card ? 1.6 : 1.2) + size * 0.8,
+      size,
+      text: label,
+      fill: p.text,
+      bold: true,
+      width: inner,
+    });
+    labelEnd = below + (card ? 1.6 : 1.2) + size * 1.05;
+  }
+
   // 3. How it works.
   if (card) {
     const steps: [keyof typeof ICONS, string][] = [
@@ -374,7 +399,7 @@ export function layoutDecal(input: DecalInput): DecalSpec {
       prims.push({
         kind: 'path',
         x: cx - icon / 2,
-        y: below + 3.5,
+        y: labelEnd + 3.5,
         size: icon,
         box: 24,
         d: ICONS[name],
@@ -385,7 +410,7 @@ export function layoutDecal(input: DecalInput): DecalSpec {
       prims.push({
         kind: 'text',
         x: safe + col * i,
-        y: below + 3.5 + icon + 3.6,
+        y: labelEnd + 3.5 + icon + 3.6,
         size: fit(label, col - 2, 3, true),
         text: label,
         fill: p.text,
@@ -412,7 +437,7 @@ export function layoutDecal(input: DecalInput): DecalSpec {
     const gap = 1;
     const tw = textWidth(how, size, true);
     const left = Math.max(safe, (W - (icon + gap + tw)) / 2);
-    const base = below + (footerY - below) / 2 + size * 0.36;
+    const base = labelEnd + (footerY - labelEnd) / 2 + size * 0.36;
     prims.push({
       kind: 'path',
       x: left,

@@ -1,18 +1,23 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Choice, Field } from '@/components/form';
+import { StoreManageCard } from '@/components/subscription';
+import { isStoreProvider } from '@/lib/billing';
 import { Banner, Button, Card, P, Screen, Title } from '@/components/ui';
 import { api } from '@/lib/api';
 import { errorText, type SubscriptionSummary } from '@/lib/portal';
 import { pt } from '@/lib/portal-i18n';
 
 /**
+ * Store subscribers (App Store / Google Play) see the store's subscription management instead.
+ *
  * § 312k BGB „Verträge hier kündigen“ for the signed-in owner (web: /kuendigen, pre-filled): kind,
  * optional reason, effective date, optional confirmation address → „Jetzt kündigen“ → receipt with
  * date and time, and the confirmation e-mail. No extra step before it takes effect.
  */
 export default function Cancel() {
   const [contract, setContract] = useState<string | null>(null);
+  const [sub, setSub] = useState<SubscriptionSummary | null>(null);
   const [type, setType] = useState<'ordinary' | 'extraordinary'>('ordinary');
   const [reason, setReason] = useState('');
   const [effective, setEffective] = useState<'next' | 'date'>('next');
@@ -25,7 +30,10 @@ export default function Cancel() {
   useFocusEffect(
     useCallback(() => {
       void api<{ subscription: SubscriptionSummary | null }>('/v1/billing/subscription')
-        .then((r) => setContract(r.subscription?.contractNo ?? null))
+        .then((r) => {
+          setContract(r.subscription?.contractNo ?? null);
+          setSub(r.subscription);
+        })
         .catch(() => setContract(null));
     }, []),
   );
@@ -63,6 +71,16 @@ export default function Cancel() {
           {done.endsAt && <P>{pt('cancel.endsText', { date: done.endsAt })}</P>}
           <P muted>{pt('cancel.receivedSave')}</P>
         </Card>
+      </Screen>
+    );
+  }
+
+  // A6: a store subscription is cancelled at Apple / Google (our backend cannot cancel it there).
+  if (sub && isStoreProvider(sub.provider)) {
+    return (
+      <Screen>
+        <Title>{pt('cancel.title')}</Title>
+        <StoreManageCard sub={sub} />
       </Screen>
     );
   }

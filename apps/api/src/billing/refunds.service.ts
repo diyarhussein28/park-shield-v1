@@ -8,7 +8,7 @@ import { DB, ENV, LOGGER } from '../core/tokens';
 import type { RefundKind } from '../db/types.generated';
 import { MailService } from '../mail/mail.service';
 import { textPdf } from '../providers/pdf';
-import { computeWithdrawalRefund } from '../legal/rules';
+import { computeWithdrawalRefund, contractYearDays } from '../legal/rules';
 import { PAYMENTS, type Charge, type Payments } from '../providers/ports';
 
 const DAY = 86_400_000;
@@ -46,6 +46,36 @@ const euro = (cents: number, locale: 'de' | 'en' = 'de') =>
     style: 'currency',
     currency: 'EUR',
   }).format(cents / 100);
+
+/**
+ * B4: the withdrawal calculation in the confirmation e-mail, e.g. „Gezahlt 20,00 € − personalisierter
+ * Aufkleber 3,00 € − genutzte Leistung (10 Tage) 0,47 € = Erstattung 16,53 €“. TODO [LEGAL REVIEW]
+ */
+export function withdrawalBreakdown(
+  q: Pick<
+    RefundQuote,
+    'paidCents' | 'decalCostCents' | 'wertersatzCents' | 'daysUsed' | 'refundCents'
+  >,
+  locale: 'de' | 'en',
+): string {
+  const days = q.daysUsed ?? 0;
+  const parts =
+    locale === 'de'
+      ? [
+          `Gezahlt ${euro(q.paidCents, 'de')}`,
+          ...(q.decalCostCents
+            ? [`personalisierter Aufkleber ${euro(q.decalCostCents, 'de')}`]
+            : []),
+          `genutzte Leistung (${days} ${days === 1 ? 'Tag' : 'Tage'}) ${euro(q.wertersatzCents, 'de')}`,
+        ]
+      : [
+          `Paid ${euro(q.paidCents, 'en')}`,
+          ...(q.decalCostCents ? [`personalised sticker ${euro(q.decalCostCents, 'en')}`] : []),
+          `service used (${days} ${days === 1 ? 'day' : 'days'}) ${euro(q.wertersatzCents, 'en')}`,
+        ];
+  const total = locale === 'de' ? 'Erstattung' : 'Refund';
+  return `${parts.join(' − ')} = ${total} ${euro(q.refundCents, locale)}`;
+}
 
 const KIND_DE: Record<RefundKind, string> = {
   withdrawal: 'Widerruf',
@@ -85,6 +115,8 @@ export class RefundsService {
         's.current_period_end',
         's.cancel_at_period_end',
         's.withdrawal_waiver_at',
+        's.provider',
+        's.sticker_value_cents',
         'u.email',
         'u.preferred_lang',
       ])
@@ -111,6 +143,20 @@ export class RefundsService {
       .executeTakeFirst();
     if (!o) throw new NotFoundException({ error: 'order_not_found' });
     return o;
+  }
+
+  /** When this customer's sticker was personalised (earliest confirmed order before `at`). */
+  private async personalizedAt(userId: string, at: Date): Promise<Date | null> {
+    const row = await this.db
+      .selectFrom('decal_orders')
+      .select('personalized_at')
+      .where('user_id', '=', userId)
+      .where('personalized_at', 'is not', null)
+      .where('personalized_at', '<=', at)
+      .where('status', 'not in', ['pending_payment', 'canceled'])
+      .orderBy('personalized_at', 'asc')
+      .executeTakeFirst();
+    return row?.personalized_at ?? null;
   }
 
   /** Our own records and the provider's: the larger "already refunded" wins. */
@@ -154,6 +200,8 @@ export class RefundsService {
     }
 
     const s = await this.subscription(input.subscriptionId);
+    // A6: Apple/Google are the seller of store subscriptions and decide on refunds; nothing here.
+    if (s.provider !== 'stripe') throw new ConflictException({ error: 'store_subscription' });
     if (!s.stripe_subscription_id) throw new ConflictException({ error: 'no_charge' });
     const charge = await this.payments.findCharge({ subscriptionId: s.stripe_subscription_id });
     if (!charge) throw new ConflictException({ error: 'no_charge' });
@@ -173,32 +221,38 @@ export class RefundsService {
         throw new ConflictException({ error: 'withdrawal_period_over' });
       if (s.status !== 'active' && s.status !== 'past_due')
         throw new ConflictException({ error: 'not_live' });
-      const end = s.current_period_end ?? new Date(start.getTime() + 365 * DAY);
-      const printed = await this.db
-        .selectFrom('decal_orders')
-        .select('id')
-        .where('user_id', '=', s.user_id)
-        .where('included_in_plan', '=', true)
-        .where('status', 'in', ['in_production', 'shipped', 'delivered', 'returned'])
-        .executeTakeFirst();
-      const decal = printed ? await this.settings.get('refunds.custom_decal_cost_cents', 0) : 0;
-      // §357a Abs. 2 BGB: value of the service provided until the withdrawal, per started day.
-      const r = computeWithdrawalRefund({
-        paidCents: charge.amountCents,
-        alreadyRefundedCents: already,
-        periodStart: start,
-        periodEnd: end,
-        withdrawnAt: now,
-        immediateStartConsented: s.withdrawal_waiver_at !== null,
-        deductionCents: decal,
-      });
+      // B4: the sticker value is kept once it was personalised before the withdrawal (B6: orders
+      // from before the change have no personalized_at, so no deduction).
+      const personalized = s.user_id ? await this.personalizedAt(s.user_id, now) : null;
+      const r = computeWithdrawalRefund(
+        {
+          paidCents: charge.amountCents,
+          alreadyRefundedCents: already,
+          stickerValueCents: s.sticker_value_cents,
+          personalizedAt: personalized,
+          serviceStart: start,
+          contractYearDays: contractYearDays(start),
+          immediateStartConsented: s.withdrawal_waiver_at !== null,
+        },
+        now,
+      );
+      // Every input and the result go with the withdrawal record (refunds row, log).
+      this.logger.info(
+        {
+          subscriptionId: s.id,
+          receivedAt: now.toISOString(),
+          ...r,
+          personalized: Boolean(personalized),
+        },
+        'withdrawal refund computed',
+      );
       return {
         ...base,
         kind: 'withdrawal',
-        daysUsed: r.daysUsed,
-        periodDays: r.periodDays,
-        wertersatzCents: r.wertersatzCents,
-        decalCostCents: decal,
+        daysUsed: r.usedDays,
+        periodDays: r.contractYearDays,
+        wertersatzCents: r.serviceValueCents,
+        decalCostCents: r.stickerExcludedCents,
         refundCents: r.refundCents,
         endsSubscriptionNow: true,
       };
@@ -340,6 +394,10 @@ export class RefundsService {
           amount: euro(result.quote.refundCents, who.preferred_lang ?? 'de'),
           creditNote: result.creditNoteNo,
           ended: result.quote.endsSubscriptionNow ? 'yes' : 'no',
+          breakdown:
+            result.quote.kind === 'withdrawal'
+              ? withdrawalBreakdown(result.quote, who.preferred_lang ?? 'de')
+              : '',
         },
         actionUrl: `${this.env.WEB_BASE_URL}/konto`,
       });

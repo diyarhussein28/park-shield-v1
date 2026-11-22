@@ -33,6 +33,11 @@ export const envSchema = z.object({
   STRIPE_PRICE_YEARLY: z.string().default(''),
   // Monthly price (annual / 12) only for renewal.mode_b2c = monthly_after_first_term (legal fallback).
   STRIPE_PRICE_MONTHLY: z.string().default(''),
+  // RevenueCat (in-app subscriptions, docs/billing-unified.md): secret REST key (v1, sk_…), the
+  // webhook Authorization header value and the entitlement id. Empty key: local fake store.
+  REVENUECAT_SECRET_KEY: z.string().default(''),
+  REVENUECAT_WEBHOOK_AUTH: z.string().default(''),
+  REVENUECAT_ENTITLEMENT_ID: z.string().default('parkshield'),
   // E-mail provider: Mailjet (EU, default; tracking switched off per message), Brevo or SendGrid.
   // Empty key: dev inbox. Brevo always rewrites links and adds an open pixel (only Enterprise can opt out).
   MAIL_PROVIDER: z.preprocess(
@@ -130,6 +135,7 @@ export function fakeProviders(env: Env) {
           : !env.BREVO_API_KEY,
     captcha: !env.FRIENDLY_CAPTCHA_API_KEY || !env.FRIENDLY_CAPTCHA_SITEKEY,
     payments: !env.STRIPE_SECRET_KEY,
+    store: !env.REVENUECAT_SECRET_KEY || !env.REVENUECAT_WEBHOOK_AUTH,
     fcm: !env.FCM_PROJECT_ID || !env.FCM_CLIENT_EMAIL || !env.FCM_PRIVATE_KEY,
     sms: !env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN || !env.TWILIO_SMS_FROM,
     // No real print partner adapter yet: it is built once the partner is chosen in Phase 0.

@@ -7,8 +7,10 @@ import { HowItWorks } from '@/components/how-it-works';
 import { Icon } from '@/components/icons';
 import { NoCodeCard } from '@/components/no-code';
 import { VehicleForm, type VehicleInput } from '@/components/vehicle-forms';
+import { WelcomePrintCta } from '@/components/welcome-print-cta';
 import { Banner, Button, Chip, EmptyState, P, Screen, Section, useTheme } from '@/components/ui';
 import { api, ApiError, authHeaders } from '@/lib/api';
+import { showWelcomePrintCta } from '@/lib/billing';
 import { decalPreviewUrl, onDecalChange } from '@/lib/decal';
 import { t } from '@/lib/i18n';
 import { errorText, type PortalVehicle, type SubscriptionSummary } from '@/lib/portal';
@@ -26,6 +28,7 @@ export default function Vehicles() {
   const router = useRouter();
   const [vehicles, setVehicles] = useState<PortalVehicle[] | null>(null);
   const [subscribed, setSubscribed] = useState<boolean | null>(null);
+  const [welcomeFree, setWelcomeFree] = useState(false);
   const [headers, setHeaders] = useState<Record<string, string> | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +43,12 @@ export default function Vehicles() {
       ]);
       setVehicles(v.vehicles);
       setSubscribed(Boolean(s.subscription));
+      if (s.subscription) {
+        const o = await api<{ includedAvailable?: boolean }>('/v1/orders').catch(() => ({
+          includedAvailable: false,
+        }));
+        setWelcomeFree(Boolean(o.includedAvailable));
+      }
     } catch (err) {
       setError(errorText(err));
     }
@@ -82,8 +91,12 @@ export default function Vehicles() {
     }
   };
 
+  const printable = vehicles?.find((v) => v.decal && v.decal.status !== 'revoked') ?? null;
   return (
     <Screen>
+      {printable && showWelcomePrintCta({ includedAvailable: welcomeFree, hasDecal: true }) && (
+        <WelcomePrintCta vehicleId={printable.id} />
+      )}
       {vehicles?.map((v) => (
         <Pressable
           key={v.id}

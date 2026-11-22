@@ -95,7 +95,7 @@ describe('vehicles (US-09)', () => {
         method,
         url,
         headers: other.headers,
-        payload: method === 'PATCH' ? { nickname: 'x' } : undefined,
+        payload: method === 'PATCH' ? { nickname: 'xy' } : undefined,
       });
       expect(res.statusCode, `${method} ${url}`).toBe(404);
     }
@@ -109,7 +109,13 @@ describe('vehicles (US-09)', () => {
 
   it('rejects invalid plates and updates fields', async () => {
     const s = await subscribe(h, 'edit@example.de');
-    expect((await addVehicle(s, { nickname: 'X', plate: 'K<script>' })).statusCode).toBe(400);
+    expect((await addVehicle(s, { nickname: 'XY', plate: 'K<script>' })).statusCode).toBe(400);
+    // Part B: the label is printed, so 2–20 characters and no bad words.
+    expect((await addVehicle(s, { nickname: 'X', plate: 'K-AB 2' })).statusCode).toBe(400);
+    expect((await addVehicle(s, { nickname: 'Arschloch', plate: 'K-AB 3' })).statusCode).toBe(400);
+    expect(
+      (await addVehicle(s, { nickname: 'Ein viel zu langer Name', plate: 'K-AB 4' })).statusCode,
+    ).toBe(400);
     const { id } = (await addVehicle(s, { nickname: 'Alt', plate: 'K-AB 1' })).json();
     const res = await h.app.inject({
       method: 'PATCH',

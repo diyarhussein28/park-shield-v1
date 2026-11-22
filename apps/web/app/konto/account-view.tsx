@@ -23,6 +23,7 @@ import { useAddVehicle, VehicleForm } from './fahrzeuge/vehicles-view';
 import { CheckoutForm, PastDue, SubscriptionInfo } from './parts';
 import { NoActiveCode } from './no-active-code';
 import { QrCard } from './qr-card';
+import { WelcomePrintCta } from './welcome-print-cta';
 
 export function AccountView({
   me,
@@ -123,12 +124,12 @@ export function AccountView({
 
       {subscription && needsPhone ? (
         <>
-          {subscription.status === 'past_due' && <PastDue />}
+          {subscription.status === 'past_due' && <PastDue sub={subscription} />}
           <CompleteAccount onDone={() => router.refresh()} />
         </>
       ) : subscription ? (
         <>
-          {subscription.status === 'past_due' && <PastDue />}
+          {subscription.status === 'past_due' && <PastDue sub={subscription} />}
           {vehicleList
             .filter((v) => !v.decal)
             .map((v) => (
@@ -140,6 +141,7 @@ export function AccountView({
                 }
               />
             ))}
+          <WelcomePrintCta vehicles={vehicleList} />
           {score && (
             <SetupGuide
               protection={score}

@@ -12,6 +12,7 @@ import { Platform } from 'react-native';
 import { api, setUnauthorizedHandler } from './api';
 import { lang } from './i18n';
 import { clearAccountFlags } from './prefs';
+import { loginPurchases, logoutPurchases } from './purchases';
 import { registerDevice, unregisterDevice } from './push';
 import { removeAllVehiclePhotos } from './vehicle-photo';
 import { clearSession, getSession, setSession } from './session';
@@ -51,9 +52,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void getSession().then((s) => setSignedIn(Boolean(s)));
     setUnauthorizedHandler(() => {
-      void clearSession().then(() => setSignedIn(false));
+      void clearSession()
+        .then(() => logoutPurchases())
+        .then(() => setSignedIn(false));
     });
   }, []);
+
+  // The store SDK (RevenueCat) runs as this account's user id, never as an anonymous id (A1). After a
+  // sign-in and when a saved session is restored at start.
+  useEffect(() => {
+    if (!signedIn) return;
+    void api<{ id?: string }>('/v1/me')
+      .then((me) => (me.id ? loginPurchases(me.id) : undefined))
+      .catch(() => undefined);
+  }, [signedIn]);
 
   const start = useCallback(async (token: string) => {
     await setSession(token);
@@ -120,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await unregisterDevice();
     await api('/v1/auth/logout', { body: {} }).catch(() => undefined);
     await clearSession();
+    await logoutPurchases();
     await clearAccountFlags();
     try {
       removeAllVehiclePhotos();

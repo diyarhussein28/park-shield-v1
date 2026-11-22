@@ -111,6 +111,10 @@ export function CancelFlow({ signedInContract }: { signedInContract: string | nu
               {t('cancel.title')}
             </Heading>
             <Text>{t('cancel.intro')}</Text>
+            {/* TODO [LEGAL REVIEW] § 312k BGB for App Store / Google Play subscriptions (A6). */}
+            <Text muted data-testid="cancel-store-note">
+              {t('cancel.storeNote')}
+            </Text>
             {signedIn && (
               <Notice tone="info">
                 {t('cancel.signedInHint', { contractNo: signedInContract })}

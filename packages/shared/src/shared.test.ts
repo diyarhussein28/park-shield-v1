@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ALERT_TYPE_CODES, ALERT_TYPE_DEFAULTS } from './alert-types';
 import { PERMISSIONS, ROLE_PERMISSIONS, STAFF_ROLES } from './permissions';
+import { isValidVehicleLabel } from './vehicle-label';
 
 describe('alert type defaults', () => {
   it('cover every code exactly once', () => {
@@ -32,5 +33,19 @@ describe('staff roles', () => {
   it('keep staff.manage for superadmin only', () => {
     const holders = STAFF_ROLES.filter((r) => ROLE_PERMISSIONS[r].includes('staff.manage'));
     expect(holders).toEqual(['superadmin']);
+  });
+});
+
+describe('vehicle label', () => {
+  it('accepts 2–20 letters, numbers, spaces and basic punctuation', () => {
+    for (const ok of ['Dodo', 'VW Bus', 'Mamas Auto!', 'Ölfass 2', "Kim's Car", 'A1']) {
+      expect(isValidVehicleLabel(ok)).toBe(true);
+    }
+  });
+
+  it('rejects empty, too short, too long and symbols', () => {
+    for (const bad of ['', ' ', 'A', 'x'.repeat(21), 'Dodo <3', 'a@b', 'https://x.de/']) {
+      expect(isValidVehicleLabel(bad)).toBe(false);
+    }
   });
 });

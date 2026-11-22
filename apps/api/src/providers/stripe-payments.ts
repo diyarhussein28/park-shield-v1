@@ -204,7 +204,10 @@ export class StripePayments implements Payments {
       customer_update: { address: 'auto', name: 'auto' },
       billing_address_collection: 'required',
       metadata: req.metadata,
-      subscription_data: { metadata: req.metadata },
+      subscription_data: {
+        metadata: req.metadata,
+        ...(req.description ? { description: req.description } : {}),
+      },
     });
     if (!session.url) throw new Error('Stripe returned no checkout URL');
     return { id: session.id, url: session.url };
@@ -355,6 +358,20 @@ export class StripePayments implements Payments {
         paymentIntentId: (obj.payment_intent as string | null) ?? null,
         metadata: (obj.metadata as Record<string, string>) ?? {},
         amountCents: Number(obj.amount_total ?? 0),
+      };
+    }
+    // A3: the 3 € print paid with a PaymentIntent (PaymentSheet or Checkout): the order id is in
+    // its metadata. Checkout also sends checkout.session.completed; markPaid is idempotent.
+    if (
+      event.type === 'payment_intent.succeeded' &&
+      (obj.metadata as Record<string, string>)?.orderId
+    ) {
+      return {
+        kind: 'payment_completed',
+        eventId: event.id,
+        paymentIntentId: String(obj.id),
+        metadata: (obj.metadata as Record<string, string>) ?? {},
+        amountCents: Number(obj.amount_received ?? obj.amount ?? 0),
       };
     }
     if (event.type === 'customer.subscription.deleted') {

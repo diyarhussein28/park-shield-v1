@@ -29,6 +29,13 @@ export const PLAN_PRICE_CENTS = 2000;
 export const VAT_RATE_DE = 0.19;
 
 /**
+ * Value of the personalised decal incl. shipping that is included in the yearly price, euro cents incl.
+ * VAT (Part B, 2026-11-22; runtime setting `prices.sticker_value_cents`). Shown in the price breakdown;
+ * kept on withdrawal once the decal was personalised (§ 312g Abs. 2 Nr. 1 BGB). TODO [LEGAL REVIEW]
+ */
+export const STICKER_VALUE_CENTS = 300;
+
+/**
  * Paid add-ons, euro cents incl. VAT (05-business §1). A printed and shipped decal: the first one is
  * free (welcome print), every further one costs this (setting `prices.print_shipped_cents`).
  */

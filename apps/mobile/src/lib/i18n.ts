@@ -405,6 +405,64 @@ const de = {
   carPhotoNote:
     'Das Foto bleibt nur auf diesem Gerät. Bei einem neuen Handy oder nach Neuinstallation müssen Sie es erneut auswählen.',
   carPhotoFailed: 'Das Foto konnte nicht übernommen werden. Bitte versuchen Sie es noch einmal.',
+  // unified billing (App Store / Google Play / website) and the personalised sticker (2026-11-22)
+  paywallYearly: 'jährlich, verlängert sich automatisch',
+  // TODO [LEGAL REVIEW] price breakdown (B2)
+  stickerValueLine:
+    'Im Preis enthalten: personalisierter Aufkleber inkl. Versand im Wert von {price}.',
+  // TODO [LEGAL REVIEW] § 312g Abs. 2 Nr. 1 BGB notice (B3)
+  stickerNotice:
+    'Hinweis: Der personalisierte Aufkleber wird nach Ihren Angaben gefertigt. Für ihn besteht kein Widerrufsrecht (§ 312g Abs. 2 Nr. 1 BGB). Ihr Widerrufsrecht für das Abo bleibt bestehen.',
+  payStoreSecureIos:
+    'Bezahlt über Ihren Apple-Account. Das Abo verwalten Sie in den Abo-Einstellungen Ihres Apple-Accounts.',
+  payStoreSecureAndroid:
+    'Bezahlt über Ihr Google-Play-Konto. Das Abo verwalten Sie in Google Play unter „Abos“.',
+  restorePurchases: 'Käufe wiederherstellen',
+  restoreNone: 'Wir haben zu diesem Konto keinen aktiven Kauf gefunden.',
+  storeUnavailable:
+    'Der Store ist gerade nicht erreichbar. Bitte versuchen Sie es später noch einmal.',
+  alreadySubscribed: 'Sie haben bereits ein aktives ParkShield-Abo.',
+  providerAppStore: 'Gekauft im App Store',
+  providerPlayStore: 'Gekauft bei Google Play',
+  providerWeb: 'Gekauft auf park-shield.de',
+  manageWeb:
+    'Verwalten können Sie es unter „Konto“ → „Abo und Rechnungen“ oder auf park-shield.de.',
+  storeNameApple: 'Apple',
+  storeNameGoogle: 'Google Play',
+  storeManageText:
+    'Dieses Abo haben Sie über {store} abgeschlossen. {store} ist dabei Verkäufer: Kündigen und Zahlungsmethode ändern Sie in den Abo-Einstellungen von {store}. Wir können Store-Abos nicht selbst kündigen.',
+  storeManageButton: 'Abo bei {store} verwalten',
+  storeCancelButton: 'Bei {store} kündigen',
+  storeWithdrawText:
+    'Dieses Abo haben Sie über {store} gekauft. Über Widerruf und Erstattung entscheidet {store}. Beantragen Sie die Erstattung direkt dort.',
+  storeRefundButton: 'Erstattung bei {store} beantragen',
+  storeWithdrawFormNote: 'Sie können uns Ihren Widerruf zusätzlich mit diesem Formular mitteilen.',
+  storeReceipts:
+    'Die Belege für Ihr Abo erhalten Sie von {store}. Von uns bekommen Sie die Vertragsbestätigung per E-Mail.',
+  // print: confirmation step before „Drucken und zusenden lassen“ (B1)
+  printShipStart: 'Weiter zur Bestätigung',
+  printConfirmTitle: 'Aufkleber bestätigen',
+  printConfirmIntro: 'So wird Ihr Aufkleber gedruckt:',
+  printConfirmLabel: 'Aufschrift: „{label}“',
+  printConfirmDesign: 'Design: {design}',
+  printChangeDesign: 'Design ändern',
+  // TODO [LEGAL REVIEW] § 312g Abs. 2 Nr. 1 BGB notice for the printed sticker
+  printPersonalNotice:
+    'Ihr Aufkleber wird nach Ihren Angaben individuell gedruckt. Für individuell angefertigte Waren besteht kein Widerrufsrecht.',
+  printConfirmFree: 'Jetzt drucken und zusenden',
+  printConfirmPaid: '{price} bezahlen und zusenden',
+  printAddressTitle: 'Lieferadresse',
+  printLabelInvalid:
+    'Der Fahrzeugname „{label}“ kann so nicht gedruckt werden. Erlaubt sind 2 bis 20 Zeichen: Buchstaben, Zahlen, Leerzeichen und einfache Satzzeichen.',
+  printEditName: 'Fahrzeugnamen ändern',
+  labelInvalid:
+    'Bitte wählen Sie einen anderen Fahrzeugnamen: 2 bis 20 Zeichen, nur Buchstaben, Zahlen, Leerzeichen und einfache Satzzeichen, keine beleidigenden Wörter.',
+  labelErrRequired: 'Bitte geben Sie einen Namen für Ihr Fahrzeug ein.',
+  labelErrLength: 'Der Name muss 2 bis 20 Zeichen lang sein. Er wird auf den Aufkleber gedruckt.',
+  labelErrChars: 'Bitte nur Buchstaben, Zahlen, Leerzeichen und einfache Satzzeichen verwenden.',
+  welcomeCta: 'Aufkleber gestalten und zusenden lassen – kostenlos',
+  welcomeCtaText: 'Ihr erster gedruckter Aufkleber inklusive Versand ist im Abo enthalten.',
+  welcomeCtaButton: 'Jetzt gestalten',
 } as const;
 
 export type Key = keyof typeof de;
@@ -791,6 +849,57 @@ const en: Record<Key, string> = {
   carPhotoNote:
     'The photo stays on this device only. On a new phone or after reinstalling the app you need to choose it again.',
   carPhotoFailed: 'The photo could not be used. Please try again.',
+  // unified billing (App Store / Google Play / website) and the personalised sticker (2026-11-22)
+  paywallYearly: 'yearly, renews automatically',
+  stickerValueLine: 'Included in the price: personalised decal incl. shipping worth {price}.',
+  stickerNotice:
+    'Note: the personalised decal is made to your specification. There is no right of withdrawal for it (§ 312g (2) no. 1 BGB). Your right to withdraw from the subscription remains.',
+  payStoreSecureIos:
+    'Paid through your Apple Account. You manage the subscription in your Apple Account subscription settings.',
+  payStoreSecureAndroid:
+    'Paid through your Google Play account. You manage the subscription in Google Play under “Subscriptions”.',
+  restorePurchases: 'Restore purchases',
+  restoreNone: 'We found no active purchase for this account.',
+  storeUnavailable: 'The store cannot be reached right now. Please try again later.',
+  alreadySubscribed: 'You already have an active ParkShield subscription.',
+  providerAppStore: 'Bought in the App Store',
+  providerPlayStore: 'Bought on Google Play',
+  providerWeb: 'Bought on park-shield.de',
+  manageWeb: 'You manage it under “Account” → “Plan and invoices” or on park-shield.de.',
+  storeNameApple: 'Apple',
+  storeNameGoogle: 'Google Play',
+  storeManageText:
+    'You took out this subscription through {store}. {store} is the seller: you cancel it and change the payment method in the {store} subscription settings. We cannot cancel store subscriptions ourselves.',
+  storeManageButton: 'Manage the subscription at {store}',
+  storeCancelButton: 'Cancel at {store}',
+  storeWithdrawText:
+    'You bought this subscription through {store}. {store} decides on withdrawal and refunds. Please request the refund there.',
+  storeRefundButton: 'Request a refund from {store}',
+  storeWithdrawFormNote: 'You can also tell us about your withdrawal with this form.',
+  storeReceipts:
+    'You receive the receipts for your subscription from {store}. We send you the contract confirmation by e-mail.',
+  printShipStart: 'Continue to confirmation',
+  printConfirmTitle: 'Confirm your decal',
+  printConfirmIntro: 'This is how your decal will be printed:',
+  printConfirmLabel: 'Text: “{label}”',
+  printConfirmDesign: 'Design: {design}',
+  printChangeDesign: 'Change design',
+  printPersonalNotice:
+    'Your decal is printed individually to your specification. There is no right of withdrawal for goods made to the customer’s specification.',
+  printConfirmFree: 'Print and send now',
+  printConfirmPaid: 'Pay {price} and send',
+  printAddressTitle: 'Delivery address',
+  printLabelInvalid:
+    'The vehicle name “{label}” cannot be printed like this. Allowed are 2 to 20 characters: letters, numbers, spaces and basic punctuation.',
+  printEditName: 'Change the vehicle name',
+  labelInvalid:
+    'Please choose another vehicle name: 2 to 20 characters, only letters, numbers, spaces and basic punctuation, no offensive words.',
+  labelErrRequired: 'Please enter a name for your vehicle.',
+  labelErrLength: 'The name must be 2 to 20 characters long. It is printed on the decal.',
+  labelErrChars: 'Please use only letters, numbers, spaces and basic punctuation.',
+  welcomeCta: 'Design your decal and have it sent – free',
+  welcomeCtaText: 'Your first printed decal including shipping is included in your plan.',
+  welcomeCtaButton: 'Design it now',
 };
 
 export const messages = { de, en } as const;

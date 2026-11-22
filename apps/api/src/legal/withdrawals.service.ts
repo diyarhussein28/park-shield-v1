@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { sql } from 'kysely';
 import type { Logger } from 'pino';
 import { RefundsService } from '../billing/refunds.service';
+import { OrdersService } from '../orders/orders.service';
 import type { Env } from '../config/env';
 import type { Db } from '../core/core.module';
 import { normalizeEmail } from '../core/crypto';
@@ -45,6 +46,7 @@ export class WithdrawalsService {
     @Inject(RefundsService) private readonly refunds: RefundsService,
     @Inject(TagsService) private readonly tags: TagsService,
     @Inject(LegalTextsService) private readonly texts: LegalTextsService,
+    @Inject(OrdersService) private readonly orders: OrdersService,
   ) {}
 
   async submit(input: WithdrawalInput): Promise<{ id: string; receivedAt: Date }> {
@@ -157,6 +159,7 @@ export class WithdrawalsService {
         'created_at',
         'stripe_subscription_id',
         'contract_no',
+        'provider',
       ])
       .where('id', '=', subscriptionId)
       .executeTakeFirstOrThrow();
@@ -170,6 +173,12 @@ export class WithdrawalsService {
     }
     if (sub.customer_type !== 'b2c') {
       await this.flag(id, 'needs_review', 'business_customer');
+      return;
+    }
+    // A6: App Store / Google Play subscriptions are refunded by Apple/Google (the seller); ops
+    // answers with the store's refund route. No calculation of ours runs for them.
+    if (sub.provider !== 'stripe') {
+      await this.flag(id, 'needs_review', `store_subscription ${sub.provider}`);
       return;
     }
     // Sent in time counts (§ 355 Abs. 1 S. 5 BGB): measured at receipt, not at processing.
@@ -214,6 +223,9 @@ export class WithdrawalsService {
         .where('id', '=', id)
         .execute();
     });
+    // B4: withdrawal before personalisation: the fulfillment order is cancelled, nothing is shipped.
+    // A personalised sticker is never reshipped and never has to be returned.
+    if (sub.user_id) await this.orders.cancelUnpersonalized(sub.user_id);
     this.logger.info({ withdrawalId: id, subscriptionId: sub.id, refundCents }, 'withdrawal done');
   }
 

@@ -142,7 +142,10 @@ describe('annual checkout (US-06)', () => {
         })
       | undefined;
     expect(welcome?.text).toContain(sub.contractNo);
-    expect(welcome?.text).toMatch(/20,00\s€ pro Jahr inkl\. 19 % MwSt\./);
+    expect(welcome?.text).toMatch(/ParkShield Jahresabo: 20,00\s€ \/ Jahr, inkl\. MwSt\./);
+    expect(welcome?.text).toMatch(
+      /Im Preis enthalten: personalisierter Aufkleber inkl\. Versand im Wert von 3,00\s€\./,
+    );
     expect(welcome?.text).toContain('Nächste Verlängerung');
     expect(welcome?.text).toContain('Ich verlange ausdrücklich');
     // § 312f BGB: the PDF „Vertragsbestätigung“ is attached; which versions went out is stored.

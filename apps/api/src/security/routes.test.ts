@@ -40,6 +40,10 @@ const PUBLIC: Record<string, Control> = {
   'GET /v1/legal/context': { kind: 'static' },
   'GET /v1/legal/checkout-texts': { kind: 'static' },
   'POST /v1/webhooks/stripe': { kind: 'signed', what: 'Stripe-Signature (HMAC over the raw body)' },
+  'POST /v1/webhooks/revenuecat': {
+    kind: 'signed',
+    what: 'Authorization header = REVENUECAT_WEBHOOK_AUTH (timing-safe compare)',
+  },
   'POST /v1/webhooks/twilio/sms': {
     kind: 'signed',
     what: 'X-Twilio-Signature (HMAC-SHA1 with the auth token)',

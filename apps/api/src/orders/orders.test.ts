@@ -44,7 +44,11 @@ async function setup(email = 'jonas@example.de') {
   ).json();
   return { s, v };
 }
-const order = (s: Session, vehicleId: string, payload: Record<string, unknown> = { address }) =>
+const order = (
+  s: Session,
+  vehicleId: string,
+  payload: Record<string, unknown> = { address, personalizationConfirmed: true },
+) =>
   h.app.inject({
     method: 'POST',
     url: `/v1/vehicles/${vehicleId}/order-included`,
@@ -73,9 +77,10 @@ describe('printed decal orders (US-11, single plan since 2026-11-21)', () => {
       freeReplacements: 0,
       printPriceCents: 300,
     });
-    expect(await options()).toEqual({
+    expect(await options()).toMatchObject({
       selfPrint: { priceCents: 0 },
       shipped: { priceCents: 0, free: true, welcomePrint: true },
+      personalization: { label: 'Der Blaue', labelValid: true, template: 'classic' },
     });
 
     const res = await order(s, v.id);
@@ -97,7 +102,7 @@ describe('printed decal orders (US-11, single plan since 2026-11-21)', () => {
     expect(events).toEqual([{ topic: PRINT_TOPIC, payload: { orderId: row.id } }]);
     expect((await lastMail(h, 'order_received'))?.to).toBe('jonas@example.de');
     expect((await orders()).includedAvailable).toBe(false);
-    expect(await options()).toEqual({
+    expect(await options()).toMatchObject({
       selfPrint: { priceCents: 0 },
       shipped: { priceCents: 300, free: false, welcomePrint: false },
     });
@@ -107,7 +112,7 @@ describe('printed decal orders (US-11, single plan since 2026-11-21)', () => {
       method: 'POST',
       url: `/v1/vehicles/${v.id}/order-print`,
       headers: s.headers,
-      payload: { address },
+      payload: { address, personalizationConfirmed: true },
     });
     expect(second.statusCode, second.body).toBe(200);
     expect(second.json()).toMatchObject({ free: false, url: expect.stringContaining('session=') });

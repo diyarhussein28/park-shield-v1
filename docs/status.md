@@ -10,7 +10,7 @@ on one laptop, so **everyone (and every AI agent) on every machine reads the sam
 > The repository is **public**. Never write secrets, keys, passwords, customer data, phone numbers
 > or e-mail addresses of real customers here. Names of env vars are fine; their values are not.
 
-_Last updated: 2026-11-22 (single plan deployed to the test server and tested end to end, see §1a)._
+_Last updated: 2026-11-22 (unified billing RevenueCat + Stripe and the personalised sticker, see §3)._
 
 ---
 
@@ -107,6 +107,16 @@ records. Old SendGrid and Brevo records stay but are unused.
 
 ## 3. Decisions
 
+- **Unified billing and the personalised sticker (2026-11-22).** Option A: our backend is the
+  entitlement hub — RevenueCat (App Store / Google Play) and Stripe webhooks update one `subscriptions`
+  record (`provider`, unified status ACTIVE / CANCEL_SCHEDULED / BILLING_ISSUE / EXPIRED / REFUNDED /
+  WITHDRAWN); app, website and scanner read only it. Subscriptions in the app via in-app purchase
+  (RevenueCat), on the web via Stripe; 3 € prints always Stripe. The printed sticker is personalised
+  (vehicle label + design, frozen at a confirmation step) and excluded from withdrawal (§ 312g Abs. 2
+  Nr. 1 BGB); its value 3 € (`prices.sticker_value_cents`) is shown in the price and kept on a Stripe
+  withdrawal after personalisation (formula in `docs/billing-unified.md` §4). Migration
+  `20261208000000_unified_billing`. Open: RevenueCat/App Store/Play accounts and keys
+  (`docs/handover.md` §8), lawyer `LEGAL_REVIEW.md` §12.
 - **Single plan, app-only alerts, SMS escalation, Sperren, print (2026-11-21).** Task:
   `docs/single-plan-update-prompt.md`; progress and design notes: `docs/handover.md`. One plan
   „ParkShield“ 20 € / year incl. VAT for **one vehicle** (Plus/Premium removed; all test subscriptions
@@ -198,6 +208,9 @@ Relaxed only for testing on the test server. Restore every item before step 5:
    accounts are asked for name and address on the next app start and before any website checkout.
    Before go-live: the privacy policy needs the new section on name/address (`LEGAL_REVIEW.md` §8),
    and the store privacy labels must list name and address.
+
+10. **RevenueCat (2026-11-22):** `REVENUECAT_SECRET_KEY` and `REVENUECAT_WEBHOOK_AUTH` must be set
+   (real production refuses to start without them); App Store / Play products live, sandbox off.
 
 9. **Single plan (2026-11-21):** on the test server done 2026-11-21: `STRIPE_PRICE_YEARLY` (20 €, test
    mode) set and the old `STRIPE_PRICE_PLUS_*` / `STRIPE_PRICE_PREMIUM_*` removed, `TWILIO_VERIFY_SERVICE_SID`

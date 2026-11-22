@@ -203,8 +203,8 @@ describe('sending an alert (US-14, US-15, US-16)', () => {
   });
 
   it('uses one daily scanner ref across vehicles but a per-vehicle block ref', async () => {
-    const a = await vehicleWithCode('a@example.de', 'A');
-    const b = await vehicleWithCode('b@example.de', 'B');
+    const a = await vehicleWithCode('a@example.de', 'Auto A');
+    const b = await vehicleWithCode('b@example.de', 'Auto B');
     await send(a.code, { type: 'lights_on' });
     await send(b.code, { type: 'lights_on' });
     const rows = await h.db.selectFrom('alerts').select(['scanner_ref', 'block_ref']).execute();

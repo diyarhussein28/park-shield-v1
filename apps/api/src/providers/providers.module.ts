@@ -18,6 +18,7 @@ import {
   PRINT,
   PUSH,
   SMS,
+  STORE_BILLING,
   SUPPORT_DESK,
   type Mailer,
 } from './ports';
@@ -25,6 +26,7 @@ import { DevSupportDesk, EmailSupportDesk, ZammadDesk } from './support-desk';
 import { VapidPushSender } from './push';
 import { DevAppPushSender, FcmSender } from './fcm';
 import { StripePayments } from './stripe-payments';
+import { FakeStore, RevenueCatStore } from './revenuecat';
 import { DevSmsSender, TwilioSmsSender, twilioSmsWebhookUrl } from './twilio-sms';
 import {
   DevPhoneVerifier,
@@ -76,6 +78,14 @@ export class ProvidersModule {
                   env.STRIPE_PRICE_YEARLY,
                   env.STRIPE_PRICE_MONTHLY,
                 ),
+        },
+        {
+          provide: STORE_BILLING,
+          inject: [VALKEY],
+          useFactory: (valkey: Redis) =>
+            fakes.store
+              ? new FakeStore(valkey)
+              : new RevenueCatStore(env.REVENUECAT_SECRET_KEY, env.REVENUECAT_ENTITLEMENT_ID),
         },
         {
           provide: PRINT,
@@ -163,6 +173,7 @@ export class ProvidersModule {
         MAILER,
         CAPTCHA,
         PAYMENTS,
+        STORE_BILLING,
         PRINT,
         PUSH,
         APP_PUSH,

@@ -28,9 +28,22 @@ const input = (locale: 'de' | 'en'): ContractConfirmationInput => ({
     email: 'contact@park-shield.de',
   },
   webBaseUrl: 'https://park-shield.de',
+  stickerValue: locale === 'de' ? '3,00 €' : '€3.00',
 });
 
 describe('PDF „Vertragsbestätigung“ (§ 312f BGB)', () => {
+  it('store purchases (A6): a confirmation, not an invoice; cancel and refund through the store', () => {
+    const c = contractConfirmationContent({ ...input('de'), store: 'app_store' });
+    const text = c.sections.flatMap((s) => [s.heading, ...s.paragraphs]).join('\n');
+    expect(text).toContain('Dieses Dokument ist eine Vertragsbestätigung, keine Rechnung.');
+    expect(text).toContain('den Zahlungsbeleg erhalten Sie von Apple');
+    expect(text).toContain('https://reportaproblem.apple.com');
+    const play = contractConfirmationContent({ ...input('de'), store: 'play_store' });
+    expect(play.sections.flatMap((s) => s.paragraphs).join('\n')).toContain(
+      'https://play.google.com/store/account/orderhistory',
+    );
+  });
+
   it.each(['de', 'en'] as const)('%s: contains every required part', (locale) => {
     const c = contractConfirmationContent(input(locale));
     expect(c.sections.map((s) => s.part)).toEqual([
@@ -53,8 +66,14 @@ describe('PDF „Vertragsbestätigung“ (§ 312f BGB)', () => {
     }
     expect(all('contract')).toMatch(
       locale === 'de'
-        ? /20,00 € pro Jahr inklusive 19 % MwSt/
-        : /€20\.00 per year including 19% VAT/,
+        ? /ParkShield Jahresabo: 20,00 € \/ Jahr, inkl\. MwSt\./
+        : /ParkShield yearly plan: €20\.00 \/ year, incl\. VAT\./,
+    );
+    // B2: the sticker value included in the price.
+    expect(all('contract')).toMatch(
+      locale === 'de'
+        ? /Im Preis enthalten: personalisierter Aufkleber inkl\. Versand im Wert von 3,00 €\./
+        : /Included in the price: personalised sticker incl\. shipping worth €3\.00\./,
     );
     // Renewal and cancellation rules.
     expect(all('renewal')).toMatch(locale === 'de' ? /verlängert sich/ : /renews/);

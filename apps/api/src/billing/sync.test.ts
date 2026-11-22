@@ -46,7 +46,7 @@ describe('subscription sync and dunning (US-08)', () => {
       method: 'POST',
       url: '/v1/vehicles',
       headers: s.headers,
-      payload: { nickname: 'X', plate: 'K-X 1' },
+      payload: { nickname: 'XY', plate: 'K-X 1' },
     });
     expect(res.statusCode).toBe(403);
   });

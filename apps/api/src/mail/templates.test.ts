@@ -74,6 +74,14 @@ const values = {
   noApp: 'yes',
   sms: 'yes',
   until: new Date('2027-09-02T00:00:00Z'),
+  priceLines:
+    'ParkShield Jahresabo: 20,00 € / Jahr, inkl. MwSt.\nIm Preis enthalten: personalisierter Aufkleber inkl. Versand im Wert von 3,00 €.',
+  storeLine: '',
+  cancelLine:
+    'Kündigen können Sie jederzeit über „Verträge hier kündigen“ unten auf jeder Seite, widerrufen innerhalb der Widerrufsfrist über „Vertrag widerrufen“.',
+  breakdown:
+    'Gezahlt 20,00 € − personalisierter Aufkleber 3,00 € − genutzte Leistung (10 Tage) 0,47 € = Erstattung 16,53 €',
+  provider: 'stripe',
 };
 
 describe('mail templates', () => {

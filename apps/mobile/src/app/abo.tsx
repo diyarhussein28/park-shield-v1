@@ -8,9 +8,13 @@ import {
   PlanFeatures,
   SubscriptionInfo,
   openPaymentPortal,
+  openStoreManagement,
+  stickerValueText,
+  storeName,
 } from '@/components/subscription';
 import { Banner, Button, Card, P, Screen, Title, useTheme } from '@/components/ui';
 import { api } from '@/lib/api';
+import { isStoreProvider } from '@/lib/billing';
 import { lang, t } from '@/lib/i18n';
 import { LANG_NAMES, switchLanguage } from '@/lib/language';
 import {
@@ -104,7 +108,7 @@ export default function Subscription() {
   return (
     <Screen>
       <P muted>{pt('portal.planIntro')}</P>
-      {sub?.status === 'past_due' && <PastDue />}
+      {sub?.status === 'past_due' && <PastDue sub={sub} />}
 
       <Card>
         <Title>{pt('account.subscription')}</Title>
@@ -115,11 +119,21 @@ export default function Subscription() {
               {t('planIncludes')}
             </Text>
             <PlanFeatures />
-            <Button
-              label={pt('account.paymentMethod')}
-              variant="secondary"
-              onPress={() => void openPaymentPortal().then(load)}
-            />
+            <P muted>{stickerValueText(sub.stickerValueCents)}</P>
+            {isStoreProvider(sub.provider) ? (
+              // A6: Apple/Google manage payment and renewal of store subscriptions.
+              <Button
+                label={t('storeManageButton', { store: storeName(sub.provider) })}
+                variant="secondary"
+                onPress={() => openStoreManagement(sub)}
+              />
+            ) : (
+              <Button
+                label={pt('account.paymentMethod')}
+                variant="secondary"
+                onPress={() => void openPaymentPortal().then(load)}
+              />
+            )}
           </>
         ) : (
           <>
@@ -131,6 +145,9 @@ export default function Subscription() {
 
       <Card>
         <Title>{pt('account.invoices')}</Title>
+        {isStoreProvider(sub?.provider) && (
+          <P muted>{t('storeReceipts', { store: storeName(sub?.provider) })}</P>
+        )}
         {invoices.length === 0 ? (
           <P muted>{pt('account.noInvoices')}</P>
         ) : (

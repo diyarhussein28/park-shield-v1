@@ -1,13 +1,17 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Field } from '@/components/form';
+import { StoreRefundCard } from '@/components/subscription';
 import { Banner, Button, Card, P, Screen, Title } from '@/components/ui';
+import { isStoreProvider } from '@/lib/billing';
 import { api } from '@/lib/api';
-import { lang } from '@/lib/i18n';
+import { lang, t } from '@/lib/i18n';
 import { errorText, type PortalMe, type SubscriptionSummary } from '@/lib/portal';
 import { pt } from '@/lib/portal-i18n';
 
 /**
+ * Store subscribers first see the store's refund route; the form stays below for them too.
+ *
  * § 356a BGB online withdrawal (web: /widerrufen, pre-filled for the signed-in owner): exactly three
  * fields, no reason → „Widerruf bestätigen“ → receipt with date and time, and the receipt e-mail.
  */
@@ -18,6 +22,7 @@ export default function Withdraw() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [receivedAt, setReceivedAt] = useState<Date | null>(null);
+  const [sub, setSub] = useState<SubscriptionSummary | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -26,6 +31,7 @@ export default function Withdraw() {
         api<PortalMe>('/v1/me'),
       ])
         .then(([s, m]) => {
+          setSub(s.subscription);
           setContractRef((v) => v || s.subscription?.contractNo || '');
           setEmail((v) => v || m.email);
         })
@@ -65,11 +71,14 @@ export default function Withdraw() {
     );
   }
 
+  const store = Boolean(sub && isStoreProvider(sub.provider));
   return (
     <Screen>
+      {/* A6: Apple / Google decide on withdrawal and refund of a store subscription. */}
+      {store && sub && <StoreRefundCard sub={sub} />}
       <Card>
         <Title>{pt('withdraw.title')}</Title>
-        <P>{pt('withdraw.intro')}</P>
+        <P>{store ? t('storeWithdrawFormNote') : pt('withdraw.intro')}</P>
         <Field
           label={pt('withdraw.nameLabel')}
           value={name}

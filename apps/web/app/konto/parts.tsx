@@ -11,7 +11,7 @@ import {
   Text,
   useI18n,
 } from '@parkshield/ui';
-import { PLAN_FEATURE_COUNT, PLAN_PRICE_CENTS } from '@parkshield/shared';
+import { PLAN_FEATURE_COUNT, PLAN_PRICE_CENTS, STICKER_VALUE_CENTS } from '@parkshield/shared';
 import type { MessageKey } from '@parkshield/i18n';
 import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/browser';
 import Link from 'next/link';
@@ -77,6 +77,46 @@ export function PlanFeatures() {
   );
 }
 
+/** App Store / Google Play subscription (Apple or Google is the seller, docs/billing-unified.md §3). */
+export const isStoreSubscription = (sub: Pick<SubscriptionSummary, 'provider'>) =>
+  sub.provider === 'app_store' || sub.provider === 'play_store';
+
+/** The store's subscription management (cancel there); RevenueCat's URL first, else the store page. */
+export function storeManageUrl(sub: Pick<SubscriptionSummary, 'provider' | 'managementUrl'>) {
+  if (sub.managementUrl) return sub.managementUrl;
+  return sub.provider === 'play_store'
+    ? 'https://play.google.com/store/account/subscriptions'
+    : 'https://apps.apple.com/account/subscriptions';
+}
+
+/** Withdrawal and refunds of store purchases are decided by Apple or Google. */
+export function storeRefundUrl(sub: Pick<SubscriptionSummary, 'provider' | 'refundRoute'>) {
+  const google = sub.refundRoute ? sub.refundRoute === 'google' : sub.provider === 'play_store';
+  return google
+    ? 'https://play.google.com/store/account/orderhistory'
+    : 'https://reportaproblem.apple.com';
+}
+
+/** „Im Preis enthalten: personalisierter Aufkleber …“ (Part B, B2). TODO [LEGAL REVIEW] */
+export function StickerIncluded({ cents }: { cents?: number }) {
+  const { t } = useI18n();
+  const euro = useEuroCents();
+  return (
+    <Text>{t('checkout.stickerIncluded', { value: euro(cents ?? STICKER_VALUE_CENTS) })}</Text>
+  );
+}
+
+/** Euro amount always with cents (20,00 €), for the price breakdown. */
+export function useEuroCents() {
+  const { locale } = useI18n();
+  return (cents: number) =>
+    new Intl.NumberFormat(locale === 'en' ? 'en-IE' : 'de-DE', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 2,
+    }).format(cents / 100);
+}
+
 export async function openPaymentPortal() {
   const { url } = await api<{ url: string }>('/v1/billing/portal', { body: {} });
   window.location.assign(url);
@@ -110,12 +150,33 @@ export function SubscriptionInfo({ sub }: { sub: SubscriptionSummary }) {
             : t('account.renewsOn', { date: end })}
         </Text>
       )}
+      {sub.provider && (
+        <Text muted data-testid="subscription-provider">
+          {t('account.providerLine', { provider: sub.provider })}
+        </Text>
+      )}
+      <StickerIncluded cents={sub.stickerValueCents} />
     </div>
   );
 }
 
-export function PastDue() {
+export function PastDue({ sub }: { sub?: SubscriptionSummary | null }) {
   const { t } = useI18n();
+  if (sub && isStoreSubscription(sub)) {
+    return (
+      <Notice tone="warning">
+        <p>{t('account.storePastDueNotice', { provider: sub.provider! })}</p>
+        <a
+          href={storeManageUrl(sub)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex min-h-12 items-center font-semibold underline"
+        >
+          {t('account.storeManage', { provider: sub.provider! })}
+        </a>
+      </Notice>
+    );
+  }
   return (
     <Notice tone="warning">
       <p>{t('account.pastDueNotice')}</p>
@@ -299,7 +360,9 @@ export function CheckoutForm() {
 function Checkout({ phone }: { phone: string | null }) {
   const { t, locale } = useI18n();
   const euro = useEuro();
-  const price = euro(usePlanPrice());
+  const euro2 = useEuroCents();
+  const planCents = usePlanPrice();
+  const price = euro(planCents);
   const pending = usePendingClaim();
   const [typed, setPromo] = useState<string | null>(null);
   // A partner decal brings its promo code along (AD-07); the person may still change it.
@@ -311,19 +374,23 @@ function Checkout({ phone }: { phone: string | null }) {
   const [resubscribe, setResubscribe] = useState(false);
   const [sticker, setSticker] = useState<'keep' | 'replace' | null>(null);
   const [stickerMissing, setStickerMissing] = useState(false);
+  // A live subscription from any provider (app or web): no second checkout (A4).
+  const [current, setCurrent] = useState<SubscriptionSummary | null>(null);
 
   useEffect(() => {
     let live = true;
     void Promise.all([
       api<CheckoutTexts>(`/v1/legal/checkout-texts?locale=${locale}`, { method: 'GET' }),
-      api<{ hadSubscription?: boolean }>('/v1/billing/subscription', { method: 'GET' }).catch(
-        () => ({ hadSubscription: false }),
-      ),
+      api<{ hadSubscription?: boolean; subscription?: SubscriptionSummary | null }>(
+        '/v1/billing/subscription',
+        { method: 'GET' },
+      ).catch(() => ({ hadSubscription: false, subscription: null })),
     ])
       .then(([tx, sub]) => {
         if (!live) return;
         setTexts(tx);
         setResubscribe(Boolean(sub.hadSubscription));
+        setCurrent(sub.subscription ?? null);
       })
       .catch(() => live && setTexts('error'));
     return () => {
@@ -360,6 +427,7 @@ function Checkout({ phone }: { phone: string | null }) {
     }
   }
 
+  if (current) return <AlreadySubscribed sub={current} />;
   if (texts === null) return <Text muted>{t('checkout.textsLoading')}</Text>;
   if (texts === 'error') return <Notice tone="danger">{t('checkout.textsMissing')}</Notice>;
 
@@ -371,6 +439,11 @@ function Checkout({ phone }: { phone: string | null }) {
           {t('checkout.summaryTitle')}
         </h3>
         <p className="text-2xl font-bold">{t('checkout.pricePlan', { price })}</p>
+        {/* TODO [LEGAL REVIEW] price breakdown with the included personalised sticker (B2). */}
+        <Text data-testid="price-breakdown">
+          {t('checkout.yearlyBreakdown', { price: euro2(planCents) })}
+        </Text>
+        <StickerIncluded />
         <Text>{t('checkout.summaryTerm')}</Text>
         <div className="mt-2">
           <PlanFeatures />
@@ -434,6 +507,10 @@ function Checkout({ phone }: { phone: string | null }) {
           {t('checkout.immediateRequired')}
         </p>
       )}
+      {/* TODO [LEGAL REVIEW] § 312g Abs. 2 Nr. 1 BGB: info line next to the declaration, no checkbox (B3). */}
+      <p className="text-sm" data-testid="sticker-notice">
+        {t('checkout.stickerNotice')}
+      </p>
       <Text className="text-sm">
         {t('checkout.withdrawalNotice')}{' '}
         <Link className="underline" href="/widerruf">
@@ -454,6 +531,31 @@ function Checkout({ phone }: { phone: string | null }) {
         {t('checkout.payPrice', { price })}
       </Button>
     </form>
+  );
+}
+
+/** A subscription is already live (bought in the app or on the website): where, and how to manage it. */
+function AlreadySubscribed({ sub }: { sub: SubscriptionSummary }) {
+  const { t } = useI18n();
+  return (
+    <div className="flex flex-col gap-3" data-testid="already-subscribed">
+      <Notice tone="info">{t('checkout.already')}</Notice>
+      {sub.provider && <Text>{t('account.providerLine', { provider: sub.provider })}</Text>}
+      {isStoreSubscription(sub) ? (
+        <a
+          href={storeManageUrl(sub)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-fit font-semibold underline"
+        >
+          {t('account.storeManage', { provider: sub.provider! })}
+        </a>
+      ) : (
+        <Link href="/konto/abo" className="w-fit font-semibold underline">
+          {t('portal.planManage')}
+        </Link>
+      )}
+    </div>
   );
 }
 

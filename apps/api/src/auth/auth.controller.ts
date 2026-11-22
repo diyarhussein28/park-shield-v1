@@ -168,6 +168,8 @@ export class AuthController {
         .executeTakeFirstOrThrow(),
     ]);
     return {
+      // The RevenueCat app_user_id is this UUID (A1): purchases are never anonymous.
+      id: user.userId,
       email: user.email,
       customerNo: row.customer_no,
       preferredLang: user.preferredLang,
