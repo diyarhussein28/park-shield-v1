@@ -475,7 +475,7 @@ is marked `// TODO [LEGAL REVIEW]` in the code.
    incl. shipping (value 3 €). App Store Review Guideline 3.1.1/3.1.3 — is including a physical good in
    an IAP subscription acceptable to Apple? The 3 € extra prints are paid via Stripe (physical goods
    must not use IAP, 3.1.5(a)).
-6. **Price:** 20,00 € might not exist as an App Store price point (19,99 €); same price on the web?
+6. **Price:** the App Store subscription is 19,99 € (owner decision 2026-11-23, 20,00 € is no price point); the web stays 20,00 €. Is a 1-cent difference between channels acceptable, and must the app paywall then show 19,99 € in the breakdown (it shows the store price)?
 7. **Double subscriptions:** prevented in the app and on the web; if one happens anyway (race, old app),
    the store contract is kept as `incomplete` for ops, who refund one of them.
 
