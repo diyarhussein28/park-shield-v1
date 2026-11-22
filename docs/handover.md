@@ -229,12 +229,12 @@ Still open:
 5. Small follow-ups: 110/112 as tappable links on the scanner page; `scanner.escalated` /
    `contactOnTheWay` texts still mention contacts (unused by the flow now); a clean-up migration to drop
    the empty `emergency_contacts` table and the unused escalation columns.
-6. Findings of the real run (2026-11-22): the vehicle row „Druck oder Versand“ shows no price after the
-   welcome print was used (the print screen itself shows 3 € correctly); ~~the Warnungen tab badge still
-   counts an alert whose sender was blocked as open~~ (fixed 2026-11-22: the badge counts unopened
-   alerts from the server); text fields are right-aligned when the device
-   keyboard/region is RTL (set `textAlign: 'left'` on inputs, the app is DE/EN only); the 3 € paid print
-   was not paid in the run.
+6. Findings of the real run (2026-11-22): ~~the vehicle row „Druck oder Versand“ shows no price after
+   the welcome print was used~~ (fixed 2026-11-22: it shows „3,00 € einmalig inkl. MwSt.“); ~~the
+   Warnungen tab badge still counts an alert whose sender was blocked as open~~ (fixed 2026-11-22: the
+   badge counts unopened alerts from the server); right-aligned free-text fields on an RTL keyboard are
+   intended (P16 in `components/form.tsx`: only e-mail, codes, numbers and postcodes are forced LTR); the
+   3 € paid print was not paid in the run.
 
 ## 7. Fix prompts of 2026-11-22 (`ParkShield-Fix-Prompts.md`, all seven done)
 

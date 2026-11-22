@@ -127,11 +127,13 @@ export default function VehicleDetail() {
             iconTone="accent"
             title={t('printOpen')}
             detail={
-              options?.shipped.free
-                ? options.shipped.welcomePrint
-                  ? t('printShipWelcome')
-                  : t('printShipFree')
-                : undefined
+              !options
+                ? undefined
+                : options.shipped.free
+                  ? options.shipped.welcomePrint
+                    ? t('printShipWelcome')
+                    : t('printShipFree')
+                  : t('printShipPrice', { price: euro(options.shipped.priceCents, lang()) })
             }
             onPress={() =>
               router.push({ pathname: '/fahrzeug/drucken/[id]', params: { id: v.id } })
