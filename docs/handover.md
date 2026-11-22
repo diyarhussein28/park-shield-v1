@@ -284,9 +284,9 @@ Done (API 640+ tests, app Jest 162, typecheck, lint, prettier green):
 
 Still open (owner accounts):
 
-1. RevenueCat project, apps, entitlement `parkshield_pro`, product `parkshield_yearly`, offering `default`,
-   webhook → `https://test.park-shield.de/v1/webhooks/revenuecat` with the Authorization value from
-   `server.env` (`REVENUECAT_WEBHOOK_AUTH`); `REVENUECAT_SECRET_KEY` in `server.env`.
+1. ✅ 2026-11-22: RevenueCat webhook → `https://test.park-shield.de/v1/webhooks/revenuecat` (test event
+   received and stored), `REVENUECAT_WEBHOOK_AUTH` and the v1 `REVENUECAT_SECRET_KEY` in `server.env`
+   (REST call verified). Still open: App Store / Play apps in RevenueCat (P8 key, product), offering.
 2. App Store Connect / Play Console: the yearly subscription product (20,00 € or 19,99 €), sandbox
    tester, Play internal test track; EAS env `EXPO_PUBLIC_REVENUECAT_IOS_KEY` / `…_ANDROID_KEY`, new
    development build (Expo Go cannot buy).
