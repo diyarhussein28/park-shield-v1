@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { hasSession } from '@/lib/api-client';
 import { cx } from '@/lib/cx';
 import { useBrowserValue } from '@/lib/use-browser-value';
-import { Icon, LogoMark } from './icons';
+import { Icon, LogoMark, StarShield } from './icons';
 
 /** Width of header, footer and the landing page sections (content pages keep their narrow column). */
 export const WIDE = 'mx-auto w-full max-w-6xl px-4 sm:px-6';
@@ -95,88 +95,89 @@ export function SiteHeader({ sticky = false }: { sticky?: boolean }) {
   );
 }
 
+/**
+ * The site footer (design 2026-11-22, „exactly like the image“): very dark navy, the star shield and
+ * „ParkShield“, the tagline, then the link groups in a 2 × 2 grid on phones (Produkt · Support /
+ * Rechtliches · Vertrag) and one row of four columns from 768 px, then „© 2026 ParkShield“ and
+ * „Hosted in Germany“. „Verträge hier kündigen“ (§ 312k BGB) and „Vertrag widerrufen“ (§ 356a BGB)
+ * are always visible, also without login. No tracking scripts.
+ */
 export function SiteFooter() {
   const { t } = useI18n();
   const columns: [string, [string, string][]][] = [
     [
-      t('common.footer.product'),
+      t('common.siteFooter.product'),
       [
-        ['/#so-funktionierts', t('nav.how')],
-        ['/#preise', t('nav.pricing')],
-        ['/#faq', t('common.footer.faq')],
+        ['/#so-funktionierts', t('common.siteFooter.how')],
+        ['/#preise', t('common.siteFooter.pricing')],
+        ['/#faq', t('common.siteFooter.faq')],
       ],
     ],
     [
-      t('common.footer.support'),
+      t('common.siteFooter.support'),
       [
-        ['/hilfe', t('common.footer.help')],
-        ['/sicherheit', t('common.footer.security')],
-        ['/barrierefreiheit', t('common.footer.accessibility')],
+        ['/hilfe', t('common.siteFooter.help')],
+        ['/sicherheit', t('common.siteFooter.security')],
+        ['/barrierefreiheit', t('common.siteFooter.accessibility')],
       ],
     ],
     [
-      t('common.footer.legal'),
+      t('common.siteFooter.legal'),
       [
-        ['/impressum', t('common.footer.impressum')],
-        ['/datenschutz', t('common.footer.privacy')],
-        ['/agb', t('common.footer.terms')],
-        ['/widerruf', t('common.footer.withdrawal')],
+        ['/impressum', t('common.siteFooter.impressum')],
+        ['/datenschutz', t('common.siteFooter.privacy')],
+        ['/agb', t('common.siteFooter.terms')],
+      ],
+    ],
+    [
+      t('common.siteFooter.contract'),
+      [
+        ['/kuendigen', t('common.siteFooter.cancel')],
+        ['/widerrufen', t('common.siteFooter.withdraw')],
       ],
     ],
   ];
   return (
-    <footer className="on-dark mt-16 bg-slate-950 text-slate-300">
-      <div className={`${WIDE} grid gap-10 py-14 md:grid-cols-[1.4fr_1fr_1fr_1fr]`}>
-        <div className="flex flex-col gap-4">
-          <Link
-            href="/"
-            className="inline-flex min-h-12 w-fit items-center gap-2.5 rounded-lg text-xl font-extrabold tracking-tight text-white"
-          >
-            <LogoMark className="size-9" />
-            ParkShield
-            <span className="sr-only"> – {t('nav.home')}</span>
-          </Link>
-          <p className="max-w-xs">{t('common.footer.tagline')}</p>
-          {/* §312k and §356a BGB: always visible, also without login. */}
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/kuendigen"
-              className="inline-flex min-h-12 w-fit items-center rounded-full border-2 border-white px-5 font-semibold text-white transition hover:bg-white hover:text-slate-950"
-            >
-              {t('common.footer.cancelContract')}
-            </Link>
-            <Link
-              href="/widerrufen"
-              className="inline-flex min-h-12 w-fit items-center rounded-full border-2 border-white px-5 font-semibold text-white transition hover:bg-white hover:text-slate-950"
-            >
-              {t('common.footer.withdrawContract')}
-            </Link>
-          </div>
+    <footer className="on-dark mt-16 bg-[#050b1a] text-slate-300">
+      <div className={`${WIDE} py-12 sm:py-14 md:py-16`}>
+        <Link
+          href="/"
+          className="inline-flex min-h-12 w-fit items-center gap-3 rounded-lg text-3xl font-extrabold tracking-tight text-white sm:text-4xl"
+        >
+          <StarShield className="size-11 shrink-0 sm:size-12" />
+          <span>
+            Park<span className="text-blue-500">Shield</span>
+          </span>
+          <span className="sr-only"> – {t('nav.home')}</span>
+        </Link>
+        <p className="mt-3 max-w-2xl text-lg leading-relaxed">{t('common.siteFooter.tagline')}</p>
+        <hr className="my-10 border-slate-700" />
+        <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4">
+          {columns.map(([title, links]) => (
+            <div key={title} className="min-w-0">
+              <h2 className="text-base font-bold tracking-wider text-white uppercase">{title}</h2>
+              <ul className="mt-4 flex flex-col gap-1">
+                {links.map(([href, label]) => (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      className="inline-block rounded py-1.5 text-base leading-snug min-[380px]:text-lg wrap-break-word hyphens-auto no-underline underline-offset-4 transition-colors hover:text-white hover:underline focus-visible:text-white focus-visible:underline"
+                    >
+                      {label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
-        {columns.map(([title, links]) => (
-          <div key={title}>
-            <h2 className="text-sm font-bold uppercase tracking-widest text-white">{title}</h2>
-            <ul className="mt-3 flex flex-col">
-              {links.map(([href, label]) => (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    className="inline-block py-2 underline-offset-4 transition hover:text-white hover:underline"
-                  >
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-      <div className="border-t border-white/10">
-        <div className={`${WIDE} flex flex-col gap-2 py-6 text-sm text-slate-400`}>
-          <p>
-            © {new Date().getFullYear()} ParkShield · {t('landing.trust')}
+        <hr className="my-10 border-slate-700" />
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-sm min-[380px]:text-base">
+          <p className="whitespace-nowrap">© {new Date().getFullYear()} ParkShield</p>
+          <p className="inline-flex items-center gap-1.5 whitespace-nowrap min-[380px]:gap-2">
+            <Icon name="lock" className="size-4 shrink-0 min-[380px]:size-5" />
+            {t('common.siteFooter.hosted')}
           </p>
-          <p className="wrap-anywhere">{t('common.footer.operator')}</p>
         </div>
       </div>
     </footer>

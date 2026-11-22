@@ -37,6 +37,26 @@ const en: typeof de = {
       operator:
         'ParkShield is offered by Diyar Hussein (Diyar Hussein Dienstleistungen), Monheimer Str. 24, 51371 Leverkusen, Germany, contact@park-shield.de',
     },
+    siteFooter: {
+      tagline:
+        'Stay reachable without sharing your phone number. Smart QR protection for your vehicle. Hosted in Germany.',
+      product: 'Product',
+      support: 'Support',
+      legal: 'Legal',
+      contract: 'Contract',
+      how: 'How it works',
+      pricing: 'Pricing',
+      faq: 'FAQ',
+      help: 'Help & Contact',
+      security: 'Report a security issue',
+      accessibility: 'Accessibility',
+      impressum: 'Legal notice',
+      privacy: 'Privacy Policy',
+      terms: 'Terms & Conditions',
+      cancel: 'Cancel contract',
+      withdraw: 'Withdraw from contract',
+      hosted: 'Hosted in Germany',
+    },
   },
   nav: {
     main: 'Main navigation',

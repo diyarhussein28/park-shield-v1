@@ -25,8 +25,9 @@ test.describe('landing and legal pages (US-04)', () => {
     ['/impressum', 'Impressum', 'Impressum'],
     ['/datenschutz', 'Datenschutz', 'Datenschutzerklärung'],
     ['/agb', 'AGB', 'Allgemeine Geschäftsbedingungen'],
-    ['/widerruf', 'Widerruf', 'Widerrufsbelehrung'],
     ['/barrierefreiheit', 'Barrierefreiheit', 'Erklärung zur Barrierefreiheit'],
+    ['/kuendigen', 'Verträge hier kündigen', 'Verträge hier kündigen'],
+    ['/widerrufen', 'Vertrag widerrufen', 'Vertrag widerrufen'],
   ] as const) {
     test(`${path} is linked in the footer and accessible`, async ({ page }) => {
       await page.goto('/');
@@ -36,6 +37,45 @@ test.describe('landing and legal pages (US-04)', () => {
       await expectAccessible(page);
     });
   }
+});
+
+test.describe('site footer (design 2026-11-22)', () => {
+  test('2 × 2 groups on phones, one row of four from 768 px, exact § 312k / § 356a labels, no overflow', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    const footer = page.locator('footer');
+    await expect(footer.getByRole('heading', { level: 2 })).toHaveText([
+      'Produkt',
+      'Support',
+      'Rechtliches',
+      'Vertrag',
+    ]);
+    await expect(
+      footer.getByRole('link', { name: 'Verträge hier kündigen', exact: true }),
+    ).toHaveAttribute('href', '/kuendigen');
+    await expect(
+      footer.getByRole('link', { name: 'Vertrag widerrufen', exact: true }),
+    ).toHaveAttribute('href', '/widerrufen');
+    await expect(footer.getByText('Hosted in Germany', { exact: true })).toBeVisible();
+    for (const [width, columns] of [
+      [320, 2],
+      [375, 2],
+      [768, 4],
+      [1280, 4],
+    ] as const) {
+      await page.setViewportSize({ width, height: 900 });
+      const layout = await page.evaluate(() => ({
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        columns: getComputedStyle(
+          document.querySelector('footer .grid')!,
+        ).gridTemplateColumns.split(' ').length,
+      }));
+      expect(layout, `width ${width}`).toEqual({ overflow: false, columns });
+    }
+    await expectAccessible(page);
+  });
 });
 
 test.describe('sign-up, annual checkout, cancellation (US-05, US-06, US-07)', () => {
