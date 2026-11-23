@@ -28,10 +28,12 @@ export function storeProvider(
   store: string | null | undefined,
   allowTestStore = false,
 ): StoreProvider | null {
-  if (store === 'APP_STORE' || store === 'MAC_APP_STORE') return 'app_store';
-  if (store === 'PLAY_STORE') return 'play_store';
+  // Webhooks say `APP_STORE`, the REST API v1 says `app_store`: compare case-insensitively.
+  const s = (store ?? '').toUpperCase();
+  if (s === 'APP_STORE' || s === 'MAC_APP_STORE') return 'app_store';
+  if (s === 'PLAY_STORE') return 'play_store';
   // RevenueCat's Test Store (sandbox without App Store Connect): only on test environments.
-  if (allowTestStore && store === 'TEST_STORE') return 'app_store';
+  if (allowTestStore && s === 'TEST_STORE') return 'app_store';
   return null;
 }
 

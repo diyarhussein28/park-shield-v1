@@ -331,6 +331,19 @@ describe('RevenueCat adapter', () => {
       periodEnd: new Date('2028-01-01T00:00:00Z'),
     });
     expect(parseSubscriber('u1', body, 'other')).toBeNull();
+    // The REST API reports the store in lower case (webhooks in upper case).
+    const lower = {
+      subscriber: {
+        ...body.subscriber,
+        subscriptions: {
+          parkshield_yearly: {
+            ...body.subscriber.subscriptions.parkshield_yearly,
+            store: 'app_store',
+          },
+        },
+      },
+    };
+    expect(parseSubscriber('u1', lower, 'parkshield')?.store).toBe('app_store');
     // RevenueCat's Test Store counts only on test environments.
     const test = {
       subscriber: {
