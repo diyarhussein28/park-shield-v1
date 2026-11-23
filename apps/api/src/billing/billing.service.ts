@@ -524,12 +524,19 @@ export class BillingService {
    * subscriptions get a „Vertragsbestätigung“ that says the receipt comes from Apple/Google (A6).
    * Once per subscription (`contract_confirmations`); renewals never resend it.
    */
-  async sendContractConfirmation(subscriptionId: string): Promise<void> {
-    const sent = await this.db
-      .selectFrom('contract_confirmations')
-      .select('id')
-      .where('subscription_id', '=', subscriptionId)
-      .executeTakeFirst();
+  async sendContractConfirmation(
+    subscriptionId: string,
+    opts: { resend?: boolean } = {},
+  ): Promise<void> {
+    // Once per subscription. `resend` (staff only, e.g. a corrected price) sends it again and adds a
+    // second `contract_confirmations` row; the first record stays.
+    const sent = opts.resend
+      ? undefined
+      : await this.db
+          .selectFrom('contract_confirmations')
+          .select('id')
+          .where('subscription_id', '=', subscriptionId)
+          .executeTakeFirst();
     if (sent) return;
     const sub = await this.db
       .selectFrom('subscriptions as s')

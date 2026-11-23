@@ -14,6 +14,7 @@ import {
   type Harness,
   type Session,
 } from '../test/harness';
+import { BillingService } from './billing.service';
 import { RefundsService } from './refunds.service';
 import {
   DEV_WEBHOOK_AUTH,
@@ -146,6 +147,19 @@ describe('in-app subscription through RevenueCat (Part A)', () => {
     // The price the store charged (19,99 €), not the web price (20,00 €).
     expect(contract[0]!.text).toContain('19,99');
     expect(contract[0]!.text).not.toContain('20,00');
+    // Staff can send it again (e.g. after a price correction); a second record is kept.
+    const subId = (await h.db.selectFrom('subscriptions').select('id').executeTakeFirstOrThrow())
+      .id;
+    await h.app.get(BillingService).sendContractConfirmation(subId);
+    expect((await mailbox(h)).filter((m) => m.tag === 'contract_confirmation')).toHaveLength(1);
+    await h.app.get(BillingService).sendContractConfirmation(subId, { resend: true });
+    expect((await mailbox(h)).filter((m) => m.tag === 'contract_confirmation')).toHaveLength(2);
+    const records = await h.db
+      .selectFrom('contract_confirmations')
+      .select('id')
+      .where('subscription_id', '=', subId)
+      .execute();
+    expect(records).toHaveLength(2);
     const notes = await h.db
       .selectFrom('payment_notifications')
       .select(['kind', 'payment_ref', 'amount_cents'])
