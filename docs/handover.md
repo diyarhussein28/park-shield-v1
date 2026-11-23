@@ -365,10 +365,15 @@ Still open (owner accounts):
     on `parkshield_yearly`; RevenueCat shows the iOS product as „Ready to Submit“ (it goes to review with
     the first app version). Apple server notifications:
     ✅ RevenueCat „Apply in App Store Connect“ set the production and sandbox URLs (App Information).
-    ✅ 2026-11-24: e-mail list „ParkShield Tester“ (48 testers from the owner, addresses only in Play
-    Console) on internal testing; release 4 (1.0.0) published to internal testers (opt-in link
+    ✅ 2026-11-24: internal testers = e-mail list „ParkShield intern“ (2 owner accounts; the earlier
+    48-tester list was deleted on the owner's request); release 4 (1.0.0) published to internal testers (opt-in link
     `https://play.google.com/apps/internaltest/4700661487824769350`, temporary name until review).
     RevenueCat Android: „Valid credentials“ (all three checks), Google test notification received.
+    ✅ 2026-11-24 bug fixed (`d985aad`, deployed): one Apple sandbox ID bought on account A, then
+    on account B; RevenueCat transferred the purchase (TRANSFER), B's insert hit A's unique
+    (provider, original transaction) key and the app showed „activating takes a moment longer“
+    forever. `StoreSyncService.sync` now ends A's rows (id marked `#moved:<row>`) and creates B's
+    contract. Test: `store.test.ts` „a store purchase moved to another of our accounts“.
     Open: license testers (Play Console → Settings → License testing) for free test purchases; closed
     test track for the 12-testers/14-days rule (needs the store listing and the App content forms). Play's subscription „Pause“ is on by default (Monetization
     setup); our backend has no paused state yet — switch it off or handle it before launch. A personal
