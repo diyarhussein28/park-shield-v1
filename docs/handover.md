@@ -365,10 +365,12 @@ Still open (owner accounts):
     on `parkshield_yearly`; RevenueCat shows the iOS product as „Ready to Submit“ (it goes to review with
     the first app version). Apple server notifications:
     ✅ RevenueCat „Apply in App Store Connect“ set the production and sandbox URLs (App Information).
-    Open: tester list (Google accounts of the Android phones) and roll-out of the internal release;
-    license testers (Play Console → Settings → License testing) for free test purchases; RevenueCat's
-    third credential check („subscription purchases“) passes only after the release is rolled out
-    (and Google may need up to 36 h). Play's subscription „Pause“ is on by default (Monetization
+    ✅ 2026-11-24: e-mail list „ParkShield Tester“ (48 testers from the owner, addresses only in Play
+    Console) on internal testing; release 4 (1.0.0) published to internal testers (opt-in link
+    `https://play.google.com/apps/internaltest/4700661487824769350`, temporary name until review).
+    RevenueCat Android: „Valid credentials“ (all three checks), Google test notification received.
+    Open: license testers (Play Console → Settings → License testing) for free test purchases; closed
+    test track for the 12-testers/14-days rule (needs the store listing and the App content forms). Play's subscription „Pause“ is on by default (Monetization
     setup); our backend has no paused state yet — switch it off or handle it before launch. A personal
     account must run a closed test (12 testers, 14 days) before production.
 
