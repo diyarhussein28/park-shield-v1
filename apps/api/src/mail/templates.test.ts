@@ -142,7 +142,7 @@ describe('mail templates', () => {
         const imgs = [...r.html.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/g)].map((m) => m[1]);
         expect(imgs.length).toBeGreaterThan(0);
         for (const src of imgs)
-          expect(src).toBe('https://park-shield.de/email/parkshield-shield.png');
+          expect(src).toMatch(/^https:\/\/park-shield\.de\/email\/parkshield-logo(-tile)?\.png$/);
         // No tracking pixel or tracking parameters, no external fonts or scripts.
         expect(r.html).not.toMatch(
           /utm_|mc_eid|trk|pixel|width="1"|height="1"|<script|@import|fonts\.googleapis/i,

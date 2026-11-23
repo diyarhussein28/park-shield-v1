@@ -256,6 +256,20 @@ const INK = '#0f172a';
 const GREY = '#475569';
 const BLUE = '#1d4ed8';
 
+/** The ParkShield mark as on the website and in the app (`LogoMark`), drawn as vectors. */
+function drawLogoMark(doc: PDFKit.PDFDocument, x: number, y: number, size: number) {
+  doc.save();
+  doc.translate(x, y).scale(size / 32);
+  const grad = doc.linearGradient(0, 0, 32, 32).stop(0, '#3b82f6').stop(1, '#1d4ed8');
+  doc.path('M16 2 4 6.5v8.6C4 22.4 9.1 28.2 16 30c6.9-1.8 12-7.6 12-14.9V6.5L16 2Z').fill(grad);
+  doc.roundedRect(10, 10, 5, 5, 1).fill('#ffffff');
+  doc.roundedRect(17, 10, 5, 5, 1).fill('#facc15');
+  doc.roundedRect(10, 17, 5, 5, 1).fill('#ffffff');
+  doc.rect(17.5, 17.5, 2, 2).fill('#ffffff');
+  doc.rect(20.5, 20.5, 2, 2).fill('#ffffff');
+  doc.restore();
+}
+
 /** A4, built-in Helvetica (WinAnsi), page numbers in the footer. Never stored, only attached. */
 export function renderContractConfirmationPdf(
   c: PdfContent,
@@ -274,7 +288,20 @@ export function renderContractConfirmationPdf(
     },
   });
   const width = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-  doc.font('Helvetica-Bold').fontSize(20).fillColor(BLUE).text('ParkShield', { continued: false });
+  // The app's mark (shield with the QR finder pattern, 32 × 32 units) and the wordmark „Park“ + „Shield“.
+  const top = doc.y;
+  const left = doc.page.margins.left;
+  const size = mm(10);
+  drawLogoMark(doc, left, top, size);
+  doc
+    .font('Helvetica-Bold')
+    .fontSize(20)
+    .fillColor(INK)
+    .text('Park', left + size + mm(3), top + (size - 20) / 2 + 2, { continued: true })
+    .fillColor(BLUE)
+    .text('Shield');
+  doc.x = left;
+  doc.y = top + size + mm(2);
   doc.moveDown(0.3);
   doc.font('Helvetica-Bold').fontSize(16).fillColor(INK).text(winAnsi(c.title));
   doc.moveDown(0.4);

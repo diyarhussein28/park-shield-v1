@@ -311,3 +311,14 @@ Still open (owner accounts):
    development build (Expo Go cannot buy).
 3. Stripe test webhook: add `payment_intent.succeeded` and `charge.refunded` to the endpoint's events.
 4. Lawyer: `LEGAL_REVIEW.md` §12.
+5. ✅ 2026-11-23 First real Apple sandbox purchase (iPhone, `appl_` key): stayed „pending“ because the
+   RevenueCat REST API reports `store: "app_store"` in lower case; fixed in `6f2f019` (case-insensitive
+   `storeProvider()`), deployed; subscription active, contract confirmation and payment@ sent once.
+   App paywall: store price (19,99 €) everywhere and a store-specific pending text (`6d0d84b`, needs a
+   new EAS build). Open: the onboarding slide still says „20 € im Jahr“ (owner to decide).
+6. ✅ 2026-11-23 Logo: e-mails and the contract PDF use the app's mark (shield with the QR finder
+   pattern, `LogoMark`), not the old star shield. E-mail files `apps/web/public/email/parkshield-logo.png`
+   (footer) and `parkshield-logo-tile.png` (white tile for the blue header); the old
+   `parkshield-shield.png` now holds the new mark too, so mails already sent show it. They are served
+   from `park-shield.de` (Vercel preview): redeploy Vercel after changing them. Dark mode in mail apps
+   stays as it is (owner, 2026-11-23).

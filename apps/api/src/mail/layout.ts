@@ -106,7 +106,9 @@ const para = (s: string, style = '') =>
 export function renderLayout(body: MailBody, frame: MailFrame = DEFAULT_FRAME) {
   const t = T[body.locale];
   const web = base(frame.webBaseUrl);
-  const logo = `${web}/email/parkshield-shield.png`;
+  // The app's mark (shield with the QR finder pattern); on a white tile in the blue header.
+  const logo = `${web}/email/parkshield-logo.png`;
+  const logoTile = `${web}/email/parkshield-logo-tile.png`;
   const helpUrl = `${web}/hilfe`;
   const legal = [
     { label: t.helpCenter, url: helpUrl },
@@ -144,7 +146,7 @@ export function renderLayout(body: MailBody, frame: MailFrame = DEFAULT_FRAME) {
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="ps-card" style="width:100%;max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden">
 <tr><td bgcolor="${BLUE}" class="ps-pad" style="padding:28px 36px;background:${BLUE};background-image:linear-gradient(120deg,${NAVY} 0%,${NAVY} 45%,${BLUE} 100%)">
   <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-    <td valign="middle" style="padding-right:14px"><img src="${escapeHtml(logo)}" width="48" height="48" alt="" style="display:block;border:0;width:48px;height:48px"></td>
+    <td valign="middle" style="padding-right:14px"><img src="${escapeHtml(logoTile)}" width="48" height="48" alt="" style="display:block;border:0;width:48px;height:48px;border-radius:12px"></td>
     <td valign="middle">
       <div style="font-family:${FONT};font-size:28px;line-height:1.1;font-weight:800;color:#ffffff">Park<span style="color:#93c5fd">Shield</span></div>
       <div style="font-family:${FONT};font-size:15px;line-height:1.4;color:#dbeafe;padding-top:4px">${escapeHtml(t.tagline)}</div>
