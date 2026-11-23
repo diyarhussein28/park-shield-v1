@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -357,3 +357,23 @@ Still open (owner accounts):
     `parkshield_pro` and the `$rc_annual` package, license testers, `APP_ANDROID_SHA256` (Play App
     Signing key) for the App Links. A personal account must run a closed test (12 testers, 14 days)
     before production.
+
+## 9. In-app contact form and the hourly renewal reminder (2026-11-23)
+
+- **Bug fixed (`4b38d56`):** a tester got the same „Vertragsverlängerung“ reminder 7 times and then
+  every hour. Cause: an App Store **sandbox** subscription, whose „year“ is one hour and renews all
+  day; each renewal moved `current_period_end` into the 30-day window again, and the hourly
+  `renewals` job mailed again. `RenewalsService.remind()` now only reminds when the period is longer
+  than the reminder window (`renewal.reminder_days`). Test: `apps/api/src/billing/renewals.test.ts`.
+  Needs a deploy to the test server to stop the mails.
+- **In-app contact (`POST /v1/app/support/contact`):** app session (bearer, so no captcha), free
+  subject (3–120), reply address pre-filled with the account's and editable, message (10–5000).
+  Limits `support.ip`, `support.email` per account and per reply address. Goes through the support
+  desk (`SUPPORT_PROVIDER=email` → `SUPPORT_EMAIL`, default support@park-shield.de) in the shared
+  e-mail layout with reply-to = the customer, customer and contract number, „Betreff“ line; the
+  customer gets `support_received`. Tests: `apps/api/src/support/support.test.ts`.
+- **App „Hilfe“ (`apps/mobile/src/app/hilfe.tsx`):** two buttons — „Hilfe-Center und FAQ öffnen“
+  (in-app browser, always `https://park-shield.de/hilfe`, `WEBSITE_URL` in `lib/config.ts`) and
+  „Kontakt aufnehmen“ (form on the same screen with validation, loading state, error banner,
+  confirmation with the case number, privacy note + link). Texts in `lib/i18n.ts` (DE/EN). Needs a
+  new EAS build to reach testers. Test: `src/__tests__/help-screen.test.tsx`.

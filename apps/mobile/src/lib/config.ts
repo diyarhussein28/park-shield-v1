@@ -11,6 +11,12 @@ export const HAS_FIREBASE = Boolean(
   (Constants.expoConfig?.extra as { firebase?: boolean } | undefined)?.firebase,
 );
 
+/**
+ * The public website (help centre, FAQ, privacy policy). Always the live domain, also in test builds:
+ * the test server's website sits behind basic auth, the help pages are the same.
+ */
+export const WEBSITE_URL = 'https://park-shield.de';
+
 export const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 /** iOS notification category / Android click action carrying the „Ich komme" action (API side too). */

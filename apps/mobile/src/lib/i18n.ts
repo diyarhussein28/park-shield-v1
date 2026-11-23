@@ -78,8 +78,27 @@ const de = {
   notificationsOn: 'Mitteilungen sind eingeschaltet.',
   help: 'Hilfe',
   helpText:
-    'Fragen zu ParkShield beantwortet die Hilfe auf park-shield.de. Bei Problemen mit Mitteilungen prüfen Sie den Fokus-Modus und die Mitteilungen für ParkShield in den Einstellungen Ihres Handys.',
-  helpOpen: 'Hilfe öffnen',
+    'Antworten auf häufige Fragen finden Sie im Hilfe-Center auf park-shield.de. Bei Problemen mit Mitteilungen prüfen Sie den Fokus-Modus und die Mitteilungen für ParkShield in den Einstellungen Ihres Handys.',
+  helpOpen: 'Hilfe-Center und FAQ öffnen',
+  helpContact: 'Kontakt aufnehmen',
+  helpContactTitle: 'Nachricht an den Support',
+  helpContactIntro:
+    'Ihre Frage ist nicht dabei? Schreiben Sie uns. Wir antworten meist innerhalb von 48 Stunden an die E-Mail-Adresse unten.',
+  helpSubject: 'Betreff',
+  helpReplyEmail: 'E-Mail-Adresse',
+  helpReplyEmailHint: 'An diese Adresse schicken wir unsere Antwort.',
+  helpMessage: 'Nachricht',
+  helpSend: 'Nachricht senden',
+  helpCancel: 'Abbrechen',
+  helpSubjectError: 'Bitte geben Sie einen Betreff ein (mindestens 3 Zeichen).',
+  helpEmailError: 'Bitte geben Sie eine gültige E-Mail-Adresse ein.',
+  helpMessageError: 'Bitte schreiben Sie mindestens 10 Zeichen.',
+  helpSent:
+    'Danke, Ihre Nachricht ist angekommen (Vorgang {ticket}). Eine Bestätigung ist unterwegs an {email}.',
+  helpNewMessage: 'Weitere Nachricht schreiben',
+  helpPrivacy:
+    'Wir verwenden Ihre Angaben nur, um Ihre Anfrage zu beantworten, zusammen mit Ihrer Kunden- und Vertragsnummer. Keine Werbung, kein Tracking.',
+  helpPrivacyLink: 'Datenschutzerklärung',
   vehiclesNone:
     'Noch keine Fahrzeuge. Legen Sie Ihr erstes Fahrzeug an, sein QR-Code wird sofort erstellt.',
   vehicleAddHint:
@@ -541,8 +560,27 @@ const en: Record<Key, string> = {
   notificationsOn: 'Notifications are on.',
   help: 'Help',
   helpText:
-    'The help centre on park-shield.de answers questions about ParkShield. If notifications do not arrive, check Focus modes and the notification settings for ParkShield on your phone.',
-  helpOpen: 'Open help',
+    'The help centre on park-shield.de answers common questions. If notifications do not arrive, check Focus modes and the notification settings for ParkShield on your phone.',
+  helpOpen: 'Open help centre and FAQ',
+  helpContact: 'Contact us',
+  helpContactTitle: 'Message to support',
+  helpContactIntro:
+    'Your question is not there? Write to us. We usually reply within 48 hours to the e-mail address below.',
+  helpSubject: 'Subject',
+  helpReplyEmail: 'Reply e-mail',
+  helpReplyEmailHint: 'We send our answer to this address.',
+  helpMessage: 'Message',
+  helpSend: 'Send message',
+  helpCancel: 'Cancel',
+  helpSubjectError: 'Please enter a subject (at least 3 characters).',
+  helpEmailError: 'Please enter a valid e-mail address.',
+  helpMessageError: 'Please write at least 10 characters.',
+  helpSent:
+    'Thank you, your message has arrived (case {ticket}). A confirmation is on its way to {email}.',
+  helpNewMessage: 'Write another message',
+  helpPrivacy:
+    'We use your details only to answer your request, together with your customer and contract number. No advertising, no tracking.',
+  helpPrivacyLink: 'Privacy policy',
   vehiclesNone: 'No vehicles yet. Add your first vehicle; its QR code is created at once.',
   vehicleAddHint:
     'A nickname and the licence plate are enough. The person at the car sees the nickname, never the plate.',
