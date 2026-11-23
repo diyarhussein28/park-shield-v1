@@ -24,7 +24,7 @@
   roles:
     - docker
 
-- name: Caddy (TLS 1.3) and the public app stack
+- name: Caddy (TLS 1.2 AEAD + 1.3) and the public app stack
   hosts: app
   become: true
   roles:

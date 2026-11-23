@@ -335,3 +335,7 @@ Still open (owner accounts):
    customer and provider), page 2 legal information, appendix A AGB and B Widerrufsbelehrung + full
    statutory model form; Plus Jakarta Sans headings (`apps/api/assets/fonts`, copied in the Dockerfile).
    Contract start = first purchase; sandbox dates with time. Open legal points: `LEGAL_REVIEW.md` §13.
+9. ✅ 2026-11-23 E-mail images (logo, icons) showed as empty boxes in Yahoo Mail: the server accepted
+   TLS 1.3 only and Yahoo's image proxy connects with TLS 1.2. Caddy (test stack and the production
+   template) now allows TLS 1.2 with forward-secret AEAD suites only, plus TLS 1.3; the ops subdomain
+   stays TLS 1.3 only. Owner decision; docs/02-architecture.md and docs/security/asvs-l2.md updated.

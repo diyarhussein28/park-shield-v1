@@ -124,7 +124,7 @@ resource "hcloud_server" "tools" {
   depends_on = [hcloud_network_subnet.servers]
 }
 
-# --- Load balancer: TCP passthrough to Caddy, which terminates TLS 1.3 -------
+# --- Load balancer: TCP passthrough to Caddy, which terminates TLS 1.2/1.3 -------
 resource "hcloud_load_balancer" "web" {
   name               = local.name
   load_balancer_type = "lb11"

@@ -11,7 +11,7 @@ flowchart LR
     OPS[Ops app - separate deploy, VPN only]
   end
   subgraph Hetzner_DE[Hetzner Cloud, Germany]
-    LB[Hetzner LB + Caddy, TLS 1.3]
+    LB[Hetzner LB + Caddy, TLS 1.2/1.3]
     API[API - NestJS modular monolith, public, no ops routes]
     APIOPS[api-ops - same codebase, ops module only, WireGuard interface]
     W[Worker - BullMQ + Sweeper]
@@ -271,7 +271,7 @@ parkshield/
 
 ### 9.2 Mandatory practices
 
-- TLS 1.3 only, HSTS preload, strict CSP. Portal session cookie `HttpOnly`, `Secure`, `SameSite=Lax`, plus CSRF tokens on state-changing requests. Not `Strict`: users following links from e-mails and notifications would appear logged out.
+- TLS 1.2 (forward-secret AEAD suites only) and TLS 1.3, HSTS preload (2026-11-23: TLS 1.3 only broke e-mail image proxies such as Yahoo's; the ops back office stays TLS 1.3 only), strict CSP. Portal session cookie `HttpOnly`, `Secure`, `SameSite=Lax`, plus CSRF tokens on state-changing requests. Not `Strict`: users following links from e-mails and notifications would appear logged out.
 - Renovate, `npm audit` + OSV, Semgrep SAST in CI.
 - No password logins on servers; SSH keys via WireGuard; Hetzner firewall opens only 443 to the LB.
 - External pentest before launch and after each major phase. *New:* private bug bounty (EU platform such as Intigriti) after launch with a limited budget, plus `security.txt`.
