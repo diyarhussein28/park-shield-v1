@@ -441,7 +441,7 @@ const templates = {
       subject: '[{ticket}] {topic}: {preview}',
       headline: 'Neue Anfrage über das Kontaktformular',
       lines: [
-        'Thema: {topic}\nE-Mail: {email}\nKundennummer: {customerNo}\nVertragsnummer: {contractNo}\nVersion: {client}\nEingegangen: {at, date, long} um {at, time, short} Uhr\nVorgang: {ticket}',
+        'Betreff: {subject}\nThema: {topic}\nE-Mail: {email}\nKundennummer: {customerNo}\nVertragsnummer: {contractNo}\nVersion: {client}\nEingegangen: {at, date, long} um {at, time, short} Uhr\nVorgang: {ticket}',
         'Nachricht:\n{message}',
         'Antworten Sie einfach auf diese E-Mail: die Antwort geht direkt an den Kunden.',
       ],
@@ -886,7 +886,7 @@ const templates = {
       subject: '[{ticket}] {topic}: {preview}',
       headline: 'New request from the contact form',
       lines: [
-        'Topic: {topic}\nE-mail: {email}\nCustomer number: {customerNo}\nContract number: {contractNo}\nVersion: {client}\nReceived: {at, date, long} at {at, time, short}\nCase: {ticket}',
+        'Subject: {subject}\nTopic: {topic}\nE-mail: {email}\nCustomer number: {customerNo}\nContract number: {contractNo}\nVersion: {client}\nReceived: {at, date, long} at {at, time, short}\nCase: {ticket}',
         'Message:\n{message}',
         'Simply reply to this e-mail: the answer goes straight to the customer.',
       ],

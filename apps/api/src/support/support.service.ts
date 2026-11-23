@@ -68,15 +68,63 @@ export class SupportService {
     const email = ctx.auth ? ctx.auth.email : normalizeEmail(input.email);
     await this.limits.enforce('support.ip', ctx.ipPrefix);
     await this.limits.enforce('support.email', sha256(email).toString('hex'));
+    return this.submit({ ...input, email, subject: null }, ctx.auth);
+  }
 
+  /**
+   * The in-app contact form (signed in, bearer session, so no captcha): a free subject and a reply
+   * address the customer may change (pre-filled with the account's). Limited per account, per network
+   * and per reply address, so the confirmation can never be used to mail strangers in bulk.
+   */
+  async appContact(
+    input: {
+      subject: string;
+      email: string;
+      message: string;
+      locale: 'de' | 'en';
+      client?: string;
+    },
+    ctx: { ipPrefix: string; auth: AuthContext },
+  ) {
+    const email = normalizeEmail(input.email);
+    await this.limits.enforce('support.ip', ctx.ipPrefix);
+    await this.limits.enforce('support.email', sha256(ctx.auth.userId).toString('hex'));
+    if (email !== ctx.auth.email)
+      await this.limits.enforce('support.email', sha256(email).toString('hex'));
+    return this.submit(
+      {
+        email,
+        topic: 'other',
+        subject: input.subject.replace(/\s+/g, ' ').trim(),
+        message: input.message,
+        locale: input.locale,
+        client: input.client,
+      },
+      ctx.auth,
+    );
+  }
+
+  private async submit(
+    input: {
+      email: string;
+      name?: string;
+      topic: SupportTopic;
+      subject: string | null;
+      message: string;
+      locale: 'de' | 'en';
+      client?: string;
+    },
+    auth: AuthContext | null,
+  ) {
+    const email = input.email;
     let plan: string | null = null;
     let customerNo: string | null = null;
     let contractNo: string | null = null;
-    if (ctx.auth) {
+    if (auth) {
       const s = await this.db
         .selectFrom('subscriptions')
         .select(['plan', 'contract_no'])
-        .where('user_id', '=', ctx.auth.userId)
+        .where('user_id', '=', auth.userId)
         .where('status', 'in', ['active', 'past_due'])
         .orderBy('created_at', 'desc')
         .executeTakeFirst();
@@ -85,7 +133,7 @@ export class SupportService {
       const u = await this.db
         .selectFrom('users')
         .select('customer_no')
-        .where('id', '=', ctx.auth.userId)
+        .where('id', '=', auth.userId)
         .executeTakeFirst();
       customerNo = u?.customer_no ?? null;
     }
@@ -93,24 +141,25 @@ export class SupportService {
     const tags = [
       `topic_${input.topic}`,
       `lang_${input.locale}`,
-      ...(ctx.auth ? ['signed_in'] : []),
+      ...(auth ? ['signed_in'] : []),
       ...(plan ? [plan, `reply_${replyHours}h`] : []),
     ];
     const client = input.client?.trim() || 'web';
     const at = new Date();
-    const footer = ctx.auth
+    const footer = auth
       ? `\n\n---\nKundennummer: ${customerNo ?? '–'} · Vertragsnummer: ${contractNo ?? '–'}${plan ? ` · Antwort binnen ${replyHours} h` : ''}`
       : '';
-    const subject = `[${TOPIC_DE[input.topic]}] ${input.message.replace(/\s+/g, ' ').slice(0, 60)}`;
+    const subject = `[${TOPIC_DE[input.topic]}] ${(input.subject ?? input.message).replace(/\s+/g, ' ').slice(0, 60)}`;
     const { number } = await this.desk.createTicket({
       email,
       name: input.name?.trim() || null,
       subject,
-      body: `${input.message.trim()}${footer}\nVersion: ${client}`,
+      body: `${input.subject ? `Betreff: ${input.subject}\n\n` : ''}${input.message.trim()}${footer}\nVersion: ${client}`,
       tags,
       locale: input.locale,
       fields: {
         topic: TOPIC_DE[input.topic],
+        subject: input.subject,
         message: input.message.trim(),
         customerNo,
         contractNo,
@@ -125,7 +174,7 @@ export class SupportService {
       locale: input.locale,
       values: {
         ticket: number,
-        topic: (input.locale === 'en' ? TOPIC_EN : TOPIC_DE)[input.topic],
+        topic: input.subject ?? (input.locale === 'en' ? TOPIC_EN : TOPIC_DE)[input.topic],
       },
     });
     return { ticket: number, replyHours };

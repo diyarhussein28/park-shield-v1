@@ -45,7 +45,7 @@ export class ZammadDesk implements SupportDesk {
  * Support without a ticket system: each request is one e-mail to the support mailbox (SUPPORT_EMAIL,
  * default support@park-shield.de), in the shared e-mail layout, with the customer as reply-to, so
  * answering is a normal reply. The reference number is in the subject. Content (2026-11-22): topic,
- * message, the customer's e-mail, customer and contract number when signed in, app/web version and
+ * subject (in-app form), message, the customer's e-mail, customer and contract number when signed in, app/web version and
  * time — no other personal data.
  */
 export class EmailSupportDesk implements SupportDesk {
@@ -64,7 +64,8 @@ export class EmailSupportDesk implements SupportDesk {
       {
         ticket: number,
         topic: f.topic,
-        preview: f.message.replace(/\s+/g, ' ').slice(0, 60),
+        subject: f.subject?.trim() || '–',
+        preview: (f.subject?.trim() || f.message).replace(/\s+/g, ' ').slice(0, 60),
         email: t.email,
         customerNo: f.customerNo ?? '–',
         contractNo: f.contractNo ?? '–',

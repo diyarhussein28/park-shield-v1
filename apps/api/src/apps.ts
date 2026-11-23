@@ -37,7 +37,7 @@ import { PromoService } from './ops/promo.service';
 import { ProviderHealthService } from './ops/provider-health.service';
 import { SettingsAdminService } from './ops/settings-admin.service';
 import { RefundsService } from './billing/refunds.service';
-import { SupportController } from './support/support.controller';
+import { AppSupportController, SupportController } from './support/support.controller';
 import { SupportService } from './support/support.service';
 import { StaffGuard } from './ops/staff.guard';
 import { StaffService } from './ops/staff.service';
@@ -219,6 +219,7 @@ export class PublicAppModule {
         ProfileController,
         ClaimController,
         SupportController,
+        AppSupportController,
         PortalDocumentsController,
         ...(devRoutes ? [DevController] : []),
       ],

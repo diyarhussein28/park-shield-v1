@@ -39,6 +39,7 @@ describe('support by e-mail (SUPPORT_PROVIDER=email)', () => {
     );
     // Exactly the agreed fields: topic, message, e-mail, customer and contract number, version, time.
     for (const s of [
+      'Betreff: –',
       'Thema: Aufkleber und Versand',
       'E-Mail: kunde@example.de',
       'Kundennummer: PS-2026-000042',
@@ -55,5 +56,33 @@ describe('support by e-mail (SUPPORT_PROVIDER=email)', () => {
     expect(mail.html).toContain('Hallo &lt;b&gt;Team&lt;/b&gt;');
     expect(mail.html).not.toContain('<b>Team');
     expect(mail.html).toContain('Neue Anfrage über das Kontaktformular');
+  });
+
+  it('shows the subject of the in-app form and uses it in the e-mail subject', async () => {
+    const sent: OutgoingMail[] = [];
+    const desk = new EmailSupportDesk(
+      { send: async (m) => void sent.push(m) },
+      'support@park-shield.de',
+    );
+    await desk.createTicket({
+      email: 'antwort@example.de',
+      name: null,
+      subject: '[Sonstiges] Rechnung fehlt',
+      body: 'x',
+      tags: ['topic_other', 'signed_in'],
+      locale: 'de',
+      fields: {
+        topic: 'Sonstiges',
+        subject: 'Rechnung fehlt',
+        message: 'Ich finde meine Rechnung nicht.',
+        customerNo: 'PS-2026-000042',
+        contractNo: null,
+        client: 'app 1.0.0 ios',
+        at: new Date('2026-11-22T10:15:00Z'),
+      },
+    });
+    expect(sent[0]!.subject).toMatch(/^\[PS-[0-9A-Z]{8}\] Sonstiges: Rechnung fehlt$/);
+    expect(sent[0]!.text).toContain('Betreff: Rechnung fehlt');
+    expect(sent[0]!.replyTo).toBe('antwort@example.de');
   });
 });

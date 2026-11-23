@@ -33,6 +33,8 @@ export interface SupportTicket {
    */
   fields: {
     topic: string;
+    /** Free subject the customer typed (in-app contact form); the web form has only the topic. */
+    subject?: string | null;
     message: string;
     customerNo: string | null;
     contractNo: string | null;

@@ -15,6 +15,7 @@ const values = {
   customerNo: 'PS-2027-000042',
   topic: 'Aufkleber und Versand',
   preview: 'Mein Aufkleber löst sich',
+  subject: 'Aufkleber löst sich',
   client: 'web',
   email: 'kunde@example.de',
   product: 'ParkShield-Jahresabo',

@@ -2547,6 +2547,7 @@ exports[`mail templates > support_request: snapshot in the shared layout (DE and
   "subject": "[ZM-1234] Aufkleber und Versand: Mein Aufkleber löst sich",
   "text": "Neue Anfrage über das Kontaktformular
 
+Betreff: Aufkleber löst sich
 Thema: Aufkleber und Versand
 E-Mail: kunde@example.de
 Kundennummer: PS-2027-000042
@@ -2580,6 +2581,7 @@ exports[`mail templates > support_request: snapshot in the shared layout (DE and
   "subject": "[ZM-1234] Aufkleber und Versand: Mein Aufkleber löst sich",
   "text": "New request from the contact form
 
+Subject: Aufkleber löst sich
 Topic: Aufkleber und Versand
 E-mail: kunde@example.de
 Customer number: PS-2027-000042
