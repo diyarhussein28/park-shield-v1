@@ -349,47 +349,19 @@ Still open (owner accounts):
     `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` = its `goog_…` key (Android no longer uses the Test Store).
     EAS profile `play-internal` (preview env + test API, app bundle, store distribution, EAS-made
     upload keystore) builds the AAB for the first manual upload to the internal test track.
-    Open (owner): Google payments profile (bank and tax data) — without it Play Console cannot create
-    subscriptions; then the JSON key of the service account (IAM → Service accounts → Keys) uploaded
-    to the RevenueCat Android app, Google developer notifications in RevenueCat. Then: subscription
-    `parkshield_yearly` (base plan yearly, auto-renewing, Germany, **19,99 €** like the App Store — owner
-    decision 2026-11-23), product in RevenueCat attached to
-    `parkshield_pro` and the `$rc_annual` package, license testers, `APP_ANDROID_SHA256` (Play App
-    Signing key) for the App Links. A personal account must run a closed test (12 testers, 14 days)
-    before production.
-
-## 9. In-app contact form and the hourly renewal reminder (2026-11-23)
-
-- **Bug fixed (`4b38d56`):** a tester got the same „Vertragsverlängerung“ reminder 7 times and then
-  every hour. Cause: an App Store **sandbox** subscription, whose „year“ is one hour and renews all
-  day; each renewal moved `current_period_end` into the 30-day window again, and the hourly
-  `renewals` job mailed again. `RenewalsService.remind()` now only reminds when the period is longer
-  than the reminder window (`renewal.reminder_days`). Test: `apps/api/src/billing/renewals.test.ts`.
-  Deployed to the test server 2026-11-23 (`88e073f`).
-- **In-app contact (`POST /v1/app/support/contact`):** app session (bearer, so no captcha), free
-  subject (3–120), reply address pre-filled with the account's and editable, message (10–5000).
-  Limits `support.ip`, `support.email` per account and per reply address. Goes through the support
-  desk (`SUPPORT_PROVIDER=email` → `SUPPORT_EMAIL`, default support@park-shield.de) in the shared
-  e-mail layout with reply-to = the customer, customer and contract number, „Betreff“ line; the
-  customer gets `support_received`. Tests: `apps/api/src/support/support.test.ts`.
-- **App „Hilfe“ (`apps/mobile/src/app/hilfe.tsx`):** two buttons — „Hilfe-Center und FAQ öffnen“
-  (in-app browser, always `https://park-shield.de/hilfe`, `WEBSITE_URL` in `lib/config.ts`) and
-  „Kontakt aufnehmen“ (API live on the test server since `88e073f`; form on the same screen with validation, loading state, error banner,
-  confirmation with the case number, privacy note + link). Texts in `lib/i18n.ts` (DE/EN). iOS
-  EAS build `preview` from `356ae17` finished 2026-11-23 (build `e0bde081`, internal distribution);
-  the Android `play-internal` build from `afa22be` includes it too. Test: `src/__tests__/help-screen.test.tsx`.
-
-## 10. Support replies by hand and the USt-IdNr. in the e-mail footer (2026-11-23)
-
-- **Replies to customers** are written by hand in Strato Webmail (no ops inbox, no Zammad for now).
-  The shared e-mail layout (`mail/layout.ts`, `replyable: true`) is stored there as two signatures,
-  „ParkShield DE“ and „ParkShield EN“, placed above the quoted text; DE is the default for new mails
-  and replies on contact@ and on the webmaster mailbox. Webmail „Nachrichtenformat“ is **HTML**
-  (with „HTML und Text“ a reply to a plain-text mail, e.g. from mail.de, dropped to plain text).
-  Images load from `https://park-shield.de/email/…`, so those files must stay on the website. After a
-  layout or company-data change, re-render the body of `renderLayout` and paste it via the
-  signature editor's „Quellcode“ button.
-- **Footer:** every system e-mail now ends the address line with „USt-IdNr. DE454570643“ (EN „VAT ID
-  …“) when the company profile has a VAT ID (`MailFrame.company.vatId`, from ops → Einstellungen →
-  Unternehmen, default `COMPANY.vatId`). Test: `apps/api/src/mail/templates.test.ts`. Not deployed
-  to the test server yet.
+    ✅ 2026-11-24: payments profile (organisation, bank verification pending), first bundle
+    (versionCode 4, `play-internal`) uploaded and saved as an internal-testing **draft**; subscription
+    `parkshield_yearly`, base plan `yearly` (auto-renewing, yearly, 14-day grace, Germany only,
+    **19,99 €** incl. 19 % VAT) active; RevenueCat: service-account JSON uploaded by the owner, product
+    `parkshield_yearly:yearly` imported, attached to `parkshield_pro` and to the `$rc_annual` package of
+    `default`; Google developer notifications connected (topic
+    `projects/parkshield-play/topics/Play-Store-Notifications`, set in Play Console → Monetization
+    setup); test server `APP_ANDROID_PACKAGE` / `APP_ANDROID_SHA256` (Play App Signing key) set,
+    `/.well-known/assetlinks.json` serves it. Android manifest fix: `apps/mobile/firebase.json` (FCM
+    default channel = expo-notifications `alerts`).
+    Open: tester list (Google accounts of the Android phones) and roll-out of the internal release;
+    license testers (Play Console → Settings → License testing) for free test purchases; RevenueCat's
+    third credential check („subscription purchases“) passes only after the release is rolled out
+    (and Google may need up to 36 h). Play's subscription „Pause“ is on by default (Monetization
+    setup); our backend has no paused state yet — switch it off or handle it before launch. A personal
+    account must run a closed test (12 testers, 14 days) before production.
