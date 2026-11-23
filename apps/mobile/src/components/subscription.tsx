@@ -36,6 +36,25 @@ import { Banner, Button, Card, P, Title, useTheme } from './ui';
 /** The one plan's price (20 € incl. VAT), formatted for the app's language. */
 export const planPrice = () => euro(PLAN_PRICE_CENTS, lang());
 
+/**
+ * The price the customer will actually pay here: the store's own price (App Store 19,99 €) when the
+ * purchase goes through the store, else the web price. Every price on the paywall uses this one.
+ */
+export function usePlanPrice(): string {
+  const [price, setPrice] = useState(planPrice);
+  useEffect(() => {
+    if (!isStoreBillingAvailable()) return;
+    let on = true;
+    void yearlyPackage()
+      .then((p) => on && p && setPrice(p.product.priceString))
+      .catch(() => undefined);
+    return () => {
+      on = false;
+    };
+  }, []);
+  return price;
+}
+
 /** „Im Preis enthalten: personalisierter Aufkleber … im Wert von 3,00 €.“ (B2). */
 export const stickerValueText = (cents: number = STICKER_VALUE_CENTS) =>
   t('stickerValueLine', { price: euro(cents, lang()) });
@@ -141,7 +160,7 @@ interface CheckoutTexts {
   renewalRule: string;
 }
 
-export type CheckoutState = 'idle' | 'confirming' | 'failed' | 'canceled';
+export type CheckoutState = 'idle' | 'confirming' | 'failed' | 'canceled' | 'failed_store';
 
 /**
  * § 312j BGB checkout (P3, P7): price, term and renewal stay visible right above the button, together
@@ -224,7 +243,7 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
       }
       await new Promise((ok) => setTimeout(ok, 2000));
     }
-    setState('failed');
+    setState(probe === syncStore ? 'failed_store' : 'failed');
   };
 
   const submitStore = async () => {
@@ -333,6 +352,7 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
   return (
     <View style={s.form}>
       {state === 'failed' && <Banner tone="warn">{pt('account.confirmFailed')}</Banner>}
+      {state === 'failed_store' && <Banner tone="warn">{t('storeConfirmFailed')}</Banner>}
       {state === 'canceled' && (
         <Banner tone="info" testID="pay-canceled">
           {t('payCanceled')}

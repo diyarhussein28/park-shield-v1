@@ -230,6 +230,8 @@ const de = {
   paywallPromo: 'Gutscheincode eingeben',
   payCanceled: 'Zahlung abgebrochen. Es wurde nichts berechnet.',
   payChecking: 'Zahlung erhalten. Wir schalten Ihren Schutz frei …',
+  storeConfirmFailed:
+    'Ihr Kauf ist bestätigt, die Freischaltung dauert noch einen Moment. Tippen Sie gleich auf „Käufe wiederherstellen“.',
   paySuccessTitle: 'Willkommen bei ParkShield!',
   paySuccessText: 'Ihr Abo läuft. Legen Sie jetzt Ihr Auto an, dann ist Ihr QR-Code sofort fertig.',
   addCarCta: 'Auto anlegen',
@@ -682,6 +684,8 @@ const en: Record<Key, string> = {
   paywallPromo: 'Enter a voucher code',
   payCanceled: 'Payment cancelled. Nothing was charged.',
   payChecking: 'Payment received. Activating your protection …',
+  storeConfirmFailed:
+    'Your purchase is confirmed; activating it takes a moment longer. Tap “Restore purchases” in a moment.',
   paySuccessTitle: 'Welcome to ParkShield!',
   paySuccessText: 'Your plan is active. Add your car now and its QR code is ready at once.',
   addCarCta: 'Add your car',

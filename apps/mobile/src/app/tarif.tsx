@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { StepProgress } from '@/components/list';
-import { CheckoutForm, PlanFeatures, planPrice } from '@/components/subscription';
+import { CheckoutForm, PlanFeatures, usePlanPrice } from '@/components/subscription';
 import { P, Screen, Title } from '@/components/ui';
 import { t } from '@/lib/i18n';
 import { useOptionalProfile } from '@/lib/profile';
@@ -11,7 +11,7 @@ import { SIGNUP_STEPS } from './registrieren';
 /** The one plan (owner decision 2026-11-21): 20 € a year incl. VAT, everything included. */
 function PlanCard() {
   const c = useTheme();
-  const price = planPrice();
+  const price = usePlanPrice();
   return (
     <View
       testID="plan-card"
