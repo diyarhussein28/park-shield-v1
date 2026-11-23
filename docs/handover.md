@@ -359,6 +359,11 @@ Still open (owner accounts):
     setup); test server `APP_ANDROID_PACKAGE` / `APP_ANDROID_SHA256` (Play App Signing key) set,
     `/.well-known/assetlinks.json` serves it. Android manifest fix: `apps/mobile/firebase.json` (FCM
     default channel = expo-notifications `alerts`).
+    ✅ 2026-11-24 iOS: RevenueCat now has the App Store Connect API key (owner, „Valid credentials“);
+    the iOS product moved from „Could not check“ to „Missing Metadata“. Added the German localization
+    of the subscription group („ParkShield“, app name). Still missing in App Store Connect: the review
+    screenshot of the paywall on `parkshield_yearly` (Review Information), and the Apple server
+    notification URL (RevenueCat → iOS app → Reveal) in App Information (production + sandbox, V2).
     Open: tester list (Google accounts of the Android phones) and roll-out of the internal release;
     license testers (Play Console → Settings → License testing) for free test purchases; RevenueCat's
     third credential check („subscription purchases“) passes only after the release is rolled out
