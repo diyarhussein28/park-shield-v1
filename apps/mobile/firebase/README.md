@@ -49,3 +49,22 @@ chat or messengers.
 
 Store build later: `--profile production` (talks to https://park-shield.de), then
 `npx eas-cli@latest submit --platform ios`.
+
+## Android
+
+The API needs nothing new: the same service account (`FCM_*`) sends to Android and iOS.
+
+1. **Firebase**: in the same project add an **Android app** with package `de.parkshield.app` and put
+   `google-services.json` into this folder (git-ignored; SHA-1 is optional).
+2. **EAS** (done 2026-11-23): the file is the secret **file** variable `GOOGLE_SERVICES_JSON` for
+   preview and production (`app.config.ts` reads its path), like the iOS plist.
+3. **Test build**: `npx eas-cli@latest build --platform android --profile preview` builds an **APK**
+   (`eas.json`), installable on any Android phone from the build link (allow installs from unknown
+   sources). No device registration. On the first build EAS asks to generate the Android keystore:
+   answer yes, EAS keeps it.
+4. **Check**: sign in, allow notifications (Android 13+ asks), a test scan arrives as a push. On
+   Android the tap opens the alert with the large „Ich komme“ button (no action button in the
+   notification, see `AGENTS.md` §11 C).
+
+Later, for App Links (not for push): the signing key's SHA-256 (`eas credentials`, Android) →
+`APP_ANDROID_SHA256` in the web app's env.

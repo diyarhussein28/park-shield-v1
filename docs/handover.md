@@ -225,6 +225,12 @@ Still open:
 2. Push on a real device: install the new build, sign in, check alert / reminder push and the „Ich
    komme“ action (Expo Go in the simulator cannot receive FCM). Vehicle photo on a device.
 3. Next app build must include `b446f6b` (permission screen text: the push is generic).
+   **Android push prepared 2026-11-23** (not built yet, owner's choice): Firebase Android app
+   `de.parkshield.app`, `google-services.json` uploaded to EAS as the secret file variable
+   `GOOGLE_SERVICES_JSON` (preview + production), `eas.json` preview builds an APK. Next:
+   `npx eas-cli@latest build --platform android --profile preview` (steps in
+   `apps/mobile/firebase/README.md` → „Android“). After pulling, run `npm ci` in `apps/mobile`:
+   new native modules (`expo-font`, `expo-image-picker`, …) make `expo config` fail otherwise.
 4. Lawyer: `LEGAL_REVIEW.md` §9 (price change, phone purpose, § 356a card, 3 € print withdrawal).
 5. Small follow-ups: 110/112 as tappable links on the scanner page; `scanner.escalated` /
    `contactOnTheWay` texts still mention contacts (unused by the flow now); a clean-up migration to drop
