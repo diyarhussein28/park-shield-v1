@@ -524,3 +524,32 @@ Example: 2000 − 300 − round(1700 × 10 / 365) = 1653 → „Gezahlt 20,00 �
   fulfillment order is cancelled, nothing is shipped.
 - Existing customers: stickers printed before this change have no `personalized_at` → no deduction;
   their contracts are not changed (old `sticker_value_cents` = 0).
+
+## 13. Contract confirmation redesign (2026-11-23)
+
+The e-mail and the PDF „Vertragsbestätigung“ were redesigned (`billing/contract-confirmation.ts`,
+`mail/templates.ts`). Content that changed or needs a decision:
+
+1. **Model withdrawal form.** Art. 246a § 1 Abs. 2 S. 1 Nr. 1 EGBGB requires the form, and the
+   confirmation on a durable medium (§ 312f Abs. 2 BGB) must carry the Art. 246a information; the
+   app's „Vertrag widerrufen“ button does not replace it. The PDF now prints the **complete statutory
+   wording** (Anlage 2 EGBGB) with our address and the contract number at the end of appendix B, right
+   after the Widerrufsbelehrung that refers to it („unten stehende“). The website's `/widerruf` page and
+   `packages/shared` still show a **shortened** form (no intro line, no „erhalten am“, no signature line,
+   no „(*) Unzutreffendes streichen“): please confirm the full form there too (that changes a legal
+   text and its version).
+2. **Summaries.** Page 1 (term, cancellation, withdrawal in short) and page 2 („Rechtliche
+   Informationen“: term, cancellation, right of withdrawal incl. the sticker exclusion, payment
+   provider, contract texts) are additions; the AGB and the Widerrufsbelehrung follow word for word as
+   appendices A and B. Please check the summaries for anything that could be read as deviating.
+3. **Customer name and address** are now printed in the PDF (from the encrypted profile) and so pass
+   through the e-mail provider (Mailjet, EU) as an attachment. Privacy policy wording?
+4. **Price in the AGB** (§ 3) says 20 € per year; App Store purchases cost 19,99 € (no 20,00 € price
+   point). The confirmation shows the price actually charged; the AGB text needs a sentence for store
+   prices.
+5. **Dates.** Contract start = first purchase (`original_purchase_at`); renewal / contract end = end of
+   the current period as Stripe, Apple or Google report it (never computed). Store sandbox periods last
+   minutes or hours, so the dates then carry the time.
+6. **Stripe price** on the confirmation is the price setting at the time of sending (with a promo
+   code); it is not read back from the Stripe invoice. A resend after a price change would show the new
+   price.

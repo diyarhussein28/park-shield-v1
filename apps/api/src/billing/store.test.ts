@@ -141,7 +141,9 @@ describe('in-app subscription through RevenueCat (Part A)', () => {
     await sync().sync(userId, { eventId: 'evt-initial', type: 'INITIAL_PURCHASE' });
     const contract = (await mailbox(h)).filter((m) => m.tag === 'contract_confirmation');
     expect(contract).toHaveLength(1);
-    expect(contract[0]!.text).toContain('Gekauft über App Store');
+    expect(contract[0]!.text).toContain('Gekauft über den App Store');
+    expect(contract[0]!.text).toContain('Bezahlt über: Apple App Store');
+    expect(contract[0]!.text).not.toContain('Stripe');
     expect(contract[0]!.text).toContain('keine Rechnung');
     expect(contract[0]!.text).toContain('Im Preis enthalten: personalisierter Aufkleber');
     // The price the store charged (19,99 €), not the web price (20,00 €).

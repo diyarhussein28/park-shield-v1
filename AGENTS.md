@@ -313,6 +313,11 @@ Single API test file: `cd apps/api && npx vitest run src/scan`. Single E2E file:
   `PaymentNotifyService` mails `PAYMENT_NOTIFY_EMAIL` only, with the customer's letter PDF from the
   same generator as the admin download; when it cannot attach, it says „Anhang fehlgeschlagen“ and the
   letter follows (outbox retry, and again when the welcome letter is created). LEGAL_REVIEW.md §11.
+- **E-mail blocks and the contract PDF** (2026-11-23): templates may add a success `badge` and `blocks`
+  (details table with icon rows, info cards) rendered by the shared layout; rows and cards that format
+  to an empty string are dropped. Icons: `mail/icons.ts` (also drawn in the PDF), hosted PNGs rendered
+  by `node --import tsx scripts/email-assets.ts`. The contract PDF uses Plus Jakarta Sans from
+  `apps/api/assets/fonts` (Dockerfile copies it; Helvetica fallback when missing).
 - **E-mails** (2026-11-22): every e-mail is rendered by `mail/templates.ts` into the one layout
   `mail/layout.ts` (blue header, headline, at most one primary button, optional highlighted box such as
   the sign-in code, „Hilfe benötigt?“, footer with company data from `company_profiles`, „do not reply“

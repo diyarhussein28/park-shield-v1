@@ -1,10 +1,14 @@
 import { IntlMessageFormat } from 'intl-messageformat';
-import { DEFAULT_FRAME, renderLayout, type MailFrame } from './layout';
+import { DEFAULT_FRAME, renderLayout, type MailBlock, type MailFrame } from './layout';
 
 export type MailLocale = 'de' | 'en';
 
 interface TemplateSource {
   subject: string;
+  /** Success indicator above the headline. */
+  badge?: string;
+  /** Details tables and info cards (ICU strings; empty rows and cards are left out). */
+  blocks?: MailBlock[];
   /** The body headline; default: a greeting in the first line („Hallo,“), else the subject. */
   headline?: string;
   lines: string[];
@@ -49,17 +53,68 @@ const templates = {
     // TODO [LEGAL REVIEW]
     contract_confirmation: {
       subject: 'Ihre Vertragsbestätigung für ParkShield ({contractNo})',
-      headline: 'Vielen Dank! Ihr Vertrag ist abgeschlossen.',
-      lines: [
-        'Tarif: ParkShield – ein Fahrzeug, alles inklusive.\n{priceLines}',
-        '{storeLine}',
-        'Vertragsnummer: {contractNo}\nKundennummer: {customerNo}\nVertragsbeginn: {startedAt, date, long}\nNächste Verlängerung: {periodEnd, date, long}',
-        'Laufzeit und Verlängerung: {renewalRule}',
-        'Ihre Erklärung vom {consentAt, date, long} um {consentAt, time, short} Uhr: „{consentText}“',
-        'Im Anhang finden Sie Ihre Vertragsbestätigung als PDF mit den bei Vertragsschluss gültigen AGB, der Widerrufsbelehrung und dem Muster-Widerrufsformular (Fassung {docVersion}).',
-        '{cancelLine}',
+      badge: 'Abo bestätigt',
+      headline: 'Vielen Dank! Ihr ParkShield-Abo ist bestätigt.',
+      lines: ['Ihr Vertrag ist abgeschlossen und Ihr Schutz ist ab sofort aktiv.'],
+      blocks: [
+        {
+          kind: 'details',
+          title: 'Ihr Abo',
+          rows: [
+            { icon: 'layers', label: 'Tarif', value: 'ParkShield – ein Fahrzeug, alles inklusive' },
+            { icon: 'tag', label: 'Preis', value: '{price} / Jahr (inkl. 19 % MwSt.)' },
+            {
+              icon: 'gift',
+              label: 'Im Preis enthalten',
+              value:
+                '{sticker, select, yes {personalisierter Aufkleber inkl. Versand im Wert von {stickerValue}} other {}}',
+            },
+            { icon: 'car', label: 'Fahrzeuge', value: '1 Fahrzeug' },
+            { icon: 'calendar', label: 'Vertragsbeginn', value: '{startedLabel}' },
+            {
+              icon: 'refresh',
+              label: '{renews, select, yes {Nächste Verlängerung} other {Vertragsende}}',
+              value: '{renewalLabel}',
+            },
+            { icon: 'hash', label: 'Vertragsnummer', value: '{contractNo}' },
+            { icon: 'user', label: 'Kundennummer', value: '{customerNo}' },
+            {
+              icon: 'card',
+              label: 'Bezahlt über',
+              value:
+                '{provider, select, app_store {Apple App Store} play_store {Google Play} other {park-shield.de (Stripe)}}',
+            },
+          ],
+        },
+        {
+          kind: 'card',
+          icon: 'card',
+          title:
+            '{provider, select, app_store {Gekauft über den App Store} play_store {Gekauft über Google Play} other {Bezahlt auf park-shield.de}}',
+          text: '{provider, select, app_store {Apple rechnet das Abo ab und schickt Ihnen den Zahlungsbeleg.} play_store {Google rechnet das Abo ab und schickt Ihnen den Zahlungsbeleg.} other {Die Zahlung läuft über Stripe; Ihre Rechnungen finden Sie in Ihrem Konto unter „Abo“.}} Das PDF im Anhang ist eine Vertragsbestätigung, keine Rechnung.',
+        },
+        {
+          kind: 'card',
+          icon: 'file',
+          tone: 'plain',
+          title: 'Ihre Vertragsunterlagen',
+          text: 'Im Anhang finden Sie Ihre Vertragsbestätigung als PDF mit den bei Vertragsschluss gültigen AGB, der Widerrufsbelehrung und dem Muster-Widerrufsformular (Fassung {docVersion}).',
+        },
+        {
+          kind: 'card',
+          icon: 'info',
+          title: 'Laufzeit, Kündigung und Widerruf',
+          text: '{renewalRule}\n{provider, select, app_store {Kündigen können Sie jederzeit in den Abo-Einstellungen des App Store (in der App unter „Vertrag hier kündigen“). Über Widerruf und Erstattung entscheidet Apple; „Vertrag widerrufen“ in der App führt dorthin.} play_store {Kündigen können Sie jederzeit in den Abo-Einstellungen von Google Play (in der App unter „Vertrag hier kündigen“). Über Widerruf und Erstattung entscheidet Google; „Vertrag widerrufen“ in der App führt dorthin.} other {Kündigen können Sie jederzeit über „Verträge hier kündigen“ unten auf jeder Seite von park-shield.de oder in Ihrem Konto. Innerhalb der Widerrufsfrist widerrufen Sie über „Vertrag widerrufen“.}}',
+        },
+        {
+          kind: 'card',
+          icon: 'pen',
+          tone: 'plain',
+          title: 'Ihre Erklärung zum sofortigen Beginn',
+          text: '{consent, select, yes {Abgegeben am {consentLabel}: „{consentText}“} other {}}',
+        },
       ],
-      action: 'Zum Konto',
+      action: 'Abo verwalten',
     },
     // § 312k BGB. TODO [LEGAL REVIEW]
     cancel_received: {
@@ -448,17 +503,72 @@ const templates = {
     },
     contract_confirmation: {
       subject: 'Your contract confirmation for ParkShield ({contractNo})',
-      headline: 'Thank you! Your contract is concluded.',
-      lines: [
-        'Plan: ParkShield – one vehicle, everything included.\n{priceLines}',
-        '{storeLine}',
-        'Contract number: {contractNo}\nCustomer number: {customerNo}\nStart: {startedAt, date, long}\nNext renewal: {periodEnd, date, long}',
-        'Term and renewal: {renewalRule}',
-        'Your declaration of {consentAt, date, long} at {consentAt, time, short}: “{consentText}”',
-        'Attached is your contract confirmation as a PDF with the terms, the withdrawal policy and the model withdrawal form as they applied when the contract was concluded (version {docVersion}). The German version is binding.',
-        '{cancelLine}',
+      badge: 'Subscription confirmed',
+      headline: 'Thank you! Your ParkShield subscription is confirmed.',
+      lines: ['Your contract is concluded and your protection is active from now on.'],
+      blocks: [
+        {
+          kind: 'details',
+          title: 'Your subscription',
+          rows: [
+            {
+              icon: 'layers',
+              label: 'Plan',
+              value: 'ParkShield – one vehicle, everything included',
+            },
+            { icon: 'tag', label: 'Price', value: '{price} / year (incl. 19% VAT)' },
+            {
+              icon: 'gift',
+              label: 'Included in the price',
+              value:
+                '{sticker, select, yes {personalised sticker incl. shipping worth {stickerValue}} other {}}',
+            },
+            { icon: 'car', label: 'Vehicles', value: '1 vehicle' },
+            { icon: 'calendar', label: 'Start date', value: '{startedLabel}' },
+            {
+              icon: 'refresh',
+              label: '{renews, select, yes {Next renewal} other {Contract end}}',
+              value: '{renewalLabel}',
+            },
+            { icon: 'hash', label: 'Contract number', value: '{contractNo}' },
+            { icon: 'user', label: 'Customer number', value: '{customerNo}' },
+            {
+              icon: 'card',
+              label: 'Paid through',
+              value:
+                '{provider, select, app_store {Apple App Store} play_store {Google Play} other {park-shield.de (Stripe)}}',
+            },
+          ],
+        },
+        {
+          kind: 'card',
+          icon: 'card',
+          title:
+            '{provider, select, app_store {Bought through the App Store} play_store {Bought through Google Play} other {Paid on park-shield.de}}',
+          text: '{provider, select, app_store {Apple bills the subscription and sends you the receipt.} play_store {Google bills the subscription and sends you the receipt.} other {The payment runs through Stripe; you find your invoices in your account under “Plan”.}} The attached PDF is a contract confirmation, not an invoice.',
+        },
+        {
+          kind: 'card',
+          icon: 'file',
+          tone: 'plain',
+          title: 'Your contract documents',
+          text: 'Attached is your contract confirmation as a PDF with the terms, the withdrawal policy and the model withdrawal form as they applied when the contract was concluded (version {docVersion}). The German version is binding.',
+        },
+        {
+          kind: 'card',
+          icon: 'info',
+          title: 'Term, cancellation and withdrawal',
+          text: '{renewalRule}\n{provider, select, app_store {You can cancel at any time in the App Store subscription settings (in the app under “Cancel contract”). Apple decides on withdrawal and refunds; “Withdraw from contract” in the app leads there.} play_store {You can cancel at any time in the Google Play subscription settings (in the app under “Cancel contract”). Google decides on withdrawal and refunds; “Withdraw from contract” in the app leads there.} other {You can cancel at any time via “Cancel contract” at the bottom of every page of park-shield.de or in your account. Within the withdrawal period you withdraw via “Withdraw from contract”.}}',
+        },
+        {
+          kind: 'card',
+          icon: 'pen',
+          tone: 'plain',
+          title: 'Your declaration on the immediate start',
+          text: '{consent, select, yes {Given on {consentLabel}: “{consentText}”} other {}}',
+        },
       ],
-      action: 'Open my account',
+      action: 'Manage my subscription',
     },
     cancel_received: {
       subject: 'Confirmation of your cancellation ({contractNo})',
@@ -850,8 +960,22 @@ export function renderMail(
       {
         locale,
         subject,
+        badge: src.badge ? fmt(src.badge) : undefined,
         headline: headline ?? subject,
         lines,
+        blocks: src.blocks?.map((b) =>
+          b.kind === 'details'
+            ? {
+                ...b,
+                title: b.title ? fmt(b.title) : undefined,
+                rows: b.rows.map((row) => ({
+                  ...row,
+                  label: fmt(row.label),
+                  value: fmt(row.value),
+                })),
+              }
+            : { ...b, title: fmt(b.title), text: fmt(b.text) },
+        ),
         highlight: src.highlight
           ? {
               value: fmt(src.highlight.value),

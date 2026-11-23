@@ -32,6 +32,8 @@ COPY --from=build /repo/packages/i18n/package.json ./packages/i18n/
 COPY --from=build /repo/packages/i18n/dist ./packages/i18n/dist
 COPY --from=build /repo/apps/api/package.json ./apps/api/
 COPY --from=build /repo/apps/api/dist ./apps/api/dist
+# Fonts for the contract confirmation PDF (Plus Jakarta Sans, OFL).
+COPY apps/api/assets ./apps/api/assets
 COPY db/migrations ./db/migrations
 # Phase 2 alert photos (ALERT_MEDIA_DIR): encrypted files, outside every web root; mount a volume here.
 RUN mkdir -p /var/lib/parkshield/alert-media && chown node:node /var/lib/parkshield/alert-media \

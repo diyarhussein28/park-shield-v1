@@ -74,11 +74,13 @@ const values = {
   noApp: 'yes',
   sms: 'yes',
   until: new Date('2027-09-02T00:00:00Z'),
-  priceLines:
-    'ParkShield Jahresabo: 20,00 € / Jahr, inkl. MwSt.\nIm Preis enthalten: personalisierter Aufkleber inkl. Versand im Wert von 3,00 €.',
-  storeLine: '',
-  cancelLine:
-    'Kündigen können Sie jederzeit über „Verträge hier kündigen“ unten auf jeder Seite, widerrufen innerhalb der Widerrufsfrist über „Vertrag widerrufen“.',
+  sticker: 'yes',
+  stickerValue: '3,00 €',
+  startedLabel: '3. August 2027',
+  renewalLabel: '3. August 2028',
+  renews: 'yes',
+  consent: 'yes',
+  consentLabel: '3. August 2027, 11:14 Uhr',
   breakdown:
     'Gezahlt 20,00 € − personalisierter Aufkleber 3,00 € − genutzte Leistung (10 Tage) 0,47 € = Erstattung 16,53 €',
   provider: 'stripe',
@@ -142,7 +144,9 @@ describe('mail templates', () => {
         const imgs = [...r.html.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/g)].map((m) => m[1]);
         expect(imgs.length).toBeGreaterThan(0);
         for (const src of imgs)
-          expect(src).toMatch(/^https:\/\/park-shield\.de\/email\/parkshield-logo(-tile)?\.png$/);
+          expect(src).toMatch(
+            /^https:\/\/park-shield\.de\/email\/(parkshield-logo(-tile)?|icons\/[a-zA-Z]+)\.png$/,
+          );
         // No tracking pixel or tracking parameters, no external fonts or scripts.
         expect(r.html).not.toMatch(
           /utm_|mc_eid|trk|pixel|width="1"|height="1"|<script|@import|fonts\.googleapis/i,

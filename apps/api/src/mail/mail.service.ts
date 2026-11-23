@@ -38,6 +38,7 @@ export class MailService {
             postalCode: c.postalCode,
             city: c.city,
             country: c.country,
+            email: c.email,
           }
         : DEFAULT_FRAME.company,
     };

@@ -326,3 +326,12 @@ Still open (owner accounts):
    charged (`subscriptions.store_price_cents`, from RevenueCat `subscriptions[].price`, fallback setting
    `prices.store_year_cents` = 1999). E-mail, PDF and payment@ show 19,99 € for App Store purchases;
    the web stays 20,00 €.
+8. ✅ 2026-11-23 Contract confirmation redesign (owner prompt with reference screenshots): shared e-mail
+   blocks in `mail/layout.ts` (success badge, details table, info cards, help row, footer with
+   Impressum and support e-mail) usable by every template (`badge`, `blocks` in `mail/templates.ts`);
+   icons in `mail/icons.ts`, PNGs from `node --import tsx scripts/email-assets.ts` into
+   `apps/web/public/email/`. New contract e-mail (summary table, provider card, documents, term and
+   withdrawal, declaration, „Abo verwalten“ → `/konto/abo`). New PDF: page 1 contract at a glance (with
+   customer and provider), page 2 legal information, appendix A AGB and B Widerrufsbelehrung + full
+   statutory model form; Plus Jakarta Sans headings (`apps/api/assets/fonts`, copied in the Dockerfile).
+   Contract start = first purchase; sandbox dates with time. Open legal points: `LEGAL_REVIEW.md` §13.

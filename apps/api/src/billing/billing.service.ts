@@ -40,6 +40,7 @@ import { queuePaymentNotification } from './payment-notify.queue';
 import { STORE_MANAGE_URL, unifiedStatus } from './unified-status';
 import {
   contractConfirmationContent,
+  contractDate,
   contractPdfName,
   priceBreakdown,
   renderContractConfirmationPdf,
@@ -47,7 +48,6 @@ import {
 
 const LIVE = ['active', 'past_due'] as const;
 /** The single plan's name on contracts and confirmations (owner decision 2026-11-21). */
-const PLAN_NAME = 'ParkShield';
 
 const euro = (cents: number, locale: 'de' | 'en') =>
   new Intl.NumberFormat(locale === 'de' ? 'de-DE' : 'en-IE', {
@@ -552,8 +552,12 @@ export class BillingService {
         's.current_period_start',
         's.current_period_end',
         's.created_at',
+        's.status',
+        's.will_renew',
+        's.original_purchase_at',
         's.sticker_value_cents',
         's.store_price_cents',
+        's.user_id',
         'u.email',
         'u.preferred_lang',
         'u.customer_no',
@@ -574,18 +578,39 @@ export class BillingService {
         ? await this.priceFor('standard', sub.promo_code_id ?? undefined)
         : (sub.store_price_cents ?? (await this.storeYearPrice()));
     const customerNo = sub.customer_no ?? '–';
-    const startedAt = sub.current_period_start ?? sub.created_at;
-    const periodEnd = sub.current_period_end ?? startedAt;
+    // Contract start = the first purchase; the renewal = the end of the current period as Stripe /
+    // Apple / Google report it (never computed here). Store sandbox periods last minutes or hours,
+    // so dates then carry the time.
+    const startedAt = sub.original_purchase_at ?? sub.current_period_start ?? sub.created_at;
+    const renewsAt = sub.current_period_end;
+    const renews = sub.will_renew && ['active', 'past_due', 'trialing'].includes(sub.status);
+    const withTime = Boolean(renewsAt && renewsAt.getTime() - startedAt.getTime() < 2 * 86_400_000);
     const renewalMode = sub.renewal_mode as 'annual' | 'monthly_after_first_term';
     const sticker = sub.sticker_value_cents ? euro(sub.sticker_value_cents, locale) : null;
     const company = (await this.company.current()).data;
+    const profile = sub.user_id ? await this.profiles.get(sub.user_id) : null;
+    const countryName = (code: string) =>
+      new Intl.DisplayNames([locale === 'de' ? 'de-DE' : 'en-GB'], { type: 'region' }).of(code) ??
+      code;
     const content = contractConfirmationContent({
       locale,
       customerNo,
       contractNo: sub.contract_no,
+      customer: profile
+        ? {
+            name: `${profile.firstName} ${profile.lastName}`,
+            address: [
+              profile.street,
+              `${profile.postalCode} ${profile.city}`,
+              countryName(profile.country),
+            ],
+          }
+        : null,
       price: euro(price, locale),
       startedAt,
-      renewsAt: periodEnd,
+      renewsAt,
+      renews,
+      withTime,
       renewalMode,
       docVersion: LEGAL_DOC_VERSION,
       consent: consent && consentText ? { text: consentText.body, at: consent.accepted_at } : null,
@@ -598,40 +623,27 @@ export class BillingService {
       created: new Date(),
       contractNo: sub.contract_no,
     });
-    const de = locale === 'de';
-    const seller = store === 'app_store' ? 'Apple' : 'Google';
-    const storeName = store === 'app_store' ? 'App Store' : 'Google Play';
     await this.mail.send({
       to: sub.email,
       template: 'contract_confirmation',
       locale,
       values: {
-        plan: PLAN_NAME,
         contractNo: sub.contract_no,
         customerNo,
         price: euro(price, locale),
-        priceLines: priceBreakdown(locale, euro(price, locale), sticker).join('\n'),
-        // TODO [LEGAL REVIEW] store purchase wording (A6).
-        storeLine: store
-          ? de
-            ? `Gekauft über ${storeName}. Das Abo rechnet ${seller} ab; den Zahlungsbeleg erhalten Sie von ${seller}. Das PDF im Anhang ist eine Vertragsbestätigung, keine Rechnung.`
-            : `Bought through ${storeName}. ${seller} bills the subscription and sends you the receipt. The attached PDF is a contract confirmation, not an invoice.`
-          : '',
-        cancelLine: store
-          ? de
-            ? `Kündigen können Sie jederzeit in den Abo-Einstellungen von ${storeName} (in der App unter „Vertrag hier kündigen“). Über Widerruf und Erstattung entscheidet ${seller}; „Vertrag widerrufen“ in der App führt dorthin.`
-            : `You can cancel at any time in the ${storeName} subscription settings (in the app under “Cancel contract”). ${seller} decides on withdrawal and refunds; “Withdraw from contract” in the app leads there.`
-          : de
-            ? 'Kündigen können Sie jederzeit über „Verträge hier kündigen“ unten auf jeder Seite, widerrufen innerhalb der Widerrufsfrist über „Vertrag widerrufen“.'
-            : 'You can cancel at any time via “Cancel contract” at the bottom of every page, and withdraw within the withdrawal period via “Withdraw from contract”.',
-        startedAt,
-        periodEnd,
+        sticker: sticker ? 'yes' : 'no',
+        stickerValue: sticker ?? '',
+        startedLabel: contractDate(startedAt, locale, withTime),
+        renewalLabel: renewsAt ? contractDate(renewsAt, locale, withTime) : '–',
+        renews: renews ? 'yes' : 'no',
+        provider: sub.provider,
         renewalRule: renewalRule(locale, { renewalMode }),
-        consentAt: consent?.accepted_at ?? startedAt,
+        consent: consent && consentText ? 'yes' : 'no',
+        consentLabel: contractDate(consent?.accepted_at ?? startedAt, locale, true),
         consentText: consentText?.body ?? '',
         docVersion: LEGAL_DOC_VERSION,
       },
-      actionUrl: `${this.env.WEB_BASE_URL}/konto`,
+      actionUrl: `${this.env.WEB_BASE_URL}/konto/abo`,
       attachments: [
         {
           filename: contractPdfName(locale, sub.contract_no),

@@ -1,4 +1,5 @@
 import { COMPANY } from '@parkshield/shared';
+import type { MailIcon } from './icons';
 import type { MailLocale } from './templates';
 
 /**
@@ -20,7 +21,15 @@ import type { MailLocale } from './templates';
 export interface MailFrame {
   /** The public website (logo, help centre and legal links). */
   webBaseUrl: string;
-  company: { name: string; street: string; postalCode: string; city: string; country: string };
+  company: {
+    name: string;
+    street: string;
+    postalCode: string;
+    city: string;
+    country: string;
+    /** Support address in the footer. */
+    email?: string;
+  };
 }
 
 export const DEFAULT_FRAME: MailFrame = {
@@ -28,15 +37,32 @@ export const DEFAULT_FRAME: MailFrame = {
   company: COMPANY,
 };
 
+/**
+ * Shared building blocks (2026-11-23 redesign): a details table (icon, label, value per row) and an
+ * info card (icon, title, text). Every e-mail may use them; rows and cards with an empty value or text
+ * are left out, so optional data never leaves an empty line.
+ */
+export type MailBlock =
+  | {
+      kind: 'details';
+      title?: string;
+      rows: { icon?: MailIcon; label: string; value: string }[];
+    }
+  | { kind: 'card'; icon?: MailIcon; title: string; text: string; tone?: 'soft' | 'plain' };
+
 export interface MailBody {
   locale: MailLocale;
   subject: string;
+  /** Success indicator above the headline (e.g. „Abo bestätigt“). */
+  badge?: string;
   headline: string;
   lines: string[];
   highlight?: { value: string; note?: string };
   /** Quick replies (NT-02), shown as buttons; the first one primary when there is no action. */
   replies: { label: string; url: string }[];
   action?: { label: string; url: string };
+  /** Details tables and info cards under the text. */
+  blocks?: MailBlock[];
   /** Small grey text under the button (e.g. „Code und Link funktionieren nur einmal …“). */
   footnote?: string;
   /** Small text links under the button (e.g. „Missbrauch melden“). */
@@ -60,6 +86,7 @@ const T = {
     privacy: 'Datenschutz',
     terms: 'AGB',
     withdrawal: 'Widerrufsbelehrung',
+    imprint: 'Impressum',
     noReply:
       'Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.',
   },
@@ -74,6 +101,7 @@ const T = {
     privacy: 'Privacy Policy',
     terms: 'Terms & Conditions',
     withdrawal: 'Withdrawal policy',
+    imprint: 'Legal notice',
     noReply: 'This is an automated message from ParkShield. Please do not reply to this e-mail.',
   },
 } as const;
@@ -103,6 +131,51 @@ function button(a: { label: string; url: string }, primary: boolean) {
 const para = (s: string, style = '') =>
   `<p style="margin:0 0 16px 0;font-family:${FONT};font-size:16px;line-height:1.55;color:${INK};${style}" class="ps-text">${escapeHtml(s).replace(/\n/g, '<br>')}</p>`;
 
+const PANEL = '#f5f8ff';
+const RULE = '#e2e8f0';
+const icon = (web: string, name: string, size: number) =>
+  `<img src="${escapeHtml(`${web}/email/icons/${name}.png`)}" width="${size}" height="${size}" alt="" style="display:block;border:0;width:${size}px;height:${size}px">`;
+
+function badge(web: string, label: string) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px 0"><tr><td valign="middle" style="padding-right:10px">${icon(web, 'success', 28)}</td><td valign="middle" bgcolor="#e8f7ee" class="ps-badge" style="background:#e8f7ee;border-radius:999px;padding:6px 14px;font-family:${FONT};font-size:15px;font-weight:700;line-height:1.3;color:#166534">${escapeHtml(label)}</td></tr></table>`;
+}
+
+function details(web: string, b: Extract<MailBlock, { kind: 'details' }>) {
+  const rows = b.rows.filter((r) => r.value.trim() !== '');
+  if (!rows.length) return '';
+  const tr = rows
+    .map(
+      (r, i) =>
+        `<tr><td valign="top" width="28" style="padding:10px 10px 10px 0;${i ? `border-top:1px solid ${RULE};` : ''}" class="ps-rule">${r.icon ? icon(web, r.icon, 20) : ''}</td><td valign="top" width="38%" class="ps-text ps-rule" style="padding:10px 12px 10px 0;${i ? `border-top:1px solid ${RULE};` : ''}font-family:${FONT};font-size:15px;line-height:1.4;font-weight:700;color:${INK}">${escapeHtml(r.label)}</td><td valign="top" class="ps-text ps-rule" style="padding:10px 0;${i ? `border-top:1px solid ${RULE};` : ''}font-family:${FONT};font-size:15px;line-height:1.4;color:${INK};overflow-wrap:anywhere;word-break:break-word">${escapeHtml(r.value).replace(/\n/g, '<br>')}</td></tr>`,
+    )
+    .join('');
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 16px 0"><tr><td bgcolor="${PANEL}" class="ps-panel" style="background:${PANEL};border-radius:14px;padding:18px 20px">${
+    b.title
+      ? `<div class="ps-h1" style="font-family:${FONT};font-size:18px;line-height:1.3;font-weight:800;color:${INK};padding-bottom:6px">${escapeHtml(b.title)}</div>`
+      : ''
+  }<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${tr}</table></td></tr></table>`;
+}
+
+function card(web: string, b: Extract<MailBlock, { kind: 'card' }>) {
+  if (b.text.trim() === '') return '';
+  const soft = b.tone !== 'plain';
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px 0"><tr><td ${soft ? `bgcolor="${PANEL}" class="ps-panel" ` : ''}style="${soft ? `background:${PANEL};` : ''}border-radius:14px;padding:${soft ? '16px 20px' : '4px 0'}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${
+    b.icon
+      ? `<td valign="top" width="40" style="padding:2px 14px 0 0"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" valign="middle" width="40" height="40" bgcolor="#e4edff" class="ps-box" style="background:#e4edff;border-radius:20px;width:40px;height:40px">${icon(web, b.icon, 20)}</td></tr></table></td>`
+      : ''
+  }<td valign="top"><div class="ps-h1" style="font-family:${FONT};font-size:17px;line-height:1.35;font-weight:800;color:${INK};padding-bottom:4px">${escapeHtml(b.title)}</div><div class="ps-muted" style="font-family:${FONT};font-size:15px;line-height:1.55;color:${MUTED}">${escapeHtml(b.text).replace(/\n/g, '<br>')}</div></td></tr></table></td></tr></table>`;
+}
+
+const blockText = (b: MailBlock) =>
+  b.kind === 'details'
+    ? [
+        ...(b.title ? [b.title] : []),
+        ...b.rows.filter((r) => r.value.trim() !== '').map((r) => `${r.label}: ${r.value}`),
+      ].join('\n')
+    : b.text.trim() === ''
+      ? ''
+      : `${b.title}\n${b.text}`;
+
 export function renderLayout(body: MailBody, frame: MailFrame = DEFAULT_FRAME) {
   const t = T[body.locale];
   const web = base(frame.webBaseUrl);
@@ -114,8 +187,12 @@ export function renderLayout(body: MailBody, frame: MailFrame = DEFAULT_FRAME) {
     { label: t.helpCenter, url: helpUrl },
     { label: t.privacy, url: `${web}/datenschutz` },
     { label: t.terms, url: `${web}/agb` },
+    { label: t.imprint, url: `${web}/impressum` },
     { label: t.withdrawal, url: `${web}/widerruf` },
   ];
+  const blocks = (body.blocks ?? [])
+    .map((b) => (b.kind === 'details' ? details(web, b) : card(web, b)))
+    .join('\n  ');
   const c = frame.company;
   const address = `${c.name} · ${c.street} · ${c.postalCode} ${c.city}${c.country && c.country !== 'DE' ? ` · ${c.country}` : ''}`;
   const site = web.replace(/^https?:\/\//, '');
@@ -130,11 +207,11 @@ export function renderLayout(body: MailBody, frame: MailFrame = DEFAULT_FRAME) {
 <meta name="supported-color-schemes" content="light dark">
 <title>${escapeHtml(body.subject)}</title>
 <style>
-  @media (max-width:620px){ .ps-pad{padding-left:20px!important;padding-right:20px!important} .ps-col{display:block!important;width:100%!important} .ps-code{font-size:34px!important;letter-spacing:6px!important} }
+  @media (max-width:620px){ .ps-outer{padding:16px 8px!important} .ps-pad{padding-left:20px!important;padding-right:20px!important} .ps-col{display:block!important;width:100%!important} .ps-code{font-size:34px!important;letter-spacing:6px!important} }
   @media (prefers-color-scheme:dark){
     .ps-page{background:#0b1220!important} .ps-card{background:#111a2e!important} .ps-text,.ps-h1{color:#e2e8f0!important}
     .ps-muted{color:#94a3b8!important} .ps-box{background:#172554!important} .ps-code{color:#ffffff!important}
-    .ps-foot{background:#0f1b33!important} .ps-link{color:#93c5fd!important} .ps-rule{border-color:#1e293b!important}
+    .ps-foot{background:#0f1b33!important} .ps-panel{background:#16213a!important} .ps-badge{background:#14532d!important;color:#dcfce7!important} .ps-link{color:#93c5fd!important} .ps-rule{border-color:#1e293b!important}
   }
   [data-ogsc] .ps-text,[data-ogsc] .ps-h1{color:#e2e8f0!important}
 </style>
@@ -142,7 +219,7 @@ export function renderLayout(body: MailBody, frame: MailFrame = DEFAULT_FRAME) {
 <body style="margin:0;padding:0;background:#f1f5f9" class="ps-page">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(body.lines[0] ?? body.headline)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f1f5f9" class="ps-page" style="background:#f1f5f9">
-<tr><td align="center" style="padding:24px 12px">
+<tr><td align="center" class="ps-outer" style="padding:24px 12px">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="ps-card" style="width:100%;max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden">
 <tr><td bgcolor="${BLUE}" class="ps-pad" style="padding:28px 36px;background:${BLUE};background-image:linear-gradient(120deg,${NAVY} 0%,${NAVY} 45%,${BLUE} 100%)">
   <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
@@ -154,6 +231,7 @@ export function renderLayout(body: MailBody, frame: MailFrame = DEFAULT_FRAME) {
   </tr></table>
 </td></tr>
 <tr><td class="ps-pad" style="padding:32px 36px 8px 36px">
+  ${body.badge ? badge(web, body.badge) : ''}
   <h1 class="ps-h1" style="margin:0 0 16px 0;font-family:${FONT};font-size:26px;line-height:1.25;font-weight:800;color:${INK}">${escapeHtml(body.headline)}</h1>
   ${body.lines.map((l) => para(l)).join('\n  ')}
   ${
@@ -165,6 +243,7 @@ export function renderLayout(body: MailBody, frame: MailFrame = DEFAULT_FRAME) {
         }</td></tr></table>`
       : ''
   }
+  ${blocks}
   ${replies}
   ${body.action ? button(body.action, true) : ''}
   ${body.footnote ? para(body.footnote, `font-size:14px;color:${MUTED};text-align:center`) : ''}
@@ -178,7 +257,7 @@ export function renderLayout(body: MailBody, frame: MailFrame = DEFAULT_FRAME) {
           .join(' &middot; ')}</p>`
       : ''
   }
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td class="ps-rule ps-text" style="border-top:1px solid #e2e8f0;padding:18px 0 24px 0;font-family:${FONT};font-size:15px;line-height:1.5;color:${INK}">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td valign="top" width="30" class="ps-rule" style="border-top:1px solid #e2e8f0;padding:18px 10px 24px 0">${icon(web, 'help', 22)}</td><td class="ps-rule ps-text" style="border-top:1px solid #e2e8f0;padding:18px 0 24px 0;font-family:${FONT};font-size:15px;line-height:1.5;color:${INK}">
     <strong>${escapeHtml(t.helpTitle)}</strong> ${t.helpText(`<a href="${escapeHtml(helpUrl)}" class="ps-link" style="color:${BLUE}">${escapeHtml(t.helpCenter)}</a>`)}
   </td></tr></table>
 </td></tr>
@@ -190,7 +269,11 @@ export function renderLayout(body: MailBody, frame: MailFrame = DEFAULT_FRAME) {
         <td valign="middle" style="font-family:${FONT};font-size:20px;font-weight:800;color:${INK}" class="ps-text">Park<span style="color:${BLUE}" class="ps-link">Shield</span></td>
       </tr></table>
       <p class="ps-muted" style="margin:10px 0 8px 0;font-family:${FONT};font-size:14px;line-height:1.5;color:${MUTED}">${escapeHtml(t.footerTagline)}</p>
-      <p class="ps-muted" style="margin:0;font-family:${FONT};font-size:14px;line-height:1.5;color:${MUTED}">&#128274; ${escapeHtml(t.hosted)} &nbsp;|&nbsp; <a href="${escapeHtml(web)}" class="ps-link" style="color:${MUTED}">${escapeHtml(site)}</a></p>
+      <p class="ps-muted" style="margin:0;font-family:${FONT};font-size:14px;line-height:1.5;color:${MUTED};overflow-wrap:anywhere;word-break:break-word">&#128274; ${escapeHtml(t.hosted)} &nbsp;|&nbsp; <a href="${escapeHtml(web)}" class="ps-link" style="color:${MUTED}">${escapeHtml(site)}</a>${
+        c.email
+          ? ` &nbsp;|&nbsp; <a href="mailto:${escapeHtml(c.email)}" class="ps-link" style="color:${MUTED}">${escapeHtml(c.email)}</a>`
+          : ''
+      }</p>
     </td>
     <td class="ps-col" valign="top" width="38%" style="padding:0 0 12px 0">
       ${legal
@@ -211,18 +294,20 @@ ${body.replyable ? '' : `<tr><td align="center" class="ps-pad ps-muted" style="p
 </html>`;
 
   const text = [
+    ...(body.badge ? [`✓ ${body.badge}`] : []),
     body.headline,
     ...body.lines,
     ...(body.highlight
       ? [[body.highlight.value, body.highlight.note].filter(Boolean).join('\n')]
       : []),
+    ...(body.blocks ?? []).map(blockText).filter((b) => b !== ''),
     ...body.replies.map((r) => `${r.label}: ${r.url}`),
     ...(body.action ? [`${body.action.label}: ${body.action.url}`] : []),
     ...(body.footnote ? [body.footnote] : []),
     ...body.links.map((l) => `${l.label}: ${l.url}`),
     `${t.helpTitle} ${t.helpCenter}: ${helpUrl}`,
     '— ParkShield · ' + t.footerTagline,
-    `${t.hosted} · ${web}`,
+    `${t.hosted} · ${web}${c.email ? ` · ${c.email}` : ''}`,
     legal
       .slice(1)
       .map((l) => `${l.label}: ${l.url}`)
