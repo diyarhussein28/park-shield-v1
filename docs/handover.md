@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -401,3 +401,27 @@ Still open (owner accounts):
   …“) when the company profile has a VAT ID (`MailFrame.company.vatId`, from ops → Einstellungen →
   Unternehmen, default `COMPANY.vatId`). Test: `apps/api/src/mail/templates.test.ts`. Not deployed
   to the test server yet.
+
+## 11. Change e-mail and mobile number in the app (2026-11-24)
+
+Konto tab → new group „Anmeldung & Kontakt“ with two rows (current e-mail, masked number, „Ändern“).
+
+- **E-mail** (`apps/mobile/src/app/email-aendern.tsx`, API `apps/api/src/profile/email-change.service.ts`):
+  `POST /v1/me/email/change {email}` → 6-digit code by e-mail (`email_change_code`) to the **new** address;
+  `POST /v1/me/email/change/verify {code}` → `users.email` replaced in place (+ `email_verified_at`, any
+  `contact_channels` e-mail row, unused sign-in links spent), audit `user.email_changed` without any
+  address, outbox `billing.customer_email` (worker → `BillingService.syncCustomerEmail` → Stripe
+  `customers.update(email)`), security notice `email_changed` to the **old** address (new one masked);
+  `DELETE /v1/me/email/change` cancels. Nothing in PostgreSQL before the code: the pending change is in
+  Valkey (`email:change:<userId>`, 15 min, HMAC of the code, 5 tries). `email_taken` (409) is checked
+  at start and again in the transaction; limits `email_change.user` / `.email` (5/h) and `.verify`
+  (15/h).
+- **Mobile number** (`apps/mobile/src/app/nummer-aendern.tsx`): reuses `/v1/channels/phone` (SMS only,
+  Twilio Verify / own code), now with an explicit consent checkbox (Art. 6(1)(a)) in the app. The code
+  is valid 15 min (was 10); the old number stays linked until the code is confirmed, then the row is
+  replaced (`address_enc`, new `address_bidx`, `verified_at`/`opted_in_at` = now) and the audit log gets
+  `user.phone_changed` (`user.phone_added` for the first number), never the number.
+- Tests: `apps/api/src/profile/contact-change.test.ts` (6). API profile/channels/billing/auth/mail/ops/
+  worker green, app Jest 166 green. **Not deployed yet; the app needs a new EAS build.** Open: lawyer
+  check of the consent wording (`TODO [LEGAL REVIEW]` in `nummer-aendern.tsx`).
+

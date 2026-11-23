@@ -32,6 +32,27 @@ const templates = {
       footnote:
         'Geben Sie den Code in der ParkShield-App ein oder tippen Sie auf „In der App anmelden“. Code und Link funktionieren nur einmal. Wenn Sie nichts angefordert haben, können Sie diese E-Mail ignorieren.',
     },
+    // Change e-mail (Konto → E-Mail ändern): the code goes to the NEW address; nothing changes before.
+    email_change_code: {
+      subject: 'Ihr Bestätigungscode für die neue E-Mail-Adresse: {code}',
+      headline: 'Hallo,',
+      lines: [
+        'Sie möchten diese E-Mail-Adresse für Ihr ParkShield-Konto verwenden. Ihr Bestätigungscode lautet:',
+      ],
+      highlight: { value: '{code}', note: 'Gültig für 15 Minuten' },
+      footnote:
+        'Geben Sie den Code in der ParkShield-App ein. Erst danach wird Ihre E-Mail-Adresse geändert. Wenn Sie nichts angefordert haben, können Sie diese E-Mail ignorieren; Ihr Konto bleibt unverändert.',
+    },
+    // Security notice to the OLD address after the change (no new address in it, only masked).
+    email_changed: {
+      subject: 'Die E-Mail-Adresse Ihres ParkShield-Kontos wurde geändert',
+      headline: 'Hallo,',
+      lines: [
+        'die E-Mail-Adresse Ihres ParkShield-Kontos wurde am {when, date, long} um {when, time, short} geändert. Neue Adresse: {masked}.',
+        'An diese Adresse senden wir ab jetzt keine E-Mails mehr zu Ihrem Konto.',
+        'Waren Sie das nicht? Schreiben Sie uns sofort an {support}, damit wir Ihr Konto sichern.',
+      ],
+    },
     magic_link: {
       subject: 'Ihr Anmeldelink für ParkShield',
       lines: [
@@ -484,6 +505,25 @@ const templates = {
       action: 'Sign in in the app',
       footnote:
         'Enter the code in the ParkShield app or tap “Sign in in the app”. The code and the link work only once. If you did not request anything, you can ignore this e-mail.',
+    },
+    email_change_code: {
+      subject: 'Your confirmation code for the new e-mail address: {code}',
+      headline: 'Hello,',
+      lines: [
+        'You want to use this e-mail address for your ParkShield account. Your confirmation code is:',
+      ],
+      highlight: { value: '{code}', note: 'Valid for 15 minutes' },
+      footnote:
+        'Enter the code in the ParkShield app. Only then is your e-mail address changed. If you did not request anything, you can ignore this e-mail; your account stays unchanged.',
+    },
+    email_changed: {
+      subject: 'The e-mail address of your ParkShield account was changed',
+      headline: 'Hello,',
+      lines: [
+        'The e-mail address of your ParkShield account was changed on {when, date, long} at {when, time, short}. New address: {masked}.',
+        'We will no longer send e-mails about your account to this address.',
+        'Not you? Write to us at once at {support} so we can secure your account.',
+      ],
     },
     magic_link: {
       subject: 'Your ParkShield sign-in link',

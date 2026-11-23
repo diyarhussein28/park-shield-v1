@@ -24,7 +24,8 @@ import { PHONE_VERIFIER, type PhoneVerifier } from '../providers/phone-verify';
 import { DEFAULT_VERIFY_COUNTRIES } from '../abuse/phone';
 import { allowedPushEndpoint } from '../providers/push';
 
-const OTP_TTL = 600;
+/** 15 minutes to type the SMS code (the old number stays linked until then). */
+const OTP_TTL = 900;
 const OTP_ATTEMPTS = 5;
 export const SMS_CONSENT_VERSION = '2026-11';
 
@@ -287,10 +288,28 @@ export class ChannelsService {
     // Keep the channel where the owner's order puts it (US-22).
     const order = await channelOrder(this.db, this.settings, userId);
     await this.db.transaction().execute(async (trx) => {
-      await trx
+      const before = await trx
         .deleteFrom('contact_channels')
         .where('user_id', '=', userId)
         .where('type', '=', channel)
+        .returning('address_bidx')
+        .execute();
+      const bidx = this.crypto.blindIndex(phone);
+      // Konto → „Nummer ändern“: the old number is replaced in place and never used again. The audit
+      // entry says only that it changed, never a number (hard rule 4).
+      await trx
+        .insertInto('audit_logs')
+        .values({
+          actor_id: userId,
+          actor_kind: 'customer',
+          action: before.length ? 'user.phone_changed' : 'user.phone_added',
+          entity: 'contact_channels',
+          entity_id: userId,
+          meta: JSON.stringify({
+            channel,
+            sameNumber: before.some((r) => r.address_bidx?.equals(bidx) ?? false),
+          }),
+        })
         .execute();
       await trx
         .insertInto('contact_channels')
@@ -298,7 +317,7 @@ export class ChannelsService {
           user_id: userId,
           type: channel,
           address_enc: this.crypto.encrypt(phone),
-          address_bidx: this.crypto.blindIndex(phone),
+          address_bidx: bidx,
           key_version: this.crypto.keyVersion,
           priority: order.indexOf(channel) + 1,
           verified_at: sql`now()`,

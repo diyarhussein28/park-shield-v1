@@ -100,6 +100,25 @@ export default function Account() {
           />
         </Group>
 
+        <Group title={t('groupContact')}>
+          <Row
+            icon="mail"
+            title={t('contactEmailRow')}
+            subtitle={profile?.email ?? me?.email}
+            detail={t('change')}
+            onPress={() => router.push('/email-aendern')}
+            testID="row-email"
+          />
+          <Row
+            icon="phone"
+            title={t('contactPhoneRow')}
+            subtitle={profile?.phone ?? t('contactPhoneNone')}
+            detail={t('change')}
+            onPress={() => router.push('/nummer-aendern')}
+            testID="row-phone"
+          />
+        </Group>
+
         <Group title={t('groupSettings')}>
           <Row
             icon="bell"

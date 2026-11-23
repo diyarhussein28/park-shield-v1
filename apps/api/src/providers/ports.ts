@@ -288,6 +288,8 @@ export interface Payments {
   ensureCustomer(input: { email: string; userId: string; locale: 'de' | 'en' }): Promise<string>;
   /** Prefills name and billing address from the sign-up profile before checkout. */
   updateCustomer(customerId: string, address: PostalAddress): Promise<void>;
+  /** The account's e-mail changed: receipts and invoices go to the new address. */
+  updateCustomerEmail(customerId: string, email: string): Promise<void>;
   /** Name and billing address the customer entered at checkout (required there); null if none. */
   billingAddress(customerId: string): Promise<PostalAddress | null>;
   /** Account deletion: removes the customer and cancels subscriptions immediately. Idempotent. */

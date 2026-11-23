@@ -26,6 +26,7 @@ import { DISPATCH_TOPIC, FOLLOWUP_TOPIC } from '../scan/scan.service';
 import { AlertMediaService } from '../alert-media/alert-media.service';
 import { WELCOME_LETTER_TOPIC } from '../letters/trigger';
 import { WelcomeLettersService } from '../letters/welcome-letters.service';
+import { CUSTOMER_EMAIL_TOPIC } from '../profile/email-change.service';
 import { OutboxService } from './outbox.service';
 import { SchedulerService } from './scheduler.service';
 import {
@@ -88,6 +89,10 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
     this.outbox.register(STORE_SYNC_TOPIC, async (p) => {
       await this.storeSync.sync(String(p.userId), p.hint as SyncHint | undefined);
     });
+    // Konto → „E-Mail ändern“: the Stripe customer follows the account's e-mail (idempotent).
+    this.outbox.register(CUSTOMER_EMAIL_TOPIC, (p) =>
+      this.billing.syncCustomerEmail(String(p.userId)),
+    );
     this.outbox.start();
     // B1: push reminders for the welcome print after 1 and 3 days.
     this.scheduler.every({

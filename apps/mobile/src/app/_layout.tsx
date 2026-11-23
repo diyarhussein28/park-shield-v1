@@ -146,6 +146,8 @@ function Gate() {
         <Stack.Screen name="anmelden" options={{ title: '', headerBackVisible: false }} />
         <Stack.Screen name="registrieren" options={{ title: '', headerBackVisible: false }} />
         <Stack.Screen name="profil" options={{ title: pt('profile.title') }} />
+        <Stack.Screen name="email-aendern" options={{ title: t('emailChangeTitle') }} />
+        <Stack.Screen name="nummer-aendern" options={{ title: t('phoneChangeTitle') }} />
         <Stack.Screen name="app-sperre" options={{ title: '' }} />
         <Stack.Screen name="tarif" options={{ title: '' }} />
         <Stack.Screen name="erfolg" options={{ title: '' }} />

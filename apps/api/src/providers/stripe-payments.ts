@@ -158,6 +158,10 @@ export class StripePayments implements Payments {
     });
   }
 
+  async updateCustomerEmail(customerId: string, email: string): Promise<void> {
+    await this.stripe.customers.update(customerId, { email });
+  }
+
   /** Checkout saves name and billing address on the customer (customer_update: auto). */
   async billingAddress(customerId: string): Promise<PostalAddress | null> {
     const c = await this.stripe.customers.retrieve(customerId);

@@ -1340,6 +1340,120 @@ This is an automated message from ParkShield. Please do not reply to this e-mail
 }
 `;
 
+exports[`mail templates > email_change_code: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Ihr Bestätigungscode für die neue E-Mail-Adresse: 482913",
+  "text": "Hallo,
+
+Sie möchten diese E-Mail-Adresse für Ihr ParkShield-Konto verwenden. Ihr Bestätigungscode lautet:
+
+482913
+Gültig für 15 Minuten
+
+Geben Sie den Code in der ParkShield-App ein. Erst danach wird Ihre E-Mail-Adresse geändert. Wenn Sie nichts angefordert haben, können Sie diese E-Mail ignorieren; Ihr Konto bleibt unverändert.
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Impressum: https://park-shield.de/impressum
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > email_change_code: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "Your confirmation code for the new e-mail address: 482913",
+  "text": "Hello,
+
+You want to use this e-mail address for your ParkShield account. Your confirmation code is:
+
+482913
+Valid for 15 minutes
+
+Enter the code in the ParkShield app. Only then is your e-mail address changed. If you did not request anything, you can ignore this e-mail; your account stays unchanged.
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Legal notice: https://park-shield.de/impressum
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
+exports[`mail templates > email_changed: snapshot in the shared layout (DE and EN) > de 1`] = `
+{
+  "subject": "Die E-Mail-Adresse Ihres ParkShield-Kontos wurde geändert",
+  "text": "Hallo,
+
+die E-Mail-Adresse Ihres ParkShield-Kontos wurde am 3. August 2027 um 11:15 geändert. Neue Adresse: ne•••@example.de.
+
+An diese Adresse senden wir ab jetzt keine E-Mails mehr zu Ihrem Konto.
+
+Waren Sie das nicht? Schreiben Sie uns sofort an support@park-shield.de, damit wir Ihr Konto sichern.
+
+Hilfe benötigt? Hilfe-Center: https://park-shield.de/hilfe
+
+— ParkShield · Erreichbar bleiben, ohne Ihre Telefonnummer zu teilen. Smarter QR-Schutz für Ihr Fahrzeug.
+
+Hosted in Germany · https://park-shield.de
+
+Datenschutz: https://park-shield.de/datenschutz
+AGB: https://park-shield.de/agb
+Impressum: https://park-shield.de/impressum
+Widerrufsbelehrung: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.",
+}
+`;
+
+exports[`mail templates > email_changed: snapshot in the shared layout (DE and EN) > en 1`] = `
+{
+  "subject": "The e-mail address of your ParkShield account was changed",
+  "text": "Hello,
+
+The e-mail address of your ParkShield account was changed on August 3, 2027 at 11:15 AM. New address: ne•••@example.de.
+
+We will no longer send e-mails about your account to this address.
+
+Not you? Write to us at once at support@park-shield.de so we can secure your account.
+
+Need help? Help Center: https://park-shield.de/hilfe
+
+— ParkShield · Stay reachable without sharing your phone number. Smart QR protection for your vehicle.
+
+Hosted in Germany · https://park-shield.de
+
+Privacy Policy: https://park-shield.de/datenschutz
+Terms & Conditions: https://park-shield.de/agb
+Legal notice: https://park-shield.de/impressum
+Withdrawal policy: https://park-shield.de/widerruf
+
+Diyar Hussein Dienstleistungen · Monheimer Str. 24 · 51371 Leverkusen
+
+This is an automated message from ParkShield. Please do not reply to this e-mail.",
+}
+`;
+
 exports[`mail templates > escalation: snapshot in the shared layout (DE and EN) > de 1`] = `
 {
   "subject": "ParkShield: Fahrzeug versperrt Ausfahrt bei „Der Blaue“",

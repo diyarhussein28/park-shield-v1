@@ -315,6 +315,33 @@ const de = {
   phoneChangeHint:
     'Die neue Nummer gilt erst, wenn Sie sie mit dem SMS-Code bestätigt haben. Bis dahin bleibt die bisherige.',
   phoneMissing: 'Noch keine bestätigte Handynummer.',
+  groupContact: 'Anmeldung & Kontakt',
+  change: 'Ändern',
+  contactEmailRow: 'E-Mail-Adresse',
+  contactPhoneRow: 'Handynummer',
+  contactPhoneNone: 'Nicht bestätigt',
+  emailChangeTitle: 'E-Mail-Adresse ändern',
+  emailChangeCurrent: 'Aktuelle Adresse: {email}',
+  emailChangeIntro:
+    'Wir schicken einen 6-stelligen Code an die neue Adresse. Erst wenn Sie ihn hier eingeben, wird die Adresse geändert. Bis dahin melden Sie sich weiter mit der bisherigen an.',
+  emailChangeNew: 'Neue E-Mail-Adresse',
+  emailChangeSend: 'Code an neue Adresse senden',
+  emailChangeCodeSent:
+    'Wir haben einen 6-stelligen Code an {email} geschickt. Er ist 15 Minuten gültig.',
+  emailChangeConfirm: 'Neue Adresse bestätigen',
+  emailChangeDone:
+    'Ihre E-Mail-Adresse ist jetzt {email}. An die bisherige Adresse haben wir einen Sicherheitshinweis geschickt.',
+  emailChangeOther: 'Andere Adresse eingeben',
+  emailTaken: 'Diese E-Mail-Adresse gehört schon zu einem anderen Konto.',
+  emailUnchanged: 'Das ist bereits Ihre E-Mail-Adresse.',
+  emailInvalid: 'Bitte geben Sie eine gültige E-Mail-Adresse ein.',
+  tooManyTries: 'Zu viele Versuche. Bitte warten Sie etwas und versuchen Sie es dann noch einmal.',
+  phoneChangeTitle: 'Handynummer ändern',
+  phoneCurrent: 'Aktuelle Nummer: {phone}',
+  phoneConsent:
+    'Ich willige ein, dass ParkShield diese Nummer verschlüsselt speichert und mir daran SMS zu meinen Warnungen und einen Bestätigungscode schickt (Art. 6 Abs. 1 lit. a DSGVO). Die bisherige Nummer wird ersetzt und nicht mehr verwendet.',
+  phoneChangeDone:
+    'Ihre neue Handynummer ist bestätigt. Die bisherige Nummer verwenden wir nicht mehr.',
   smsUsage: '{used} von {limit} SMS in diesem Monat',
   smsCapReached:
     'Die SMS dieses Monats sind aufgebraucht ({used} von {limit}). Bis zum Monatsende erreichen Warnungen Sie nur über die App.',
@@ -785,6 +812,31 @@ const en: Record<Key, string> = {
   phoneChangeHint:
     'The new number only counts once you have confirmed it with the SMS code. Until then the current one stays.',
   phoneMissing: 'No confirmed mobile number yet.',
+  groupContact: 'Sign-in & contact',
+  change: 'Change',
+  contactEmailRow: 'E-mail address',
+  contactPhoneRow: 'Mobile number',
+  contactPhoneNone: 'Not confirmed',
+  emailChangeTitle: 'Change e-mail address',
+  emailChangeCurrent: 'Current address: {email}',
+  emailChangeIntro:
+    'We send a 6-digit code to the new address. Only once you enter it here is the address changed. Until then you keep signing in with the current one.',
+  emailChangeNew: 'New e-mail address',
+  emailChangeSend: 'Send code to new address',
+  emailChangeCodeSent: 'We sent a 6-digit code to {email}. It is valid for 15 minutes.',
+  emailChangeConfirm: 'Confirm new address',
+  emailChangeDone:
+    'Your e-mail address is now {email}. We sent a security notice to the previous address.',
+  emailChangeOther: 'Enter another address',
+  emailTaken: 'This e-mail address already belongs to another account.',
+  emailUnchanged: 'This already is your e-mail address.',
+  emailInvalid: 'Please enter a valid e-mail address.',
+  tooManyTries: 'Too many attempts. Please wait a little and try again.',
+  phoneChangeTitle: 'Change mobile number',
+  phoneCurrent: 'Current number: {phone}',
+  phoneConsent:
+    'I consent to ParkShield storing this number encrypted and sending me text messages about my alerts and a confirmation code to it (Art. 6(1)(a) GDPR). The previous number is replaced and no longer used.',
+  phoneChangeDone: 'Your new mobile number is confirmed. We no longer use the previous number.',
   smsUsage: '{used} of {limit} SMS this month',
   smsCapReached:
     'This month’s SMS are used up ({used} of {limit}). Until the end of the month, alerts reach you only in the app.',

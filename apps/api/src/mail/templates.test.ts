@@ -9,6 +9,8 @@ const values = {
   endsAt: new Date('2028-08-03T00:00:00Z'),
   periodEnd: new Date('2028-08-03T00:00:00Z'),
   device: 'Chrome · Windows',
+  masked: 'ne•••@example.de',
+  support: 'support@park-shield.de',
   code: '482913',
   plan: 'Plus',
   contractNo: 'PS-7K3Q9X2M',

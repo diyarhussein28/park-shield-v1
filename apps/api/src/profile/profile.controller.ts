@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Inject, Put, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Inject,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
+import { z } from 'zod';
 import { CurrentUser, SessionGuard } from '../auth/guards';
 import type { AuthContext } from '../auth/session.service';
 import type { Db } from '../core/core.module';
@@ -7,7 +18,11 @@ import { SettingsService } from '../core/settings.service';
 import { CRYPTO, DB } from '../core/tokens';
 import { ZodPipe } from '../core/zod.pipe';
 import { maskPhone } from '../channels/channels.service';
+import { EmailChangeService } from './email-change.service';
 import { ProfileInput, ProfileService, type Profile } from './profile.service';
+
+const EmailChangeStart = z.object({ email: z.string().trim().email().max(254) });
+const EmailChangeVerify = z.object({ code: z.string().regex(/^\d{6}$/) });
 
 /** Default of `app.lock_after_seconds` (settings registry); the database value wins. */
 export const LOCK_AFTER_SECONDS_DEFAULT = 300;
@@ -20,6 +35,7 @@ export class ProfileController {
     @Inject(SettingsService) private readonly settings: SettingsService,
     @Inject(DB) private readonly db: Db,
     @Inject(CRYPTO) private readonly crypto: FieldCrypto,
+    @Inject(EmailChangeService) private readonly emailChange: EmailChangeService,
   ) {}
 
   private async view(user: AuthContext, profile: Profile | null) {
@@ -67,6 +83,35 @@ export class ProfileController {
   @Put('me/profile')
   async put(@CurrentUser() user: AuthContext, @Body(new ZodPipe(ProfileInput)) body: ProfileInput) {
     return this.view(user, await this.profiles.save(user.userId, body));
+  }
+
+  /**
+   * Konto → „E-Mail ändern“: a code to the new address; the account keeps the old one until
+   * `verify` (email-change.service.ts). The mobile number is changed with `/v1/channels/phone`.
+   */
+  @Post('me/email/change')
+  @HttpCode(200)
+  startEmailChange(
+    @CurrentUser() user: AuthContext,
+    @Body(new ZodPipe(EmailChangeStart)) body: z.infer<typeof EmailChangeStart>,
+  ) {
+    return this.emailChange.start(user, body.email);
+  }
+
+  @Post('me/email/change/verify')
+  @HttpCode(200)
+  verifyEmailChange(
+    @CurrentUser() user: AuthContext,
+    @Body(new ZodPipe(EmailChangeVerify)) body: z.infer<typeof EmailChangeVerify>,
+  ) {
+    return this.emailChange.verify(user, body.code);
+  }
+
+  @Delete('me/email/change')
+  @HttpCode(200)
+  async cancelEmailChange(@CurrentUser() user: AuthContext) {
+    await this.emailChange.cancel(user);
+    return { ok: true };
   }
 
   /** What the native app needs from the settings (signed in only). */

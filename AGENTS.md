@@ -387,6 +387,10 @@ Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
   90 days), counted on the server (`notifications/unseen.ts`): `unseenCount` in `GET /v1/app/alerts`,
   `GET /v1/app/alerts/unseen-count`, the answer of `/seen`, and the push payload (iOS `aps.badge`,
   Android `notification_count`). The app sets the icon badge with `setBadgeCountAsync`.
+- **Change e-mail / mobile number** (2026-11-24, Konto → „Anmeldung & Kontakt“): e-mail via
+  `profile/email-change.service.ts` (code to the new address, replaced only after it, notice to the old
+  one, Stripe sync through outbox `billing.customer_email`, audit `user.email_changed`); the number via
+  `/v1/channels/phone` (SMS only, replaced in place after the code, audit `user.phone_changed`).
 - **Trusted contacts are gone** (2026-11-21): module, pages (`/k/…`, `/notfallkontakt`) and data
   removed; the empty `emergency_contacts` table stays until a clean-up migration.
 - **Block sender** (`HistoryService.block`, `POST /v1/app/alerts/:id/block`, `POST /v1/alerts/:id/block`):

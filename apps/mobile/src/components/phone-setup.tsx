@@ -4,7 +4,7 @@ import { api, ApiError } from '@/lib/api';
 import { t } from '@/lib/i18n';
 import { errorText, type Usage } from '@/lib/portal';
 import { CodeInput } from './code-input';
-import { Badge, Field } from './form';
+import { Badge, Check, Field } from './form';
 import { Banner, Button, Card, P, Title } from './ui';
 
 type Message = { tone: 'ok' | 'err' | 'info'; text: string } | null;
@@ -40,11 +40,16 @@ function phoneError(err: unknown): string {
 export function PhoneVerify({
   onVerified,
   onCancel,
+  consentLabel,
 }: {
   onVerified: () => Promise<void> | void;
   onCancel?: () => void;
+  /** Konto → „Handynummer ändern“: an explicit opt-in checkbox (Art. 6(1)(a) GDPR) before the SMS. */
+  consentLabel?: string;
 }) {
   const [phone, setPhone] = useState('');
+  const [consent, setConsent] = useState(false);
+  const consentOk = !consentLabel || consent;
   const [sent, setSent] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -129,10 +134,11 @@ export function PhoneVerify({
           />
           {/* TODO [LEGAL REVIEW] purpose of the mobile number (escalation SMS) and privacy note. */}
           <P muted>{t('phonePrivacy')}</P>
+          {consentLabel && <Check label={consentLabel} checked={consent} onChange={setConsent} />}
           <Button
             label={t('signUpPhoneSend')}
             busy={busy}
-            disabled={phone.trim().length < 6}
+            disabled={phone.trim().length < 6 || !consentOk}
             onPress={() => void start()}
             testID="phone-send"
           />

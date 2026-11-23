@@ -42,6 +42,15 @@ export class FakePayments implements Payments {
     await this.valkey.set(key('customer', customerId), JSON.stringify(address), 'EX', 86_400);
   }
 
+  async updateCustomerEmail(customerId: string, email: string): Promise<void> {
+    await this.valkey.set(key('customer-email', customerId), email, 'EX', 86_400);
+  }
+
+  /** The e-mail last synced to the customer (tests). */
+  async customerEmail(customerId: string): Promise<string | null> {
+    return this.valkey.get(key('customer-email', customerId));
+  }
+
   async customer(customerId: string): Promise<PostalAddress | null> {
     const raw = await this.valkey.get(key('customer', customerId));
     return raw ? (JSON.parse(raw) as PostalAddress) : null;

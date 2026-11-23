@@ -62,6 +62,11 @@ export const RATE_LIMITS = {
   // NT-07: every SMS code costs money and reaches a third party's phone if mistyped.
   'sms.otp_user': { max: 3, windowSeconds: 3600 },
   'sms.otp_phone': { max: 5, windowSeconds: 86_400 },
+  // Change e-mail (Konto): every code is an e-mail to an address the owner typed; checks per account
+  // and per target address, and failed code checks per account (5 per code on top).
+  'email_change.user': { max: 5, windowSeconds: 3600 },
+  'email_change.email': { max: 5, windowSeconds: 3600 },
+  'email_change.verify': { max: 15, windowSeconds: 3600 },
   'magic_link.ip': { max: 30, windowSeconds: 3600 },
   'magic_link.email': { max: 5, windowSeconds: 3600 },
   'cancel.ip': { max: 10, windowSeconds: 3600 },

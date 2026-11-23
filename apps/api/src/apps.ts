@@ -45,6 +45,7 @@ import { PrivacyController } from './privacy/privacy.controller';
 import { PrivacyService } from './privacy/privacy.service';
 import { ProfileController } from './profile/profile.controller';
 import { ProfileService } from './profile/profile.service';
+import { EmailChangeService } from './profile/email-change.service';
 import { SessionService } from './auth/session.service';
 import { BillingController, StripeWebhookController } from './billing/billing.controller';
 import { BillingService } from './billing/billing.service';
@@ -160,6 +161,7 @@ const domainProviders = [
   HistoryService,
   PrivacyService,
   ProfileService,
+  EmailChangeService,
   WordListsService,
   RefundsService,
   CompanyService,

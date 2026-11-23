@@ -92,6 +92,21 @@ export class BillingService {
   ) {}
 
   /** The one plan (kept as a list so old clients keep working). */
+  /**
+   * Outbox `billing.customer_email` (Konto → „E-Mail ändern“): the Stripe customer gets the account's
+   * current e-mail, so receipts and invoices go to the new address. Reads the address at run time, so
+   * a retry or a second change in between always ends with the latest one. No customer: nothing to do.
+   */
+  async syncCustomerEmail(userId: string): Promise<void> {
+    const row = await this.db
+      .selectFrom('users')
+      .select(['email', 'stripe_customer_id'])
+      .where('id', '=', userId)
+      .executeTakeFirst();
+    if (!row?.stripe_customer_id) return;
+    await this.payments.updateCustomerEmail(row.stripe_customer_id, row.email);
+  }
+
   async plans() {
     const rows = await this.db
       .selectFrom('plans')
