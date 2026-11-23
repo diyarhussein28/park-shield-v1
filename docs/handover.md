@@ -375,5 +375,6 @@ Still open (owner accounts):
 - **App „Hilfe“ (`apps/mobile/src/app/hilfe.tsx`):** two buttons — „Hilfe-Center und FAQ öffnen“
   (in-app browser, always `https://park-shield.de/hilfe`, `WEBSITE_URL` in `lib/config.ts`) and
   „Kontakt aufnehmen“ (API live on the test server since `88e073f`; form on the same screen with validation, loading state, error banner,
-  confirmation with the case number, privacy note + link). Texts in `lib/i18n.ts` (DE/EN). Needs a
-  new EAS build to reach testers. Test: `src/__tests__/help-screen.test.tsx`.
+  confirmation with the case number, privacy note + link). Texts in `lib/i18n.ts` (DE/EN). iOS
+  EAS build `preview` from `356ae17` finished 2026-11-23 (build `e0bde081`, internal distribution);
+  the Android `play-internal` build from `afa22be` includes it too. Test: `src/__tests__/help-screen.test.tsx`.
