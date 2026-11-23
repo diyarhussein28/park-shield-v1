@@ -361,8 +361,9 @@ Still open (owner accounts):
     default channel = expo-notifications `alerts`).
     ✅ 2026-11-24 iOS: RevenueCat now has the App Store Connect API key (owner, „Valid credentials“);
     the iOS product moved from „Could not check“ to „Missing Metadata“. Added the German localization
-    of the subscription group („ParkShield“, app name). Still missing in App Store Connect: the review
-    screenshot of the paywall on `parkshield_yearly` (Review Information). Apple server notifications:
+    of the subscription group („ParkShield“, app name). Review screenshot of the paywall (1290 × 2796) uploaded
+    on `parkshield_yearly`; RevenueCat shows the iOS product as „Ready to Submit“ (it goes to review with
+    the first app version). Apple server notifications:
     ✅ RevenueCat „Apply in App Store Connect“ set the production and sandbox URLs (App Information).
     Open: tester list (Google accounts of the Android phones) and roll-out of the internal release;
     license testers (Play Console → Settings → License testing) for free test purchases; RevenueCat's
