@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -378,3 +378,18 @@ Still open (owner accounts):
   confirmation with the case number, privacy note + link). Texts in `lib/i18n.ts` (DE/EN). iOS
   EAS build `preview` from `356ae17` finished 2026-11-23 (build `e0bde081`, internal distribution);
   the Android `play-internal` build from `afa22be` includes it too. Test: `src/__tests__/help-screen.test.tsx`.
+
+## 10. Support replies by hand and the USt-IdNr. in the e-mail footer (2026-11-23)
+
+- **Replies to customers** are written by hand in Strato Webmail (no ops inbox, no Zammad for now).
+  The shared e-mail layout (`mail/layout.ts`, `replyable: true`) is stored there as two signatures,
+  „ParkShield DE“ and „ParkShield EN“, placed above the quoted text; DE is the default for new mails
+  and replies on contact@ and on the webmaster mailbox. Webmail „Nachrichtenformat“ is **HTML**
+  (with „HTML und Text“ a reply to a plain-text mail, e.g. from mail.de, dropped to plain text).
+  Images load from `https://park-shield.de/email/…`, so those files must stay on the website. After a
+  layout or company-data change, re-render the body of `renderLayout` and paste it via the
+  signature editor's „Quellcode“ button.
+- **Footer:** every system e-mail now ends the address line with „USt-IdNr. DE454570643“ (EN „VAT ID
+  …“) when the company profile has a VAT ID (`MailFrame.company.vatId`, from ops → Einstellungen →
+  Unternehmen, default `COMPANY.vatId`). Test: `apps/api/src/mail/templates.test.ts`. Not deployed
+  to the test server yet.

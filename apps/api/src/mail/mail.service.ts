@@ -39,6 +39,7 @@ export class MailService {
             city: c.city,
             country: c.country,
             email: c.email,
+            vatId: c.vatId,
           }
         : DEFAULT_FRAME.company,
     };

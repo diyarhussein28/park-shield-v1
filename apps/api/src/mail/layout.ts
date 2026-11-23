@@ -7,7 +7,7 @@ import type { MailLocale } from './templates';
  * the tagline; a white body with headline, text, at most one primary blue button and an optional
  * highlighted box (e.g. the sign-in code with „Gültig für 15 Minuten“); „Hilfe benötigt?“; a footer
  * with logo, tagline, „Hosted in Germany“, the website, links to the help centre and the legal pages,
- * and the company name and address from the company settings; then the „do not reply“ line.
+ * and the company name, address and USt-IdNr. from the company settings; then the „do not reply“ line.
  *
  * Built once, by hand, as table-based HTML with inline styles (what Gmail, Apple Mail and Outlook all
  * render), plus a plain-text part. MJML was considered: its html-minifier dependency has an open
@@ -29,6 +29,8 @@ export interface MailFrame {
     country: string;
     /** Support address in the footer. */
     email?: string;
+    /** USt-IdNr., shown after the address when set. */
+    vatId?: string;
   };
 }
 
@@ -87,6 +89,7 @@ const T = {
     terms: 'AGB',
     withdrawal: 'Widerrufsbelehrung',
     imprint: 'Impressum',
+    vatId: 'USt-IdNr.',
     noReply:
       'Dies ist eine automatische Nachricht von ParkShield. Bitte antworten Sie nicht auf diese E-Mail.',
   },
@@ -102,6 +105,7 @@ const T = {
     terms: 'Terms & Conditions',
     withdrawal: 'Withdrawal policy',
     imprint: 'Legal notice',
+    vatId: 'VAT ID',
     noReply: 'This is an automated message from ParkShield. Please do not reply to this e-mail.',
   },
 } as const;
@@ -194,7 +198,8 @@ export function renderLayout(body: MailBody, frame: MailFrame = DEFAULT_FRAME) {
     .map((b) => (b.kind === 'details' ? details(web, b) : card(web, b)))
     .join('\n  ');
   const c = frame.company;
-  const address = `${c.name} · ${c.street} · ${c.postalCode} ${c.city}${c.country && c.country !== 'DE' ? ` · ${c.country}` : ''}`;
+  const vat = c.vatId?.trim();
+  const address = `${c.name} · ${c.street} · ${c.postalCode} ${c.city}${c.country && c.country !== 'DE' ? ` · ${c.country}` : ''}${vat ? ` · ${t.vatId} ${vat}` : ''}`;
   const site = web.replace(/^https?:\/\//, '');
   const replies = body.replies.map((r, i) => button(r, i === 0 && !body.action)).join('');
 

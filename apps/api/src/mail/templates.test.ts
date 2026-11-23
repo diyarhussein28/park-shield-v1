@@ -175,6 +175,19 @@ describe('mail templates', () => {
     },
   );
 
+  it('the footer shows the USt-IdNr. after the address when the company has one', () => {
+    const withVat = { ...frame, company: { ...frame.company, vatId: 'DE454570643' } };
+    const de = renderMail('support_received', 'de', values, undefined, [], [], withVat);
+    expect(de.html).toContain('51371 Leverkusen · USt-IdNr. DE454570643');
+    expect(de.text).toContain('51371 Leverkusen · USt-IdNr. DE454570643');
+    const en = renderMail('support_received', 'en', values, undefined, [], [], withVat);
+    expect(en.html).toContain('51371 Leverkusen · VAT ID DE454570643');
+    expect(en.text).toContain('51371 Leverkusen · VAT ID DE454570643');
+    const blank = { ...frame, company: { ...frame.company, vatId: ' ' } };
+    const none = renderMail('support_received', 'de', values, undefined, [], [], blank);
+    expect(none.text).not.toContain('USt-IdNr.');
+  });
+
   it('the sign-in code sits in the highlighted box with „Gültig für 15 Minuten“; the action link is the first URL', () => {
     const r = renderMail(
       'sign_in_code',
