@@ -1,4 +1,4 @@
-import { PLAN_PRICE_CENTS } from '@parkshield/shared/plans';
+import { PLAN_PRICE_CENTS, STORE_PLAN_PRICE_CENTS } from '@parkshield/shared/plans';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import type { PurchasesPackage } from 'react-native-purchases';
@@ -37,11 +37,18 @@ import { Banner, Button, Card, P, Title, useTheme } from './ui';
 export const planPrice = () => euro(PLAN_PRICE_CENTS, lang());
 
 /**
+ * The price before the store's own price string is loaded: 19,99 € where the app buys through the App
+ * Store or Google Play, else the web price (Stripe fallback, test environments).
+ */
+export const appPlanPrice = () =>
+  isStoreBillingAvailable() ? euro(STORE_PLAN_PRICE_CENTS, lang()) : planPrice();
+
+/**
  * The price the customer will actually pay here: the store's own price (App Store 19,99 €) when the
  * purchase goes through the store, else the web price. Every price on the paywall uses this one.
  */
 export function usePlanPrice(): string {
-  const [price, setPrice] = useState(planPrice);
+  const [price, setPrice] = useState(appPlanPrice);
   useEffect(() => {
     if (!isStoreBillingAvailable()) return;
     let on = true;

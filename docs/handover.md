@@ -315,7 +315,7 @@ Still open (owner accounts):
    RevenueCat REST API reports `store: "app_store"` in lower case; fixed in `6f2f019` (case-insensitive
    `storeProvider()`), deployed; subscription active, contract confirmation and payment@ sent once.
    App paywall: store price (19,99 €) everywhere and a store-specific pending text (`6d0d84b`, needs a
-   new EAS build). Open: the onboarding slide still says „20 € im Jahr“ (owner to decide).
+   new EAS build). Onboarding slide: ✅ 2026-11-23 owner decision: the app shows the store price „19,99 €“ (`STORE_PLAN_PRICE_CENTS`, also the paywall default before the store price loads); the web stays 20,00 €.
 6. ✅ 2026-11-23 Logo: e-mails and the contract PDF use the app's mark (shield with the QR finder
    pattern, `LogoMark`), not the old star shield. E-mail files `apps/web/public/email/parkshield-logo.png`
    (footer) and `parkshield-logo-tile.png` (white tile for the blue header); the old
@@ -352,7 +352,8 @@ Still open (owner accounts):
     Open (owner): Google payments profile (bank and tax data) — without it Play Console cannot create
     subscriptions; then the JSON key of the service account (IAM → Service accounts → Keys) uploaded
     to the RevenueCat Android app, Google developer notifications in RevenueCat. Then: subscription
-    `parkshield_yearly` (base plan yearly, auto-renewing, Germany), product in RevenueCat attached to
+    `parkshield_yearly` (base plan yearly, auto-renewing, Germany, **19,99 €** like the App Store — owner
+    decision 2026-11-23), product in RevenueCat attached to
     `parkshield_pro` and the `$rc_annual` package, license testers, `APP_ANDROID_SHA256` (Play App
     Signing key) for the App Links. A personal account must run a closed test (12 testers, 14 days)
     before production.

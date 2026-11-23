@@ -155,7 +155,7 @@ const de = {
   ob3Title: 'Ihre Daten bleiben privat',
   ob3Text:
     'Niemand sieht Ihre Telefonnummer, Ihren Namen oder Ihr Kennzeichen. Server in Deutschland, keine Werbung, kein Tracking.',
-  ob4Title: 'Alles drin für 20 € im Jahr',
+  ob4Title: 'Alles drin für {price} im Jahr',
   ob4Text:
     'Ein Tarif für ein Fahrzeug, inkl. MwSt.: Warnungen, Erinnerung, SMS, Chat und ein gedruckter Aufkleber mit Versand. Der Vertrag verlängert sich um ein Jahr, wenn Sie nicht vor Ende der Laufzeit kündigen.',
   obStart: 'Registrieren',
@@ -611,7 +611,7 @@ const en: Record<Key, string> = {
   ob3Title: 'Your data stays private',
   ob3Text:
     'Nobody sees your phone number, your name or your plate. Servers in Germany, no ads, no tracking.',
-  ob4Title: 'Everything included for €20 a year',
+  ob4Title: 'Everything included for {price} a year',
   ob4Text:
     'One plan for one vehicle, incl. VAT: alerts, reminder, SMS, chat and one printed decal with shipping. The contract renews for one year unless you cancel before the end of the term.',
   obStart: 'Sign up',

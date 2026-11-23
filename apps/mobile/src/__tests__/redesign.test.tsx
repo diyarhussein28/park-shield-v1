@@ -221,7 +221,8 @@ describe('onboarding', () => {
     expect(screen.getByLabelText(t('obPage', { n: 2 }))).toBeTruthy();
     expect(t('ob2Text')).toMatch(/10 Minuten.*30 Minuten eine SMS/);
     expect(t('ob3Title')).toBe('Ihre Daten bleiben privat');
-    expect(t('ob4Title')).toBe('Alles drin für 20 € im Jahr');
+    // The store price (19,99 €) where the app buys through the App Store / Google Play (2026-11-23).
+    expect(t('ob4Title', { price: '19,99 €' })).toBe('Alles drin für 19,99 € im Jahr');
     await fireEvent.press(screen.getByLabelText(t('obSkip')));
     expect(screen.getByLabelText(t('obPage', { n: 4 }))).toBeTruthy();
     expect(screen.getByLabelText('Registrieren')).toBeTruthy();

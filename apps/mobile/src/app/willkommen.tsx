@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { OnboardingArt } from '@/components/art';
 import { useReducedMotion } from '@/components/celebration';
 import { LogoMark, Wordmark } from '@/components/icons';
+import { appPlanPrice } from '@/components/subscription';
 import { Button } from '@/components/ui';
 import { t } from '@/lib/i18n';
 import { setFlag } from '@/lib/prefs';
@@ -24,7 +25,7 @@ const SCENES = [1, 2, 3, 4] as const;
 
 /**
  * First launch and after „Abmelden“ (§5.2, 2026-11-22): four short slides in German by default —
- * what ParkShield is, how alerts work, privacy, the price (20 € / year) — skippable, page dots, then
+ * what ParkShield is, how alerts work, privacy, the price (19,99 € / year in the stores) — skippable, page dots, then
  * „Registrieren“ or „Anmelden“.
  */
 export default function Welcome() {
@@ -83,7 +84,7 @@ export default function Welcome() {
           >
             <OnboardingArt scene={n} width={Math.min(300, width - 48)} />
             <Text accessibilityRole="header" style={[typeScale.display, s.center, { color: c.fg }]}>
-              {t(`ob${n}Title`)}
+              {t(`ob${n}Title`, { price: appPlanPrice() })}
             </Text>
             <Text style={[typeScale.body, s.center, { color: c.muted }]}>{t(`ob${n}Text`)}</Text>
           </View>

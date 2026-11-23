@@ -26,6 +26,12 @@ export const PLAN_FEATURE_COUNT = 6;
 
 /** Consumer price in euro cents per year, VAT included (PAngV). */
 export const PLAN_PRICE_CENTS = 2000;
+/**
+ * The same plan bought in the app through the App Store or Google Play (owner decision 2026-11-23):
+ * 19,99 €, because 20,00 € is no store price point. The store's own price string wins when it is
+ * loaded; this is the default before that (onboarding, paywall). API fallback: `prices.store_year_cents`.
+ */
+export const STORE_PLAN_PRICE_CENTS = 1999;
 export const VAT_RATE_DE = 0.19;
 
 /**

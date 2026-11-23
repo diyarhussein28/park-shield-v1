@@ -421,7 +421,7 @@ Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
   **Konto** (grouped list: plan → `/abo`, notifications, „Ihre Angaben“, Face ID
   switch, delivery help, data, help, sign-out) — with the branded `BrandTabBar`; every other screen is
   pushed above the tabs. The routing rules are the pure `gateTarget()` in `src/app/_layout.tsx`: first
-  launch → `/willkommen` (four onboarding slides: what it is, alerts, privacy, 20 € / year) → `/registrieren` (e-mail + 6-digit code) →
+  launch → `/willkommen` (four onboarding slides: what it is, alerts, privacy, the price: 19,99 € / year where the app buys through the stores) → `/registrieren` (e-mail + 6-digit code) →
   `/profil?flow=signup` (name, address, **required** mobile number with SMS code) → `/app-sperre` (Face ID offer) →
   `/tarif` (paywall) → `/erfolg` (success moments) → add the car; accounts without a profile or
   without a verified number get the blocking `/profil?flow=complete` (alerts are never blocked). **Profile gate:** the API answers
