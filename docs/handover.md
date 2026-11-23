@@ -365,7 +365,7 @@ Still open (owner accounts):
   day; each renewal moved `current_period_end` into the 30-day window again, and the hourly
   `renewals` job mailed again. `RenewalsService.remind()` now only reminds when the period is longer
   than the reminder window (`renewal.reminder_days`). Test: `apps/api/src/billing/renewals.test.ts`.
-  Needs a deploy to the test server to stop the mails.
+  Deployed to the test server 2026-11-23 (`88e073f`).
 - **In-app contact (`POST /v1/app/support/contact`):** app session (bearer, so no captcha), free
   subject (3–120), reply address pre-filled with the account's and editable, message (10–5000).
   Limits `support.ip`, `support.email` per account and per reply address. Goes through the support
@@ -374,6 +374,6 @@ Still open (owner accounts):
   customer gets `support_received`. Tests: `apps/api/src/support/support.test.ts`.
 - **App „Hilfe“ (`apps/mobile/src/app/hilfe.tsx`):** two buttons — „Hilfe-Center und FAQ öffnen“
   (in-app browser, always `https://park-shield.de/hilfe`, `WEBSITE_URL` in `lib/config.ts`) and
-  „Kontakt aufnehmen“ (form on the same screen with validation, loading state, error banner,
+  „Kontakt aufnehmen“ (API live on the test server since `88e073f`; form on the same screen with validation, loading state, error banner,
   confirmation with the case number, privacy note + link). Texts in `lib/i18n.ts` (DE/EN). Needs a
   new EAS build to reach testers. Test: `src/__tests__/help-screen.test.tsx`.
