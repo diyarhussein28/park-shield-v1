@@ -339,3 +339,11 @@ Still open (owner accounts):
    TLS 1.3 only and Yahoo's image proxy connects with TLS 1.2. Caddy (test stack and the production
    template) now allows TLS 1.2 with forward-secret AEAD suites only, plus TLS 1.3; the ops subdomain
    stays TLS 1.3 only. Owner decision; docs/02-architecture.md and docs/security/asvs-l2.md updated.
+10. 2026-11-23 Google Play: app „ParkShield“ (`de.parkshield.app`, default language German, free app,
+    declarations accepted by the owner) created in the owner's **personal** Play developer account.
+    Subscriptions need a Google payments profile first (bank and tax data: owner only). EAS profile
+    `play-internal` (preview env + test API, app bundle, store distribution) builds the AAB for the
+    first manual upload to the internal test track (EAS created the Android upload keystore). Open:
+    payments profile → subscription `parkshield_yearly` → service account for RevenueCat → RevenueCat
+    Android app and `goog_…` key in EAS `preview` → `APP_ANDROID_SHA256` (Play App Signing key) for the
+    App Links. A personal account must run a closed test (12 testers, 14 days) before production.

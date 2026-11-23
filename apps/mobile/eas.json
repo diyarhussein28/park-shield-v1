@@ -22,6 +22,14 @@
         "EXPO_PUBLIC_API_URL": "https://test.park-shield.de"
       }
     },
+    "play-internal": {
+      "extends": "preview",
+      "distribution": "store",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
     "simulator": {
       "extends": "preview",
       "environment": "development",
