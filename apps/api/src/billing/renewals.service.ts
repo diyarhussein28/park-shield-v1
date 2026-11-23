@@ -60,6 +60,19 @@ export class RenewalsService {
       .where('s.interval', '=', 'year')
       .where('s.current_period_end', '>', sql<Date>`now()`)
       .where('s.current_period_end', '<=', sql<Date>`now() + make_interval(days => ${days})`)
+      // Only real yearly periods: a period shorter than the reminder window is a store sandbox
+      // (Apple/Google "1 year" = 1 hour, renewing all day), and each renewal would otherwise mail
+      // the customer a new reminder every hour (seen on the test server 2026-11-23).
+      .where((eb) =>
+        eb.or([
+          eb('s.current_period_start', 'is', null),
+          eb(
+            sql<string>`s.current_period_end - s.current_period_start`,
+            '>',
+            sql<string>`make_interval(days => ${days})`,
+          ),
+        ]),
+      )
       .where((eb) =>
         eb.or([
           eb('s.renewal_reminded_for', 'is', null),
