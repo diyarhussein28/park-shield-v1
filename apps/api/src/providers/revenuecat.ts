@@ -11,6 +11,8 @@ interface RcSubscription {
   billing_issues_detected_at: string | null;
   refunded_at?: string | null;
   store_transaction_id?: string | null;
+  /** The price the store charged, e.g. `{ amount: 19.99, currency: 'EUR' }`. */
+  price?: { amount: number; currency: string } | null;
 }
 
 interface RcSubscriberResponse {
@@ -63,6 +65,10 @@ export function parseSubscriber(
     refundedAt: toDate(sub.refunded_at),
     managementUrl: body.subscriber.management_url,
     sandbox: sub.is_sandbox,
+    priceCents:
+      sub.price && sub.price.currency.toUpperCase() === 'EUR' && Number.isFinite(sub.price.amount)
+        ? Math.round(sub.price.amount * 100)
+        : null,
   };
 }
 
@@ -122,6 +128,7 @@ export class FakeStore implements StoreBilling {
       periodEnd: d('periodEnd')!,
       billingIssueAt: d('billingIssueAt'),
       refundedAt: d('refundedAt'),
+      priceCents: typeof s.priceCents === 'number' ? s.priceCents : null,
     };
   }
 }

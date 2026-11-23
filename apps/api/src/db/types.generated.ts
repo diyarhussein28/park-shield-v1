@@ -841,6 +841,7 @@ export interface Subscriptions {
   sticker_value_cents: Generated<number>;
   store_last_transaction_id: string | null;
   store_original_transaction_id: string | null;
+  store_price_cents: number | null;
   store_product_id: string | null;
   stripe_subscription_id: string | null;
   updated_at: Generated<Timestamp>;

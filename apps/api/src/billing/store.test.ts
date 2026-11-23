@@ -61,6 +61,7 @@ const subscriber = (userId: string, over: Partial<StoreSubscriber> = {}): StoreS
     refundedAt: null,
     managementUrl: 'https://apps.apple.com/account/subscriptions',
     sandbox: true,
+    priceCents: 1999,
     ...over,
   };
 };
@@ -142,11 +143,16 @@ describe('in-app subscription through RevenueCat (Part A)', () => {
     expect(contract[0]!.text).toContain('Gekauft über App Store');
     expect(contract[0]!.text).toContain('keine Rechnung');
     expect(contract[0]!.text).toContain('Im Preis enthalten: personalisierter Aufkleber');
+    // The price the store charged (19,99 €), not the web price (20,00 €).
+    expect(contract[0]!.text).toContain('19,99');
+    expect(contract[0]!.text).not.toContain('20,00');
     const notes = await h.db
       .selectFrom('payment_notifications')
-      .select(['kind', 'payment_ref'])
+      .select(['kind', 'payment_ref', 'amount_cents'])
       .execute();
-    expect(notes).toEqual([{ kind: 'subscription', payment_ref: '2000000123456789' }]);
+    expect(notes).toEqual([
+      { kind: 'subscription', payment_ref: '2000000123456789', amount_cents: 1999 },
+    ]);
 
     // Store subscribers: no Stripe refund logic.
     const id = (await h.db.selectFrom('subscriptions').select('id').executeTakeFirstOrThrow()).id;
@@ -318,6 +324,7 @@ describe('RevenueCat adapter', () => {
           billing_issues_detected_at: null,
           refunded_at: null,
           store_transaction_id: 'GPA.1234',
+          price: { amount: 19.99, currency: 'EUR' },
         },
       },
     },
@@ -327,6 +334,7 @@ describe('RevenueCat adapter', () => {
     expect(parseSubscriber('u1', body, 'parkshield')).toMatchObject({
       store: 'play_store',
       transactionId: 'GPA.1234',
+      priceCents: 1999,
       willRenew: true,
       periodEnd: new Date('2028-01-01T00:00:00Z'),
     });

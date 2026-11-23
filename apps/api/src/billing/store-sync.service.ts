@@ -302,6 +302,7 @@ export class StoreSyncService {
               current_period_end: sub.periodEnd,
               store_product_id: sub.productId,
               store_last_transaction_id: hint?.transactionId ?? sub.transactionId,
+              store_price_cents: sub.priceCents ?? (await this.billing.storeYearPrice()),
               management_url: sub.managementUrl,
               ...(hint?.originalTransactionId &&
               same.store_original_transaction_id?.startsWith('rc:')
@@ -352,6 +353,7 @@ export class StoreSyncService {
             `rc:${sub.productId}:${sub.originalPurchaseAt.getTime()}`,
           store_product_id: sub.productId,
           store_last_transaction_id: hint?.transactionId ?? sub.transactionId,
+          store_price_cents: sub.priceCents ?? (await this.billing.storeYearPrice()),
           will_renew: sub.willRenew,
           cancel_at_period_end: !sub.willRenew,
           original_purchase_at: sub.originalPurchaseAt,
@@ -403,7 +405,7 @@ export class StoreSyncService {
         kind: 'subscription',
         userId,
         subscriptionId: fresh,
-        amountCents: await this.billing.yearPrice(),
+        amountCents: sub?.priceCents ?? (await this.billing.storeYearPrice()),
         paymentRef: hint?.transactionId ?? sub?.transactionId ?? null,
         paidAt: new Date(),
       });
@@ -415,7 +417,7 @@ export class StoreSyncService {
         kind: 'renewal',
         userId,
         subscriptionId: result.renewal,
-        amountCents: await this.billing.yearPrice(),
+        amountCents: sub?.priceCents ?? (await this.billing.storeYearPrice()),
         paymentRef: hint.transactionId ?? sub?.transactionId ?? null,
         paidAt: new Date(),
       });

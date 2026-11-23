@@ -336,6 +336,8 @@ export interface StoreSubscriber {
   refundedAt: Date | null;
   managementUrl: string | null;
   sandbox: boolean;
+  /** Gross price of the current period in euro cents as the store charged it (null: unknown or not EUR). */
+  priceCents: number | null;
 }
 
 export interface StoreBilling {

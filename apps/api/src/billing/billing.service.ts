@@ -109,6 +109,14 @@ export class BillingService {
   }
 
   /** Yearly gross price in cents (setting `prices.plan_year_cents`, default 20 €). */
+  /**
+   * App Store / Google Play price when RevenueCat does not report one (setting
+   * `prices.store_year_cents`, 1999: 20,00 € is no App Store price point).
+   */
+  async storeYearPrice(): Promise<number> {
+    return Number(await this.settings.get('prices.store_year_cents', 1999));
+  }
+
   async yearPrice(): Promise<number> {
     return Number(await this.settings.get('prices.plan_year_cents', PLAN_PRICE_CENTS));
   }
@@ -538,6 +546,7 @@ export class BillingService {
         's.current_period_end',
         's.created_at',
         's.sticker_value_cents',
+        's.store_price_cents',
         'u.email',
         'u.preferred_lang',
         'u.customer_no',
@@ -556,7 +565,7 @@ export class BillingService {
     const price =
       sub.provider === 'stripe'
         ? await this.priceFor('standard', sub.promo_code_id ?? undefined)
-        : await this.yearPrice();
+        : (sub.store_price_cents ?? (await this.storeYearPrice()));
     const customerNo = sub.customer_no ?? '–';
     const startedAt = sub.current_period_start ?? sub.created_at;
     const periodEnd = sub.current_period_end ?? startedAt;

@@ -21,6 +21,7 @@ update our own `subscriptions` table; app, website and scanner read only that ta
 | `management_url`            | Store subscription management (RevenueCat `management_url`)             |
 | `sticker_value_cents`       | Sticker value included in the price at purchase (setting, 300)          |
 | `withdrawal_notice_version` | Version of the Widerrufsbelehrung shown at purchase                     |
+| `store_price_cents`         | Yearly gross price the store charged (RevenueCat `price`, EUR; migration `20261209000000_store_price`) |
 
 The DB enum `subscription_state` is unchanged (it is used everywhere); the API derives the unified
 status: `ACTIVE` · `CANCEL_SCHEDULED` · `BILLING_ISSUE` · `EXPIRED` · `REFUNDED` · `WITHDRAWN`
@@ -33,6 +34,8 @@ status: `ACTIVE` · `CANCEL_SCHEDULED` · `BILLING_ISSUE` · `EXPIRED` · `REFUN
 `canceled_at`. An order is printed from its snapshot, never from the current design.
 
 Settings (`app_settings`): `prices.sticker_value_cents` (300, incl. MwSt.),
+`prices.store_year_cents` (1999: store price when RevenueCat reports none; 20,00 € is no App Store
+price point, so contract confirmation and payment@ show 19,99 € for store purchases),
 `legal.withdrawal_notice_version` (current Widerrufsbelehrung version).
 
 ## 2. API contract (app and website)

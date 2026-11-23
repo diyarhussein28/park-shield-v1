@@ -88,6 +88,8 @@ export const SETTINGS: Record<string, Def> = {
   // B2 (2026-11-22): value of the personalised sticker incl. shipping included in the yearly price
   // (incl. VAT). Stored on each subscription at purchase; withheld on a withdrawal after
   // personalisation (§ 312g Abs. 2 Nr. 1 BGB). TODO [LEGAL REVIEW]
+  // App Store / Google Play yearly price for contract confirmations when RevenueCat reports none.
+  'prices.store_year_cents': { group: 'limits', schema: int(100, 100_000), default: 1999 },
   'prices.sticker_value_cents': { group: 'limits', schema: int(0, 2000), default: 300 },
 
   'abuse.code_alerts_per_hour': { group: 'abuse', schema: int(1, 1000), default: 10 },

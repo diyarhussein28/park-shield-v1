@@ -322,3 +322,7 @@ Still open (owner accounts):
    `parkshield-shield.png` now holds the new mark too, so mails already sent show it. They are served
    from `park-shield.de` (Vercel preview): redeploy Vercel after changing them. Dark mode in mail apps
    stays as it is (owner, 2026-11-23).
+7. ✅ 2026-11-23 Store price in the contract confirmation: store subscriptions keep the price the store
+   charged (`subscriptions.store_price_cents`, from RevenueCat `subscriptions[].price`, fallback setting
+   `prices.store_year_cents` = 1999). E-mail, PDF and payment@ show 19,99 € for App Store purchases;
+   the web stays 20,00 €.
