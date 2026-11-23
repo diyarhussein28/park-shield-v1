@@ -202,6 +202,41 @@ describe('in-app subscription through RevenueCat (Part A)', () => {
     expect(await h.db.selectFrom('subscriptions').select('id').execute()).toHaveLength(1);
   });
 
+  it('a store purchase moved to another of our accounts (TRANSFER) becomes active there', async () => {
+    // Found 2026-11-24: one sandbox Apple ID bought on account A, then account B bought again;
+    // RevenueCat transferred the purchase to B, and B's insert hit A's unique key → „pending“ forever.
+    const a = await appUser('first@example.de');
+    await store().set(a.userId, subscriber(a.userId));
+    await sync().sync(a.userId, { originalTransactionId: '2000000000000001' });
+    await sync().sync(a.userId); // the app's own sync adds nothing (same purchase)
+
+    const b = await appUser('second@example.de');
+    await store().set(a.userId, null);
+    await store().set(b.userId, subscriber(b.userId));
+    const r = await h.app.inject({
+      method: 'POST',
+      url: '/v1/billing/store/sync',
+      headers: b.s.headers,
+    });
+    expect(r.json()).toEqual({ status: 'active' });
+    expect(await summary(b.s)).toMatchObject({ provider: 'app_store', unifiedStatus: 'ACTIVE' });
+
+    const rows = await h.db
+      .selectFrom('subscriptions')
+      .select(['user_id', 'status', 'store_original_transaction_id'])
+      .execute();
+    const ofA = rows.filter((x) => x.user_id === a.userId);
+    expect(ofA.length).toBeGreaterThan(0);
+    for (const x of ofA) {
+      expect(x.status).toBe('expired');
+      expect(x.store_original_transaction_id).toContain('#moved:');
+    }
+    expect(rows.filter((x) => x.user_id === b.userId && x.status === 'active')).toHaveLength(1);
+    // A later webhook for A (no entitlement any more) changes nothing for B.
+    await sync().sync(a.userId);
+    expect(await summary(b.s)).toMatchObject({ unifiedStatus: 'ACTIVE' });
+  });
+
   it('webhook: checks the secret, stores each event once, replays are ignored', async () => {
     const { userId } = await appUser('hook@example.de');
     expect(

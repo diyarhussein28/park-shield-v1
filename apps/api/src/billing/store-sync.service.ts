@@ -322,6 +322,43 @@ export class StoreSyncService {
 
       if (!live) return { created: null, existing: null, refunded, renewal: null, live };
 
+      const originalId =
+        hint?.originalTransactionId ?? `rc:${sub.productId}:${sub.originalPurchaseAt.getTime()}`;
+      // Transfer (2026-11-24): the same store purchase (one Apple ID / Google account) was recorded
+      // for another of our accounts, and RevenueCat moved it to this one (TRANSFER event, or a
+      // restore on the other account). The unique key (provider, original transaction) would make
+      // the insert below a silent no-op and the app would wait forever. The other account's rows end
+      // and keep their history under a marked id; this account gets its own contract.
+      const moved = await trx
+        .selectFrom('subscriptions')
+        .select(['id', 'user_id', 'status', 'store_original_transaction_id'])
+        .where('provider', '=', sub.store)
+        .where('user_id', '<>', userId)
+        .where((eb) =>
+          eb.or([
+            eb('store_original_transaction_id', '=', originalId),
+            eb('original_purchase_at', '=', sub.originalPurchaseAt),
+          ]),
+        )
+        .execute();
+      for (const m of moved) {
+        const wasLive = (LIVE as readonly string[]).includes(m.status);
+        await trx
+          .updateTable('subscriptions')
+          .set({
+            store_original_transaction_id: `${m.store_original_transaction_id ?? originalId}#moved:${m.id}`,
+            ...(wasLive ? { status: 'expired', will_renew: false } : {}),
+          })
+          .where('id', '=', m.id)
+          .execute();
+      }
+      if (moved.length) {
+        this.logger.warn(
+          { userId, fromUserIds: [...new Set(moved.map((m) => m.user_id))], rows: moved.length },
+          'store purchase transferred from another account',
+        );
+      }
+
       // A new store contract. An older store contract of this account ends first (re-purchase).
       await trx
         .updateTable('subscriptions')
@@ -348,9 +385,7 @@ export class StoreSyncService {
           // button, so this needs a race or an old app version.
           status: other ? 'incomplete' : status,
           provider: sub.store,
-          store_original_transaction_id:
-            hint?.originalTransactionId ??
-            `rc:${sub.productId}:${sub.originalPurchaseAt.getTime()}`,
+          store_original_transaction_id: originalId,
           store_product_id: sub.productId,
           store_last_transaction_id: hint?.transactionId ?? sub.transactionId,
           store_price_cents: sub.priceCents ?? (await this.billing.storeYearPrice()),
