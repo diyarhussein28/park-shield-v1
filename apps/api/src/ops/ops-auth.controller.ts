@@ -17,7 +17,8 @@ import { deviceLabel, truncateIp } from '../core/ip';
 import { RateLimitService } from '../core/rate-limit.service';
 import { ENV } from '../core/tokens';
 import { ZodPipe } from '../core/zod.pipe';
-import { OPS_CSRF_COOKIE, OPS_SESSION_COOKIE, OpsPublic, StaffOnly } from './access';
+import { eraseCookies, opsCookies, writeCookies } from '../auth/cookies';
+import { OpsPublic, StaffOnly } from './access';
 import { CurrentStaff } from './staff.guard';
 import { StaffService, type StaffContext } from './staff.service';
 
@@ -47,14 +48,9 @@ export class OpsAuthController {
   }
 
   private setCookies(reply: FastifyReply, s: { token: string; csrf: string }) {
-    // Host-only cookies on the ops domain, Strict: ops links are never followed from e-mails.
-    const base = {
-      path: '/',
-      sameSite: 'strict' as const,
-      secure: this.env.NODE_ENV === 'production',
-    };
-    reply.setCookie(OPS_SESSION_COOKIE, s.token, { ...base, httpOnly: true });
-    reply.setCookie(OPS_CSRF_COOKIE, s.csrf, { ...base, httpOnly: false });
+    // Host-only cookies on the ops domain (`__Host-` on https), Strict: ops links are never followed
+    // from e-mails.
+    writeCookies(reply, opsCookies(this.env), s, 'strict');
   }
 
   @Post('auth/login/options')
@@ -135,8 +131,7 @@ export class OpsAuthController {
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
     await this.staff.revoke(staff.sessionId);
-    reply.clearCookie(OPS_SESSION_COOKIE, { path: '/' });
-    reply.clearCookie(OPS_CSRF_COOKIE, { path: '/' });
+    eraseCookies(reply, opsCookies(this.env), 'strict');
     return { ok: true };
   }
 

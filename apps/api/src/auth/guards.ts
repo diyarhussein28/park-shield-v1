@@ -11,7 +11,9 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
-import { CSRF_COOKIE, CSRF_HEADER, SESSION_COOKIE } from './cookies';
+import type { Env } from '../config/env';
+import { ENV } from '../core/tokens';
+import { CSRF_HEADER, sessionCookies } from './cookies';
 import { SessionService, type AuthContext } from './session.service';
 
 type AuthedRequest = FastifyRequest & { auth?: AuthContext };
@@ -30,11 +32,15 @@ export function bearerToken(req: Pick<FastifyRequest, 'headers'>): string | unde
 
 @Injectable()
 export class SessionGuard implements CanActivate {
-  constructor(@Inject(SessionService) private readonly sessions: SessionService) {}
+  constructor(
+    @Inject(SessionService) private readonly sessions: SessionService,
+    @Inject(ENV) private readonly env: Env,
+  ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest<AuthedRequest>();
-    const auth = await this.sessions.resolve(req.cookies?.[SESSION_COOKIE] ?? bearerToken(req));
+    const name = sessionCookies(this.env).session;
+    const auth = await this.sessions.resolve(req.cookies?.[name] ?? bearerToken(req));
     if (!auth) throw new UnauthorizedException({ error: 'not_signed_in' });
     req.auth = auth;
     return true;
@@ -50,14 +56,18 @@ export const SkipCsrf = () => SetMetadata(SKIP_CSRF, true);
 /** Double-submit CSRF check for every state-changing request that carries a session cookie. */
 @Injectable()
 export class CsrfGuard implements CanActivate {
-  constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
+  constructor(
+    @Inject(Reflector) private readonly reflector: Reflector,
+    @Inject(ENV) private readonly env: Env,
+  ) {}
 
   canActivate(ctx: ExecutionContext): boolean {
     const req = ctx.switchToHttp().getRequest<FastifyRequest>();
-    if (SAFE_METHODS.has(req.method) || !req.cookies?.[SESSION_COOKIE]) return true;
+    const names = sessionCookies(this.env);
+    if (SAFE_METHODS.has(req.method) || !req.cookies?.[names.session]) return true;
     if (this.reflector.getAllAndOverride<boolean>(SKIP_CSRF, [ctx.getHandler(), ctx.getClass()]))
       return true;
-    const cookie = req.cookies[CSRF_COOKIE] ?? '';
+    const cookie = req.cookies[names.csrf] ?? '';
     const header = String(req.headers[CSRF_HEADER] ?? '');
     const ok =
       cookie.length > 0 &&

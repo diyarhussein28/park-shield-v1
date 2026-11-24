@@ -10,13 +10,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
-import {
-  OPS_ACCESS,
-  OPS_CSRF_COOKIE,
-  OPS_CSRF_HEADER,
-  OPS_SESSION_COOKIE,
-  type OpsAccess,
-} from './access';
+import { opsCookies } from '../auth/cookies';
+import type { Env } from '../config/env';
+import { ENV } from '../core/tokens';
+import { OPS_ACCESS, OPS_CSRF_HEADER, type OpsAccess } from './access';
 import { StaffService, type StaffContext } from './staff.service';
 
 type StaffRequest = FastifyRequest & { staff?: StaffContext };
@@ -31,6 +28,7 @@ export class StaffGuard implements CanActivate {
   constructor(
     @Inject(Reflector) private readonly reflector: Reflector,
     @Inject(StaffService) private readonly staff: StaffService,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -42,10 +40,11 @@ export class StaffGuard implements CanActivate {
     if (access.kind === 'public') return true;
 
     const req = ctx.switchToHttp().getRequest<StaffRequest>();
-    const staff = await this.staff.resolve(req.cookies?.[OPS_SESSION_COOKIE]);
+    const names = opsCookies(this.env);
+    const staff = await this.staff.resolve(req.cookies?.[names.session]);
     if (!staff) throw new UnauthorizedException({ error: 'not_signed_in' });
     if (!SAFE.has(req.method)) {
-      const cookie = req.cookies?.[OPS_CSRF_COOKIE] ?? '';
+      const cookie = req.cookies?.[names.csrf] ?? '';
       const header = String(req.headers[OPS_CSRF_HEADER] ?? '');
       const ok =
         cookie.length > 0 &&

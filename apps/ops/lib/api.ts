@@ -7,8 +7,11 @@ export class OpsApiError extends Error {
   }
 }
 
+/** `__Host-ps_ops_csrf` on https (apps/api/src/auth/cookies.ts), wins over a stale plain cookie. */
 function csrf(): string | undefined {
-  const m = /(?:^|;\s*)ps_ops_csrf=([^;]+)/.exec(document.cookie);
+  const m =
+    /(?:^|;\s*)__Host-ps_ops_csrf=([^;]+)/.exec(document.cookie) ??
+    /(?:^|;\s*)ps_ops_csrf=([^;]+)/.exec(document.cookie);
   return m ? decodeURIComponent(m[1]!) : undefined;
 }
 

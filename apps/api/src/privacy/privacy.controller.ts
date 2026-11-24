@@ -53,7 +53,7 @@ export class PrivacyController {
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
     const r = await this.privacy.requestDeletion(user);
-    clearSessionCookies(reply, this.env.NODE_ENV === 'production');
+    clearSessionCookies(reply, this.env);
     return r;
   }
 

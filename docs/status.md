@@ -10,7 +10,7 @@ on one laptop, so **everyone (and every AI agent) on every machine reads the sam
 > The repository is **public**. Never write secrets, keys, passwords, customer data, phone numbers
 > or e-mail addresses of real customers here. Names of env vars are fine; their values are not.
 
-_Last updated: 2026-11-24 (website e-mail change, trusted-contact clean-up migration, ops subscription source, Google Play pause; `docs/handover.md` §12). Before: 2026-11-22 (unified billing RevenueCat + Stripe and the personalised sticker, see §3)._
+_Last updated: 2026-11-24 (`__Host-` cookies; Vercel dropped, public pages of `park-shield.de` from the server). Before: 2026-11-24 (website e-mail change, trusted-contact clean-up migration, ops subscription source, Google Play pause; `docs/handover.md` §12). Before: 2026-11-22 (unified billing RevenueCat + Stripe and the personalised sticker, see §3)._
 
 ---
 
@@ -64,7 +64,9 @@ print. Open findings: `docs/handover.md` §6 item 6.
   in chat). They are edited on the server, e.g.
   `ssh -t root@<server> 'nano /opt/parkshield/src/infra/single/server.env'`.
 - **Test site:** https://test.park-shield.de, behind basic auth (`APP_ENV=ci`); the scanner flow
-  and `/v1/webhooks/*` are exempt. `park-shield.de` itself is still the Vercel website preview.
+  and `/v1/webhooks/*` are exempt. `park-shield.de` itself is still the Vercel website preview until
+  the switch-over in `infra/single/README.md` („Public website on park-shield.de“, Vercel dropped
+  2026-11-24): then the server shows the public pages there.
 - **Ops app (back office):** since 2026-11-18 at **https://ops.test.park-shield.de** (test server
   only): the test site's basic auth first, then your staff passkey. `OPS_BASE_URL` is that URL, so
   passkeys registered for `localhost` no longer work; each person needs a new invite. Undo before
@@ -108,6 +110,10 @@ records. Old SendGrid and Brevo records stay but are unused.
 
 ## 3. Decisions
 
+- **Vercel dropped, `__Host-` cookies (2026-11-24).** The website moves to our own server: until
+  go-live the test server shows only the public pages on `park-shield.de` (Caddyfile `{$PUBLIC_DOMAIN}`);
+  steps in `infra/single/README.md`. Session cookies carry the `__Host-` prefix on every https
+  production origin (the test server too, after its next deploy: everyone signs in once more).
 - **Unified billing and the personalised sticker (2026-11-22).** Option A: our backend is the
   entitlement hub — RevenueCat (App Store / Google Play) and Stripe webhooks update one `subscriptions`
   record (`provider`, unified status ACTIVE / CANCEL_SCHEDULED / BILLING_ISSUE / EXPIRED / REFUNDED /
@@ -193,7 +199,8 @@ Relaxed only for testing on the test server. Restore every item before step 5:
    `app_settings` key `photos.plans` = `["plus","premium"]`. For launch: off until the legal review
    (`LEGAL_REVIEW.md` §5) and the launch checklist (§4a), then on for Plus and Premium (the default
    since migration `20261203000000_photos_all_plans`; the setting needs no change).
-4. Impressum and legal pages reviewed by the lawyer; then remove `SITE_NOINDEX` on Vercel too.
+4. Impressum and legal pages reviewed by the lawyer; then remove `SITE_NOINDEX` and the `X-Robots-Tag`
+   line of the Caddyfile's public `park-shield.de` block.
 5. **WhatsApp removed** (2026-12): delete `WHATSAPP_PROVIDER`, `TWILIO_WHATSAPP_FROM`,
    `TWILIO_CONTENT_*` and `D360_*` from `server.env`; disconnect the WhatsApp sender in Twilio.
 6. **App push**: Firebase project and `FCM_*` in `server.env` (real production refuses to start

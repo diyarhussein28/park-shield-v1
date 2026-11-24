@@ -76,10 +76,6 @@ export class AuthController {
     @Inject(RateLimitService) private readonly limits: RateLimitService,
   ) {}
 
-  private get secureCookies() {
-    return this.env.NODE_ENV === 'production';
-  }
-
   @Post('auth/magic-link')
   @HttpCode(202)
   async requestMagicLink(
@@ -103,7 +99,7 @@ export class AuthController {
       deviceLabel(req.headers['user-agent']),
     );
     if (!session) throw new UnauthorizedException({ error: 'link_invalid_or_used' });
-    setSessionCookies(reply, session, this.secureCookies);
+    setSessionCookies(reply, session, this.env);
     return { ok: true };
   }
 
@@ -112,7 +108,7 @@ export class AuthController {
   @UseGuards(SessionGuard)
   async logout(@CurrentUser() user: AuthContext, @Res({ passthrough: true }) reply: FastifyReply) {
     await this.sessions.revoke(user.sessionId);
-    clearSessionCookies(reply, this.secureCookies);
+    clearSessionCookies(reply, this.env);
     return { ok: true };
   }
 
@@ -152,7 +148,7 @@ export class AuthController {
     const userId = await this.passkeys.login(body.challengeId, body.response as never);
     if (!userId) throw new UnauthorizedException({ error: 'passkey_invalid' });
     const session = await this.auth.signIn(userId, deviceLabel(req.headers['user-agent']));
-    setSessionCookies(reply, session, this.secureCookies);
+    setSessionCookies(reply, session, this.env);
     return { ok: true };
   }
 

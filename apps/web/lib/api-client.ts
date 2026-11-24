@@ -9,8 +9,14 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The double-submit token. On https production the cookie is `__Host-ps_csrf` (ASVS 3.4.4, see
+ * apps/api/src/auth/cookies.ts); the prefixed one wins over a stale plain `ps_csrf`.
+ */
 function csrfToken(): string | undefined {
-  const m = /(?:^|;\s*)ps_csrf=([^;]+)/.exec(document.cookie);
+  const m =
+    /(?:^|;\s*)__Host-ps_csrf=([^;]+)/.exec(document.cookie) ??
+    /(?:^|;\s*)ps_csrf=([^;]+)/.exec(document.cookie);
   return m ? decodeURIComponent(m[1]!) : undefined;
 }
 

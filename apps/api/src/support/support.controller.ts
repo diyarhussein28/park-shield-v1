@@ -1,10 +1,12 @@
 import { Body, Controller, HttpCode, Inject, Post, Req, UseGuards } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { SESSION_COOKIE } from '../auth/cookies';
+import { sessionCookies } from '../auth/cookies';
 import { CurrentUser, SessionGuard } from '../auth/guards';
 import { SessionService, type AuthContext } from '../auth/session.service';
+import type { Env } from '../config/env';
 import { truncateIp } from '../core/ip';
+import { ENV } from '../core/tokens';
 import { ZodPipe } from '../core/zod.pipe';
 import { SUPPORT_TOPICS, SupportService } from './support.service';
 import { captchaSolution } from '../providers/captcha';
@@ -39,6 +41,7 @@ export class SupportController {
   constructor(
     @Inject(SupportService) private readonly support: SupportService,
     @Inject(SessionService) private readonly sessions: SessionService,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   /** Works signed in or not; with a session cookie the CSRF guard applies as everywhere. */
@@ -48,7 +51,7 @@ export class SupportController {
     @Body(new ZodPipe(Contact)) body: z.infer<typeof Contact>,
     @Req() req: FastifyRequest,
   ) {
-    const auth = await this.sessions.resolve(req.cookies?.[SESSION_COOKIE]);
+    const auth = await this.sessions.resolve(req.cookies?.[sessionCookies(this.env).session]);
     return this.support.contact(body, { ipPrefix: truncateIp(req.ip), auth });
   }
 }

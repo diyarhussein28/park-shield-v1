@@ -6,7 +6,6 @@
       "dependsOn": ["^build"],
       "env": [
         "SITE_NOINDEX",
-        "VERCEL",
         "APP_ENV",
         "API_INTERNAL_URL",
         "NEXT_DIST_DIR",

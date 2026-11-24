@@ -18,8 +18,7 @@ export const StaffOnly = () => SetMetadata(OPS_ACCESS, { kind: 'staff' } satisfi
 export const RequirePermission = (...permissions: [string, ...string[]]) =>
   SetMetadata(OPS_ACCESS, { kind: 'permission', permissions } satisfies OpsAccess);
 
-export const OPS_SESSION_COOKIE = 'ps_ops_session';
-export const OPS_CSRF_COOKIE = 'ps_ops_csrf';
+// Cookie names: opsCookies() in auth/cookies.ts (`__Host-` prefix on https).
 export const OPS_CSRF_HEADER = 'x-csrf-token';
 /** AD-01: a staff session ends after 30 minutes without a request, and after 12 hours at most. */
 export const STAFF_IDLE_MINUTES = 30;

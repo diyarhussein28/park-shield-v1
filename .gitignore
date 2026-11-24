@@ -30,10 +30,8 @@ infra/ansible/inventories/*/hosts.yml
 infra/monitoring/.terraform/
 infra/monitoring/*.tfstate*
 infra/monitoring/*.tfvars
-# Vercel CLI project link (local only)
+# Old Vercel CLI project link (Vercel dropped 2026-11-24): never commit a leftover one
 .vercel/
-
-.vercel
 .env*
 # keep the template: scripts/dev.ts creates .env from it on the first run
 !.env.example

@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -321,7 +321,7 @@ Still open (owner accounts):
    pattern, `LogoMark`), not the old star shield. E-mail files `apps/web/public/email/parkshield-logo.png`
    (footer) and `parkshield-logo-tile.png` (white tile for the blue header); the old
    `parkshield-shield.png` now holds the new mark too, so mails already sent show it. They are served
-   from `park-shield.de` (Vercel preview): redeploy Vercel after changing them. Dark mode in mail apps
+   from `park-shield.de` (Vercel until the switch-over, then our server, §13): deploy after changing them. Dark mode in mail apps
    stays as it is (owner, 2026-11-23).
 7. ✅ 2026-11-23 Store price in the contract confirmation: store subscriptions keep the price the store
    charged (`subscriptions.store_price_cents`, from RevenueCat `subscriptions[].price`, fallback setting
@@ -464,4 +464,21 @@ Konto tab → new group „Anmeldung & Kontakt“ with two rows (current e-mail,
   `db:check` green; E2E 128 tests: all green after fixing `sprint10.spec.ts`, which still expected the
   old per-started-day refund (19,95 €) instead of the whole-day rule of 2026-11-22 (20,00 € same day).
 - Not deployed yet; the app part needs a new EAS build.
+
+## 13. `__Host-` cookies and dropping Vercel (2026-11-24)
+
+- **Cookies** (`apps/api/src/auth/cookies.ts`, test `cookies.test.ts`): with `NODE_ENV=production` and an
+  `https://` `WEB_BASE_URL` (ops: `OPS_BASE_URL`) the session and CSRF cookies are `__Host-ps_session` /
+  `__Host-ps_csrf` (ops `__Host-ps_ops_*`); the guards and the support form read only those, sign-in
+  clears an old plain cookie, the web and ops clients prefer the prefixed CSRF cookie. CI and local dev
+  (http://localhost) keep the plain names. The test server switches with its next deploy: everyone is
+  signed out once (website and ops; the app uses bearer tokens and is not affected).
+- **Vercel dropped:** `.vercelignore`, the `VERCEL` build switch and env entry are gone (`next build`
+  always makes the standalone output). The Caddyfile has a public block `{$PUBLIC_DOMAIN}` that serves
+  only the public pages and the e-mail images on `park-shield.de` until go-live. **Owner steps** (in this
+  order, `infra/single/README.md`): `PUBLIC_DOMAIN=park-shield.de` in the server `.env` + deploy +
+  recreate caddy → DNS of `park-shield.de` and `www` at Strato to the server IP (MX/SPF/DMARC/Mailjet
+  untouched) → check pages, `/email/*` and a test e-mail → delete the Vercel project.
+- Not validated with a Caddy binary in the cloud container (download blocked): run
+  `docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile` on the server after the deploy.
 

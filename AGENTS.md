@@ -278,11 +278,11 @@ Single API test file: `cd apps/api && npx vitest run src/scan`. Single E2E file:
   PostgreSQL and Valkey on one Hetzner VM with Docker Compose and Caddy, to test real providers
   (Twilio webhooks first) on a public domain. `APP_ENV=ci` with fakes for missing keys, so the
   whole site is behind basic auth except `/v1/webhooks/*`. Not production; see its README.
-- **Website preview on Vercel (temporary):** https://parkshield-seven.vercel.app — Vercel project
-  `parkshield`, root `apps/web`, region `fra1`, env `APP_ENV=production` and `SITE_NOINDEX=1`
-  (sends `X-Robots-Tag: noindex` while the Impressum has placeholders). **Website only**: sign-in,
-  checkout, waitlist and scanning need the API and fail there. Not connected to Git; redeploy from
-  the repo root with `vercel deploy --prod --yes`.
+- **Public website on `park-shield.de` (until go-live):** Vercel was dropped on 2026-11-24. The
+  test server serves only the public pages on the real domain (Caddyfile block `{$PUBLIC_DOMAIN}`,
+  `noindex`): landing page, help centre, legal pages, `/email/*` (e-mail images, Webmail signatures)
+  and `/.well-known/*`; everything else redirects home. Switch-over steps in `infra/single/README.md`
+  („Public website on park-shield.de“).
 
 ## 7. Architecture essentials
 
@@ -496,9 +496,7 @@ Also:
 
 - **Windows / PowerShell 5.1:** `Set-Content`/`Get-Content` corrupt UTF-8 (use an editor or
   `[IO.File]` with UTF-8 without BOM); PowerShell mangles double quotes in native-exe arguments —
-  pass commit messages with `git commit -F <file>`. `'x' | vercel env add` stores a broken value;
-  set Vercel env vars via `vercel api /v10/projects/parkshield/env?upsert=true` with one JSON
-  object per call.
+  pass commit messages with `git commit -F <file>`.
 - **Orphaned PostgreSQL:** stopping `npm run dev` can leave an embedded `postgres.exe
 --forkchild="io_worker"` holding port 5432; the next `npm run dev` then dies with "undefined".
   Kill that process and restart.
@@ -510,7 +508,7 @@ Also:
 - **`next build` while `next dev` runs** causes an HMR reload loop: build with
   `NEXT_DIST_DIR=.next-prod`. Measure performance (scanner page) on a production build, not dev.
 - **Turborepo strict env mode:** a build-time env var read in `next.config.ts` must be listed under
-  `build.env` in `turbo.json` (root scripts use `--env-mode=loose`, Vercel does not).
+  `build.env` in `turbo.json` (root scripts use `--env-mode=loose`, the Docker build too).
 - **CI is a production build with fakes** (`APP_ENV=ci`). Test-only routes (dev mailbox, local push
   receiver) are gated by `isTestEnvironment()` in `apps/api/src/config/env.ts`, not by `NODE_ENV`.
 - **Linux fonts are wider than Windows fonts:** reflow at 320 px can fail only in CI. Long e-mail
@@ -533,7 +531,10 @@ Also:
       else), mailbox `contact@park-shield.de`. Used on the legal pages, `security.txt`, the scanner
       footer and as `MAIL_FROM`. Still `@parkshield.de`: the setting `ops.alert_email`
       (`datenschutz@parkshield.de`, change it in ops → Einstellungen) and the infra/runbook examples.
-- [ ] Remove `SITE_NOINDEX` on Vercel once the lawyer has reviewed the legal pages.
+- [ ] Remove `noindex` (`SITE_NOINDEX`, and the `X-Robots-Tag` line of the Caddyfile's public block)
+      once the lawyer has reviewed the legal pages.
+- [ ] Switch `park-shield.de` from Vercel to the server and delete the Vercel project
+      (`infra/single/README.md`, „Public website on park-shield.de“).
 - [ ] **Lawyer review:** AGB, Datenschutzerklärung, Widerrufsbelehrung, and the withdrawal formula
       (Wertersatz per started day; printed decal valued via setting
       `refunds.custom_decal_cost_cents`, currently 2.50 €).
@@ -579,12 +580,13 @@ Also:
 - [ ] Manual **screen-reader test** (NVDA, VoiceOver) and optional external BITV test; update
       `/barrierefreiheit`.
 - [ ] Write the **print partner adapter** once the partner is chosen.
-- [ ] Switch cookies to the `__Host-` prefix at the first production deploy (ASVS gap, see
-      `docs/security/asvs-l2.md`); revisit `style-src 'unsafe-inline'` in the CSP.
+- [x] `__Host-` cookie prefix (2026-11-24, `apps/api/src/auth/cookies.ts`): automatic on every https
+      production origin (`NODE_ENV=production` and an `https://` `WEB_BASE_URL` / `OPS_BASE_URL`),
+      plain names on http://localhost. Switching signs everyone out once.
+- [ ] Revisit `style-src 'unsafe-inline'` in the CSP.
 - [ ] Move the remaining **scanner page texts** (beyond alert-type labels) from code into
       `packages/i18n`.
-- [ ] Decide whether to connect Vercel to GitHub (auto-deploy) or drop Vercel once Hetzner hosts the
-      website.
+- [x] Vercel dropped (owner decision 2026-11-24): the website is served from our own server.
 
 ### C. Known product gaps (deliberate, Phase 1)
 

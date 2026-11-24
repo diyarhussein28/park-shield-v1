@@ -27,7 +27,7 @@ control; everything listed as a test runs in CI. Gaps are listed at the end with
 
 | Item | Decision |
 | --- | --- |
-| 3.4.4 `__Host-` cookie prefix | Not used yet. Cookies are already host-only (no `Domain`), `Path=/`, `Secure` in production. Rename to `__Host-ps_session` / `__Host-ps_ops_session` together with the first production deployment, when local development also runs on HTTPS. |
+| 3.4.4 `__Host-` cookie prefix | Done 2026-11-24 (`apps/api/src/auth/cookies.ts`, test `cookies.test.ts`): on an https production origin the cookies are `__Host-ps_session` / `__Host-ps_csrf` and `__Host-ps_ops_session` / `__Host-ps_ops_csrf` (`Secure`, `Path=/`, no `Domain`); the guards read only those, and an old plain cookie is cleared at sign-in. Local development and the CI run on http://localhost keep the plain names (browsers refuse the prefix on http). |
 | `style-src 'unsafe-inline'` | Kept: React style attributes (progress bar) cannot carry a nonce, and a nonce in `style-src` disables `'unsafe-inline'` in browsers. Scripts stay strict. Risk: CSS injection only, no script execution. |
 | Valid scanner codes are not rate-limited on page views | Accepted: the target is 10,000 scans/min; misses are limited per IP (`scan.not_found`), creating alerts is limited three ways. Load-shedding at Caddy is part of the load-test package. |
 | Webhook from Twilio authenticated by `X-Twilio-Signature` | HMAC-SHA1 with the auth token over the configured public URL and all parameters, compared in constant time (`providers/twilio-whatsapp.ts`); unsigned requests get 403. |

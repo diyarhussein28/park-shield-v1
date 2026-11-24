@@ -96,6 +96,55 @@
 	}
 }
 
+# The public website on the real domain (2026-11-24, replaces the Vercel preview). Until go-live
+# (docs/status.md §1 step 5) this stack runs in test mode (APP_ENV=ci, dev inbox, test data), so only
+# the public pages are served here, exactly what the Vercel preview showed: landing page, help centre,
+# legal pages, their static files, the e-mail images (/email/*, also used by the Webmail signatures)
+# and the app-link files. Everything else (sign-in, portal, scanner, /v1 API, /dev) redirects to the
+# home page. PUBLIC_DOMAIN in .env (park-shield.de); unset, the block answers only on the local name
+# public.localhost (Caddy's internal CA, no certificate request). At go-live this block is replaced by
+# the full site: DOMAIN=park-shield.de with APP_ENV=production and no basic auth.
+www.{$PUBLIC_DOMAIN:public.localhost} {
+	redir https://{$PUBLIC_DOMAIN:public.localhost}{uri} permanent
+}
+
+{$PUBLIC_DOMAIN:public.localhost} {
+	tls {
+		protocols tls1.2 tls1.3
+		ciphers TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+	}
+	header {
+		Strict-Transport-Security "max-age=63072000"
+		# Out of search engines until the lawyer has reviewed the legal pages (was SITE_NOINDEX on Vercel).
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>remote_ip delete
+				request>remote_port delete
+				request>client_ip delete
+				request>headers delete
+				request>uri delete
+				request>tls delete
+				resp_headers delete
+			}
+		}
+	}
+
+	@website path / /business /hilfe /hilfe/* /impressum /datenschutz /agb /widerruf /barrierefreiheit /sicherheit /_next/* /email/* /images/* /icons/* /manifest.webmanifest /favicon.ico /icon /icon.* /apple-icon /apple-icon.* /robots.txt /sitemap.xml /.well-known/*
+	handle @website {
+		reverse_proxy 127.0.0.1:3000
+	}
+
+	handle {
+		redir * / 302
+	}
+}
+
 # Back office on its own subdomain (TEST STACK ONLY, docs/status.md §4): basic auth in front, then
 # staff passkeys. OPS_BASE_URL in server.env must be https://{$OPS_DOMAIN}, because passkeys bind to
 # that host. Only the ops app (:3001) is proxied; it forwards /ops/v1/* to the ops API itself.

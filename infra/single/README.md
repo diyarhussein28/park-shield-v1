@@ -113,6 +113,31 @@ passkey. Set up:
 block and `OPS_DOMAIN`, set `OPS_BASE_URL` back (production: the VPN host from Ansible), re-invite
 staff, delete the `ops.test` DNS record.
 
+### Public website on `park-shield.de` (replaces the Vercel preview, 2026-11-24)
+
+Until go-live the real domain shows only the public pages (landing page, help centre, legal pages, the
+e-mail images under `/email/*` and the app-link files under `/.well-known/*`), served by this stack's
+web app through the Caddyfile block `{$PUBLIC_DOMAIN}`. Sign-in, portal, scanner, `/v1` and `/dev`
+redirect to the home page there, because this stack still runs in test mode. Pages stay `noindex`.
+
+Switch-over (order matters: the e-mail logos and the Webmail signatures load from
+`https://park-shield.de/email/…`, so Vercel stays until the server answers):
+
+1. Server `.env`: `PUBLIC_DOMAIN=park-shield.de`; deploy (the Caddyfile comes from `origin/main`), then
+   `docker compose up -d --force-recreate caddy`.
+2. Strato DNS: note the current `park-shield.de` A/AAAA records and the `www` record (Vercel), then
+   point `park-shield.de` (A, delete any AAAA) and `www` (A or CNAME) at the server IP. **Do not touch**
+   MX, DMARC, the SPF TXT and the Mailjet records.
+3. When DNS has switched (`dig +short park-shield.de`), Caddy gets the certificates by itself. Check
+   `https://park-shield.de/`, `/impressum`, `/datenschutz`, `/email/parkshield-logo.png`,
+   `/.well-known/assetlinks.json`, and that `https://www.park-shield.de/` redirects; send yourself one
+   test e-mail and look at the logo.
+4. Only then remove the domain from the Vercel project and delete the project (vercel.com → project
+   `parkshield` → Settings → Delete). The preview URL `parkshield-seven.vercel.app` ends with it.
+
+At go-live (docs/status.md §1 step 5) the block is replaced by the full site: `DOMAIN=park-shield.de`,
+`APP_ENV=production`, no basic auth, `PUBLIC_DOMAIN` removed.
+
 ## Useful commands (on the server, in `/opt/parkshield/src/infra/single`)
 
 ```bash

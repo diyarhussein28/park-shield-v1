@@ -30,8 +30,8 @@ const config: NextConfig = {
   allowedDevOrigins: devHost,
   // A production build next to a running `next dev` must not share its folder (HMR hash mismatch loop).
   distDir: process.env.NEXT_DIST_DIR ?? '.next',
-  // Docker image on our own servers; Vercel (temporary website preview) builds its own output.
-  output: process.env.VERCEL ? undefined : 'standalone',
+  // Docker image on our own servers (the Vercel preview was dropped on 2026-11-24).
+  output: 'standalone',
   outputFileTracingRoot: join(import.meta.dirname, '..', '..'),
   transpilePackages: ['@parkshield/ui'],
   // The captcha widget (client code) uses the same endpoint setting as the API; empty means EU.
