@@ -1328,6 +1328,8 @@ const de = {
     perm_audit_read: 'Audit-Log lesen',
     perm_letters_print: 'Willkommensbriefe und QR-Codes drucken (mit Anschrift und Kennzeichen)',
     perm_letters_manage: 'Briefe neu erstellen, Firmendaten für Briefe pflegen',
+    perm_codes_override_cooldown:
+      'Neuen Code trotz Wartezeit ausstellen (z. B. gestohlener Aufkleber)',
     letter_new: 'Neu',
     letter_downloaded: 'Heruntergeladen',
     letter_sent: 'Versendet',
@@ -1989,6 +1991,8 @@ const de = {
     k_prices_plan_year_cents: 'Jahrespreis inkl. MwSt. (Cent, muss zum Stripe-Preis passen)',
     k_prices_print_shipped_cents:
       'Gedruckter Aufkleber mit Versand nach dem Willkommensdruck (Cent)',
+    k_codes_reissue_cooldown_days: 'Neuer Code höchstens alle (Tage, pro Fahrzeug)',
+    k_codes_free_reissues_per_year: 'Kostenlose neue Codes nach „Sperren“ pro Vertragsjahr',
     k_escalation_reminder_minutes: 'Erinnerungs-Push an den Halter nach (Minuten)',
     k_escalation_sms_minutes: 'Eine SMS an den Halter nach (Minuten ohne Reaktion)',
     k_owner_phone_countries: 'Handynummer des Halters: erlaubte Länder (ISO-Codes, mit Komma)',

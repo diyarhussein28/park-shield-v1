@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-24 (app first, phase 1 of 4 done: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-24 (app first, phase 2 of 4 done: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -531,17 +531,32 @@ audit `qr_code.replaced`; e-mail stays Mailjet.
   the app, or delete?), `/antwort` (old e-mail reply page, nothing links to it — delete?), passkeys for
   owners (were added on the website portal — drop?).
 
-### Phase 2 — new-code rules in the API (next)
+### Phase 2 — new-code rules in the API (done 2026-11-24)
 
-New settings `codes.reissue_cooldown_days` (10) and `codes.free_reissues_per_year` (1); new ops
-permission for the override; table of issuances (vehicle, user, kind `initial|free|paid|ops_override`,
-subscription period, token, unique Stripe reference, time; migration + `npm run db:types`);
-`GET /v1/vehicles/:id/new-code` (`freeAvailable`, `paidAvailable`, `nextEligibleAt`, `cooldownDays`,
-`priceCents`, reason); `POST /v1/vehicles/:id/tokens` enforces it (409 `code_cooldown` +
-`nextEligibleAt`, 402 `payment_required`); one service function under a per-vehicle lock; tests for the
-boundary, the yearly reset, Sperren → free → Sperren → paid, concurrency and the override. Note: the E2E
-„Sperren“ test in `sprint4.spec.ts` creates a new code right after the first one and must then expect the
-cooldown (or move the first code's date back).
+- Migration `20261211000000_code_issuances`: enum `code_issue_kind` (`legacy`, `initial`, `free`, `paid`,
+  `ops_override`, `ops_reissue`, `resubscribe`, `partner_claim`) and table `code_issuances` (vehicle,
+  user, token, kind, subscription, `subscription_year_start`, unique `stripe_ref`, `issued_at`); every
+  existing code backfilled as `legacy`. New permission `codes.override_cooldown` (role admin).
+- Settings `codes.reissue_cooldown_days` (10) and `codes.free_reissues_per_year` (1), labels in ops.
+- `apps/api/src/vehicles/code-rules.ts`: `CodeRulesService.eligibility()` is the one decision (newest
+  code of the vehicle from the ledger and `qr_tokens.assigned_at`; free codes counted per subscription
+  and subscription year = first purchase + whole years), `recordIssuance()`, `auditCodeReplaced()`
+  (`qr_code.replaced`), `lockCodes()` (advisory lock per account). Every issuing path records its row:
+  vehicle creation, free new code, ops reissue (abuse centre), re-subscription, partner claim, override.
+- Owner API: `GET /v1/vehicles/:id/new-code` → `freeAvailable`, `paidAvailable`, `nextEligibleAt`,
+  `lastIssuedAt`, `cooldownDays`, `priceCents` (= `prices.print_shipped_cents`), `freePerYear`,
+  `freeUsed`, `hasActiveCode`, `reason` (`subscription_required` | `cooldown` | `code_active` |
+  `free_used` | null). `POST /v1/vehicles/:id/tokens` (free code): 409 `code_cooldown`
+  (+ `nextEligibleAt`, `cooldownDays`), 409 `code_active`, 402 `payment_required` (+ `priceCents`).
+- Ops API: `POST /ops/v1/vehicles/:id/new-code` `{ reason }` (`codes.override_cooldown`): revokes the
+  active code, issues a free one with the same design, records `ops_override`, audits with the reason.
+  **No button in the ops app yet** (comes with the Customer 360 work of phase 3).
+- Tests: `vehicles/code-rules.test.ts` (8: year start, first code starts the cooldown, exact boundary,
+  free once per year → 402 → yearly reset, settings, race, no subscription, override + permission);
+  `scan.test.ts` and E2E `sprint4.spec.ts` age the first code before the free new code. API 667 green,
+  `db:check` green.
+- **Note for phase 4:** the current app sends `POST …/tokens` and only knows `code_active`; until the
+  new screen exists it shows a generic error for `code_cooldown` / `payment_required`.
 
 ### Phase 3 — paid 3 € flow (Stripe) · Phase 4 — app UI
 

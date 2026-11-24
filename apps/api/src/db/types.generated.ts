@@ -33,6 +33,8 @@ export type ChatSender = "owner" | "scanner" | "system";
 
 export type ChatStatus = "active" | "closed" | "locked";
 
+export type CodeIssueKind = "free" | "initial" | "legacy" | "ops_override" | "ops_reissue" | "paid" | "partner_claim" | "resubscribe";
+
 export type ConsentState = "confirmed" | "declined" | "pending" | "revoked";
 
 export type DecalProduct = "a6_dashboard_card" | "nfc_vinyl_sticker" | "uv_vinyl_sticker";
@@ -320,6 +322,18 @@ export interface ChatSessions {
   scanner_seen_at: Timestamp | null;
   status: Generated<ChatStatus>;
   token_hash: Buffer | null;
+}
+
+export interface CodeIssuances {
+  id: Generated<string>;
+  issued_at: Generated<Timestamp>;
+  kind: CodeIssueKind;
+  qr_token_id: string;
+  stripe_ref: string | null;
+  subscription_id: string | null;
+  subscription_year_start: Timestamp | null;
+  user_id: string;
+  vehicle_id: string;
 }
 
 export interface CompanyProfiles {
@@ -1028,6 +1042,7 @@ export interface DB {
   break_glass_requests: BreakGlassRequests;
   cancellation_requests: CancellationRequests;
   chat_sessions: ChatSessions;
+  code_issuances: CodeIssuances;
   company_profiles: CompanyProfiles;
   consent_records: ConsentRecords;
   consents: Consents;

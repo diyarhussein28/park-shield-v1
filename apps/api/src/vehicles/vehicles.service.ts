@@ -1,11 +1,26 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { TEST_WINDOW_MINUTES, type DecalTemplate } from '@parkshield/shared';
-import { sql } from 'kysely';
+import { sql, type Transaction } from 'kysely';
 import { EntitlementService } from '../billing/entitlements.service';
 import type { Db } from '../core/core.module';
 import type { FieldCrypto } from '../core/crypto';
 import { sha256 } from '../core/crypto';
 import { CRYPTO, DB } from '../core/tokens';
+import type { DB as Database } from '../db/types.generated';
+import {
+  auditCodeReplaced,
+  CodeRulesService,
+  lockCodes,
+  recordIssuance,
+  type NewCodeEligibility,
+} from './code-rules';
 import { TagsService } from './tags.service';
 import { normalizeCode, TokensService } from './tokens.service';
 import { queueWelcomeLetterCheck } from '../letters/trigger';
@@ -30,6 +45,7 @@ export class VehiclesService {
     @Inject(EntitlementService) private readonly entitlements: EntitlementService,
     @Inject(TokensService) private readonly tokens: TokensService,
     @Inject(TagsService) private readonly tags: TagsService,
+    @Inject(CodeRulesService) private readonly rules: CodeRulesService,
   ) {}
 
   /** Current (newest non-revoked) decal of each vehicle, joined to the vehicle. */
@@ -147,7 +163,14 @@ export class VehiclesService {
         })
         .returning('id')
         .executeTakeFirstOrThrow();
-      await this.tokens.issue(trx, v.id);
+      const first = await this.tokens.issue(trx, v.id);
+      await recordIssuance(trx, {
+        vehicleId: v.id,
+        userId,
+        tokenId: first.id,
+        kind: 'initial',
+        subscriptionId: ent.subscriptionId,
+      });
       // The first vehicle may complete the welcome-letter conditions (paid + vehicle).
       if (Number(n) === 0) await queueWelcomeLetterCheck(trx, userId);
       return v.id;
@@ -212,44 +235,129 @@ export class VehiclesService {
     return this.get(userId, vehicleId);
   }
 
+  /** `GET /v1/vehicles/:id/new-code`: what the vehicle screen offers (free, 3 €, or the date). */
+  async newCodeOptions(userId: string, vehicleId: string): Promise<NewCodeEligibility> {
+    await this.get(userId, vehicleId);
+    const {
+      subscriptionId: _s,
+      yearStart: _y,
+      ...e
+    } = await this.rules.eligibility(this.db, userId, vehicleId);
+    return e;
+  }
+
   /**
-   * „Neuen Code erstellen“: free, only while the vehicle has no active code. The new code keeps the
-   * design of the last one, so it can be printed or downloaded right away.
+   * „Neuen Code erstellen“ (2026-11-24): free once per subscription year after a „Sperren“, and only
+   * outside the cooldown. The new code keeps the design of the last one, so it can be printed or
+   * downloaded right away. Errors: 409 `code_cooldown` (+ `nextEligibleAt`), 409 `code_active`,
+   * 402 `payment_required` (the free one is used: a new code comes with the 3 € printed sticker).
    */
   async createCode(userId: string, vehicleId: string) {
     await this.entitlements.require(userId);
     await this.get(userId, vehicleId);
     await this.db.transaction().execute(async (trx) => {
-      await sql`SELECT pg_advisory_xact_lock(hashtext(${vehicleId}))`.execute(trx);
+      await lockCodes(trx, userId);
+      const e = await this.rules.eligibility(trx, userId, vehicleId);
+      if (e.reason === 'cooldown')
+        throw new ConflictException({
+          error: 'code_cooldown',
+          nextEligibleAt: e.nextEligibleAt,
+          cooldownDays: e.cooldownDays,
+        });
+      if (e.reason === 'code_active') throw new ConflictException({ error: 'code_active' });
+      if (e.reason === 'free_used')
+        throw new HttpException(
+          { error: 'payment_required', priceCents: e.priceCents },
+          HttpStatus.PAYMENT_REQUIRED,
+        );
+      const fresh = await this.issueKeepingDesign(trx, vehicleId);
+      await recordIssuance(trx, {
+        vehicleId,
+        userId,
+        tokenId: fresh.id,
+        kind: 'free',
+        subscriptionId: e.subscriptionId,
+        subscriptionYearStart: e.yearStart,
+      });
+      await auditCodeReplaced(
+        trx,
+        { id: userId, kind: 'customer' },
+        { vehicleId, tokenId: fresh.id, kind: 'free' },
+      );
+    });
+    return this.get(userId, vehicleId);
+  }
+
+  /**
+   * Back office (`codes.override_cooldown`): a new code at once, whatever the cooldown and the free
+   * quota say (e.g. a stolen sticker). The active code, if any, stops working. Free of charge.
+   */
+  async overrideNewCode(staffId: string, vehicleId: string, reason: string) {
+    const v = await this.db
+      .selectFrom('vehicles')
+      .select('owner_user_id')
+      .where('id', '=', vehicleId)
+      .executeTakeFirst();
+    if (!v?.owner_user_id) throw new NotFoundException();
+    const userId = v.owner_user_id;
+    return this.db.transaction().execute(async (trx) => {
+      await lockCodes(trx, userId);
+      const year = await this.rules.subscriptionYear(trx, userId);
+      if (!year) throw new ConflictException({ error: 'subscription_required' });
       const active = await trx
         .selectFrom('qr_tokens')
         .select('id')
         .where('vehicle_id', '=', vehicleId)
         .where('status', '<>', 'revoked')
-        .executeTakeFirst();
-      if (active) throw new ConflictException({ error: 'code_active' });
-      const last = await trx
-        .selectFrom('qr_tokens')
-        .select(['cta_header', 'design_template_id'])
-        .where('vehicle_id', '=', vehicleId)
-        .orderBy('created_at', 'desc')
-        .executeTakeFirst();
-      const fresh = await this.tokens.issue(trx, vehicleId);
-      if (last) {
-        await trx
-          .updateTable('qr_tokens')
-          .set({ cta_header: last.cta_header, design_template_id: last.design_template_id })
-          .where('id', '=', fresh.id)
-          .execute();
-      }
+        .execute();
+      for (const t of active)
+        await this.tags.transition(trx, t.id, 'revoked', 'admin', 'ops_override');
+      const fresh = await this.issueKeepingDesign(trx, vehicleId, 'admin');
+      await recordIssuance(trx, {
+        vehicleId,
+        userId,
+        tokenId: fresh.id,
+        kind: 'ops_override',
+        subscriptionId: year.subscriptionId,
+        subscriptionYearStart: year.yearStart,
+      });
+      await auditCodeReplaced(
+        trx,
+        { id: staffId, kind: 'staff' },
+        { vehicleId, tokenId: fresh.id, kind: 'ops_override', reason },
+      );
+      return { tokenId: fresh.id, codeHint: fresh.code.slice(-4) };
     });
-    return this.get(userId, vehicleId);
   }
 
-  /** Ops and re-subscription: revoke and issue in one step (AD-08; not offered to owners any more). */
+  /** A new code for the vehicle with the design (template, headline) of its newest code. */
+  private async issueKeepingDesign(
+    trx: Transaction<Database>,
+    vehicleId: string,
+    actor?: 'owner' | 'admin' | 'system',
+  ) {
+    const last = await trx
+      .selectFrom('qr_tokens')
+      .select(['cta_header', 'design_template_id'])
+      .where('vehicle_id', '=', vehicleId)
+      .orderBy('created_at', 'desc')
+      .executeTakeFirst();
+    const fresh = await this.tokens.issue(trx, vehicleId, null, actor);
+    if (last) {
+      await trx
+        .updateTable('qr_tokens')
+        .set({ cta_header: last.cta_header, design_template_id: last.design_template_id })
+        .where('id', '=', fresh.id)
+        .execute();
+    }
+    return fresh;
+  }
+
+  /** Ops abuse centre: revoke and issue in one step (AD-08; not offered to owners any more). */
   async revokeAndReissue(userId: string, vehicleId: string, reason: string) {
     const { token } = await this.currentToken(userId, vehicleId);
     await this.db.transaction().execute(async (trx) => {
+      await lockCodes(trx, userId);
       await this.tags.transition(trx, token.id, 'revoked', 'owner', reason);
       const fresh = await this.tokens.issue(trx, vehicleId);
       await trx
@@ -257,6 +365,7 @@ export class VehiclesService {
         .set({ cta_header: token.cta_header, design_template_id: token.design_template_id })
         .where('id', '=', fresh.id)
         .execute();
+      await recordIssuance(trx, { vehicleId, userId, tokenId: fresh.id, kind: 'ops_reissue' });
     });
     return this.get(userId, vehicleId);
   }
@@ -314,6 +423,7 @@ export class VehiclesService {
       for (const o of old) {
         await this.tags.transition(trx, o.id, 'revoked', 'owner', 'replaced_by_preprinted');
       }
+      await recordIssuance(trx, { vehicleId, userId, tokenId: token.id, kind: 'partner_claim' });
     });
     return this.get(userId, vehicleId);
   }

@@ -91,6 +91,11 @@ export const SETTINGS: Record<string, Def> = {
   // App Store / Google Play yearly price for contract confirmations when RevenueCat reports none.
   'prices.store_year_cents': { group: 'limits', schema: int(100, 100_000), default: 1999 },
   'prices.sticker_value_cents': { group: 'limits', schema: int(0, 2000), default: 300 },
+  // New decal code (owner decision 2026-11-24): at most one per vehicle in this many days, counted
+  // from the newest code of the vehicle; and this many free new codes after a „Sperren“ per
+  // subscription year (more cost the 3 € print, `prices.print_shipped_cents`).
+  'codes.reissue_cooldown_days': { group: 'limits', schema: int(0, 365), default: 10 },
+  'codes.free_reissues_per_year': { group: 'limits', schema: int(0, 12), default: 1 },
 
   'abuse.code_alerts_per_hour': { group: 'abuse', schema: int(1, 1000), default: 10 },
   'abuse.scanner_vehicles_per_day': { group: 'abuse', schema: int(1, 100), default: 3 },

@@ -342,6 +342,12 @@ Single API test file: `cd apps/api && npx vitest run src/scan`. Single E2E file:
   fulfillment) shows names, addresses, plates and codes — a deliberate, audited exception to the
   masked back office; `letters.manage` (admin) re-creates letters and edits company data. Setting
   `welcome_letter.in_portal` (default off) offers the letter under „Dokumente“ (was `/konto/daten`; the portal is in the app since 2026-11-24).
+- **New decal code** (2026-11-24, `vehicles/code-rules.ts`, `docs/handover.md` §14): „Sperren“ is free
+  and immediate; a new code at most every `codes.reissue_cooldown_days` (10) per vehicle, counted from
+  the newest code; free once per subscription year after a „Sperren“ (`codes.free_reissues_per_year`),
+  else 402 `payment_required` (3 € = new code + printed sticker, Stripe only). Every issued code is a
+  row in `code_issuances`; `GET /v1/vehicles/:id/new-code` tells the app what is possible; staff with
+  `codes.override_cooldown` use `POST /ops/v1/vehicles/:id/new-code` (audit `qr_code.replaced`).
 - **Alert photos (Phase 2, `ALERT_PHOTOS_ENABLED`, off by default).** `apps/api/src/alert-media/`:
   up to 2 photos per alert (multipart on `POST /v1/scan/:code/alerts`), magic bytes + sharp re-encode
   without metadata, one AES-256-GCM key per file wrapped with the data key, files in `ALERT_MEDIA_DIR`

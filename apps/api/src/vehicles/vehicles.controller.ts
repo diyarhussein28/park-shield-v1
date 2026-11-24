@@ -122,7 +122,16 @@ export class VehiclesController {
     return this.vehicles.revoke(user.userId, id, body.reason);
   }
 
-  /** „Neuen Code erstellen“: free, only while the vehicle has no active code. */
+  /**
+   * What „Neuer Code“ offers right now (2026-11-24): free after a „Sperren“ (once per subscription
+   * year), else with the 3 € printed sticker; within the cooldown neither, with `nextEligibleAt`.
+   */
+  @Get(':id/new-code')
+  newCode(@CurrentUser() user: AuthContext, @Param('id', ParseUUIDPipe) id: string) {
+    return this.vehicles.newCodeOptions(user.userId, id);
+  }
+
+  /** „Neuen Code erstellen (kostenlos)“: 409 `code_cooldown` / `code_active`, 402 `payment_required`. */
   @Post(':id/tokens')
   createCode(@CurrentUser() user: AuthContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.vehicles.createCode(user.userId, id);

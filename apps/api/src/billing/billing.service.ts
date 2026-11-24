@@ -22,6 +22,7 @@ import { MailService } from '../mail/mail.service';
 import { OrdersService } from '../orders/orders.service';
 import { TagsService } from '../vehicles/tags.service';
 import { TokensService } from '../vehicles/tokens.service';
+import { recordIssuance } from '../vehicles/code-rules';
 import {
   legalDoc,
   LEGAL_DOC_VERSION,
@@ -727,6 +728,12 @@ export class BillingService {
           .set({ cta_header: v.cta_header, design_template_id: v.design_template_id })
           .where('id', '=', fresh.id)
           .execute();
+        await recordIssuance(trx, {
+          vehicleId: v.vehicleId,
+          userId,
+          tokenId: fresh.id,
+          kind: 'resubscribe',
+        });
       }
       if (vehicles.length) {
         await trx

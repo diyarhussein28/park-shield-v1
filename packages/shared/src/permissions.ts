@@ -18,6 +18,8 @@ export const PERMISSIONS = [
   'staff.manage',
   'letters.print',
   'letters.manage',
+  // A new decal code despite the cooldown (support case, e.g. a stolen sticker), 2026-11-24.
+  'codes.override_cooldown',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 

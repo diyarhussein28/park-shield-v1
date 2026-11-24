@@ -21,6 +21,7 @@ import { RequirePermission, StaffOnly } from './access';
 import { BreakGlassService, TARGETS, type Target } from './break-glass.service';
 import { CUSTOMER_FILTERS, CustomersService, type CustomerFilter } from './customers.service';
 import { DsrService } from './dsr.service';
+import { VehiclesService } from '../vehicles/vehicles.service';
 import { CurrentStaff } from './staff.guard';
 import type { StaffContext } from './staff.service';
 
@@ -446,5 +447,28 @@ export class OpsAbuseController {
     @Param('version', ParseIntPipe) version: number,
   ) {
     return { version: await this.words.rollback(me.userId, version) };
+  }
+}
+
+const OverrideCode = z.object({ reason: z.string().trim().min(3).max(200) });
+
+/**
+ * New decal code despite the cooldown (2026-11-24, permission `codes.override_cooldown`): a support
+ * case such as a stolen sticker. Revokes the active code, issues a free new one with the same design,
+ * records it (`ops_override`) and writes the audit entry `qr_code.replaced` with the reason.
+ */
+@Controller('ops/v1/vehicles')
+export class OpsCodesController {
+  constructor(@Inject(VehiclesService) private readonly vehicles: VehiclesService) {}
+
+  @Post(':id/new-code')
+  @HttpCode(200)
+  @RequirePermission('codes.override_cooldown')
+  overrideNewCode(
+    @CurrentStaff() me: StaffContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(OverrideCode)) body: z.infer<typeof OverrideCode>,
+  ) {
+    return this.vehicles.overrideNewCode(me.userId, id, body.reason);
   }
 }

@@ -16,6 +16,7 @@ import { OpsAuthController } from './ops/ops-auth.controller';
 import {
   OpsAbuseController,
   OpsBreakGlassController,
+  OpsCodesController,
   OpsCustomersController,
   OpsDsrController,
 } from './ops/ops-tools.controller';
@@ -87,6 +88,7 @@ import { RenewalsService } from './billing/renewals.service';
 import { LegalRequestsService } from './ops/legal-requests.service';
 import { ClaimController, VehiclesController } from './vehicles/vehicles.controller';
 import { VehiclesService } from './vehicles/vehicles.service';
+import { CodeRulesService } from './vehicles/code-rules';
 import { ChannelsController, TwilioWebhookController } from './channels/channels.controller';
 import { ChannelsService } from './channels/channels.service';
 import { AppAuthController, AppController } from './app/app.controller';
@@ -139,6 +141,7 @@ const domainProviders = [
   WithdrawalsService,
   RenewalsService,
   VehiclesService,
+  CodeRulesService,
   OrdersService,
   ScannerRefService,
   ProtectionService,
@@ -256,6 +259,7 @@ export class OpsAppModule {
         OpsBreakGlassController,
         OpsDsrController,
         OpsAbuseController,
+        OpsCodesController,
         OpsCustomerSummaryController,
         OpsOrdersController,
         OpsPartnersController,

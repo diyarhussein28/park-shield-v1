@@ -387,6 +387,10 @@ describe('decal test and code replacement (US-12, US-13)', () => {
 
   it('„Neuen Code erstellen“ is free, keeps the design and refuses while a code is active', async () => {
     const { s, v, code } = await vehicleWithCode();
+    // Outside the 10-day cooldown of the first code (rules in vehicles/code-rules.test.ts).
+    await sql`UPDATE qr_tokens SET created_at = created_at - interval '11 days',
+                assigned_at = assigned_at - interval '11 days'`.execute(h.db);
+    await sql`UPDATE code_issuances SET issued_at = issued_at - interval '11 days'`.execute(h.db);
     await h.app.inject({
       method: 'PUT',
       url: `/v1/vehicles/${v.id}/decal`,
@@ -425,6 +429,9 @@ describe('decal test and code replacement (US-12, US-13)', () => {
       (await h.app.inject({ method: 'GET', url: `/v1/scan/${crypto.decrypt(fresh.code_enc)}` }))
         .statusCode,
     ).toBe(200);
-    expect((await create()).statusCode).toBe(409);
+    // A second new code right away: the cooldown of the new one.
+    const again = await create();
+    expect(again.statusCode).toBe(409);
+    expect(again.json()).toMatchObject({ error: 'code_cooldown' });
   });
 });

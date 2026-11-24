@@ -148,7 +148,7 @@ test('custom messages are filtered before they are sent (US-15)', async ({ reque
   await ctx.close();
 });
 
-test('„Sperren“ makes the old decal inactive and creates no new code; a new code is free (US-13, SC-07)', async ({
+test('„Sperren“ makes the old decal inactive and creates no new code; after the 10-day wait a new code is free (US-13, SC-07)', async ({
   request,
   browser,
 }) => {
@@ -183,10 +183,34 @@ test('„Sperren“ makes the old decal inactive and creates no new code; a new 
   await expectAccessible(scan);
   await ctx.close();
 
-  // „Neuen Code erstellen“ is an explicit, free action; it never needs a payment.
-  const created = await request.post(`${API_URL}/v1/vehicles/${owner.vehicleId}/tokens`, {
-    headers: owner.headers,
-  });
+  // A new code waits 10 days after the newest one (2026-11-24); the app shows the date.
+  const newCode = () =>
+    request.post(`${API_URL}/v1/vehicles/${owner.vehicleId}/tokens`, { headers: owner.headers });
+  const options = async () =>
+    (await (
+      await request.get(`${API_URL}/v1/vehicles/${owner.vehicleId}/new-code`, {
+        headers: owner.headers,
+      })
+    ).json()) as { freeAvailable: boolean; reason: string | null; nextEligibleAt: string | null };
+  const waiting = await options();
+  expect(waiting).toMatchObject({ freeAvailable: false, reason: 'cooldown' });
+  expect(waiting.nextEligibleAt).not.toBeNull();
+  const early = await newCode();
+  expect(early.status()).toBe(409);
+  expect(await early.json()).toMatchObject({ error: 'code_cooldown' });
+  await sql(
+    `UPDATE qr_tokens SET created_at = created_at - interval '11 days',
+            assigned_at = assigned_at - interval '11 days' WHERE vehicle_id = $1`,
+    [owner.vehicleId],
+  );
+  await sql(
+    `UPDATE code_issuances SET issued_at = issued_at - interval '11 days' WHERE vehicle_id = $1`,
+    [owner.vehicleId],
+  );
+  expect(await options()).toMatchObject({ freeAvailable: true, reason: null });
+
+  // „Neuen Code erstellen“ after a „Sperren“: free once per subscription year, no payment.
+  const created = await newCode();
   expect(created.status(), await created.text()).toBe(201);
   expect((await tokens()).map((t) => t.status)).toEqual(['revoked', 'assigned']);
   const newUrl = await testWindowUrl(request, owner);
