@@ -14,6 +14,7 @@ import {
   type LettersView,
 } from '@/components/welcome-letters';
 import { ManageAccount } from './manage';
+import { OverrideNewCode } from './override-code';
 
 export interface CustomerView {
   customer: {
@@ -56,6 +57,14 @@ export interface CustomerView {
       lastScannedAt: string | null;
       revokeReason: string | null;
     }[];
+    /** New-code ledger (2026-11-24): why each code was issued; refunds keep the code. */
+    codeIssuances: {
+      id: string;
+      kind: string;
+      codeHint: string;
+      issuedAt: string;
+      refundedAt: string | null;
+    }[];
   }[];
   channels: {
     email: { verified: boolean };
@@ -80,6 +89,7 @@ export interface CustomerView {
     status: string;
     totalCents: number;
     replacement: boolean;
+    newCode: boolean;
     addressMasked: string | null;
     trackingNumber: string | null;
     createdAt: string;
@@ -116,6 +126,7 @@ export function Customer360({
   const canOrders = me.permissions.includes('orders.manage');
   const canManage = me.permissions.includes('customer.manage');
   const canRecreate = me.permissions.includes('letters.manage');
+  const canOverride = me.permissions.includes('codes.override_cooldown');
   const qrActive = new Map(letters?.vehicles.map((v) => [v.vehicleId, v.active]) ?? []);
   const d = (v: string | null) => fmt(v, locale);
   const c = data.customer;
@@ -256,6 +267,31 @@ export function Customer360({
                     </li>
                   ))}
                 </ul>
+                {v.codeIssuances.length > 0 && (
+                  <>
+                    <p className="mt-2 text-sm font-semibold">{t('opsCustomers.codeHistory')}</p>
+                    <ul
+                      className="flex flex-col gap-1 text-sm"
+                      aria-label={`${t('opsCustomers.codeHistory')} „${v.nickname}“`}
+                    >
+                      {v.codeIssuances.map((i) => (
+                        <li key={i.id} className="flex flex-wrap gap-2">
+                          <span>{d(i.issuedAt)}</span>
+                          <span>{label(t, 'issue', i.kind)}</span>
+                          <span className="font-mono">
+                            {t('opsCustomers.code', { hint: i.codeHint })}
+                          </span>
+                          {i.refundedAt && (
+                            <Badge tone="warning">
+                              {t('opsCustomers.codeRefunded', { date: d(i.refundedAt) })}
+                            </Badge>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+                {canOverride && <OverrideNewCode vehicleId={v.id} nickname={v.nickname} />}
               </li>
             ))}
           </ul>
@@ -300,7 +336,9 @@ export function Customer360({
             {data.orders.map((o) => (
               <li key={o.id}>
                 {d(o.createdAt)} · {label(t, 'order', o.status)} · {(o.totalCents / 100).toFixed(2)}{' '}
-                € {o.replacement ? '· Ersatz' : ''} · {t('opsCustomers.address')}:{' '}
+                € {o.replacement ? '· Ersatz' : ''}
+                {o.newCode ? ` · ${t('opsCustomers.orderNewCode')}` : ''} ·{' '}
+                {t('opsCustomers.address')}:{' '}
                 <span className="font-mono">{o.addressMasked ?? '–'}</span>{' '}
                 {o.trackingNumber ? `· ${o.trackingNumber}` : ''}
                 {canOrders && (

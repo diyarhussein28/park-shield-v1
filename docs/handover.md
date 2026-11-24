@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-24 (app first, phase 2 of 4 done: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-24 (app first, phase 3 of 4 done: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -558,9 +558,40 @@ audit `qr_code.replaced`; e-mail stays Mailjet.
 - **Note for phase 4:** the current app sends `POST …/tokens` and only knows `code_active`; until the
   new screen exists it shows a generic error for `code_cooldown` / `payment_required`.
 
-### Phase 3 — paid 3 € flow (Stripe) · Phase 4 — app UI
+### Phase 3 — paid 3 € flow (Stripe) (done 2026-11-24)
 
-As in the task text: reuse the 3 € print order (confirmation step, `design_snapshot`, § 312g Abs. 2 Nr. 1),
-webhook issues the code + creates the print order with the new code, refunds keep the code; app vehicle
-screen with „Neuen Code erstellen (kostenlos)“ / „Neuer Code + gedruckter Aufkleber (3 €)“, the cooldown
-date and hint, 3 € purchases under „Tarif und Rechnungen“.
+- Migration `20261211000100_paid_new_code`: `decal_orders.new_code`, `code_issuances.refunded_at`.
+- `POST /v1/vehicles/:id/new-code/order` `{ address, personalizationConfirmed: true, appReturn? }`
+  (`OrdersService.orderNewCode`): eligibility checked first (409 `code_cooldown` + `nextEligibleAt`,
+  no order, no payment page), label check (422), design + label frozen (`design_snapshot`), order
+  `pending_payment` with `paid_print` + `new_code`, Stripe one-time payment (metadata `orderId`,
+  `kind: new_code`), returns `{ id, url, priceCents }`. App return as for the 3 € print (`to=order`);
+  website fallback `/app?order=paid`.
+- Payment (`OrdersService.markPaid`, called for `checkout.session.completed` and
+  `payment_intent.succeeded`): in the same transaction as `pending_payment → paid` the active code is
+  revoked, a new one with the frozen design is issued and becomes the order's item (the printer prints
+  the new code), ledger row `paid` with `stripe_ref = order:<id>` (unique), audit `qr_code.replaced`.
+  Always issued once paid; a second event for the same payment changes nothing.
+- `charge.refunded` (`BillingService.onChargeRefunded`): the code is **never** revoked; the ledger row
+  gets `refunded_at` and the audit entry `qr_code.payment_refunded` (`codeKept: true`), once.
+- Ops Customer 360: per vehicle „Ausgestellte Codes“ (kind, date, code hint, „erstattet am …, Code
+  bleibt aktiv“), orders marked „Neuer Code“, and for `codes.override_cooldown` the form „Neuen Code
+  trotz Wartezeit ausstellen“ with a reason (`override-code.tsx`).
+- Tests: API `orders/new-code-order.test.ts` (5: refused in the cooldown before any payment, active code
+  replaced with the frozen design and printed, after „Sperren“ with the free code used, one code per
+  payment also for repeated events and after an override in between, refund keeps the code); E2E
+  `new-code.spec.ts` (fake Stripe page, Customer 360 history, override, support without the button).
+- Legal questions: `LEGAL_REVIEW.md` §14 (withdrawal for the bundle, § 356 Abs. 5, AGB text).
+
+### Phase 4 — app UI (next)
+
+App vehicle screen (`apps/mobile/src/app/fahrzeug/[id].tsx`): load `GET /v1/vehicles/:id/new-code`;
+„Neuen Code erstellen (kostenlos)“ when `freeAvailable` (`POST …/tokens`); otherwise „Neuer Code +
+gedruckter Aufkleber (3 €)“ when `paidAvailable` → confirmation step (preview, label, address prefill
+from `print-options`, personalisation notice) → `POST …/new-code/order` with `appReturn` → Stripe page in
+the app → back via `/app/zurueck?to=order` → reload; during the cooldown both disabled with
+„Ein neuer Code ist ab dem {date} möglich.“ (Europe/Berlin); permanent hint „Ein neuer Code ist
+höchstens alle {days} Tage möglich.“; after success the new QR code with PDF download / print.
+„Tarif und Rechnungen“: list the 3 € purchases (`GET /v1/orders`, `paid_print`/`new_code` need to be
+added to that list). Texts in `packages/i18n` (de + en) or the app's `src/lib/i18n.ts`; app Jest +
+typecheck.

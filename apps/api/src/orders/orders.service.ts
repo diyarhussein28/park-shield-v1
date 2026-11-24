@@ -1,14 +1,16 @@
 import {
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { ADDON_PRICES_CENTS, type DecalTemplate } from '@parkshield/shared';
-import { sql } from 'kysely';
+import { sql, type Transaction } from 'kysely';
 import { EntitlementService } from '../billing/entitlements.service';
 import type { Env } from '../config/env';
 import type { Db } from '../core/core.module';
+import type { DB as Database } from '../db/types.generated';
 import type { FieldCrypto } from '../core/crypto';
 import { SettingsService } from '../core/settings.service';
 import { CRYPTO, DB, ENV } from '../core/tokens';
@@ -22,6 +24,13 @@ import {
   type PrintPartner,
   type ShippingAddress,
 } from '../providers/ports';
+import {
+  auditCodeReplaced,
+  CodeRulesService,
+  lockCodes,
+  recordIssuance,
+} from '../vehicles/code-rules';
+import { TagsService } from '../vehicles/tags.service';
 import { TokensService } from '../vehicles/tokens.service';
 import { VehiclesService } from '../vehicles/vehicles.service';
 import { vehicleLabelOk } from '../vehicles/vehicle-label';
@@ -45,6 +54,8 @@ export class OrdersService {
     @Inject(PAYMENTS) private readonly payments: Payments,
     @Inject(SettingsService) private readonly settings: SettingsService,
     @Inject(ProfileService) private readonly profiles: ProfileService,
+    @Inject(TagsService) private readonly tags: TagsService,
+    @Inject(CodeRulesService) private readonly rules: CodeRulesService,
   ) {}
 
   /**
@@ -256,25 +267,7 @@ export class OrdersService {
 
     // A3: the 3 € print is always a Stripe payment (physical goods never use in-app purchase), also
     // for App Store / Google Play subscribers: their Stripe customer is created now, linked to the user.
-    const user = await this.db
-      .selectFrom('users')
-      .select(['stripe_customer_id', 'email', 'preferred_lang'])
-      .where('id', '=', userId)
-      .executeTakeFirstOrThrow();
-    let customerId = user.stripe_customer_id;
-    if (!customerId) {
-      customerId = await this.payments.ensureCustomer({
-        email: user.email,
-        userId,
-        locale: user.preferred_lang,
-      });
-      await this.db
-        .updateTable('users')
-        .set({ stripe_customer_id: customerId })
-        .where('id', '=', userId)
-        .where('stripe_customer_id', 'is', null)
-        .execute();
-    }
+    const customerId = await this.stripeCustomer(userId);
     const amount = await this.printPrice();
     const order = await this.db.transaction().execute(async (trx) => {
       const o = await trx
@@ -322,7 +315,122 @@ export class OrdersService {
     return { id: order.id, url: checkout.url, free: false };
   }
 
-  /** Payment for an order arrived: queue it for printing (idempotent). */
+  /** The user's Stripe customer, created on first use (also for App Store / Google Play subscribers). */
+  private async stripeCustomer(userId: string): Promise<string> {
+    const user = await this.db
+      .selectFrom('users')
+      .select(['stripe_customer_id', 'email', 'preferred_lang'])
+      .where('id', '=', userId)
+      .executeTakeFirstOrThrow();
+    if (user.stripe_customer_id) return user.stripe_customer_id;
+    const customerId = await this.payments.ensureCustomer({
+      email: user.email,
+      userId,
+      locale: user.preferred_lang,
+    });
+    await this.db
+      .updateTable('users')
+      .set({ stripe_customer_id: customerId })
+      .where('id', '=', userId)
+      .where('stripe_customer_id', 'is', null)
+      .execute();
+    return customerId;
+  }
+
+  /**
+   * „Neuer Code + gedruckter Aufkleber (3 €)“ (owner decision 2026-11-24): always a Stripe one-time
+   * payment (a physical product, never in-app purchase). The eligibility is checked here, before the
+   * payment page opens (409 `code_cooldown` + `nextEligibleAt`); once paid, the webhook issues the
+   * new code in any case (`markPaid`). The design and label are frozen now (B1, § 312g Abs. 2 Nr. 1).
+   */
+  async orderNewCode(
+    userId: string,
+    vehicleId: string,
+    address: ShippingAddress,
+    locale: 'de' | 'en',
+    appReturn?: string,
+  ): Promise<{ id: string; url: string; priceCents: number }> {
+    await this.entitlements.require(userId);
+    const vehicle = await this.vehicles.get(userId, vehicleId);
+    if (!vehicleLabelOk(vehicle.nickname))
+      throw new UnprocessableEntityException({ error: 'label_invalid' });
+    const e = await this.rules.eligibility(this.db, userId, vehicleId);
+    if (!e.paidAvailable)
+      throw new ConflictException(
+        e.reason === 'cooldown'
+          ? {
+              error: 'code_cooldown',
+              nextEligibleAt: e.nextEligibleAt,
+              cooldownDays: e.cooldownDays,
+            }
+          : { error: e.reason ?? 'not_available' },
+      );
+    // The newest code (active, or the one „Sperren“ stopped) carries the design to keep.
+    const last = await this.db
+      .selectFrom('qr_tokens')
+      .select(['id', 'design_template_id', 'cta_header'])
+      .where('vehicle_id', '=', vehicleId)
+      .orderBy('created_at', 'desc')
+      .executeTakeFirst();
+    if (!last) throw new NotFoundException({ error: 'no_code' });
+    const design = this.snapshot(last, vehicle.nickname);
+    const back = returnUrls(this.env, 'order', appReturn, {
+      success: `${this.env.WEB_BASE_URL}/app?order=paid`,
+      cancel: `${this.env.WEB_BASE_URL}/app?order=canceled`,
+    });
+    const customerId = await this.stripeCustomer(userId);
+    const amount = e.priceCents;
+    const order = await this.db.transaction().execute(async (trx) => {
+      const o = await trx
+        .insertInto('decal_orders')
+        .values({
+          user_id: userId,
+          status: 'pending_payment',
+          shipping_address_enc: this.crypto.encrypt(JSON.stringify(address)),
+          key_version: this.crypto.keyVersion,
+          total_gross_cents: amount,
+          is_replacement: true,
+          paid_print: true,
+          new_code: true,
+          personalized_at: sql`now()`,
+          design_snapshot: JSON.stringify(design),
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+      // Points at the newest code until the payment arrives; markPaid swaps in the new one.
+      await trx
+        .insertInto('decal_order_items')
+        .values({
+          order_id: o.id,
+          qr_token_id: last.id,
+          product: 'uv_vinyl_sticker',
+          unit_gross_cents: amount,
+        })
+        .execute();
+      return o;
+    });
+    // TODO [LEGAL REVIEW] withdrawal for the bundle (new code + personalised sticker), LEGAL_REVIEW.md.
+    const checkout = await this.payments.createPaymentCheckout({
+      customerId,
+      amountCents: amount,
+      description:
+        locale === 'en'
+          ? 'ParkShield new code with printed decal, shipped'
+          : 'ParkShield neuer Code mit gedrucktem Aufkleber, Versand',
+      locale,
+      successUrl: back.success,
+      cancelUrl: back.cancel,
+      metadata: { orderId: order.id, userId, kind: 'new_code' },
+    });
+    return { id: order.id, url: checkout.url, priceCents: amount };
+  }
+
+  /**
+   * Payment for an order arrived: queue it for printing (idempotent). A paid new code (`new_code`)
+   * also gets its code here, in the same transaction: the active code stops, a new one with the frozen
+   * design is issued and becomes the order's item, recorded as `paid` (stripe_ref `order:<id>`, unique)
+   * and audited. Always issued once paid: the eligibility was checked before the payment page opened.
+   */
   async markPaid(orderId: string, paymentIntentId: string | null): Promise<boolean> {
     return this.db.transaction().execute(async (trx) => {
       const r = await trx
@@ -330,14 +438,70 @@ export class OrdersService {
         .set({ status: 'paid', stripe_payment_intent: paymentIntentId })
         .where('id', '=', orderId)
         .where('status', '=', 'pending_payment')
+        .returning(['user_id', 'new_code', 'design_snapshot'])
         .executeTakeFirst();
-      if (!Number(r.numUpdatedRows)) return false;
+      if (!r) return false;
+      if (r.new_code && r.user_id)
+        await this.issuePaidCode(trx, orderId, r.user_id, r.design_snapshot);
       await trx
         .insertInto('outbox_events')
         .values({ topic: PRINT_TOPIC, payload: JSON.stringify({ orderId }) })
         .execute();
       return true;
     });
+  }
+
+  private async issuePaidCode(
+    trx: Transaction<Database>,
+    orderId: string,
+    userId: string,
+    snapshot: unknown,
+  ) {
+    const item = await trx
+      .selectFrom('decal_order_items as i')
+      .innerJoin('qr_tokens as t', 't.id', 'i.qr_token_id')
+      .select(['i.id as itemId', 't.vehicle_id as vehicleId'])
+      .where('i.order_id', '=', orderId)
+      .executeTakeFirstOrThrow();
+    const vehicleId = item.vehicleId;
+    if (!vehicleId) throw new Error(`paid new code without a vehicle: ${orderId}`);
+    await lockCodes(trx, userId);
+    const year = await this.rules.subscriptionYear(trx, userId);
+    const active = await trx
+      .selectFrom('qr_tokens')
+      .select('id')
+      .where('vehicle_id', '=', vehicleId)
+      .where('status', '<>', 'revoked')
+      .execute();
+    for (const t of active)
+      await this.tags.transition(trx, t.id, 'revoked', 'stripe_webhook', 'paid_new_code');
+    const fresh = await this.tokens.issue(trx, vehicleId, null, 'stripe_webhook');
+    const snap = (snapshot ?? {}) as { template?: string; cta?: string };
+    if (snap.template && snap.cta)
+      await trx
+        .updateTable('qr_tokens')
+        .set({ design_template_id: snap.template, cta_header: snap.cta })
+        .where('id', '=', fresh.id)
+        .execute();
+    await trx
+      .updateTable('decal_order_items')
+      .set({ qr_token_id: fresh.id })
+      .where('id', '=', item.itemId)
+      .execute();
+    await recordIssuance(trx, {
+      vehicleId,
+      userId,
+      tokenId: fresh.id,
+      kind: 'paid',
+      subscriptionId: year?.subscriptionId ?? null,
+      subscriptionYearStart: year?.yearStart ?? null,
+      stripeRef: `order:${orderId}`,
+    });
+    await auditCodeReplaced(
+      trx,
+      { id: null, kind: null },
+      { vehicleId, tokenId: fresh.id, kind: 'paid', reason: `order:${orderId}` },
+    );
   }
 
   async list(userId: string) {

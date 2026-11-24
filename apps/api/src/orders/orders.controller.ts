@@ -79,4 +79,25 @@ export class OrdersController {
       body.appReturn,
     );
   }
+
+  /**
+   * „Neuer Code + gedruckter Aufkleber (3 €)“ (2026-11-24): from the personalisation confirmation step,
+   * Stripe only. 409 `code_cooldown` (+ `nextEligibleAt`) before any payment; the code is issued by the
+   * payment webhook.
+   */
+  @Post('vehicles/:id/new-code/order')
+  @HttpCode(200)
+  orderNewCode(
+    @CurrentUser() user: AuthContext,
+    @Param('id', ParseUUIDPipe) vehicleId: string,
+    @Body(new ZodPipe(OrderPrint)) body: z.infer<typeof OrderPrint>,
+  ) {
+    return this.orders.orderNewCode(
+      user.userId,
+      vehicleId,
+      body.address,
+      user.preferredLang,
+      body.appReturn,
+    );
+  }
 }

@@ -20,7 +20,8 @@ type Group =
   | 'recipient'
   | 'letter'
   | 'provider'
-  | 'unified';
+  | 'unified'
+  | 'issue';
 
 /**
  * German (or English) label for a status or code from the API, so staff never read raw values like

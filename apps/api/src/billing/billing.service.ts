@@ -474,6 +474,42 @@ export class BillingService {
       .where('status', 'in', ['pending_payment', 'paid'])
       .where('total_gross_cents', '<=', e.amountRefundedCents)
       .execute();
+    // A paid new code (2026-11-24): the code is NEVER revoked on a refund (the car must stay
+    // protected); the refund is recorded on its ledger row and audited, once.
+    const newCode = await this.db
+      .selectFrom('decal_orders as o')
+      .innerJoin('code_issuances as c', (j) =>
+        j.on('c.stripe_ref', '=', sql<string>`'order:' || o.id::text`),
+      )
+      .select(['o.id as orderId', 'o.user_id as userId', 'c.id as issuanceId', 'c.vehicle_id'])
+      .where('o.stripe_payment_intent', '=', e.paymentIntentId)
+      .where('o.new_code', '=', true)
+      .where('c.refunded_at', 'is', null)
+      .executeTakeFirst();
+    if (newCode) {
+      await this.db.transaction().execute(async (trx) => {
+        await trx
+          .updateTable('code_issuances')
+          .set({ refunded_at: sql`now()` })
+          .where('id', '=', newCode.issuanceId)
+          .execute();
+        await trx
+          .insertInto('audit_logs')
+          .values({
+            actor_id: null,
+            actor_kind: null,
+            action: 'qr_code.payment_refunded',
+            entity: 'vehicles',
+            entity_id: newCode.vehicle_id,
+            meta: JSON.stringify({
+              orderId: newCode.orderId,
+              refundedCents: e.amountRefundedCents,
+              codeKept: true,
+            }),
+          })
+          .execute();
+      });
+    }
   }
 
   private async onCheckoutCompleted(e: Extract<BillingEvent, { kind: 'checkout_completed' }>) {

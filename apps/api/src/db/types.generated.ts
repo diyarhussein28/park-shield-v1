@@ -329,6 +329,7 @@ export interface CodeIssuances {
   issued_at: Generated<Timestamp>;
   kind: CodeIssueKind;
   qr_token_id: string;
+  refunded_at: Timestamp | null;
   stripe_ref: string | null;
   subscription_id: string | null;
   subscription_year_start: Timestamp | null;
@@ -428,6 +429,7 @@ export interface DecalOrders {
   included_in_plan: Generated<boolean>;
   is_replacement: Generated<boolean>;
   key_version: Generated<number>;
+  new_code: Generated<boolean>;
   ops_note: string | null;
   organization_id: string | null;
   paid_print: Generated<boolean>;

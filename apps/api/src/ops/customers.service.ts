@@ -322,6 +322,7 @@ export class CustomersService {
       dsrs,
       reports,
       protection,
+      issuances,
     ] = await Promise.all([
       db
         .selectFrom('subscriptions')
@@ -397,6 +398,7 @@ export class CustomersService {
           'shipping_address_enc',
           'total_gross_cents',
           'is_replacement',
+          'new_code',
           'included_in_plan',
           'tracking_number',
           'created_at',
@@ -443,6 +445,14 @@ export class CustomersService {
         .limit(10)
         .execute(),
       this.preferences.protection(userId),
+      // New-code ledger (2026-11-24): why each code was issued, and refunds of paid ones.
+      db
+        .selectFrom('code_issuances as c')
+        .innerJoin('qr_tokens as t', 't.id', 'c.qr_token_id')
+        .select(['c.id', 'c.vehicle_id', 'c.kind', 'c.issued_at', 'c.refunded_at', 't.code_hint'])
+        .where('c.user_id', '=', userId)
+        .orderBy('c.issued_at', 'desc')
+        .execute(),
     ]);
     await this.staff.auditRead(by.userId, 'customer.view', 'users', userId);
     const dec = (b: Buffer | null) => (b && b.length ? this.crypto.decrypt(b) : null);
@@ -500,6 +510,15 @@ export class CustomersService {
               revokedAt: t.revoked_at,
               revokeReason: t.revoke_reason,
             })),
+          codeIssuances: issuances
+            .filter((i) => i.vehicle_id === v.id)
+            .map((i) => ({
+              id: i.id,
+              kind: i.kind,
+              codeHint: i.code_hint,
+              issuedAt: i.issued_at,
+              refundedAt: i.refunded_at,
+            })),
         };
       }),
       channels: {
@@ -530,6 +549,7 @@ export class CustomersService {
           status: o.status,
           totalCents: o.total_gross_cents,
           replacement: o.is_replacement,
+          newCode: o.new_code,
           included: o.included_in_plan,
           addressMasked: address ? maskAddress(address) : null,
           trackingNumber: o.tracking_number,

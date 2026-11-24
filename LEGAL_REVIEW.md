@@ -553,3 +553,26 @@ The e-mail and the PDF „Vertragsbestätigung“ were redesigned (`billing/cont
 6. **Stripe price** on the confirmation is the price setting at the time of sending (with a promo
    code); it is not read back from the Stripe invoice. A resend after a price change would show the new
    price.
+
+## 14. New decal code: free once a year, 3 € with the printed sticker, 10-day wait (2026-11-24)
+
+Owner decision 2026-11-24 (`docs/handover.md` §14). „Sperren“ stays free. After a „Sperren“ the
+customer gets one new code free per subscription year; any further new code is sold together with a
+printed and shipped sticker for 3 € incl. VAT (`prices.print_shipped_cents`), paid through Stripe only
+(never in-app purchase, because it is a physical product). At most one new code per vehicle every 10
+days (`codes.reissue_cooldown_days`); support can make an exception (e.g. theft).
+
+1. **Withdrawal for the bundle.** The 3 € buys a digital service (the new code, usable at once) and a
+   sticker personalised with the design and the vehicle label (§ 312g Abs. 2 Nr. 1 BGB, as for the 3 €
+   print, §12). Is the whole bundle excluded from withdrawal, or does the code part need the § 356
+   Abs. 5 BGB consent (immediate start, loss of the right) before payment? The app will show the
+   personalisation notice of the 3 € print before the payment page; a § 356 Abs. 5 checkbox can be
+   added if needed. TODO [LEGAL REVIEW]
+2. **Refund keeps the code.** A refund of the 3 € (Stripe dashboard or ops) never revokes the new code,
+   so the car stays protected; the refund is recorded and audited. Any objection?
+3. **AGB / price list.** The AGB should name the rule: one free new code per contract year after
+   „Sperren“, otherwise 3 € with a printed sticker, at most one new code every 10 days per vehicle.
+   TODO [LEGAL REVIEW]
+4. **Cooldown and the free code count from the first code.** A customer who locks the code within
+   the first 10 days waits until day 10 (or asks support for the exception). Consumer-law concern
+   about a paid service that cannot be used for up to 10 days after a theft?

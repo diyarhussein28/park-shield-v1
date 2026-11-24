@@ -348,6 +348,9 @@ Single API test file: `cd apps/api && npx vitest run src/scan`. Single E2E file:
   else 402 `payment_required` (3 € = new code + printed sticker, Stripe only). Every issued code is a
   row in `code_issuances`; `GET /v1/vehicles/:id/new-code` tells the app what is possible; staff with
   `codes.override_cooldown` use `POST /ops/v1/vehicles/:id/new-code` (audit `qr_code.replaced`).
+  The paid one: `POST /v1/vehicles/:id/new-code/order` (Stripe one-time payment, order `new_code`);
+  `OrdersService.markPaid` issues the code when the payment arrives (ledger `stripe_ref = order:<id>`);
+  `charge.refunded` never revokes it (`code_issuances.refunded_at`, audit `qr_code.payment_refunded`).
 - **Alert photos (Phase 2, `ALERT_PHOTOS_ENABLED`, off by default).** `apps/api/src/alert-media/`:
   up to 2 photos per alert (multipart on `POST /v1/scan/:code/alerts`), magic bytes + sharp re-encode
   without metadata, one AES-256-GCM key per file wrapped with the data key, files in `ALERT_MEDIA_DIR`
