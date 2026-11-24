@@ -488,6 +488,7 @@ Konto tab → new group „Anmeldung & Kontakt“ with two rows (current e-mail,
   Let's Encrypt certificates for both names issued; `/`, `/impressum`, `/datenschutz`, all 24 `/email/*`
   images and `/.well-known/assetlinks.json` answer 200, `www` → 301, `X-Robots-Tag: noindex`.
   `apple-app-site-association` is empty (`APP_IOS_TEAM_ID` / `APP_IOS_BUNDLE_ID` not set on the server;
-  Vercel served no file at all). Still open: test e-mail with the Webmail signature, then delete the
-  Vercel project.
+  Vercel served no file at all). Test e-mail in the real layout (all images from `park-shield.de`)
+  sent via Mailjet and checked by the owner: logo shows. Still open: delete the Vercel project (owner
+  wants to wait).
 
