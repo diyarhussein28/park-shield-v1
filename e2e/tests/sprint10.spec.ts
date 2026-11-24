@@ -35,7 +35,11 @@ test('withdrawal: finance refunds a fresh subscription, the customer gets the cr
   await finance.waitForLoadState('networkidle');
   await expect(finance.getByLabel(/^Widerruf/)).toBeChecked();
   await finance.getByRole('button', { name: 'Berechnen' }).click();
-  const quote = finance.getByRole('definition').filter({ hasText: /^19,95\s€$/ });
+  // B4 (2026-11-22): whole days used; a same-day withdrawal of an unprinted decal refunds all 20 €.
+  const quote = finance
+    .getByRole('definition')
+    .filter({ hasText: /^20,00\s€$/ })
+    .last();
   await expect(quote).toBeVisible();
   await expect(finance.getByText(/Das Abo endet mit der Erstattung sofort/)).toBeVisible();
   await expectAccessible(finance);
@@ -49,7 +53,7 @@ test('withdrawal: finance refunds a fresh subscription, the customer gets the cr
   );
 
   const mail = await waitForMail(request, email, 'refund_issued');
-  expect(mail.text).toMatch(/19,95\s€/);
+  expect(mail.text).toMatch(/20,00\s€/);
   // The contract has ended, so the decal no longer works.
   const scan = await browser.newContext({ locale: 'de-DE' });
   expect((await (await scan.newPage()).goto(url))!.status()).toBe(404);

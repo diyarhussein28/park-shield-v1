@@ -460,5 +460,8 @@ Konto tab → new group „Anmeldung & Kontakt“ with two rows (current e-mail,
   show „Ihr Abo ist bei Google Play pausiert“ with „In Google Play fortsetzen“ instead of the paywall.
   Tests: `store.test.ts` (pause → 409 → resume, same contract, one confirmation), app
   `portal-screens.test.tsx`.
+- Tests (2026-11-24, cloud container): API 656, app Jest 167, i18n/ui/shared, typecheck, lint,
+  `db:check` green; E2E 128 tests: all green after fixing `sprint10.spec.ts`, which still expected the
+  old per-started-day refund (19,95 €) instead of the whole-day rule of 2026-11-22 (20,00 € same day).
 - Not deployed yet; the app part needs a new EAS build.
 
