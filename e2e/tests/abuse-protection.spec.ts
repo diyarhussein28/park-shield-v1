@@ -67,7 +67,7 @@ test('the scanner page touches no cookie and no storage API, also across a reloa
 }) => {
   test.setTimeout(120_000);
   const email = uniqueEmail('nostorage');
-  const url = await ownerWithActiveDecal(page, request, email);
+  const { url } = await ownerWithActiveDecal(page, request, email);
   const app = await appDevice(request, email);
   const s = await scanner(browser, url);
   await s.page.getByRole('button', { name: 'Licht brennt noch' }).click();
@@ -113,11 +113,15 @@ test('Protected Mode: optional phone check on the scanner page, content shown af
   browser,
 }) => {
   test.setTimeout(120_000);
-  const url = await ownerWithActiveDecal(page, request, uniqueEmail('protect'));
-  // ownerWithActiveDecal ends on the vehicle page.
-  await page.getByRole('button', { name: 'Schutzmodus einschalten' }).click();
-  await expect(page.getByText('Der Schutzmodus ist an, bis Sie ihn ausschalten.')).toBeVisible();
-  await expectAccessible(page);
+  const owner = await ownerWithActiveDecal(page, request, uniqueEmail('protect'));
+  const url = owner.url;
+  // „Schutzmodus einschalten“ in the app's vehicle screen.
+  const on = await request.put(`${API_URL}/v1/vehicles/${owner.vehicleId}/protection`, {
+    headers: owner.headers,
+    data: { active: true },
+  });
+  expect(on.status(), await on.text()).toBe(200);
+  expect(((await on.json()) as { active: boolean }).active).toBe(true);
 
   const s = await scanner(browser, url);
   await expect(
@@ -143,6 +147,8 @@ test('Protected Mode: optional phone check on the scanner page, content shown af
   expect(await s.touched()).toEqual([]);
   await s.ctx.close();
 
-  await page.goto('/konto/verlauf');
-  await expect(page.getByText('Bestätigte Handynummer').first()).toBeVisible();
+  // The app's history marks the alert of a confirmed number („Bestätigte Handynummer“).
+  const history = await request.get(`${API_URL}/v1/alerts`, { headers: owner.headers });
+  const { alerts } = (await history.json()) as { alerts: { verifiedSender: boolean }[] };
+  expect(alerts.some((a) => a.verifiedSender)).toBe(true);
 });

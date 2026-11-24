@@ -301,7 +301,7 @@ export class CancellationsService {
       template: 'cancel_revoked',
       locale: req.preferred_lang,
       values: { contractNo: req.contract_no ?? '' },
-      actionUrl: `${this.env.WEB_BASE_URL}/konto`,
+      actionUrl: `${this.env.WEB_BASE_URL}/app`,
     });
     this.logger.info({ subscriptionId: req.subscriptionId }, 'cancellation revoked by customer');
     return { contractNo: req.contract_no };

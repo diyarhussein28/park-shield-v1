@@ -234,7 +234,7 @@ export class CustomersService {
       to: email,
       template: 'magic_link',
       locale,
-      actionUrl: `${this.env.WEB_BASE_URL}/anmelden/link#t=${token}`,
+      actionUrl: `${this.env.WEB_BASE_URL}/app/anmelden#t=${token}`,
     });
   }
 

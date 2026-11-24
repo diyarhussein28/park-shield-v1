@@ -2225,6 +2225,20 @@ const en: typeof de = {
     browser: 'Sign in in the browser instead',
     invalid: 'This link is incomplete. Please request a new sign-in link.',
   },
+  appPage: {
+    title: 'Your ParkShield account is in the app',
+    lead: 'Sign-in, vehicle and QR code, alerts, plan and invoices: you manage all of it in the ParkShield app for iPhone and Android.',
+    listTitle: 'In the app',
+    item1: 'Create an account and sign in',
+    item2: 'Vehicle, QR code and decal',
+    item3: 'Alerts, chat and notifications',
+    item4: 'Plan, invoices and your data',
+    appStore: 'Download on the App Store',
+    playStore: 'Get it on Google Play',
+    soon: 'The app will be available on the App Store and Google Play soon.',
+    withoutLogin: 'No sign-in needed',
+    nav: 'Get the app',
+  },
 };
 
 export default en;

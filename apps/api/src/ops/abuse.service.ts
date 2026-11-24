@@ -265,7 +265,7 @@ export class AbuseService {
       template: 'code_revoked_by_us',
       locale: t.preferred_lang,
       values: { nickname: t.nickname },
-      actionUrl: `${this.env.WEB_BASE_URL}/konto/fahrzeuge/${t.vehicleId}`,
+      actionUrl: `${this.env.WEB_BASE_URL}/app`,
     });
     await this.staff.audit(by.userId, 'abuse.revoke_on_behalf', 'qr_tokens', tokenId, { reason });
   }

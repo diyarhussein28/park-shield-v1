@@ -2299,6 +2299,21 @@ const de = {
     browser: 'Stattdessen im Browser anmelden',
     invalid: 'Dieser Link ist unvollständig. Bitte fordern Sie einen neuen Anmeldelink an.',
   },
+  // The website's account page (/app, 2026-11-24): registration, sign-in and the portal live in the app.
+  appPage: {
+    title: 'Ihr ParkShield-Konto ist in der App',
+    lead: 'Anmeldung, Fahrzeug und QR-Code, Warnungen, Tarif und Rechnungen: Das alles verwalten Sie in der ParkShield-App für iPhone und Android.',
+    listTitle: 'In der App',
+    item1: 'Konto anlegen und anmelden',
+    item2: 'Fahrzeug, QR-Code und Aufkleber',
+    item3: 'Warnungen, Chat und Benachrichtigungen',
+    item4: 'Tarif, Rechnungen und Ihre Daten',
+    appStore: 'Im App Store laden',
+    playStore: 'Bei Google Play laden',
+    soon: 'Die App erscheint in Kürze im App Store und bei Google Play.',
+    withoutLogin: 'Ohne Anmeldung möglich',
+    nav: 'Zur App',
+  },
 };
 
 export default de;

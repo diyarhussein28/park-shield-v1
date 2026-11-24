@@ -159,7 +159,7 @@ function Hero() {
             {t('landing.heroText')}
           </p>
           <div className="animate-fade-up flex flex-wrap gap-3 [animation-delay:240ms]">
-            <Link href="/konto" className={btnAmber}>
+            <Link href="/app" className={btnAmber}>
               {t('landing.heroCta')}
               <Icon name="arrowRight" className="size-5 transition group-hover:translate-x-1" />
             </Link>
@@ -509,7 +509,7 @@ function Pricing() {
             </div>
             <Price cents={PLAN_PRICE_CENTS} />
             <FeatureList items={keys('landing.planF', PLAN_FEATURE_COUNT)} />
-            <Link href="/konto" className={cx(btnPrimary, 'mt-2')}>
+            <Link href="/app" className={cx(btnPrimary, 'mt-2')}>
               {t('landing.planCta')}
               <Icon name="arrowRight" className="size-5 transition group-hover:translate-x-1" />
             </Link>
@@ -582,7 +582,7 @@ function ClosingCta() {
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-lg text-blue-100">{t('landing.ctaText')}</p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link href="/konto" className={btnAmber}>
+            <Link href="/app" className={btnAmber}>
               {t('landing.heroCta')}
               <Icon name="arrowRight" className="size-5 transition group-hover:translate-x-1" />
             </Link>

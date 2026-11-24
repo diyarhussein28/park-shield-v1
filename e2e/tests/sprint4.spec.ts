@@ -1,37 +1,39 @@
-import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Browser } from '@playwright/test';
 import {
+  addVehicle,
   alertIdOf,
   appDevice,
+  appOwner,
   expectAccessible,
   expectNoAlertMail,
   API_URL,
-  signUp,
   sql,
   uniqueEmail,
   waitForAppPush,
 } from './helpers';
 
-async function ownerWithVehicle(page: Page, request: APIRequestContext, email: string) {
-  await signUp(page, request, email);
-  await page.getByLabel(/Ich verlange ausdrücklich/).check();
-  await page.getByRole('button', { name: /Zahlungspflichtig bestellen/ }).click();
-  await page.getByRole('button', { name: 'Testzahlung ausführen' }).click();
-  await expect(page.getByText(/^Vertragsnummer: PS-/)).toBeVisible({ timeout: 15_000 });
-  await page.goto('/konto/fahrzeuge');
-  await page.getByLabel('Spitzname').fill('Der Blaue');
-  await page.getByLabel('Kennzeichen').fill('K-AB 1234');
-  await page.getByLabel('Farbe').fill('Blau');
-  await page.getByRole('button', { name: 'Fahrzeug hinzufügen' }).click();
-  await page.getByRole('link', { name: /Aufkleber und Details/ }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Der Blaue' })).toBeVisible();
+/** A paying owner (through the app's API) with „Der Blaue“, blue. */
+async function ownerWithVehicle(request: APIRequestContext, email: string) {
+  const owner = await appOwner(request, email);
+  const vehicleId = await addVehicle(request, owner);
+  const color = await request.patch(`${API_URL}/v1/vehicles/${vehicleId}`, {
+    headers: owner.headers,
+    data: { color: 'Blau' },
+  });
+  expect(color.status(), await color.text()).toBe(200);
+  return { ...owner, vehicleId };
 }
 
-/** Opens the test window in the portal and returns the decal's scan URL. */
-async function testWindowUrl(page: Page): Promise<string> {
-  await page.getByRole('button', { name: 'Aufkleber testen' }).click();
-  const link = page.getByRole('link', { name: 'Scan-Seite auf diesem Gerät öffnen' });
-  await expect(link).toBeVisible();
-  return (await link.getAttribute('href'))!;
+/** „Aufkleber testen“: opens the test window and returns the decal's scan URL. */
+async function testWindowUrl(
+  request: APIRequestContext,
+  owner: { headers: Record<string, string>; vehicleId: string },
+): Promise<string> {
+  const r = await request.post(`${API_URL}/v1/vehicles/${owner.vehicleId}/test-window`, {
+    headers: owner.headers,
+  });
+  expect(r.status(), await r.text()).toBe(200);
+  return ((await r.json()) as { scanUrl: string }).scanUrl;
 }
 
 /** A stranger's phone: fresh context, no cookies, German. */
@@ -43,15 +45,14 @@ async function scannerPage(browser: Browser, url: string, locale = 'de-DE') {
 }
 
 test('owner test scan activates the decal, then a stranger scans (US-12, US-14, US-16)', async ({
-  page,
   request,
   browser,
 }) => {
   test.setTimeout(90_000);
   const email = uniqueEmail('scan');
-  await ownerWithVehicle(page, request, email);
+  const owner = await ownerWithVehicle(request, email);
   const app = await appDevice(request, email);
-  const url = await testWindowUrl(page);
+  const url = await testWindowUrl(request, owner);
   expect(url).toMatch(/\/s\/[0-9A-HJKMNP-TV-Z]{10}$/);
 
   // Owner's own test scan.
@@ -62,8 +63,12 @@ test('owner test scan activates the decal, then a stranger scans (US-12, US-14, 
   await expect(test1.page.getByText('Test gesendet.', { exact: false })).toBeVisible();
   // The test reaches the owner's app like a real alert (push only, no e-mail).
   await waitForAppPush(request, app.fcmToken, 'test', await alertIdOf(test1.page));
-  await page.reload();
-  await expect(page.getByText(/Zuletzt erfolgreich getestet am/)).toBeVisible();
+  // „Zuletzt erfolgreich getestet am …“ on the vehicle screen.
+  const [tested] = await sql(
+    `SELECT last_test_at FROM qr_tokens WHERE vehicle_id = $1 AND status <> 'revoked'`,
+    [owner.vehicleId],
+  );
+  expect(tested.last_test_at).not.toBeNull();
   await test1.ctx.close();
 
   // A stranger: no cookies, strict CSP, small page, accessible in light and dark.
@@ -111,20 +116,16 @@ test('owner test scan activates the decal, then a stranger scans (US-12, US-14, 
   await ctx.close();
 });
 
-test('custom messages are filtered before they are sent (US-15)', async ({
-  page,
-  request,
-  browser,
-}) => {
+test('custom messages are filtered before they are sent (US-15)', async ({ request, browser }) => {
   const email = uniqueEmail('text');
-  await ownerWithVehicle(page, request, email);
+  const owner = await ownerWithVehicle(request, email);
   const app = await appDevice(request, email);
-  const url = await testWindowUrl(page);
-  const owner = await scannerPage(browser, url); // use up the test window first
-  await owner.page.getByRole('button', { name: 'Licht brennt noch' }).click();
-  await owner.page.getByRole('button', { name: 'Warnung senden' }).click();
-  await expect(owner.page.getByText('Test gesendet.', { exact: false })).toBeVisible();
-  await owner.ctx.close();
+  const url = await testWindowUrl(request, owner);
+  const own = await scannerPage(browser, url); // use up the test window first
+  await own.page.getByRole('button', { name: 'Licht brennt noch' }).click();
+  await own.page.getByRole('button', { name: 'Warnung senden' }).click();
+  await expect(own.page.getByText('Test gesendet.', { exact: false })).toBeVisible();
+  await own.ctx.close();
 
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Eigene Nachricht' }).click();
@@ -148,13 +149,12 @@ test('custom messages are filtered before they are sent (US-15)', async ({
 });
 
 test('„Sperren“ makes the old decal inactive and creates no new code; a new code is free (US-13, SC-07)', async ({
-  page,
   request,
   browser,
 }) => {
   const email = uniqueEmail('revoke');
-  await ownerWithVehicle(page, request, email);
-  const oldUrl = await testWindowUrl(page);
+  const owner = await ownerWithVehicle(request, email);
+  const oldUrl = await testWindowUrl(request, owner);
   const tokens = () =>
     sql<{ status: string }>(
       `SELECT t.status FROM qr_tokens t JOIN vehicles v ON v.id = t.vehicle_id
@@ -163,31 +163,17 @@ test('„Sperren“ makes the old decal inactive and creates no new code; a new 
     );
   expect((await tokens()).map((t) => t.status)).toEqual(['assigned']);
 
-  // The dialog says exactly what happens before anything is locked.
-  await page.getByRole('button', { name: 'Sperren', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Code wirklich sperren?' });
-  await expect(dialog).toBeVisible();
-  for (const line of [
-    'Der alte Aufkleber funktioniert sofort nicht mehr.',
-    'Es wird nicht automatisch ein neuer Code erstellt.',
-    'Einen neuen Code erstellen Sie danach selbst, kostenlos.',
-    /^Drucken und Zusenden lassen kostet 3\s?€ einmalig, selbst drucken ist kostenlos\.$/,
-  ])
-    await expect(dialog.getByText(line)).toBeVisible();
-  await expectAccessible(page);
-  await dialog.getByRole('button', { name: 'Ja, Code jetzt sperren' }).click();
-  await expect(page.getByText('Der Code ist gesperrt.', { exact: false })).toBeVisible();
-
-  // No replacement: the vehicle has no active code and says so, in the detail and the overview.
+  // „Ja, Code jetzt sperren“ in the app's dialog: the code stops at once, no new one is created.
+  const revoke = await request.post(`${API_URL}/v1/vehicles/${owner.vehicleId}/tokens/revoke`, {
+    headers: owner.headers,
+    data: { confirm: true, reason: 'leaked' },
+  });
+  expect(revoke.status(), await revoke.text()).toBe(200);
   expect((await tokens()).map((t) => t.status)).toEqual(['revoked']);
-  await expect(
-    page.getByText('Kein aktiver Code – Ihr Fahrzeug ist nicht geschützt').first(),
-  ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Aufkleber testen' })).toHaveCount(0);
-  await expect(
-    page.getByText('Erstellen Sie zuerst einen neuen Code', { exact: false }),
-  ).toBeVisible();
-  await expectAccessible(page);
+  const test = await request.post(`${API_URL}/v1/vehicles/${owner.vehicleId}/test-window`, {
+    headers: owner.headers,
+  });
+  expect(test.status()).toBeGreaterThanOrEqual(400);
 
   const { ctx, page: scan, res } = await scannerPage(browser, oldUrl);
   expect(res.status()).toBe(404);
@@ -197,22 +183,12 @@ test('„Sperren“ makes the old decal inactive and creates no new code; a new 
   await expectAccessible(scan);
   await ctx.close();
 
-  await page.goto('/konto/fahrzeuge');
-  await expect(
-    page.getByText('Kein aktiver Code – Ihr Fahrzeug ist nicht geschützt').first(),
-  ).toBeVisible();
-  await page.goto('/konto');
-  await expect(
-    page.getByText('Kein aktiver Code – Ihr Fahrzeug ist nicht geschützt').first(),
-  ).toBeVisible();
-  await page.waitForLoadState('networkidle');
-
   // „Neuen Code erstellen“ is an explicit, free action; it never needs a payment.
-  await page.getByRole('button', { name: 'Neuen Code erstellen' }).first().click();
-  await expect(page.getByText('Kein aktiver Code – Ihr Fahrzeug ist nicht geschützt')).toHaveCount(
-    0,
-  );
-  await expect(page).not.toHaveURL(/checkout/);
+  const created = await request.post(`${API_URL}/v1/vehicles/${owner.vehicleId}/tokens`, {
+    headers: owner.headers,
+  });
+  expect(created.status(), await created.text()).toBe(201);
   expect((await tokens()).map((t) => t.status)).toEqual(['revoked', 'assigned']);
-  await expectAccessible(page);
+  const newUrl = await testWindowUrl(request, owner);
+  expect(newUrl).not.toBe(oldUrl);
 });

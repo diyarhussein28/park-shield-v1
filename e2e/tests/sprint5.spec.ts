@@ -7,13 +7,16 @@ import {
   type Page,
 } from '@playwright/test';
 import {
+  API_URL,
   appDevice,
+  appOwner,
   expectAccessible,
   expectNoAlertMail,
-  signUp,
+  ownerWithActiveDecal,
+  smsCodeFor,
   sql,
   uniqueEmail,
-  verifyPhone,
+  uniqueMobile,
   waitForAppPush,
 } from './helpers';
 const latestAlert = async (email: string) =>
@@ -25,27 +28,9 @@ const latestAlert = async (email: string) =>
     )
   )[0]!.id as string;
 
+/** A paying owner with „Der Blaue“ whose decal test is used up (helpers.ts, through the app's API). */
 async function ownerWithVehicle(page: Page, request: APIRequestContext, email: string) {
-  await signUp(page, request, email);
-  await page.getByLabel(/Ich verlange ausdrücklich/).check();
-  await page.getByRole('button', { name: /Zahlungspflichtig bestellen/ }).click();
-  await page.getByRole('button', { name: 'Testzahlung ausführen' }).click();
-  await expect(page.getByText(/^Vertragsnummer: PS-/)).toBeVisible({ timeout: 15_000 });
-  await page.goto('/konto/fahrzeuge');
-  await page.getByLabel('Spitzname').fill('Der Blaue');
-  await page.getByLabel('Kennzeichen').fill('K-AB 1234');
-  await page.getByRole('button', { name: 'Fahrzeug hinzufügen' }).click();
-  await page.getByRole('link', { name: /Aufkleber und Details/ }).click();
-  await page.getByRole('button', { name: 'Aufkleber testen' }).click();
-  const link = page.getByRole('link', { name: 'Scan-Seite auf diesem Gerät öffnen' });
-  const url = (await link.getAttribute('href'))!;
-  // Use up the test window, so the next scans are real alerts.
-  const own = await scanner(page.context().browser()!, url);
-  await own.page.getByRole('button', { name: 'Licht brennt noch' }).click();
-  await own.page.getByRole('button', { name: 'Warnung senden' }).click();
-  await expect(own.page.getByText('Test gesendet.', { exact: false })).toBeVisible();
-  await own.ctx.close();
-  return url;
+  return (await ownerWithActiveDecal(page, request, email)).url;
 }
 
 async function scanner(
@@ -172,78 +157,59 @@ test('notification settings: app status, verified number, quiet hours; no e-mail
 }) => {
   test.setTimeout(90_000);
   const email = uniqueEmail('push');
-  await ownerWithVehicle(page, request, email);
-  await page.goto('/konto');
-  await page.getByRole('link', { name: 'Benachrichtigungen einstellen' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Benachrichtigungen' })).toBeVisible();
-
-  // No app yet: a persistent warning; alerts would reach the owner only by the SMS after 30 minutes.
-  const warning = page.getByText(
-    'Mitteilungen sind aus. Sie erfahren von Warnungen erst nach 30 Minuten per SMS.',
-  );
-  await expect(warning).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Ihre Handynummer' })).toBeVisible();
-  await expect(page.getByText(/^Ihre Nummer: \+49/)).toBeVisible();
-  await expect(page.getByText('Bestätigt', { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: /Ruhezeiten/ })).toBeVisible();
-  // Removed on 2026-11-21: alert e-mails, browser push, the channel order and WhatsApp.
-  await expect(page.getByRole('button', { name: /Push auf diesem Gerät/ })).toHaveCount(0);
-  await expect(page.getByText(/Reihenfolge|WhatsApp|Warnungen gehen immer an/)).toHaveCount(0);
-  await expectAccessible(page);
+  const owner = await ownerWithActiveDecal(page, request, email);
+  const channels = async () => {
+    const r = await request.get(`${API_URL}/v1/channels`, { headers: owner.headers });
+    expect(r.status()).toBe(200);
+    return (await r.json()) as {
+      app: { devices: { platform: string }[] };
+      sms: { phone?: string; verified?: boolean } | null;
+    };
+  };
+  // No app yet (the app warns: alerts only by the SMS after 30 minutes); the number is verified.
+  const before = await channels();
+  expect(before.app.devices).toEqual([]);
+  expect(before.sms).toBeTruthy();
 
   // The number can be changed, never removed: the API refuses to delete it.
-  const csrf = (await page.context().cookies()).find((c) => c.name === 'ps_csrf')!.value;
-  const removed = await page.request.delete('/v1/channels/sms', {
-    headers: { 'x-csrf-token': csrf },
-  });
+  const removed = await request.delete(`${API_URL}/v1/channels/sms`, { headers: owner.headers });
   expect(removed.status()).toBe(409);
   expect(await removed.json()).toMatchObject({ error: 'phone_required' });
 
-  // The app signs in and registers its device: the page shows it, the warning is gone.
+  // The app signs in and registers its device.
   await appDevice(request, email);
-  await page.reload();
-  await expect(page.getByText(/^Android · zuletzt aktiv/)).toBeVisible();
-  await expect(page.getByText('Aktiv', { exact: true })).toBeVisible();
-  await expect(warning).toHaveCount(0);
-  await expectAccessible(page);
+  expect((await channels()).app.devices).toMatchObject([{ platform: 'android' }]);
 });
 
 test('mobile number: required, changed only with a new SMS code; no WhatsApp anywhere (NT-07)', async ({
-  page,
   request,
 }) => {
   test.setTimeout(60_000);
-  const email = uniqueEmail('phone');
-  await signUp(page, request, email);
-  // Before paying, the section is closed and points to the subscription.
-  await page.goto('/konto/benachrichtigungen');
-  await expect(
-    page.getByRole('heading', { name: 'Erst das Abo, dann geht es hier weiter' }),
-  ).toBeVisible();
-  await page.getByRole('link', { name: 'Zum Abo' }).click();
-  await page.getByLabel(/Ich verlange ausdrücklich/).check();
-  await page.getByRole('button', { name: /Zahlungspflichtig bestellen/ }).click();
-  await page.getByRole('button', { name: 'Testzahlung ausführen' }).click();
-  await expect(page.getByText('Zahlung erhalten. Willkommen bei ParkShield!')).toBeVisible({
-    timeout: 15_000,
+  const owner = await appOwner(request, uniqueEmail('phone'));
+  const profile = async () =>
+    (await (await request.get(`${API_URL}/v1/me/profile`, { headers: owner.headers })).json()) as {
+      phone: string | null;
+      phoneVerified: boolean;
+    };
+  const before = await profile();
+  expect(before).toMatchObject({ phoneVerified: true });
+  expect(before.phone).toMatch(/\d{4}$/);
+
+  // A new number replaces the old one only after its SMS code.
+  const next = uniqueMobile();
+  const start = await request.post(`${API_URL}/v1/channels/phone`, {
+    headers: owner.headers,
+    data: { phone: next, channels: ['sms'], consent: true },
   });
-  await page.goto('/konto/benachrichtigungen');
-  await page.waitForLoadState('networkidle');
-  const card = page.getByRole('region', { name: 'Ihre Handynummer' });
-  const before = await card.getByText(/^Ihre Nummer: /).textContent();
-  await expect(card.getByRole('button', { name: /abschalten|entfernen/ })).toHaveCount(0);
-
-  await card.getByRole('button', { name: 'Nummer ändern' }).click();
-  await expect(
-    card.getByText('Die neue Nummer gilt erst, wenn Sie sie mit dem SMS-Code bestätigt haben.'),
-  ).toBeVisible();
-  await expectAccessible(page);
-  await verifyPhone(page, { checkout: false });
-  await expect(card.getByText('Bestätigt', { exact: true })).toBeVisible();
-  const after = await card.getByText(/^Ihre Nummer: /).textContent();
-  expect(after).toMatch(/^Ihre Nummer: \+49 ••• \d{4}$/);
-  expect(after).not.toBe(before);
-
-  await expect(page.getByText(/WhatsApp/)).toHaveCount(0);
-  await expectAccessible(page);
+  expect(start.status(), await start.text()).toBe(200);
+  expect((await profile()).phone).toBe(before.phone);
+  const verify = await request.post(`${API_URL}/v1/channels/phone/verify`, {
+    headers: owner.headers,
+    data: { code: await smsCodeFor(request, next) },
+  });
+  expect(verify.status(), await verify.text()).toBe(200);
+  const after = await profile();
+  expect(after.phoneVerified).toBe(true);
+  expect(after.phone).not.toBe(before.phone);
+  expect(after.phone!.slice(-4)).toBe(next.slice(-4));
 });

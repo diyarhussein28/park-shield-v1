@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { OPS_URL, signUp, staffBrowser, uniqueEmail } from './helpers';
+import { OPS_URL, staffBrowser, uniqueEmail } from './helpers';
 
 /** Collects CSP violations the browser reports while the page runs. */
 function watchCsp(page: Page) {
@@ -20,7 +20,7 @@ test('strict CSP on the web and ops apps: pages hydrate, nothing is blocked (US-
   test.setTimeout(120_000);
   const violations = watchCsp(page);
 
-  for (const path of ['/', '/hilfe', '/anmelden', '/sicherheit']) {
+  for (const path of ['/', '/hilfe', '/app', '/sicherheit']) {
     const res = await page.goto(path);
     const csp = res!.headers()['content-security-policy'] ?? '';
     expect(csp, path).toMatch(/script-src 'self' 'nonce-[A-Za-z0-9+/=]+' 'strict-dynamic'/);
@@ -33,7 +33,14 @@ test('strict CSP on the web and ops apps: pages hydrate, nothing is blocked (US-
   await page.getByLabel('Hilfe durchsuchen').fill('iPhone');
   await expect(page.getByText(/1 Treffer/)).toBeVisible();
 
-  await signUp(page, request, uniqueEmail('csp')); // the whole sign-in flow, client-side, under CSP
+  // A whole client-side form flow under CSP (the website's sign-in moved into the app, 2026-11-24).
+  await page.goto('/hilfe/kontakt');
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel('Ihre E-Mail-Adresse').fill(uniqueEmail('csp'));
+  await page.getByLabel('Worum geht es?').selectOption({ label: 'Aufkleber und Versand' });
+  await page.getByLabel('Ihre Nachricht').fill('Gibt es den Aufkleber auch in Schwarz?');
+  await page.getByRole('button', { name: 'Nachricht senden' }).click();
+  await expect(page.getByText(/Ihre Ticketnummer: DEV-/)).toBeVisible();
 
   const scanner = await request.get('/s/0000000000');
   expect(scanner.headers()['content-security-policy']).toContain("default-src 'none'");

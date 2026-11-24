@@ -26,7 +26,7 @@ test('no reaction: reminder push, then one SMS whose view link answers „Ich ko
 }) => {
   test.setTimeout(120_000);
   const email = uniqueEmail('reply');
-  const url = await ownerWithActiveDecal(page, request, email);
+  const { url } = await ownerWithActiveDecal(page, request, email);
   const app = await appDevice(request, email);
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Licht brennt noch' }).click();
@@ -92,7 +92,7 @@ test('„Bin nicht in der Nähe“ from the app shows the scanner who can help (
 }) => {
   test.setTimeout(90_000);
   const email = uniqueEmail('notnear');
-  const url = await ownerWithActiveDecal(page, request, email);
+  const { url } = await ownerWithActiveDecal(page, request, email);
   const app = await appDevice(request, email);
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Fahrzeug versperrt Ausfahrt' }).click();

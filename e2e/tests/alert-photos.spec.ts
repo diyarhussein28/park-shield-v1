@@ -86,7 +86,7 @@ test('alert photos: 2 photos → generic push, view link in the SMS → app → 
 }) => {
   test.setTimeout(180_000);
   const email = uniqueEmail('photos');
-  const url = await ownerWithActiveDecal(page, request, email);
+  const { url } = await ownerWithActiveDecal(page, request, email);
 
   // The owner's app (alerts go by app push only); the SMS after 30 minutes carries the view link.
   const app = await appDevice(request, email);

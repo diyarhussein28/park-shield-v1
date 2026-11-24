@@ -1,9 +1,15 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type BrowserContext,
+  type Page,
+} from '@playwright/test';
 import {
   alertIdOf,
+  API_URL,
   appDevice,
   expectAccessible,
   ownerWithActiveDecal,
@@ -12,10 +18,28 @@ import {
   uniqueEmail,
   waitForAppPush,
   waitForMail,
+  type Owner,
 } from './helpers';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const OPS_URL = process.env.OPS_BASE_URL ?? 'http://localhost:3001';
+
+interface HistoryAlert {
+  id: string;
+  vehicle: { nickname: string };
+  type: { code: string; de: string };
+  isTest: boolean;
+  message: string | null;
+  senderBlocked: boolean;
+  canBlock: boolean;
+}
+
+/** The owner's history as the app loads it (`GET /v1/alerts`). */
+async function history(request: APIRequestContext, owner: Owner): Promise<HistoryAlert[]> {
+  const r = await request.get(`${API_URL}/v1/alerts`, { headers: owner.headers });
+  expect(r.status()).toBe(200);
+  return ((await r.json()) as { alerts: HistoryAlert[] }).alerts;
+}
 
 test('history shows the alert with its text; „Absender blockieren“ ends the chat, stops the escalation and blocks that scanner (US-31)', async ({
   page,
@@ -23,30 +47,32 @@ test('history shows the alert with its text; „Absender blockieren“ ends the 
   browser,
 }) => {
   test.setTimeout(90_000);
-  const url = await ownerWithActiveDecal(page, request, uniqueEmail('history'));
-  const { ctx, page: scan } = await scannerPage(browser, url);
+  const owner = await ownerWithActiveDecal(page, request, uniqueEmail('history'));
+  const { ctx, page: scan } = await scannerPage(browser, owner.url);
   await scan.getByRole('button', { name: 'Eigene Nachricht' }).click();
   await scan.getByLabel('Ihre Nachricht').fill('Bitte Auto umparken');
   await scan.getByRole('button', { name: 'Nachricht senden' }).click();
   await expect(scan.getByRole('heading', { name: 'Status Ihrer Warnung' })).toBeVisible();
   const alertId = await alertIdOf(scan);
 
-  await page.goto('/konto');
-  await page.getByRole('link', { name: 'Verlauf ansehen' }).click();
-  const list = page.getByRole('list', { name: 'Verlauf' });
-  const card = list.getByRole('listitem').filter({ hasText: 'Bitte Auto umparken' });
-  await expect(card).toContainText('Eigene Nachricht · „Der Blaue“');
-  await expect(list.getByRole('listitem').filter({ hasText: 'Test' })).toHaveCount(1); // the decal test
-  await expectAccessible(page);
+  // The app's history (Warnungen → Verlauf) shows the text, the car and the decal test.
+  const before = await history(request, owner);
+  const alert = before.find((a) => a.id === alertId)!;
+  expect(alert).toMatchObject({
+    message: 'Bitte Auto umparken',
+    vehicle: { nickname: 'Der Blaue' },
+    type: { de: 'Eigene Nachricht' },
+    canBlock: true,
+    senderBlocked: false,
+  });
+  expect(before.filter((a) => a.isTest)).toHaveLength(1);
 
-  await card.getByRole('button', { name: 'Absender blockieren' }).click();
-  await card.getByLabel('Was war los?').selectOption({ label: 'Belästigung oder Drohung' });
-  await card.getByRole('button', { name: 'Blockieren', exact: true }).click();
-  await expect(
-    card.getByText(
-      'Blockiert. Diese Person kann „Der Blaue“ 30 Tage lang nicht mehr benachrichtigen.',
-    ),
-  ).toBeVisible();
+  // „Absender blockieren“ with the reason „Belästigung oder Drohung“.
+  const report = await request.post(`${API_URL}/v1/alerts/${alertId}/report`, {
+    headers: owner.headers,
+    data: { reason: 'harassment' },
+  });
+  expect(report.status(), await report.text()).toBe(200);
   // The chat is locked at once: the scanner sees it has ended and cannot write any more.
   await expect(scan.getByText('Der Chat wurde beendet.')).toBeVisible({ timeout: 10_000 });
   await expect(scan.getByLabel('Ihre Antwort')).toBeHidden();
@@ -66,9 +92,8 @@ test('history shows the alert with its text; „Absender blockieren“ ends the 
   );
   await ctx.close();
 
-  await page.reload();
-  await expect(card.getByText('Blockiert', { exact: true })).toBeVisible();
-  await expect(card.getByRole('button', { name: 'Absender blockieren' })).toHaveCount(0);
+  const after = (await history(request, owner)).find((a) => a.id === alertId)!;
+  expect(after.senderBlocked).toBe(true);
 });
 
 test('"Warnung nicht bekommen?" explains the latest attempts (SP-05)', async ({
@@ -78,18 +103,20 @@ test('"Warnung nicht bekommen?" explains the latest attempts (SP-05)', async ({
 }) => {
   test.setTimeout(90_000);
   const email = uniqueEmail('help');
-  const url = await ownerWithActiveDecal(page, request, email);
-  await page.goto('/konto/zustellung');
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Warnung nicht bekommen?' }),
-  ).toBeVisible();
-  await expect(page.getByText('Keine App mit aktivierten Mitteilungen.')).toBeVisible();
-  await expect(
-    page.getByText('Handynummer bestätigt: SMS nach 30 Minuten ohne Reaktion.'),
-  ).toBeVisible();
+  const owner = await ownerWithActiveDecal(page, request, email);
+  const deliveries = async () => {
+    const r = await request.get(`${API_URL}/v1/me/deliveries`, { headers: owner.headers });
+    expect(r.status()).toBe(200);
+    return (await r.json()) as {
+      attempts: { nickname: string; type: { de: string }; channel: string; status: string }[];
+      setup: { appDevices: number; sms: boolean };
+    };
+  };
+  // „Keine App mit aktivierten Mitteilungen.“ and „Handynummer bestätigt“.
+  expect((await deliveries()).setup).toMatchObject({ appDevices: 0, sms: true });
 
   const app = await appDevice(request, email);
-  const { ctx, page: scan } = await scannerPage(browser, url);
+  const { ctx, page: scan } = await scannerPage(browser, owner.url);
   await scan.getByRole('button', { name: 'Licht brennt noch' }).click();
   await scan.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(scan.getByText('Fahrzeughalter wurde benachrichtigt.')).toBeVisible({
@@ -98,49 +125,40 @@ test('"Warnung nicht bekommen?" explains the latest attempts (SP-05)', async ({
   await waitForAppPush(request, app.fcmToken, 'alert', await alertIdOf(scan));
   await ctx.close();
 
-  await page.reload();
-  await expect(page.getByText('ParkShield-App auf 1 Gerät eingerichtet.')).toBeVisible();
-  const attempts = page.getByRole('list', { name: 'Letzte Zustellversuche' });
-  await expect(attempts.getByRole('listitem').first()).toContainText(
-    'Licht brennt noch bei „Der Blaue“ · App',
-  );
-  await expect(attempts.getByRole('listitem').first()).toContainText('Gesendet');
-  await expect(attempts.getByText(/E-Mail/)).toHaveCount(0);
-  await expectAccessible(page);
+  const now = await deliveries();
+  expect(now.setup.appDevices).toBe(1);
+  const real = now.attempts.filter((a) => a.type.de === 'Licht brennt noch');
+  expect(real[0]).toMatchObject({ nickname: 'Der Blaue', channel: 'native_push' });
+  expect(['sent', 'delivered']).toContain(real[0]!.status);
+  expect(now.attempts.filter((a) => a.channel === 'email')).toEqual([]);
 });
 
 test('data export as JSON and PDF, after a fresh sign-in (US-32)', async ({ page, request }) => {
   test.setTimeout(90_000);
   const email = uniqueEmail('export');
-  await ownerWithActiveDecal(page, request, email);
-  await page.goto('/konto');
-  await page.getByRole('link', { name: 'Daten herunterladen oder Konto löschen' }).click();
-  await expectAccessible(page);
+  const owner = await ownerWithActiveDecal(page, request, email);
 
-  const json = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'JSON herunterladen' }).click();
-  const file = await (await json).path();
-  const data = JSON.parse(readFileSync(file, 'utf8'));
+  const json = await request.post(`${API_URL}/v1/me/export`, { headers: owner.headers });
+  expect(json.status(), await json.text()).toBe(200);
+  const data = (await json.json()) as {
+    account: { email: string };
+    vehicles: { nickname: string; plate: string }[];
+  };
   expect(data.account.email).toBe(email);
   expect(data.vehicles[0]).toMatchObject({ nickname: 'Der Blaue', plate: 'K-AB 1234' });
 
-  const pdf = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'PDF herunterladen' }).click();
-  expect(
-    readFileSync(await (await pdf).path())
-      .subarray(0, 5)
-      .toString(),
-  ).toBe('%PDF-');
+  const pdf = await request.post(`${API_URL}/v1/me/export.pdf`, { headers: owner.headers });
+  expect(pdf.status()).toBe(200);
+  expect((await pdf.body()).subarray(0, 5).toString()).toBe('%PDF-');
 
-  // Signed in too long ago: the page asks for a new sign-in first.
+  // Signed in too long ago: the API asks for a new sign-in first.
   await sql(
     `UPDATE sessions s SET created_at = now() - interval '20 minutes' FROM users u WHERE u.id = s.user_id AND u.email = $1`,
     [email],
   );
-  await page.getByRole('button', { name: 'JSON herunterladen' }).click();
-  await expect(page.getByText(/Bitte melden Sie sich zur Sicherheit neu an/)).toBeVisible();
-  await page.getByRole('button', { name: 'Neu anmelden' }).click();
-  await expect(page).toHaveURL(/\/anmelden$/);
+  const stale = await request.post(`${API_URL}/v1/me/export`, { headers: owner.headers });
+  expect(stale.status()).toBe(401);
+  expect(await stale.json()).toMatchObject({ error: 'reauth_required' });
 });
 
 test('account deletion stops the decal at once and can be cancelled from the e-mail (US-32)', async ({
@@ -150,16 +168,15 @@ test('account deletion stops the decal at once and can be cancelled from the e-m
 }) => {
   test.setTimeout(90_000);
   const email = uniqueEmail('delete');
-  const url = await ownerWithActiveDecal(page, request, email);
-  await page.goto('/konto/daten');
-  const remove = page.getByRole('button', { name: 'Konto löschen' });
-  await expect(remove).toBeDisabled();
-  await page.getByLabel('Ich möchte mein Konto und alle Daten löschen.').check();
-  await remove.click();
-  await expect(page.getByText(/Ihr Konto wird am .* gelöscht/)).toBeVisible();
+  const owner = await ownerWithActiveDecal(page, request, email);
+  const removed = await request.delete(`${API_URL}/v1/me`, {
+    headers: owner.headers,
+    data: { confirm: true },
+  });
+  expect(removed.status(), await removed.text()).toBe(200);
 
   const scan = await browser.newContext({ locale: 'de-DE' });
-  const res = await (await scan.newPage()).goto(url);
+  const res = await (await scan.newPage()).goto(owner.url);
   expect(res!.status()).toBe(404);
   await scan.close();
 
@@ -171,6 +188,10 @@ test('account deletion stops the decal at once and can be cancelled from the e-m
   await expectAccessible(p);
   await p.getByRole('button', { name: 'Konto behalten' }).click();
   await expect(p.getByText(/Ihr Konto bleibt bestehen/)).toBeVisible();
+  await expect(p.locator('#main').getByRole('link', { name: 'Zur App' })).toHaveAttribute(
+    'href',
+    '/app',
+  );
   await other.close();
   const [u] = await sql('SELECT status FROM users WHERE email = $1', [email]);
   expect(u.status).toBe('active');

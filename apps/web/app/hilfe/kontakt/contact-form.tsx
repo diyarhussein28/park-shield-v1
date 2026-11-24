@@ -136,7 +136,7 @@ export function ContactForm() {
                 {topic === 'alert_missing' && (
                   <Notice tone="info">
                     {t('support.alertHint')}{' '}
-                    <Link href="/konto/zustellung" className="font-semibold underline">
+                    <Link href="/hilfe/warnung-nicht-bekommen" className="font-semibold underline">
                       {t('deliveryHelp.link')}
                     </Link>
                   </Notice>

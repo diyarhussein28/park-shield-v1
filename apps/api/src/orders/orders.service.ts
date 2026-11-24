@@ -452,7 +452,7 @@ export class OrdersService {
       template: 'decal_shipped',
       locale: user.preferred_lang,
       values: { nickname: item.nickname, trackingNumber },
-      actionUrl: `${this.env.WEB_BASE_URL}/konto/fahrzeuge/${item.vehicleId}`,
+      actionUrl: `${this.env.WEB_BASE_URL}/app`,
     });
     return true;
   }

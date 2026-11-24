@@ -10,7 +10,7 @@ on one laptop, so **everyone (and every AI agent) on every machine reads the sam
 > The repository is **public**. Never write secrets, keys, passwords, customer data, phone numbers
 > or e-mail addresses of real customers here. Names of env vars are fine; their values are not.
 
-_Last updated: 2026-11-24 (`park-shield.de` DNS now on the server, Vercel no longer serves it). Before: 2026-11-24 (`__Host-` cookies; Vercel dropped, public pages of `park-shield.de` from the server). Before: 2026-11-24 (website e-mail change, trusted-contact clean-up migration, ops subscription source, Google Play pause; `docs/handover.md` §12). Before: 2026-11-22 (unified billing RevenueCat + Stripe and the personalised sticker, see §3)._
+_Last updated: 2026-11-24 (app first, phase 1: the website lost sign-in, portal and checkout; `docs/handover.md` §14). Before: 2026-11-24 (`park-shield.de` DNS now on the server, Vercel no longer serves it). Before: 2026-11-24 (`__Host-` cookies; Vercel dropped, public pages of `park-shield.de` from the server). Before: 2026-11-24 (website e-mail change, trusted-contact clean-up migration, ops subscription source, Google Play pause; `docs/handover.md` §12). Before: 2026-11-22 (unified billing RevenueCat + Stripe and the personalised sticker, see §3)._
 
 ---
 
@@ -111,6 +111,15 @@ records. Old SendGrid and Brevo records stay but are unused.
 
 ## 3. Decisions
 
+- **App first, paid new code, 10-day cooldown (2026-11-24).** Owner decisions (task in four phases,
+  `docs/handover.md` §14): registration, sign-in, the owner portal and billing live in the app; the
+  website is the showcase plus scanner, help, legal pages and the flows that need no sign-in
+  (`/kuendigen`, `/widerrufen`, `/v/*`, `/app/*`, `/.well-known/*`). Subscription billing is unchanged
+  (RevenueCat in the stores, Stripe in the app). „Sperren“ stays free and immediate. A new code: free
+  **once per subscription year after a „Sperren“**, otherwise **3 € = new code + printed and shipped
+  sticker**, paid **only through Stripe** (physical product, never in-app purchase). At most one new code
+  per vehicle every **10 days** (setting). After a payment the code is always issued; a refund never
+  revokes it. **Phase 1 (website) done 2026-11-24**; phases 2–4 (backend rules, Stripe flow, app UI) open.
 - **Vercel dropped, `__Host-` cookies (2026-11-24).** The website moves to our own server: until
   go-live the test server shows only the public pages on `park-shield.de` (Caddyfile `{$PUBLIC_DOMAIN}`);
   steps in `infra/single/README.md`. Session cookies carry the `__Host-` prefix on every https

@@ -7,7 +7,7 @@ Product specs live in [`docs/`](docs/README.md); this file is the practical map.
 **The current go-live state, decisions, test-only relaxations and team rules are in
 [`docs/status.md`](docs/status.md).** Read it too, and update it when you finish a step.
 
-_Last updated: 21 November 2026 (single plan 20 €, app-only alerts with 10-min reminder and one SMS after 30 min, trusted contacts removed, Sperren without reissue, 3 € print; progress in `docs/handover.md`)._
+_Last updated: 24 November 2026 (app first: the website lost sign-in, portal and checkout, §3). Before: 21 November 2026 (single plan 20 €, app-only alerts with 10-min reminder and one SMS after 30 min, trusted contacts removed, Sperren without reissue, 3 € print; progress in `docs/handover.md`)._
 
 ---
 
@@ -48,24 +48,24 @@ What is **not** done is mostly outside the code (accounts, keys, hosting, legal)
 
 npm workspaces + Turborepo. Node.js 24+, TypeScript everywhere.
 
-| Path                       | What it is                                                                                                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `apps/web`                 | Next.js 16 public website (:3000): landing page, legal pages, help centre, sign-up, owner portal (`/konto/*`), and the **scanner page `/s/[code]`**                |
-| `apps/ops`                 | Next.js 16 back-office app for staff (:3001), VPN-only in production                                                                                               |
-| `apps/api`                 | NestJS 12 on Fastify. One codebase, **three processes**: `main.ts` public API (:4000), `main-ops.ts` ops API (:4001), `worker.ts` background worker (outbox, jobs) |
-| `packages/i18n`            | All UI texts, German (`de.ts`, source) and English (`en.ts`); ICU message format; a parity test enforces identical keys                                            |
-| `packages/ui`              | Shared React components and design tokens (`theme.css`, Tailwind v4); a test checks WCAG contrast of every token pair                                              |
-| `packages/shared`          | Shared constants and types (plans, prices, alert types, decal products)                                                                                            |
-| `db/migrations`            | SQL migrations (dbmate). `20261109000000_schema_v3.sql` is the base schema                                                                                         |
-| `e2e`                      | Playwright end-to-end tests (desktop + mobile Chrome) incl. accessibility sweep                                                                                    |
-| `scripts`                  | Dev tooling: `dev.ts` (starts everything), DB helpers, load seed/report, chaos drill, ops invite                                                                   |
-| `load`                     | k6 load test (`load/k6/peak.js`) and results (`load/README.md`)                                                                                                    |
-| `infra/terraform`          | Hetzner servers, network, firewall (Terraform)                                                                                                                     |
-| `infra/ansible`            | Server configuration and deploys (PostgreSQL + pgBackRest, Caddy, Docker, WireGuard, monitoring)                                                                   |
-| `infra/monitoring`         | Better Stack monitors, heartbeat and public status page (Terraform)                                                                                                |
-| `docs/runbooks`            | On-call, provider outage, DB outage, abuse wave, fake decals, incident communication, chaos and restore drills, back office                                        |
-| `docs/security`            | OWASP ASVS L2 self-assessment and pentest scope                                                                                                                    |
-| `.github/workflows/ci.yml` | CI: format, lint, typecheck, schema check, unit tests, build, E2E, Semgrep, OSV, npm audit, Terraform/Ansible checks, staging deploy                               |
+| Path                       | What it is                                                                                                                                                            |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`                 | Next.js 16 public website (:3000): landing page, `/app` (account → app), legal pages, help centre, and the **scanner page `/s/[code]`** (no sign-in since 2026-11-24) |
+| `apps/ops`                 | Next.js 16 back-office app for staff (:3001), VPN-only in production                                                                                                  |
+| `apps/api`                 | NestJS 12 on Fastify. One codebase, **three processes**: `main.ts` public API (:4000), `main-ops.ts` ops API (:4001), `worker.ts` background worker (outbox, jobs)    |
+| `packages/i18n`            | All UI texts, German (`de.ts`, source) and English (`en.ts`); ICU message format; a parity test enforces identical keys                                               |
+| `packages/ui`              | Shared React components and design tokens (`theme.css`, Tailwind v4); a test checks WCAG contrast of every token pair                                                 |
+| `packages/shared`          | Shared constants and types (plans, prices, alert types, decal products)                                                                                               |
+| `db/migrations`            | SQL migrations (dbmate). `20261109000000_schema_v3.sql` is the base schema                                                                                            |
+| `e2e`                      | Playwright end-to-end tests (desktop + mobile Chrome) incl. accessibility sweep                                                                                       |
+| `scripts`                  | Dev tooling: `dev.ts` (starts everything), DB helpers, load seed/report, chaos drill, ops invite                                                                      |
+| `load`                     | k6 load test (`load/k6/peak.js`) and results (`load/README.md`)                                                                                                       |
+| `infra/terraform`          | Hetzner servers, network, firewall (Terraform)                                                                                                                        |
+| `infra/ansible`            | Server configuration and deploys (PostgreSQL + pgBackRest, Caddy, Docker, WireGuard, monitoring)                                                                      |
+| `infra/monitoring`         | Better Stack monitors, heartbeat and public status page (Terraform)                                                                                                   |
+| `docs/runbooks`            | On-call, provider outage, DB outage, abuse wave, fake decals, incident communication, chaos and restore drills, back office                                           |
+| `docs/security`            | OWASP ASVS L2 self-assessment and pentest scope                                                                                                                       |
+| `.github/workflows/ci.yml` | CI: format, lint, typecheck, schema check, unit tests, build, E2E, Semgrep, OSV, npm audit, Terraform/Ansible checks, staging deploy                                  |
 
 ### Inside `apps/api/src`
 
@@ -83,19 +83,23 @@ logger), `security` (route registry and authorisation tests), `dev` (test-only h
 
 ### Web pages (`apps/web/app`)
 
-Public: `/`, `/business`, `/hilfe` (+ articles, contact form), `/impressum`, `/datenschutz`, `/agb`,
-`/widerruf`, `/barrierefreiheit`, `/sicherheit`, `/kuendigen` (cancel without login, §312k BGB).
-Flows: `/anmelden` (+ `/link`), `/aktivieren` (claim a pre-printed decal), `/antwort` (owner reply
-from e-mail), `/datenschutz-anfrage`,
-`/konto-loeschen-abbrechen`. Owner portal (all pages share `KontoShell` in
-`apps/web/components/konto-shell.tsx`: sidebar on desktop, collapsible menu on phones): `/konto`
-(overview: the vehicles' QR codes first, or the form that creates the first one; before payment the
-checkout), `/konto/fahrzeuge` (+ `[id]`, QR code with PDF and test at the top),
-`/konto/benachrichtigungen`, `/konto/verlauf`, `/konto/zustellung`,
-`/konto/abo` (subscription, invoices, credit notes, e-mail summary, passkeys, cancel),
-`/konto/daten`. A decal's QR code is issued with its vehicle (`TokensService.issue`, stored in
-`qr_tokens` as hash + encrypted copy). Scanner: `/s/[code]`. Dev only: `/dev/postfach` (local inbox), `/dev/checkout`
-(fake Stripe), `/design` (design system).
+**App first (owner decision 2026-11-24):** registration, sign-in, the owner portal and the website
+checkout were removed; they live in the app (`apps/mobile`). `/anmelden` and `/konto/*` redirect (308,
+`next.config.ts`) to `/app`, which links to the stores (`APP_STORE_URL`, `PLAY_STORE_URL`; empty =
+„Die App erscheint in Kürze“) and to cancelling/withdrawing without login. Every API endpoint stays
+(the app uses the same owner API). Sign-in e-mails always link to `/app/anmelden` (the app).
+
+Public: `/`, `/app`, `/business`, `/hilfe` (+ articles, contact form), `/impressum`, `/datenschutz`,
+`/agb`, `/widerruf`, `/barrierefreiheit`, `/sicherheit`, `/kuendigen` (cancel without login, §312k
+BGB), `/widerrufen` (withdraw without login, §356a BGB). Flows: `/app/anmelden` and `/auth/open` (sign-in
+links of the app), `/app/zurueck` (Stripe return into the app), `/app/alerts/[id]` (alert deep link,
+falls back to `/app`), `/v/[token]` (view link of the escalation SMS), `/datenschutz-anfrage`,
+`/konto-loeschen-abbrechen`. Open owner questions (still there, not linked from the portal any more):
+`/aktivieren` (claim a pre-printed partner decal; it needs a web sign-in, so the claim only works
+through `POST /v1/vehicles/:id/claim` until the app gets a claim screen) and `/antwort` (old e-mail reply
+page; no notification links to it since alerts are app-only). A decal's QR code is issued with its
+vehicle (`TokensService.issue`, stored in `qr_tokens` as hash + encrypted copy). Scanner: `/s/[code]`.
+Dev only: `/dev/postfach` (local inbox), `/dev/checkout` (fake Stripe), `/design` (design system).
 
 ### Ops pages (`apps/ops/app`)
 
@@ -144,16 +148,17 @@ npm run dev
 
 ### Try the main flow by hand
 
-(The same flow is automated in `ownerWithActiveDecal()` in `e2e/tests/helpers.ts`.)
+(The same flow is automated in `ownerWithActiveDecal()` in `e2e/tests/helpers.ts`, through the owner
+API exactly as the app calls it.) The website has no sign-in since 2026-11-24, so the owner side is the
+app (`apps/mobile`, Expo; see its README) against the local API:
 
-1. Open http://localhost:3000/anmelden, enter any e-mail address, **Link senden**.
-2. Open http://localhost:3000/dev/postfach, open the magic link, click **Anmelden**.
-3. On `/konto`, tick the withdrawal consent ("Ich verlange ausdrücklich …"), click
-   **Zahlungspflichtig bestellen**, then **Testzahlung ausführen** on the fake checkout.
-4. Under `/konto/fahrzeuge` add a vehicle, open **Aufkleber und Details**, click
-   **Aufkleber testen** and open **Scan-Seite auf diesem Gerät öffnen** (`/s/<code>`) in another
-   browser. Pick a problem and send; the owner's notification appears in the inbox, the reply
-   buttons work, and the scanner page updates live.
+1. In the app: **Registrieren**, enter any e-mail address; the 6-digit code is in
+   http://localhost:3000/dev/postfach.
+2. Name and address, then a German mobile number (015x–017x); the SMS code is in the same inbox.
+3. Paywall → **Testzahlung ausführen** on the fake checkout.
+4. Add a vehicle, **Aufkleber testen**, and open the scan URL (`/s/<code>`) in a browser. Pick a
+   problem and send; the app push lands in the inbox (App-Push), the reply buttons work, and the scanner
+   page updates live.
 
 ### First staff account for the ops app
 
@@ -336,7 +341,7 @@ Single API test file: `cd apps/api && npx vitest run src/scan`. Single E2E file:
   several vehicles) encode `SCANNER_BASE_URL/s/<code>`. Permission `letters.print` (admin,
   fulfillment) shows names, addresses, plates and codes — a deliberate, audited exception to the
   masked back office; `letters.manage` (admin) re-creates letters and edits company data. Setting
-  `welcome_letter.in_portal` (default off) offers the letter under „Dokumente“ on `/konto/daten`.
+  `welcome_letter.in_portal` (default off) offers the letter under „Dokumente“ (was `/konto/daten`; the portal is in the app since 2026-11-24).
 - **Alert photos (Phase 2, `ALERT_PHOTOS_ENABLED`, off by default).** `apps/api/src/alert-media/`:
   up to 2 photos per alert (multipart on `POST /v1/scan/:code/alerts`), magic bytes + sharp re-encode
   without metadata, one AES-256-GCM key per file wrapped with the data key, files in `ALERT_MEDIA_DIR`
@@ -423,7 +428,8 @@ Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
   **Payments run on Stripe's page inside the app** (owner decision 2026-11-19, App Store risk in
   `LEGAL_REVIEW.md` §7): the app sends `appReturn` (its own `parkshield://zurueck`, Expo Go's `exp://`
   only in test environments), Stripe returns to the website's bounce page `/app/zurueck`, which
-  redirects into the app, and the app confirms the checkout at once. Passkeys are added on the website.
+  redirects into the app, and the app confirms the checkout at once. Passkeys were added on the website
+  portal, which was removed on 2026-11-24 (open owner question; the API endpoints stay).
   Navigation (redesign 2026-11-20, `docs/app-redesign.md`): four tabs in `src/app/(tabs)` —
   **Start** (`index`, Stage 4 2026-11-21: greeting, protection status, the car with the on-device photo,
   a decal preview with „Ansehen/Testen“ and „Design bearbeiten“; no alert cards), **Warnungen** (`alerts`: list + 90-day history, open-alert badge), **Fahrzeuge**,
@@ -435,7 +441,7 @@ Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
   `/tarif` (paywall) → `/erfolg` (success moments) → add the car; accounts without a profile or
   without a verified number get the blocking `/profil?flow=complete` (alerts are never blocked). **Profile gate:** the API answers
   `profile_incomplete` (409) on checkout and renewal until `PUT /v1/me/profile` was done (app and
-  website `/konto` show the form); `GET /v1/me/profile` also says `newAccount` (never had a contract).
+  the former website `/konto` showed the form); `GET /v1/me/profile` also says `newAccount` (never had a contract).
   **App lock** (`src/lib/lock.tsx`, `expo-local-authentication`): opt-in under Konto, Face ID / Touch ID
   / Android biometrics with the device code as fallback, on cold start and after
   `app.lock_after_seconds` (setting, default 300, from `GET /v1/app/config`) in the background; an

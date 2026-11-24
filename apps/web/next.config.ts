@@ -43,6 +43,15 @@ const config: NextConfig = {
     const api = process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:4000';
     return [{ source: '/v1/:path*', destination: `${api}/v1/:path*` }];
   },
+  // App first (owner decision 2026-11-24): sign-in, the owner portal and the checkout live in the app.
+  // Old links (e-mails, letters, bookmarks) land on /app, which links to the stores.
+  async redirects() {
+    return ['/anmelden', '/anmelden/:path*', '/konto', '/konto/:path*'].map((source) => ({
+      source,
+      destination: '/app',
+      permanent: true,
+    }));
+  },
   async headers() {
     // Previews (SITE_NOINDEX=1) stay out of search engines, e.g. while the Impressum has placeholders.
     const robots =

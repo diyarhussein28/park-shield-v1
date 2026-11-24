@@ -148,7 +148,7 @@ describe('annual checkout (US-06)', () => {
     );
     expect(welcome?.text).toContain('Bezahlt über: park-shield.de (Stripe)');
     expect(welcome?.text).not.toMatch(/App Store|Google Play/);
-    expect(welcome?.text).toContain('/konto/abo');
+    expect(welcome?.text).toContain('/app');
     expect(welcome?.text).toContain('Nächste Verlängerung');
     expect(welcome?.text).toContain('Ich verlange ausdrücklich');
     // § 312f BGB: the PDF „Vertragsbestätigung“ is attached; which versions went out is stored.

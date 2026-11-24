@@ -27,12 +27,6 @@ export function AppSignIn() {
                   {t('appLink.open')}
                 </a>
                 <Text muted>{t('appLink.noApp')}</Text>
-                <a
-                  href={`/anmelden/link#t=${token}`}
-                  className="text-primary min-h-12 content-center font-semibold underline"
-                >
-                  {t('appLink.browser')}
-                </a>
               </>
             ) : (
               <Notice tone="warning">{t('appLink.invalid')}</Notice>

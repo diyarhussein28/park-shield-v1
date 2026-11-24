@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
 import {
   API_URL,
+  appOwner,
   expectAccessible,
   ownerWithActiveDecal,
-  signUp,
   sql,
   staffBrowser,
   uniqueEmail,
@@ -19,7 +19,8 @@ test('withdrawal: finance refunds a fresh subscription, the customer gets the cr
 }) => {
   test.setTimeout(180_000);
   const email = uniqueEmail('refund');
-  const url = await ownerWithActiveDecal(page, request, email);
+  const owner = await ownerWithActiveDecal(page, request, email);
+  const url = owner.url;
   const [u] = await sql('SELECT id FROM users WHERE email = $1', [email]);
 
   const finance = await staffBrowser(browser, 'finanz', ['finance']);
@@ -59,15 +60,13 @@ test('withdrawal: finance refunds a fresh subscription, the customer gets the cr
   expect((await (await scan.newPage()).goto(url))!.status()).toBe(404);
   await scan.close();
 
-  await page.goto('/konto/abo');
-  await expect(page.getByRole('list', { name: 'Gutschriften' }).getByRole('link')).toContainText(
-    /Gutschrift GS-/,
-  );
-  await expectAccessible(page);
+  // „Tarif und Rechnungen“ in the app lists the credit note.
+  const notes = await request.get(`${API_URL}/v1/billing/credit-notes`, { headers: owner.headers });
+  const { creditNotes } = (await notes.json()) as { creditNotes: { number: string }[] };
+  expect(creditNotes.map((n) => n.number)).toEqual([expect.stringMatching(/^GS-\d{4}-\d{6}$/)]);
 });
 
 test('promo code from ops is valid at checkout at once (US-40, AD-13)', async ({
-  page,
   request,
   browser,
 }) => {
@@ -88,12 +87,24 @@ test('promo code from ops is valid at checkout at once (US-40, AD-13)', async ({
   await expect(row).toContainText('Preisgarantie 24 Monate');
   await expectAccessible(finance);
 
-  await signUp(page, request, uniqueEmail('promo'));
-  await page.getByLabel(/Gutscheincode/).fill(code.toLowerCase());
-  await page.getByLabel(/Ich verlange ausdrücklich/).check();
-  await page.getByRole('button', { name: /Zahlungspflichtig bestellen/ }).click();
+  const owner = await appOwner(request, uniqueEmail('promo'), { pay: false });
+  const checkout = await request.post(`${API_URL}/v1/billing/checkout`, {
+    headers: owner.headers,
+    data: {
+      plan: 'standard',
+      promoCode: code.toLowerCase(),
+      immediateStart: true,
+      immediateStartVersion: 1,
+      termsVersion: 1,
+    },
+  });
+  expect(checkout.status(), await checkout.text()).toBe(200);
+  const sessionId = new URL(((await checkout.json()) as { url: string }).url).searchParams.get(
+    'session',
+  );
   // 50 % off the single plan's 20 €.
-  await expect(page.getByText(/Betrag: 10,00/)).toBeVisible();
+  const session = await request.get(`${API_URL}/v1/dev/payments/sessions/${sessionId}`);
+  expect(((await session.json()) as { amountCents: number }).amountCents).toBe(1000);
 });
 
 test('partner batch: the scanner offers set-up and the owner claims the decal (US-39, AD-07)', async ({
@@ -132,18 +143,22 @@ test('partner batch: the scanner offers set-up and the owner claims the decal (U
     codes: string[];
   };
 
-  await ownerWithActiveDecal(page, request, uniqueEmail('mieter'));
-  // The owner scans the new decal with their own phone (here: the same signed-in browser).
+  const owner = await ownerWithActiveDecal(page, request, uniqueEmail('mieter'));
+  // The owner scans the new decal with their phone: the scanner page offers the set-up.
   await page.goto(`/s/${codes[0]}`);
   await expect(
     page.getByRole('heading', { name: 'Dieser Aufkleber ist noch nicht eingerichtet' }),
   ).toBeVisible();
   await page.getByRole('link', { name: 'Aufkleber einrichten' }).click();
   await expect(page.getByText(`Diesen Aufkleber hat ${name} ausgegeben.`)).toBeVisible();
-  await expect(page.getByLabel('An welchem Fahrzeug klebt der Aufkleber?')).toHaveValue(/.+/);
   await expectAccessible(page);
-  await page.getByRole('button', { name: 'Aufkleber einrichten' }).click();
-  await expect(page.getByText(/Fertig! Testen Sie den Aufkleber jetzt einmal/)).toBeVisible();
+  // Signing in happens in the app since 2026-11-24 (open question: a claim screen in the app);
+  // the claim itself is the owner API's `POST /v1/vehicles/:id/claim`.
+  const claimed = await request.post(`${API_URL}/v1/vehicles/${owner.vehicleId}/claim`, {
+    headers: owner.headers,
+    data: { code: codes[0] },
+  });
+  expect(claimed.status(), await claimed.text()).toBe(200);
 
   const stranger = await browser.newContext({ locale: 'de-DE' });
   const s = await stranger.newPage();
@@ -198,13 +213,12 @@ test('settings: a switch is versioned with its reason; provider status and order
 });
 
 test('audit log verifies its chain; the Zammad link shows the masked customer (US-42, AD-20)', async ({
-  page,
   request,
   browser,
 }) => {
   test.setTimeout(150_000);
   const email = uniqueEmail('ticket');
-  await signUp(page, request, email);
+  await appOwner(request, email, { pay: false });
 
   const support = await staffBrowser(browser, 'support', ['support']);
   await support.goto(`/zammad?email=${encodeURIComponent(email)}`);

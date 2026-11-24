@@ -135,7 +135,7 @@ www.{$PUBLIC_DOMAIN:public.localhost} {
 		}
 	}
 
-	@website path / /business /hilfe /hilfe/* /impressum /datenschutz /agb /widerruf /barrierefreiheit /sicherheit /_next/* /email/* /images/* /icons/* /manifest.webmanifest /favicon.ico /icon /icon.* /apple-icon /apple-icon.* /robots.txt /sitemap.xml /.well-known/*
+	@website path / /app /business /hilfe /hilfe/* /impressum /datenschutz /agb /widerruf /barrierefreiheit /sicherheit /_next/* /email/* /images/* /icons/* /manifest.webmanifest /favicon.ico /icon /icon.* /apple-icon /apple-icon.* /robots.txt /sitemap.xml /.well-known/*
 	handle @website {
 		reverse_proxy 127.0.0.1:3000
 	}

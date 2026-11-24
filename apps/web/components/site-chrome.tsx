@@ -3,9 +3,7 @@
 import { LanguageSwitch, SkipLink, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
-import { hasSession } from '@/lib/api-client';
 import { cx } from '@/lib/cx';
-import { useBrowserValue } from '@/lib/use-browser-value';
 import { Icon, LogoMark, StarShield } from './icons';
 
 /** Width of header, footer and the landing page sections (content pages keep their narrow column). */
@@ -29,7 +27,6 @@ function Brand() {
 
 export function SiteHeader({ sticky = false }: { sticky?: boolean }) {
   const { t } = useI18n();
-  const signedIn = useBrowserValue(hasSession, false);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -82,10 +79,10 @@ export function SiteHeader({ sticky = false }: { sticky?: boolean }) {
           </Link>
           <Link
             className="inline-flex min-h-12 items-center justify-center rounded-full bg-primary px-5 font-semibold text-primary-fg shadow-md shadow-primary/20 transition hover:bg-primary-hover md:ml-2"
-            href={signedIn ? '/konto' : '/anmelden'}
+            href="/app"
             onClick={close}
           >
-            {signedIn ? t('nav.account') : t('nav.login')}
+            {t('appPage.nav')}
           </Link>
           <LanguageSwitch className="pt-2 md:hidden" />
         </nav>

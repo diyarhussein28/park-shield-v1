@@ -158,36 +158,6 @@ export async function scannerPage(browser: Browser, url: string) {
   return { ctx, page };
 }
 
-/**
- * Signs up, pays, adds "Der Blaue" and uses up the decal's test window, so the next scans are real
- * alerts. Returns the scan URL.
- */
-export async function ownerWithActiveDecal(
-  page: Page,
-  request: APIRequestContext,
-  email: string,
-): Promise<string> {
-  await signUp(page, request, email);
-  await page.getByLabel(/Ich verlange ausdrücklich/).check();
-  await page.getByRole('button', { name: /Zahlungspflichtig bestellen/ }).click();
-  await page.getByRole('button', { name: 'Testzahlung ausführen' }).click();
-  await expect(page.getByText(/^Vertragsnummer: PS-/)).toBeVisible({ timeout: 15_000 });
-  await page.goto('/konto/fahrzeuge');
-  await page.getByLabel('Spitzname').fill('Der Blaue');
-  await page.getByLabel('Kennzeichen').fill('K-AB 1234');
-  await page.getByRole('button', { name: 'Fahrzeug hinzufügen' }).click();
-  await page.getByRole('link', { name: /Aufkleber und Details/ }).click();
-  await page.getByRole('button', { name: 'Aufkleber testen' }).click();
-  const link = page.getByRole('link', { name: 'Scan-Seite auf diesem Gerät öffnen' });
-  const url = (await link.getAttribute('href'))!;
-  const own = await scannerPage(page.context().browser()!, url);
-  await own.page.getByRole('button', { name: 'Licht brennt noch' }).click();
-  await own.page.getByRole('button', { name: 'Warnung senden' }).click();
-  await expect(own.page.getByText('Test gesendet.', { exact: false })).toBeVisible();
-  await own.ctx.close();
-  return url;
-}
-
 /** The native app's sign-in (magic link with app=true → bearer token), as the app does it. */
 export async function appSession(request: APIRequestContext, email: string) {
   const r = await request.post(`${API_URL}/v1/app/auth/magic-link`, {
@@ -224,65 +194,35 @@ export async function alertIdOf(scan: Page): Promise<string> {
   return /^#a=([0-9a-f-]{36})\./.exec(await scan.evaluate(() => location.hash))![1]!;
 }
 
-/** Signs up through the real UI and the e-mailed magic link; ends on /konto. */
-export async function signUp(page: Page, request: APIRequestContext, email: string) {
-  // Wait for hydration: in `next dev` under a full parallel run, an early click can hit the static HTML.
-  await page.goto('/anmelden');
-  await page.waitForLoadState('networkidle');
-  await page.getByLabel('E-Mail-Adresse').fill(email);
-  await page.getByRole('button', { name: 'Link senden' }).click();
-  await expect(page.getByText('Fast geschafft!')).toBeVisible({ timeout: 15_000 });
-  const mail = await waitForMail(request, email, 'magic_link');
-  await page.goto(linkIn(mail));
-  await page.waitForLoadState('networkidle');
-  await page.getByRole('button', { name: 'Anmelden' }).click();
-  // `next dev` renders /konto in up to ~14 s when several sign-ins land at once (production: well under 1 s).
-  await expect(page).toHaveURL(/\/konto$/, { timeout: 30_000 });
-  await expect(page.getByText(`Angemeldet als ${email}`)).toBeVisible();
-  // New accounts give their name and address before the checkout; a returning one has them already.
-  const form = page.getByRole('heading', { name: 'Konto vervollständigen' });
-  if (
-    await form.waitFor({ timeout: 10_000 }).then(
-      () => true,
-      () => false,
-    )
-  ) {
-    await completeProfile(page);
-  }
+/** An owner as the app sees it: bearer headers for the owner API, the verified number, the e-mail. */
+export interface Owner {
+  email: string;
+  session: string;
+  headers: { authorization: string };
+  phone: string;
 }
 
-/**
- * Name and address, required before the first checkout (docs/app-redesign.md §6): the same sample
- * person as the fake Stripe billing address.
- */
-export async function completeProfile(page: Page) {
-  const form = page.getByRole('heading', { name: 'Konto vervollständigen' });
-  await expect(form).toBeVisible({ timeout: 15_000 });
-  await page.getByLabel('Vorname', { exact: true }).fill('Erika');
-  await page.getByLabel('Nachname', { exact: true }).fill('Mustermann');
-  await page.getByLabel('Straße und Hausnummer').fill('Musterstraße 12');
-  await page.getByLabel('Postleitzahl').fill('50667');
-  await page.getByLabel('Ort', { exact: true }).fill('Köln');
-  await page.getByRole('button', { name: 'Speichern und weiter' }).click();
-  await verifyPhone(page);
-}
+/** The sign-up sample profile (same person as the fake Stripe billing address). */
+export const SAMPLE_PROFILE = {
+  firstName: 'Erika',
+  lastName: 'Mustermann',
+  street: 'Musterstraße 12',
+  postalCode: '50667',
+  city: 'Köln',
+  country: 'DE',
+};
 
-/**
- * The mobile number is required before the checkout (2026-11-21): a unique German mobile number per
- * call (tests run in parallel), the 6-digit code from the local SMS inbox (fake Twilio Verify).
- */
-export async function verifyPhone(page: Page, { checkout = true }: { checkout?: boolean } = {}) {
-  const local = `2${String(Date.now()).slice(-6)}${Math.floor(Math.random() * 10)}`;
-  const e164 = `+49151${local}`;
-  const field = page.getByLabel('Handynummer', { exact: true });
-  await expect(field).toBeVisible({ timeout: 15_000 });
-  await field.fill(`0151 ${local}`);
-  await page.getByRole('button', { name: 'Code per SMS senden' }).click();
+/** A unique German mobile number per call (tests run in parallel). */
+export const uniqueMobile = () =>
+  `+491512${String(Date.now()).slice(-6)}${Math.floor(Math.random() * 10)}`;
+
+/** The 6-digit code the fake Twilio Verify sent to a number (local SMS inbox). */
+export async function smsCodeFor(request: APIRequestContext, e164: string): Promise<string> {
   let code = '';
   await expect
     .poll(
       async () => {
-        const res = await page.request.get(`${API_URL}/v1/dev/sms`);
+        const res = await request.get(`${API_URL}/v1/dev/sms`);
         const { messages } = (await res.json()) as { messages: { to: string; body: string }[] };
         code = /(\d{6})/.exec(messages.find((m) => m.to === e164)?.body ?? '')?.[1] ?? '';
         return code;
@@ -290,17 +230,115 @@ export async function verifyPhone(page: Page, { checkout = true }: { checkout?: 
       { timeout: 15_000 },
     )
     .not.toBe('');
-  await page.getByLabel('6-stelliger Code').fill(code);
-  await page.getByRole('button', { name: 'Bestätigen' }).click();
-  if (!checkout) {
-    await expect(page.getByText(`Ihre Nummer: +49 ••• ${e164.slice(-4)}`)).toBeVisible({
-      timeout: 15_000,
-    });
-    return;
-  }
-  await expect(page.getByRole('button', { name: /Zahlungspflichtig bestellen/ })).toBeVisible({
-    timeout: 15_000,
+  return code;
+}
+
+/**
+ * Signs up the way the app does since the website lost its portal (2026-11-24): app sign-in, name and
+ * address, the required mobile number with its SMS code and, unless `pay` is false, the yearly plan
+ * through the fake checkout.
+ */
+export async function appOwner(
+  request: APIRequestContext,
+  email: string,
+  { pay = true, promoCode }: { pay?: boolean; promoCode?: string } = {},
+): Promise<Owner> {
+  const app = await appSession(request, email);
+  const profile = await request.put(`${API_URL}/v1/me/profile`, {
+    headers: app.headers,
+    data: SAMPLE_PROFILE,
   });
+  expect(profile.status(), await profile.text()).toBe(200);
+  const phone = uniqueMobile();
+  const start = await request.post(`${API_URL}/v1/channels/phone`, {
+    headers: app.headers,
+    data: { phone, channels: ['sms'], consent: true },
+  });
+  expect(start.status(), await start.text()).toBe(200);
+  const verify = await request.post(`${API_URL}/v1/channels/phone/verify`, {
+    headers: app.headers,
+    data: { code: await smsCodeFor(request, phone) },
+  });
+  expect(verify.status(), await verify.text()).toBe(200);
+  const owner = { email, ...app, phone };
+  if (pay) await payPlan(request, owner, promoCode);
+  return owner;
+}
+
+/** The yearly plan through the fake Stripe checkout (what „Testzahlung ausführen“ did). */
+export async function payPlan(request: APIRequestContext, owner: Owner, promoCode?: string) {
+  const checkout = await request.post(`${API_URL}/v1/billing/checkout`, {
+    headers: owner.headers,
+    data: {
+      plan: 'standard',
+      immediateStart: true,
+      immediateStartVersion: 1,
+      termsVersion: 1,
+      ...(promoCode ? { promoCode } : {}),
+    },
+  });
+  expect(checkout.status(), await checkout.text()).toBe(200);
+  const sessionId = new URL(((await checkout.json()) as { url: string }).url).searchParams.get(
+    'session',
+  );
+  const done = await request.post(`${API_URL}/v1/dev/payments/complete`, { data: { sessionId } });
+  expect(done.status(), await done.text()).toBe(200);
+  await expect
+    .poll(
+      async () => {
+        const r = await request.get(`${API_URL}/v1/billing/subscription`, {
+          headers: owner.headers,
+        });
+        return ((await r.json()) as { subscription: { status: string } | null }).subscription
+          ?.status;
+      },
+      { timeout: 15_000 },
+    )
+    .toBe('active');
+}
+
+/** Adds the one vehicle („Der Blaue“, K-AB 1234) and returns its id. */
+export async function addVehicle(
+  request: APIRequestContext,
+  owner: Owner,
+  vehicle: { nickname?: string; plate?: string } = {},
+): Promise<string> {
+  const r = await request.post(`${API_URL}/v1/vehicles`, {
+    headers: owner.headers,
+    data: { nickname: 'Der Blaue', plate: 'K-AB 1234', ...vehicle },
+  });
+  expect(r.status(), await r.text()).toBe(201);
+  return ((await r.json()) as { id: string }).id;
+}
+
+export interface ActiveOwner extends Owner {
+  vehicleId: string;
+  /** The decal's scanner URL (`/s/<code>`). */
+  url: string;
+}
+
+/**
+ * Signs up, pays, adds „Der Blaue“ and uses up the decal's test window with a real scan, so the next
+ * scans are real alerts.
+ */
+export async function ownerWithActiveDecal(
+  page: Page,
+  request: APIRequestContext,
+  email: string,
+): Promise<ActiveOwner> {
+  const owner = await appOwner(request, email);
+  const vehicleId = await addVehicle(request, owner);
+  const test = await request.post(`${API_URL}/v1/vehicles/${vehicleId}/test-window`, {
+    headers: owner.headers,
+  });
+  expect(test.status(), await test.text()).toBe(200);
+  const url = ((await test.json()) as { scanUrl: string }).scanUrl;
+  const own = await scannerPage(page.context().browser()!, url);
+  await own.page.getByRole('button', { name: 'Licht brennt noch' }).click();
+  await own.page.getByRole('button', { name: 'Warnung senden' }).click();
+  await expect(own.page.getByText('Test gesendet.', { exact: false })).toBeVisible();
+  await own.ctx.close();
+  return { ...owner, vehicleId, url };
 }
 
 export interface AppPush {

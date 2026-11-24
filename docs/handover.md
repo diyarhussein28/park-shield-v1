@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-24 (app first, phase 1 of 4 done: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -492,3 +492,60 @@ Konto tab → new group „Anmeldung & Kontakt“ with two rows (current e-mail,
   sent via Mailjet and checked by the owner: logo shows. Still open: delete the Vercel project (owner
   wants to wait).
 
+
+## 14. App first, paid new code, 10-day cooldown (2026-11-24)
+
+The owner's task, agreed in chat on 2026-11-24, in four phases; after each phase: tests green, docs,
+commit and push, then stop and report to the owner (in Arabic) before the next one.
+
+**Decisions (binding):** app first (sign-up, sign-in, portal, billing in `apps/mobile`); subscription
+billing unchanged (do not remove Stripe or unified billing); „Sperren“ always free and immediate, no new
+code; **new code free once per subscription year after a „Sperren“** (digital: code + self-print); else
+**3 € = new code + printed and shipped sticker, Stripe only** (physical product; never IAP); price =
+`prices.print_shipped_cents` unless there is a strong reason for its own setting (ask first); **cooldown
+10 days per vehicle** counted from the last issued code (incl. the first), setting
+`codes.reissue_cooldown_days`; ops override with its own permission + audit; eligibility checked before
+the Stripe page; after payment the code is always issued; `charge.refunded` never revokes the code;
+audit `qr_code.replaced`; e-mail stays Mailjet.
+
+### Phase 1 — website (done 2026-11-24)
+
+- `/anmelden`, `/anmelden/link`, `/konto/*` and their components (`konto-shell`, `konto-access`,
+  `email-change`, `phone-setup`) deleted; `next.config.ts` redirects them (308) to the new page **`/app`**
+  (`apps/web/app/app/page.tsx` + `app-account.tsx`, texts `appPage.*` in `packages/i18n`): what the app
+  does, store buttons from `APP_STORE_URL` / `PLAY_STORE_URL` (https on apps.apple.com /
+  play.google.com only; empty = „Die App erscheint in Kürze …“), links to `/kuendigen`, `/widerrufen`,
+  `/hilfe`. Header button „Zur App“, landing CTAs, help-article actions, contact form, deletion-cancel
+  page and the alert deep-link fallback point to `/app` (or the help article).
+- `/app/anmelden` no longer offers a browser sign-in. API: every magic link (also ops „Anmeldelink
+  senden“) is `/app/anmelden#t=…`; e-mail buttons that pointed to `/konto/*` and the welcome letter's
+  portal URL now say `/app`. Website checkout return URLs stay (they redirect to `/app`). No endpoint was
+  removed.
+- Caddyfile public block: `/app` added. `.env.example`: `APP_STORE_URL`, `PLAY_STORE_URL` (set them in
+  `server.env` once the apps are in the stores).
+- E2E rewritten on the owner API as the app calls it (`appOwner`, `payPlan`, `addVehicle`,
+  `ownerWithActiveDecal` returns `{ url, headers, vehicleId, … }`); new test „app first“ in
+  `sprint2.spec.ts`; the a11y sweep checks `/app` instead of the portal pages.
+- **Open owner questions:** `/aktivieren` (pre-printed partner decals: the page needs a web sign-in;
+  claim works only via `POST /v1/vehicles/:id/claim` until the app has a claim screen — keep, move into
+  the app, or delete?), `/antwort` (old e-mail reply page, nothing links to it — delete?), passkeys for
+  owners (were added on the website portal — drop?).
+
+### Phase 2 — new-code rules in the API (next)
+
+New settings `codes.reissue_cooldown_days` (10) and `codes.free_reissues_per_year` (1); new ops
+permission for the override; table of issuances (vehicle, user, kind `initial|free|paid|ops_override`,
+subscription period, token, unique Stripe reference, time; migration + `npm run db:types`);
+`GET /v1/vehicles/:id/new-code` (`freeAvailable`, `paidAvailable`, `nextEligibleAt`, `cooldownDays`,
+`priceCents`, reason); `POST /v1/vehicles/:id/tokens` enforces it (409 `code_cooldown` +
+`nextEligibleAt`, 402 `payment_required`); one service function under a per-vehicle lock; tests for the
+boundary, the yearly reset, Sperren → free → Sperren → paid, concurrency and the override. Note: the E2E
+„Sperren“ test in `sprint4.spec.ts` creates a new code right after the first one and must then expect the
+cooldown (or move the first code's date back).
+
+### Phase 3 — paid 3 € flow (Stripe) · Phase 4 — app UI
+
+As in the task text: reuse the 3 € print order (confirmation step, `design_snapshot`, § 312g Abs. 2 Nr. 1),
+webhook issues the code + creates the print order with the new code, refunds keep the code; app vehicle
+screen with „Neuen Code erstellen (kostenlos)“ / „Neuer Code + gedruckter Aufkleber (3 €)“, the cooldown
+date and hint, 3 € purchases under „Tarif und Rechnungen“.

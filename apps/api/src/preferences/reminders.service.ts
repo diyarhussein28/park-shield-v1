@@ -78,7 +78,7 @@ export class RemindersService {
         template: 'activation_reminder',
         locale: u.preferred_lang,
         values: { nickname: u.nickname, step: passed, steps: days.length },
-        actionUrl: `${this.env.WEB_BASE_URL}/konto/fahrzeuge/${u.vehicle_id}`,
+        actionUrl: `${this.env.WEB_BASE_URL}/app`,
       });
       sent++;
     }
@@ -129,7 +129,7 @@ export class RemindersService {
         template: 'decal_health',
         locale: r.preferred_lang,
         values: { nickname: r.nickname, months },
-        actionUrl: `${this.env.WEB_BASE_URL}/konto/fahrzeuge/${r.vehicle_id}`,
+        actionUrl: `${this.env.WEB_BASE_URL}/app`,
       });
       sent++;
     }
@@ -186,7 +186,7 @@ export class RemindersService {
             active: s.active,
             score: protection.percent,
           },
-          actionUrl: `${this.env.WEB_BASE_URL}/konto`,
+          actionUrl: `${this.env.WEB_BASE_URL}/app`,
         });
         sent++;
       } catch (err) {

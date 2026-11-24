@@ -399,7 +399,7 @@ export class RefundsService {
               ? withdrawalBreakdown(result.quote, who.preferred_lang ?? 'de')
               : '',
         },
-        actionUrl: `${this.env.WEB_BASE_URL}/konto`,
+        actionUrl: `${this.env.WEB_BASE_URL}/app`,
       });
     }
     return {

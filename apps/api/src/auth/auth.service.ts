@@ -39,7 +39,7 @@ export class AuthService {
     ipPrefix: string;
     /**
      * The native app: no captcha widget there (the per-network and per-address limits below still
-     * apply), and the link opens the app (/app/anmelden, a universal / app link) instead of the portal.
+     * apply). Every link opens the app (/app/anmelden, a universal / app link) since 2026-11-24.
      */
     app?: boolean;
   }): Promise<void> {
@@ -76,9 +76,8 @@ export class AuthService {
       to: email,
       template: 'magic_link',
       locale: user.preferred_lang,
-      actionUrl: input.app
-        ? `${this.env.WEB_BASE_URL}/app/anmelden#t=${token}`
-        : `${this.env.WEB_BASE_URL}/anmelden/link#t=${token}`,
+      // App first (2026-11-24): the website has no sign-in page any more, so every link opens the app.
+      actionUrl: `${this.env.WEB_BASE_URL}/app/anmelden#t=${token}`,
     });
   }
 

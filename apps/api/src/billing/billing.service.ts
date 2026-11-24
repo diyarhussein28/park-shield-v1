@@ -687,7 +687,7 @@ export class BillingService {
         consentText: consentText?.body ?? '',
         docVersion: LEGAL_DOC_VERSION,
       },
-      actionUrl: `${this.env.WEB_BASE_URL}/konto/abo`,
+      actionUrl: `${this.env.WEB_BASE_URL}/app`,
       attachments: [
         {
           filename: contractPdfName(locale, sub.contract_no),
@@ -855,7 +855,7 @@ export class BillingService {
       template: e.nextAttemptAt ? 'payment_failed' : 'payment_failed_final',
       locale: user.preferred_lang,
       values: e.nextAttemptAt ? { nextAttemptAt: e.nextAttemptAt } : {},
-      actionUrl: `${this.env.WEB_BASE_URL}/konto`,
+      actionUrl: `${this.env.WEB_BASE_URL}/app`,
     });
   }
 

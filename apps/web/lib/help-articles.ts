@@ -11,7 +11,7 @@ interface Text {
 export interface HelpArticle {
   slug: string;
   category: HelpCategory;
-  /** In-app page that solves it, e.g. the delivery check. */
+  /** Page that solves it; account tasks point to /app (the portal is in the app since 2026-11-24). */
   action?: { href: string; de: string; en: string };
   de: Text;
   en: Text;
@@ -45,7 +45,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'aufkleber-testen',
     category: 'start',
-    action: { href: '/konto/fahrzeuge', de: 'Zu Ihren Fahrzeugen', en: 'Go to your vehicles' },
+    action: { href: '/app', de: 'Zur ParkShield-App', en: 'Get the ParkShield app' },
     de: {
       title: 'Aufkleber testen',
       summary: 'Einmal selbst scannen: So wissen Sie sicher, dass Warnungen ankommen.',
@@ -92,11 +92,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     // Slug kept from the web-push article (links); alerts arrive only through the app since 2026-11-21.
     slug: 'push-auf-dem-iphone',
     category: 'alerts',
-    action: {
-      href: '/konto/benachrichtigungen',
-      de: 'Benachrichtigungen ansehen',
-      en: 'View notifications',
-    },
+    action: { href: '/app', de: 'Zur ParkShield-App', en: 'Get the ParkShield app' },
     de: {
       title: 'Mitteilungen auf dem iPhone',
       summary:
@@ -121,11 +117,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'app-einrichten',
     category: 'alerts',
-    action: {
-      href: '/konto/benachrichtigungen',
-      de: 'Benachrichtigungen ansehen',
-      en: 'View notifications',
-    },
+    action: { href: '/app', de: 'Zur ParkShield-App', en: 'Get the ParkShield app' },
     de: {
       title: 'Die ParkShield-App einrichten',
       summary:
@@ -150,7 +142,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'warnung-nicht-bekommen',
     category: 'alerts',
-    action: { href: '/konto/zustellung', de: 'Zustellung prüfen', en: 'Check delivery' },
+    action: { href: '/app', de: 'Zur ParkShield-App', en: 'Get the ParkShield app' },
     de: {
       title: 'Ich habe eine Warnung nicht bekommen',
       summary: 'Unsere Zustellungsprüfung zeigt, was wann versucht wurde.',
@@ -173,11 +165,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'ruhezeiten-und-modi',
     category: 'alerts',
-    action: {
-      href: '/konto/benachrichtigungen',
-      de: 'Ruhezeiten einstellen',
-      en: 'Set quiet hours',
-    },
+    action: { href: '/app', de: 'Zur ParkShield-App', en: 'Get the ParkShield app' },
     de: {
       title: 'Ruhezeiten, „Sensibler Ort“ und „Kurzer Halt“',
       summary: 'Nachts in Ruhe, dringende Warnungen kommen trotzdem per App.',
@@ -200,11 +188,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'erinnerung-und-sms',
     category: 'alerts',
-    action: {
-      href: '/konto/benachrichtigungen',
-      de: 'Handynummer ansehen',
-      en: 'View your mobile number',
-    },
+    action: { href: '/app', de: 'Zur ParkShield-App', en: 'Get the ParkShield app' },
     de: {
       title: 'Wenn Sie nicht reagieren: Erinnerung und SMS',
       summary: 'Nach 10 Minuten eine Erinnerung in der App, nach 30 Minuten eine einzige SMS.',
@@ -341,7 +325,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'missbrauch-melden',
     category: 'privacy',
-    action: { href: '/konto/verlauf', de: 'Zum Verlauf', en: 'Go to history' },
+    action: { href: '/app', de: 'Zur ParkShield-App', en: 'Get the ParkShield app' },
     de: {
       title: 'Belästigung oder Missbrauch melden',
       summary: 'Eine Meldung im Verlauf sperrt diese Person 30 Tage lang für Ihr Fahrzeug.',
@@ -364,7 +348,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'daten-herunterladen-und-konto-loeschen',
     category: 'privacy',
-    action: { href: '/konto/daten', de: 'Daten und Konto', en: 'Data and account' },
+    action: { href: '/app', de: 'Zur ParkShield-App', en: 'Get the ParkShield app' },
     de: {
       title: 'Daten herunterladen oder Konto löschen',
       summary: 'Alle Ihre Daten als JSON oder PDF, und die Löschung mit 24 Stunden Bedenkzeit.',
@@ -456,7 +440,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'zahlungsmethode-und-rechnungen',
     category: 'billing',
-    action: { href: '/konto', de: 'Zum Konto', en: 'Go to account' },
+    action: { href: '/app', de: 'Zur ParkShield-App', en: 'Get the ParkShield app' },
     de: {
       title: 'Zahlungsmethode ändern und Rechnungen',
       summary: 'Zahlungsmethode im Konto ändern, Rechnungen und Gutschriften als PDF.',

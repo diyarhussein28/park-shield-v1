@@ -589,7 +589,7 @@ export class PrivacyService {
         to: u.email,
         template: 'dsr_export_ready',
         locale: u.preferred_lang,
-        actionUrl: `${this.env.WEB_BASE_URL}/konto/daten`,
+        actionUrl: `${this.env.WEB_BASE_URL}/app`,
       });
       await this.setStep(r.id, 'parkshield_db', 'done', 'self-service export offered by e-mail');
     }

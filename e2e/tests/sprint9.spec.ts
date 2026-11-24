@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
+  alertIdOf,
+  API_URL,
   appDevice,
   expectAccessible,
   ownerWithActiveDecal,
@@ -18,7 +20,7 @@ test('support opens Customer 360 and the trace; break-glass needs a second perso
   const email = uniqueEmail('c360');
   // Unique per run: approvers see every open request, including the other project's.
   const ticket = `ZM-${Date.now() % 1_000_000}${Math.floor(Math.random() * 100)}`;
-  const url = await ownerWithActiveDecal(page, request, email);
+  const { url } = await ownerWithActiveDecal(page, request, email);
   await appDevice(request, email);
   const { ctx, page: scan } = await scannerPage(browser, url);
   await scan.getByRole('button', { name: 'Licht brennt noch' }).click();
@@ -142,21 +144,22 @@ test('abuse centre: owner report handled; a new filter word is live at once (US-
   test.skip(info.project.name !== 'desktop-chrome', 'global word list: one project only');
   test.setTimeout(120_000);
   const email = uniqueEmail('abuse');
-  const url = await ownerWithActiveDecal(page, request, email);
+  const owner = await ownerWithActiveDecal(page, request, email);
+  const url = owner.url;
   const first = await scannerPage(browser, url);
   await first.page.getByRole('button', { name: 'Licht brennt noch' }).click();
   await first.page.getByRole('button', { name: 'Warnung senden' }).click();
   await expect(first.page.getByRole('heading', { name: 'Status Ihrer Warnung' })).toBeVisible();
+  const alertId = await alertIdOf(first.page);
   await first.ctx.close();
-  await page.goto('/konto/verlauf');
-  const card = page
-    .getByRole('list', { name: 'Verlauf' })
-    .getByRole('listitem')
-    .filter({ hasText: 'Licht brennt noch' })
-    .filter({ hasNotText: 'Test' });
-  await card.getByRole('button', { name: 'Absender blockieren' }).click();
-  await card.getByRole('button', { name: 'Blockieren', exact: true }).click();
-  await expect(card.getByText(/Blockiert\./)).toBeVisible();
+  // „Absender blockieren“ in the app's history (the website portal moved into the app, 2026-11-24).
+  const blocked = await request.post(`${API_URL}/v1/alerts/${alertId}/block`, {
+    headers: owner.headers,
+  });
+  expect(blocked.status(), await blocked.text()).toBe(200);
+  const history = await request.get(`${API_URL}/v1/alerts`, { headers: owner.headers });
+  const { alerts } = (await history.json()) as { alerts: { id: string; senderBlocked: boolean }[] };
+  expect(alerts.find((a) => a.id === alertId)?.senderBlocked).toBe(true);
 
   const mod = await staffBrowser(browser, 'mod', ['abuse_moderator']);
   await mod.goto('/missbrauch');

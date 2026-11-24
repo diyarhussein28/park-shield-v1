@@ -1,9 +1,9 @@
 import { expect, test, type Browser } from '@playwright/test';
 import {
   alertIdOf,
+  API_URL,
   appDevice,
   escalationDue,
-  expectAccessible,
   ownerWithActiveDecal,
   smsDeliveries,
   sql,
@@ -38,23 +38,21 @@ test('quiet hours mute the push of normal alerts; urgent pushes pass; never an S
 }) => {
   test.setTimeout(120_000);
   const email = uniqueEmail('quiet');
-  const url = await ownerWithActiveDecal(page, request, email);
+  const owner = await ownerWithActiveDecal(page, request, email);
+  const url = owner.url;
   const app = await appDevice(request, email);
-  await page.goto('/konto/benachrichtigungen');
-  await page.waitForLoadState('networkidle'); // typing before hydration would be reset to the defaults
-  await expect(page.getByText('Keine Ruhezeiten eingerichtet.')).toBeVisible();
-  await page.getByLabel('Von').fill('00:00');
-  await page.getByLabel('Bis').fill('00:00');
-  await expect(
-    page.getByLabel('Dringende Warnungen trotzdem per App zustellen (empfohlen)'),
-  ).toBeChecked();
-  await expect(page.getByText(/Während einer Ruhezeit schicken wir nie eine SMS/)).toBeVisible();
-  await page.getByRole('button', { name: 'Ruhezeit hinzufügen' }).click();
-  const rules = page.getByRole('list', { name: 'Ruhezeiten' });
-  await expect(rules.getByRole('listitem')).toHaveText([
-    /Täglich: 00:00–00:00 Uhr.*dringende Warnungen kommen trotzdem per App/,
-  ]);
-  await expectAccessible(page);
+  // Konto → Benachrichtigungen → Ruhezeiten in the app: daily 00:00–00:00, urgent alerts still by push.
+  const empty = await request.get(`${API_URL}/v1/quiet-hours`, { headers: owner.headers });
+  expect(((await empty.json()) as { rules: unknown[] }).rules).toEqual([]);
+  const added = await request.post(`${API_URL}/v1/quiet-hours`, {
+    headers: owner.headers,
+    data: { days: [0, 1, 2, 3, 4, 5, 6], start: '00:00', end: '00:00', urgentBypass: true },
+  });
+  expect(added.status(), await added.text()).toBe(201);
+  const { rules } = (await added.json()) as {
+    rules: { id: string; start: string; end: string; urgentBypass: boolean }[];
+  };
+  expect(rules).toMatchObject([{ start: '00:00', end: '00:00', urgentBypass: true }]);
 
   const one = await scanAs(browser, url, 1);
   await one.page.getByRole('button', { name: 'Licht brennt noch' }).click();
@@ -99,8 +97,10 @@ test('quiet hours mute the push of normal alerts; urgent pushes pass; never an S
   await one.ctx.close();
   await two.ctx.close();
 
-  await page.getByRole('button', { name: /^Ruhezeit entfernen:/ }).click();
-  await expect(page.getByText('Keine Ruhezeiten eingerichtet.')).toBeVisible();
+  const removed = await request.delete(`${API_URL}/v1/quiet-hours/${rules[0]!.id}`, {
+    headers: owner.headers,
+  });
+  expect(removed.status()).toBe(200);
 });
 
 test('"Kurzer Halt" shows scanners when the driver is back (US-26, OW-17)', async ({
@@ -109,23 +109,29 @@ test('"Kurzer Halt" shows scanners when the driver is back (US-26, OW-17)', asyn
   browser,
 }) => {
   test.setTimeout(90_000);
-  const url = await ownerWithActiveDecal(page, request, uniqueEmail('stop'));
-  await page.reload(); // still on the vehicle page
-  await expect(page.getByRole('heading', { name: 'Vorübergehender Modus' })).toBeVisible();
-  await page.getByLabel(/Kurzer Halt/).check();
-  await page.getByLabel('Dauer').selectOption({ label: '1 Stunde' });
-  await page.getByRole('button', { name: 'Modus starten' }).click();
-  const active = page.getByText(/^Kurzer Halt bis \d{2}:\d{2} Uhr$/);
-  await expect(active).toBeVisible();
-  const until = /bis (\d{2}:\d{2})/.exec((await active.textContent())!)![1]!;
-  await expectAccessible(page);
+  const owner = await ownerWithActiveDecal(page, request, uniqueEmail('stop'));
+  const url = owner.url;
+  // „Vorübergehender Modus“ → „Kurzer Halt“ for one hour on the app's vehicle screen.
+  const started = await request.post(`${API_URL}/v1/vehicles/${owner.vehicleId}/mode`, {
+    headers: owner.headers,
+    data: { mode: 'short_stop', minutes: 60 },
+  });
+  expect(started.status(), await started.text()).toBe(200);
+  const { mode } = (await started.json()) as { mode: { mode: string; endsAt: string } };
+  expect(mode.mode).toBe('short_stop');
+  // The scanner page shows the time in the scanner's own time zone (the same machine here).
+  const until = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(
+    new Date(mode.endsAt),
+  );
 
   const scan = await scanAs(browser, url, 3);
   await expect(scan.page.getByText(`Fahrer ist gegen ${until} zurück`)).toBeVisible();
   await scan.ctx.close();
 
-  await page.getByRole('button', { name: 'Modus beenden' }).click();
-  await expect(page.getByText('Modus beendet.')).toBeVisible();
+  const ended = await request.delete(`${API_URL}/v1/vehicles/${owner.vehicleId}/mode`, {
+    headers: owner.headers,
+  });
+  expect(await ended.json()).toEqual({ mode: null });
   const after = await scanAs(browser, url, 4);
   await expect(after.page.getByText(/Fahrer ist gegen/)).toHaveCount(0);
   await after.ctx.close();
@@ -137,32 +143,33 @@ test('protection score (e-mail, app, mobile number, decal) and summary setting (
 }) => {
   test.setTimeout(90_000);
   const email = uniqueEmail('score');
-  await ownerWithActiveDecal(page, request, email);
+  const owner = await ownerWithActiveDecal(page, request, email);
+  const protection = async () => {
+    const r = await request.get(`${API_URL}/v1/me/protection`, { headers: owner.headers });
+    return (await r.json()) as { percent: number; steps: Record<string, boolean> };
+  };
   // E-mail confirmed, mobile number verified, decal tested; the app is missing: 3 of 4 steps.
-  await page.goto('/konto');
-  await expect(page.getByRole('heading', { name: 'Ihr Schutz' })).toBeVisible();
-  await expect(page.getByText('75 % eingerichtet')).toBeVisible();
-  await expect(page.getByRole('progressbar', { name: 'Ihr Schutz' })).toHaveAttribute(
-    'aria-valuenow',
-    '75',
-  );
-  await expect(page.getByText('Schutz unvollständig')).toBeVisible();
-  await expect(page.getByText('ParkShield-App mit Mitteilungen verbinden')).toBeVisible();
-  await expect(page.getByText(/Notfallkontakt|Vertrauensperson/)).toHaveCount(0);
-  await expectAccessible(page);
+  expect(await protection()).toEqual({
+    percent: 75,
+    steps: { email: true, channel: false, phone: true, decal: true },
+  });
 
   // The app is connected: fully protected.
   await appDevice(request, email);
-  await page.reload();
-  await expect(page.getByText('100 % eingerichtet')).toBeVisible();
-  await expect(page.getByText('Vollständig geschützt')).toBeVisible();
-  await expectAccessible(page);
+  expect((await protection()).percent).toBe(100);
 
-  // The e-mail summary setting lives on "Abo & Konto".
-  await page.goto('/konto/abo');
-  await expect(page.getByLabel('Wie oft?')).toHaveValue('monthly');
-  await page.getByLabel('Wie oft?').selectOption('weekly');
-  await expect(page.getByText('Gespeichert.')).toBeVisible();
-  await page.reload();
-  await expect(page.getByLabel('Wie oft?')).toHaveValue('weekly');
+  // The e-mail summary setting (Konto in the app).
+  const me = async () =>
+    (
+      (await (await request.get(`${API_URL}/v1/me`, { headers: owner.headers })).json()) as {
+        summaryFrequency: string;
+      }
+    ).summaryFrequency;
+  expect(await me()).toBe('monthly');
+  const saved = await request.patch(`${API_URL}/v1/me`, {
+    headers: owner.headers,
+    data: { summaryFrequency: 'weekly' },
+  });
+  expect(saved.status(), await saved.text()).toBe(200);
+  expect(await me()).toBe('weekly');
 });

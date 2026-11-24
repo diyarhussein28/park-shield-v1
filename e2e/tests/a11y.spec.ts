@@ -1,26 +1,24 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
 import {
-  linkIn,
   OPS_URL,
   ownerWithActiveDecal,
   settleAnimations,
   sql,
   staffBrowser,
   uniqueEmail,
-  waitForMail,
 } from './helpers';
 
 /**
  * US-45 accessibility audit (WCAG 2.2 AA, SC-12): every page, German at desktop width and English on a
  * 320 px screen (WCAG 1.4.10 reflow; also covers 200 % zoom), plus text spacing, reduced motion and
- * keyboard-only runs of the main flows. Pages that need a link token are checked in their
+ * keyboard-only runs of the main flows. The owner portal is in the app since 2026-11-24 (its screens
+ * are checked by the app's own tests). Pages that need a link token are checked in their
  * "invalid link" state.
  */
 const WEB_PUBLIC = [
   '/',
-  '/anmelden',
-  '/anmelden/link',
+  '/app',
   '/app/anmelden',
   '/v/AbC123dEf456gHi789jKl012mNo345pQr678sTu901v',
   '/impressum',
@@ -38,15 +36,6 @@ const WEB_PUBLIC = [
   '/antwort',
   '/konto-loeschen-abbrechen',
   '/datenschutz-anfrage',
-];
-const WEB_ACCOUNT = [
-  '/konto',
-  '/konto/fahrzeuge',
-  '/konto/abo',
-  '/konto/benachrichtigungen',
-  '/konto/verlauf',
-  '/konto/zustellung',
-  '/konto/daten',
 ];
 const OPS = [
   '/',
@@ -103,17 +92,6 @@ async function audit(page: Page, url: string, problems: string[]) {
   if (scroll > client) problems.push(`${where}: page is ${scroll}px wide on a ${client}px screen`);
 }
 
-async function signedInContext(
-  browser: Browser,
-  locale: string,
-  viewport: { width: number; height: number },
-  cookiesFrom: Page,
-) {
-  const ctx = await browser.newContext({ locale, viewport });
-  await ctx.addCookies(await cookiesFrom.context().cookies());
-  return ctx.newPage();
-}
-
 test.describe('accessibility audit (US-45)', () => {
   test.skip(({ isMobile }) => isMobile, 'the sweep sets its own viewports; one project is enough');
 
@@ -138,13 +116,12 @@ test.describe('accessibility audit (US-45)', () => {
     viewport: { width: number; height: number },
   ) {
     const email = uniqueEmail('a11y');
-    const scanUrl = await ownerWithActiveDecal(page, request, email);
+    const { url: scanUrl } = await ownerWithActiveDecal(page, request, email);
     const [v] = await sql(
-      `SELECT v.id AS vehicle, u.id AS user, (SELECT a.id FROM alerts a WHERE a.vehicle_id = v.id LIMIT 1) AS alert
+      `SELECT u.id AS user, (SELECT a.id FROM alerts a WHERE a.vehicle_id = v.id LIMIT 1) AS alert
          FROM vehicles v JOIN users u ON u.id = v.owner_user_id WHERE u.email = $1`,
       [email],
     );
-    const account = [...WEB_ACCOUNT, `/konto/fahrzeuge/${v.vehicle}`];
     const ops = [
       ...OPS,
       `/kunden/${v.user}`,
@@ -154,15 +131,12 @@ test.describe('accessibility audit (US-45)', () => {
     const problems: string[] = [];
     const anon = await (await browser.newContext({ locale, viewport })).newPage();
     for (const url of [...WEB_PUBLIC, new URL(scanUrl).pathname]) await audit(anon, url, problems);
-    const owner = await signedInContext(browser, locale, viewport, page);
-    for (const url of account) await audit(owner, url, problems);
     const staff = await staffBrowser(browser, 'a11y', ['superadmin', 'admin'], {
       locale,
       viewport,
     });
     for (const url of ops) await audit(staff, `${OPS_URL}${url}`, problems);
     await anon.context().close();
-    await owner.context().close();
     await staff.context().close();
     expect(problems).toEqual([]);
   }
@@ -208,7 +182,7 @@ test.describe('accessibility audit (US-45)', () => {
     expect(problems).toEqual([]);
   });
 
-  test('keyboard only: skip link, visible focus, sign-in and sending an alert', async ({
+  test('keyboard only: skip link, visible focus, the way to the app and sending an alert', async ({
     browser,
     request,
   }) => {
@@ -232,29 +206,27 @@ test.describe('accessibility audit (US-45)', () => {
       throw new Error(`could not reach ${String(name)} with Tab`);
     };
 
-    await page.goto('/anmelden');
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Zum Inhalt springen' })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/#main$/);
 
-    const email = uniqueEmail('keys');
-    await tabTo('E-Mail-Adresse', 'textbox');
-    await page.keyboard.type(email);
-    await page.keyboard.press('Enter');
-    await expect(page.getByText('Fast geschafft!')).toBeVisible({ timeout: 15_000 });
-    const mail = await waitForMail(request, email, 'magic_link');
-    await page.goto(linkIn(mail));
+    // The account lives in the app (2026-11-24): the header leads to /app.
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
-    await tabTo('Anmelden');
+    await tabTo('Zur App', 'link');
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/\/konto$/, { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/app$/, { timeout: 30_000 });
+    await expect(
+      page.getByRole('heading', { name: 'Ihr ParkShield-Konto ist in der App' }),
+    ).toBeVisible();
 
     // The scanner page, as a stranger using only the keyboard.
     const owner = await browser.newContext({ locale: 'de-DE' });
     const ownerPage = await owner.newPage();
-    const scanUrl = await ownerWithActiveDecal(ownerPage, request, uniqueEmail('keyscan'));
+    const { url: scanUrl } = await ownerWithActiveDecal(ownerPage, request, uniqueEmail('keyscan'));
     await owner.close();
     await page.goto(scanUrl);
     await tabTo('Licht brennt noch');

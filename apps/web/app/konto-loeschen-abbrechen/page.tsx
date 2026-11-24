@@ -34,8 +34,8 @@ export default function CancelDeletion() {
             {state === 'done' ? (
               <>
                 <Notice tone="success">{t('privacy.canceled')}</Notice>
-                <Link href="/anmelden" className="text-primary underline">
-                  {t('nav.login')}
+                <Link href="/app" className="text-primary underline">
+                  {t('appPage.nav')}
                 </Link>
               </>
             ) : state === 'invalid' || token === null ? (

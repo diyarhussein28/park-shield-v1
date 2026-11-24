@@ -38,7 +38,7 @@ test('live chat: the owner opens it from the app, both write, the owner closes i
 }) => {
   test.setTimeout(150_000);
   const email = uniqueEmail('chat');
-  const url = await ownerWithActiveDecal(page, request, email);
+  const { url } = await ownerWithActiveDecal(page, request, email);
   const app = await appDevice(request, email);
 
   const { ctx, page: scan } = await scannerPage(browser, url);
@@ -196,7 +196,7 @@ test('escalation: seeing is no reaction (reminder, then exactly one SMS); „Erl
 }) => {
   test.setTimeout(150_000);
   const email = uniqueEmail('escal');
-  const url = await ownerWithActiveDecal(page, request, email);
+  const { url } = await ownerWithActiveDecal(page, request, email);
   const app = await appDevice(request, email);
 
   // The decal test of ownerWithActiveDecal: a reminder is planned, an SMS never.

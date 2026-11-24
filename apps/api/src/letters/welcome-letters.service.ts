@@ -356,7 +356,7 @@ export class WelcomeLettersService {
     const address = await this.address(userId, user.stripe_customer_id);
     const company = await this.company.current();
     const price = await this.billing.priceFor(plan, sub.promo_code_id ?? undefined);
-    const portal = new URL('/konto', this.env.WEB_BASE_URL);
+    const portal = new URL('/app', this.env.WEB_BASE_URL);
     const snapshot: LetterSnapshot = {
       v: 1,
       date: new Date().toISOString(),

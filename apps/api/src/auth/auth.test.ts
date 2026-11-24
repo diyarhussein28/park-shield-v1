@@ -29,7 +29,7 @@ describe('magic link sign-up and login (US-05)', () => {
     const [mail] = await mailbox(h);
     expect(mail!.to).toBe('jonas@example.de');
     expect(mail!.tag).toBe('magic_link');
-    expect(mail!.text).toMatch(/\/anmelden\/link#t=[A-Za-z0-9_-]{43}/);
+    expect(mail!.text).toMatch(/\/app\/anmelden#t=[A-Za-z0-9_-]{43}/);
 
     const token = linkToken(mail!);
     const stored = await h.db

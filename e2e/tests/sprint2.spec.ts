@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { expectAccessible, linkIn, signUp, sql, uniqueEmail, waitForMail } from './helpers';
+import {
+  API_URL,
+  appOwner,
+  expectAccessible,
+  payPlan,
+  sql,
+  uniqueEmail,
+  waitForMail,
+} from './helpers';
 
 test.describe('landing and legal pages (US-04)', () => {
   test('shows the single plan (20 € / year incl. VAT, one vehicle), no Plus or Premium, and is accessible', async ({
@@ -78,55 +86,97 @@ test.describe('site footer (design 2026-11-22)', () => {
   });
 });
 
+test.describe('app first (2026-11-24)', () => {
+  test('the website has no sign-in or portal: old links and the call to action lead to /app', async ({
+    page,
+  }) => {
+    for (const path of [
+      '/anmelden',
+      '/anmelden/link',
+      '/konto',
+      '/konto/fahrzeuge/123',
+      '/konto/abo',
+    ]) {
+      await page.goto(path);
+      await expect(page, path).toHaveURL(/\/app$/);
+    }
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Ihr ParkShield-Konto ist in der App' }),
+    ).toBeVisible();
+    // Without store links configured the page says the app is coming.
+    await expect(
+      page.getByText('Die App erscheint in Kürze im App Store und bei Google Play.'),
+    ).toBeVisible();
+    // Cancelling and withdrawing stay possible on the website without signing in.
+    await expect(
+      page.locator('#main').getByRole('link', { name: 'Verträge hier kündigen' }),
+    ).toHaveAttribute('href', '/kuendigen');
+    await expect(
+      page.locator('#main').getByRole('link', { name: 'Vertrag widerrufen' }),
+    ).toHaveAttribute('href', '/widerrufen');
+    await expectAccessible(page);
+
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await page
+      .locator('#main')
+      .getByRole('link', { name: /ParkShield für 20 € im Jahr/ })
+      .first()
+      .click();
+    await expect(page).toHaveURL(/\/app$/);
+  });
+});
+
 test.describe('sign-up, annual checkout, cancellation (US-05, US-06, US-07)', () => {
-  test('full journey: magic link → single plan checkout → active → cancel with receipt', async ({
+  test('full journey: app sign-up → single plan checkout → active → cancel with receipt', async ({
     page,
     request,
   }) => {
     const email = uniqueEmail('jonas');
-    await signUp(page, request, email);
-    await expectAccessible(page);
+    const owner = await appOwner(request, email, { pay: false });
 
-    // Immediate-start request is mandatory before paying: the button stays off until it is ticked.
-    const order = page.getByRole('button', { name: 'Zahlungspflichtig bestellen – 20 € / Jahr' });
-    await expect(order).toBeDisabled();
-    await expect(page.getByText('Bitte bestätigen Sie den sofortigen Beginn')).toBeVisible();
-    await page.getByLabel(/Ich verlange ausdrücklich/).check();
-    await order.click();
-
-    await expect(page).toHaveURL(/\/dev\/checkout\?session=cs_fake_/);
-    await expect(page.getByText(/Betrag: 20,00/)).toBeVisible();
-    await page.getByRole('button', { name: 'Testzahlung ausführen' }).click();
-
-    await expect(page).toHaveURL(/\/konto\?checkout=success/);
-    await expect(page.getByText(/^ParkShield · 20\s?€ \/ Jahr$/)).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('Aktiv', { exact: true })).toBeVisible();
-    const contract = (await page.getByText(/^Vertragsnummer: PS-/).textContent())!.replace(
-      'Vertragsnummer: ',
-      '',
+    // Immediate-start request is mandatory before paying (§ 356 Abs. 4 BGB).
+    const withoutConsent = await request.post(`${API_URL}/v1/billing/checkout`, {
+      headers: owner.headers,
+      data: { plan: 'standard', immediateStartVersion: 1, termsVersion: 1 },
+    });
+    expect(withoutConsent.status()).toBe(400);
+    const checkout = await request.post(`${API_URL}/v1/billing/checkout`, {
+      headers: owner.headers,
+      data: { plan: 'standard', immediateStart: true, immediateStartVersion: 1, termsVersion: 1 },
+    });
+    expect(checkout.status(), await checkout.text()).toBe(200);
+    const sessionId = new URL(((await checkout.json()) as { url: string }).url).searchParams.get(
+      'session',
     );
-    // Invoices, cancellation and sign-in settings live on "Abo & Konto".
-    await page.getByRole('link', { name: 'Abo und Rechnungen verwalten' }).click();
-    await expect(page.getByRole('heading', { level: 1, name: 'Abo & Konto' })).toBeVisible();
-    await expect(
-      page.getByRole('link', { name: /Rechnung DEV-\d{4}-\d+ vom .* \(PDF\)/ }),
-    ).toBeVisible();
-    await expect(page.getByText(/Premium|Upgrade/)).toHaveCount(0);
-    // One card „Vertrag“: during the withdrawal period (§ 356a BGB) the withdrawal button comes first.
-    const card = page
-      .locator('section')
-      .filter({ has: page.getByRole('heading', { level: 2, name: 'Vertrag', exact: true }) });
-    await expect(
-      card.getByText(/Sie können bis .* ohne Angabe von Gründen widerrufen\./),
-    ).toBeVisible();
-    await expect(card.getByRole('link', { name: 'Vertrag widerrufen' })).toHaveAttribute(
-      'href',
-      '/widerrufen',
-    );
-    await expect(card.getByRole('link', { name: 'Vertrag hier kündigen' })).toBeVisible();
-    await expectAccessible(page);
+    const session = await request.get(`${API_URL}/v1/dev/payments/sessions/${sessionId}`);
+    expect(((await session.json()) as { amountCents: number }).amountCents).toBe(2000);
+    await payPlan(request, owner);
+
+    const summary = async () =>
+      (
+        (await (
+          await request.get(`${API_URL}/v1/billing/subscription`, { headers: owner.headers })
+        ).json()) as {
+          subscription: {
+            status: string;
+            contractNo: string;
+            cancelAtPeriodEnd: boolean;
+            withdrawalOpenUntil: string | null;
+          };
+        }
+      ).subscription;
+    const sub = await summary();
+    expect(sub).toMatchObject({ status: 'active', cancelAtPeriodEnd: false });
+    expect(sub.contractNo).toMatch(/^PS-/);
+    // During the withdrawal period (§ 356a BGB) the app offers „Vertrag widerrufen“ first.
+    expect(sub.withdrawalOpenUntil).not.toBeNull();
+    const invoices = await request.get(`${API_URL}/v1/billing/invoices`, {
+      headers: owner.headers,
+    });
+    expect(((await invoices.json()) as { invoices: unknown[] }).invoices.length).toBeGreaterThan(0);
     const welcome = await waitForMail(request, email, 'contract_confirmation');
-    expect(welcome.text).toContain(contract);
+    expect(welcome.text).toContain(sub.contractNo);
 
     // After the withdrawal period only the cancel part remains.
     await sql(
@@ -134,66 +184,40 @@ test.describe('sign-up, annual checkout, cancellation (US-05, US-06, US-07)', ()
         WHERE user_id = (SELECT id FROM users WHERE email = $1)`,
       [email],
     );
-    await page.reload();
-    await expect(card.getByRole('link', { name: 'Vertrag hier kündigen' })).toBeVisible();
-    await expect(card.getByRole('link', { name: 'Vertrag widerrufen' })).toHaveCount(0);
-    await expect(card.getByText(/ohne Angabe von Gründen widerrufen/)).toHaveCount(0);
+    expect((await summary()).withdrawalOpenUntil).toBeNull();
 
-    await card.getByRole('link', { name: 'Vertrag hier kündigen' }).click();
-    await expect(page.getByText(`Gekündigt wird Ihr Vertrag ${contract}`)).toBeVisible();
+    // „Verträge hier kündigen“ on the website, without signing in (§ 312k BGB).
+    await page.goto('/kuendigen');
+    await page.waitForLoadState('networkidle');
+    await page.getByLabel('Ihr Name').fill('Jonas Beispiel');
+    await page.getByLabel('E-Mail-Adresse Ihres Kontos').fill(email);
+    await page.getByLabel('Vertragsnummer').fill(sub.contractNo);
     await expectAccessible(page);
     await page.getByRole('button', { name: 'Jetzt kündigen' }).click();
     await expect(
       page.getByRole('heading', { name: 'Ihre Kündigung ist eingegangen' }),
     ).toBeVisible();
     await expect(page.getByText(/Eingegangen am .* um \d{1,2}:\d{2}/)).toBeVisible();
-    await waitForMail(request, email, 'cancel_received');
-
-    await page.goto('/konto');
-    await expect(page.getByText(/^Gekündigt, endet am/)).toBeVisible();
-  });
-
-  test('cancellation without login with e-mail + contract number', async ({
-    page,
-    request,
-    browser,
-  }) => {
-    const email = uniqueEmail('ohnelogin');
-    await signUp(page, request, email);
-    await page.getByLabel(/Ich verlange ausdrücklich/).check();
-    await page.getByRole('button', { name: /Zahlungspflichtig bestellen/ }).click();
-    await page.getByRole('button', { name: 'Testzahlung ausführen' }).click();
-    await expect(page.getByText(/^Vertragsnummer: PS-/)).toBeVisible({ timeout: 15_000 });
-    const contract = (await page.getByText(/^Vertragsnummer: PS-/).textContent())!.replace(
-      'Vertragsnummer: ',
-      '',
-    );
-
-    const anonymous = await (await browser.newContext({ locale: 'de-DE' })).newPage();
-    await anonymous.goto('/');
-    await anonymous.getByRole('link', { name: 'Verträge hier kündigen' }).click();
-    await anonymous.getByLabel('Ihr Name').fill('Jonas Beispiel');
-    await anonymous.getByLabel('E-Mail-Adresse Ihres Kontos').fill(email);
-    await anonymous.getByLabel('Vertragsnummer').fill(contract);
-    await expectAccessible(anonymous);
-    await anonymous.getByRole('button', { name: 'Jetzt kündigen' }).click();
-    await expect(
-      anonymous.getByRole('heading', { name: 'Ihre Kündigung ist eingegangen' }),
-    ).toBeVisible();
     const mail = await waitForMail(request, email, 'cancel_received');
-    expect(mail.text).toContain(contract);
+    expect(mail.text).toContain(sub.contractNo);
+    await expect.poll(async () => (await summary()).cancelAtPeriodEnd).toBe(true);
   });
 
-  test('a used magic link cannot be used again', async ({ page, request, browser }) => {
+  test('a used sign-in link cannot be used again', async ({ request }) => {
     const email = uniqueEmail('einmal');
-    await signUp(page, request, email);
+    const r = await request.post(`${API_URL}/v1/app/auth/magic-link`, {
+      data: { email, locale: 'de' },
+    });
+    expect(r.status()).toBe(202);
     const mail = await waitForMail(request, email, 'magic_link');
-    const other = await (await browser.newContext({ locale: 'de-DE' })).newPage();
-    await other.goto(linkIn(mail));
-    await expect(other).toHaveURL(/\/anmelden\/link$/); // token removed from the address bar
-    await other.getByRole('button', { name: 'Anmelden' }).click();
-    await expect(
-      other.getByText('Dieser Link ist abgelaufen oder wurde schon verwendet.'),
-    ).toBeVisible();
+    const token = /\/app\/anmelden#t=([A-Za-z0-9_-]+)/.exec(mail.text)![1]!;
+    const first = await request.post(`${API_URL}/v1/app/auth/consume`, {
+      data: { token, platform: 'android' },
+    });
+    expect(first.status()).toBe(200);
+    const again = await request.post(`${API_URL}/v1/app/auth/consume`, {
+      data: { token, platform: 'android' },
+    });
+    expect(again.status()).toBeGreaterThanOrEqual(400);
   });
 });
