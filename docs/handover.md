@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -481,4 +481,13 @@ Konto tab → new group „Anmeldung & Kontakt“ with two rows (current e-mail,
   untouched) → check pages, `/email/*` and a test e-mail → delete the Vercel project.
 - Not validated with a Caddy binary in the cloud container (download blocked): run
   `docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile` on the server after the deploy.
+- **Switch-over done 2026-11-24:** `PUBLIC_DOMAIN=park-shield.de` in the server `.env` (backup
+  `.env.bak-20261124-160200`), `5925c7a` deployed (migrations `20261210000000`, `…0100` applied), `caddy
+  validate` → „Valid configuration“. Strato: A `park-shield.de` 216.198.79.1 (Vercel) → the server IP,
+  CNAME `www` Vercel → `park-shield.de.` (TTL 150 s; no AAAA; MX, SPF, DMARC, Mailjet untouched and checked).
+  Let's Encrypt certificates for both names issued; `/`, `/impressum`, `/datenschutz`, all 24 `/email/*`
+  images and `/.well-known/assetlinks.json` answer 200, `www` → 301, `X-Robots-Tag: noindex`.
+  `apple-app-site-association` is empty (`APP_IOS_TEAM_ID` / `APP_IOS_BUNDLE_ID` not set on the server;
+  Vercel served no file at all). Still open: test e-mail with the Webmail signature, then delete the
+  Vercel project.
 

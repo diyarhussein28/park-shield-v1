@@ -10,7 +10,7 @@ on one laptop, so **everyone (and every AI agent) on every machine reads the sam
 > The repository is **public**. Never write secrets, keys, passwords, customer data, phone numbers
 > or e-mail addresses of real customers here. Names of env vars are fine; their values are not.
 
-_Last updated: 2026-11-24 (`__Host-` cookies; Vercel dropped, public pages of `park-shield.de` from the server). Before: 2026-11-24 (website e-mail change, trusted-contact clean-up migration, ops subscription source, Google Play pause; `docs/handover.md` §12). Before: 2026-11-22 (unified billing RevenueCat + Stripe and the personalised sticker, see §3)._
+_Last updated: 2026-11-24 (`park-shield.de` DNS now on the server, Vercel no longer serves it). Before: 2026-11-24 (`__Host-` cookies; Vercel dropped, public pages of `park-shield.de` from the server). Before: 2026-11-24 (website e-mail change, trusted-contact clean-up migration, ops subscription source, Google Play pause; `docs/handover.md` §12). Before: 2026-11-22 (unified billing RevenueCat + Stripe and the personalised sticker, see §3)._
 
 ---
 
@@ -64,9 +64,10 @@ print. Open findings: `docs/handover.md` §6 item 6.
   in chat). They are edited on the server, e.g.
   `ssh -t root@<server> 'nano /opt/parkshield/src/infra/single/server.env'`.
 - **Test site:** https://test.park-shield.de, behind basic auth (`APP_ENV=ci`); the scanner flow
-  and `/v1/webhooks/*` are exempt. `park-shield.de` itself is still the Vercel website preview until
-  the switch-over in `infra/single/README.md` („Public website on park-shield.de“, Vercel dropped
-  2026-11-24): then the server shows the public pages there.
+  and `/v1/webhooks/*` are exempt. Since 2026-11-24 `park-shield.de` (and `www`, 301 to it) points to
+  this server, which shows only the public pages there (Caddyfile `{$PUBLIC_DOMAIN}`, `infra/single/README.md`
+  „Public website on park-shield.de“); sign-in, portal, scanner and `/v1` redirect to the home page until
+  go-live. The Vercel project is no longer used (delete it, see `docs/handover.md` §13).
 - **Ops app (back office):** since 2026-11-18 at **https://ops.test.park-shield.de** (test server
   only): the test site's basic auth first, then your staff passkey. `OPS_BASE_URL` is that URL, so
   passkeys registered for `localhost` no longer work; each person needs a new invite. Undo before
