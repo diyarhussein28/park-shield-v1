@@ -12,6 +12,7 @@ export function GET() {
           components: [
             { '/': '/app/alerts/*', comment: 'Alert detail (push, e-mail)' },
             { '/': '/app/anmelden', comment: 'Sign-in link for the app' },
+            { '/': '/app/aktivieren', comment: 'Set up a pre-printed partner decal in the app' },
           ],
         },
       ]

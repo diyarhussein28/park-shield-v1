@@ -94,10 +94,12 @@ Public: `/`, `/app`, `/business`, `/hilfe` (+ articles, contact form), `/impress
 BGB), `/widerrufen` (withdraw without login, §356a BGB). Flows: `/app/anmelden` and `/auth/open` (sign-in
 links of the app), `/app/zurueck` (Stripe return into the app), `/app/alerts/[id]` (alert deep link,
 falls back to `/app`), `/v/[token]` (view link of the escalation SMS), `/datenschutz-anfrage`,
-`/konto-loeschen-abbrechen`. Open owner questions (still there, not linked from the portal any more):
-`/aktivieren` (claim a pre-printed partner decal; it needs a web sign-in, so the claim only works
-through `POST /v1/vehicles/:id/claim` until the app gets a claim screen) and `/antwort` (old e-mail reply
-page; no notification links to it since alerts are app-only). A decal's QR code is issued with its
+`/konto-loeschen-abbrechen`, `/app/aktivieren` (set-up link of a pre-printed partner decal: opens the
+app, the page only offers the app link). Removed on 2026-11-24 (owner decisions): `/aktivieren` (308 to
+`/app`; setting up a partner decal is the app screen `apps/mobile/src/app/aktivieren.tsx`, API
+`GET /v1/claim/:code` + `POST /v1/vehicles/:id/claim`), `/antwort` (308 to `/app`; the old e-mail reply
+page — the reply token `POST /v1/ack` is still used by `/v/<token>`) and the website's passkey UI (the
+passkey API stays for the app). A decal's QR code is issued with its
 vehicle (`TokensService.issue`, stored in `qr_tokens` as hash + encrypted copy). Scanner: `/s/[code]`.
 Dev only: `/dev/postfach` (local inbox), `/dev/checkout` (fake Stripe), `/design` (design system).
 
@@ -439,8 +441,8 @@ Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
   **Payments run on Stripe's page inside the app** (owner decision 2026-11-19, App Store risk in
   `LEGAL_REVIEW.md` §7): the app sends `appReturn` (its own `parkshield://zurueck`, Expo Go's `exp://`
   only in test environments), Stripe returns to the website's bounce page `/app/zurueck`, which
-  redirects into the app, and the app confirms the checkout at once. Passkeys were added on the website
-  portal, which was removed on 2026-11-24 (open owner question; the API endpoints stay).
+  redirects into the app, and the app confirms the checkout at once. The passkey API stays for the app
+  (the website's passkey UI was removed with the portal, owner decision 2026-11-24).
   Navigation (redesign 2026-11-20, `docs/app-redesign.md`): four tabs in `src/app/(tabs)` —
   **Start** (`index`, Stage 4 2026-11-21: greeting, protection status, the car with the on-device photo,
   a decal preview with „Ansehen/Testen“ and „Design bearbeiten“; no alert cards), **Warnungen** (`alerts`: list + 90-day history, open-alert badge), **Fahrzeuge**,

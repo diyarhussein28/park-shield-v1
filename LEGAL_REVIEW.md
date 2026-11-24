@@ -573,6 +573,7 @@ days (`codes.reissue_cooldown_days`); support can make an exception (e.g. theft)
 3. **AGB / price list.** The AGB should name the rule: one free new code per contract year after
    „Sperren“, otherwise 3 € with a printed sticker, at most one new code every 10 days per vehicle.
    TODO [LEGAL REVIEW]
-4. **Cooldown and the free code count from the first code.** A customer who locks the code within
+4. **Cooldown and the free code count from the first code** (owner confirmed 2026-11-24: the first
+   code is issued at once, the 10 days for later codes count from it). A customer who locks the code within
    the first 10 days waits until day 10 (or asks support for the exception). Consumer-law concern
    about a paid service that cannot be used for up to 10 days after a theft?

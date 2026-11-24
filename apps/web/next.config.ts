@@ -44,9 +44,18 @@ const config: NextConfig = {
     return [{ source: '/v1/:path*', destination: `${api}/v1/:path*` }];
   },
   // App first (owner decision 2026-11-24): sign-in, the owner portal and the checkout live in the app.
-  // Old links (e-mails, letters, bookmarks) land on /app, which links to the stores.
+  // Old links (e-mails, letters, bookmarks) land on /app, which links to the stores. `/aktivieren`
+  // (pre-printed partner decals, now set up in the app) and `/antwort` (the old e-mail reply page)
+  // were removed the same day.
   async redirects() {
-    return ['/anmelden', '/anmelden/:path*', '/konto', '/konto/:path*'].map((source) => ({
+    return [
+      '/anmelden',
+      '/anmelden/:path*',
+      '/konto',
+      '/konto/:path*',
+      '/aktivieren',
+      '/antwort',
+    ].map((source) => ({
       source,
       destination: '/app',
       permanent: true,

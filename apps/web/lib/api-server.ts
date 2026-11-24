@@ -190,7 +190,6 @@ export interface Me {
   preferredLang: 'de' | 'en';
   summaryFrequency: 'off' | 'weekly' | 'monthly';
   timezone: string;
-  passkeys: { id: string; label: string | null; createdAt: string; lastUsedAt: string | null }[];
 }
 
 export interface SubscriptionSummary {

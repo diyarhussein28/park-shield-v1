@@ -6,7 +6,13 @@ import { shareDecalPdf } from '@/lib/decal';
 import { lang, t } from '@/lib/i18n';
 import { saveLang } from '@/lib/language';
 import { pt } from '@/lib/portal-i18n';
-import { euro, longDate, type PortalVehicle, type SubscriptionSummary } from '@/lib/portal';
+import {
+  claimCodeFromLink,
+  euro,
+  longDate,
+  type PortalVehicle,
+  type SubscriptionSummary,
+} from '@/lib/portal';
 import { setSession } from '@/lib/session';
 import Privacy from '@/app/daten';
 import VehicleDetail from '@/app/fahrzeug/[id]';
@@ -18,6 +24,7 @@ import { ContractCard } from '@/components/subscription';
 import Notifications from '@/app/benachrichtigungen';
 import PrintScreen from '@/app/fahrzeug/drucken/[id]';
 import PaidNewCode from '@/app/fahrzeug/neuer-code/[id]';
+import Claim from '@/app/aktivieren';
 import Plans from '@/app/tarif';
 
 const VEHICLE = '7c2e1f40-5b6a-4d3e-9f10-2a3b4c5d6e7f';
@@ -61,6 +68,7 @@ jest.mock('expo-web-browser', () => ({
   openBrowserAsync: jest.fn(async () => ({ type: 'opened' })),
 }));
 jest.mock('expo-linking', () => ({
+  useURL: () => null,
   createURL: (path: string) => `exp://192.168.178.25:8082/--/${path}`,
   parse: (url: string) => ({
     queryParams: Object.fromEntries(new URL(url.replace('exp://', 'http://')).searchParams),
@@ -1299,5 +1307,52 @@ describe('new code (2026-11-24): free once a year, 3 € with the printed decal,
     ).toBeTruthy();
     // The free welcome print is no purchase.
     expect(screen.queryAllByText(new RegExp(`^${t('purchasePrint')} ·`))).toHaveLength(0);
+  });
+});
+
+describe('„Aufkleber einrichten“ in the app (moved from the website, 2026-11-24)', () => {
+  it('reads the code from the set-up link', () => {
+    expect(claimCodeFromLink('https://park-shield.de/app/aktivieren#c=K7QX4M2R9T')).toBe(
+      'K7QX4M2R9T',
+    );
+    expect(claimCodeFromLink('parkshield://aktivieren#c=K7QX4M2R9T')).toBe('K7QX4M2R9T');
+    expect(claimCodeFromLink('https://park-shield.de/app/aktivieren')).toBeNull();
+  });
+
+  it('checks the code, shows the partner and puts the decal on the vehicle', async () => {
+    api({
+      'GET /v1/claim/K7QX4M2R9T': () => json({ partner: 'HV Süd', promoCode: null }),
+      'GET /v1/billing/subscription': () => json({ subscription: subscription() }),
+      'GET /v1/vehicles': () => json({ vehicles: [vehicle()] }),
+      [`POST /v1/vehicles/${VEHICLE}/claim`]: () => json(vehicle()),
+    });
+    await render(<Claim />);
+    await fireEvent.changeText(screen.getByTestId('claim-code'), 'K7QX4M2R9T');
+    await fireEvent.press(screen.getByTestId('claim-check'));
+    expect(await screen.findByText(pt('claim.fromPartner', { partner: 'HV Süd' }))).toBeTruthy();
+    await fireEvent.press(await screen.findByTestId('claim-submit'));
+    expect(await screen.findByTestId('claim-done')).toBeTruthy();
+    expect(sent('POST', `/v1/vehicles/${VEHICLE}/claim`)).toEqual({ code: 'K7QX4M2R9T' });
+    expect(pt('claim.subscribeFirst')).not.toMatch(/Plus/);
+  });
+
+  it('an unknown code says so; without a plan it leads to the plan first', async () => {
+    api({
+      'GET /v1/claim/FALSCH1234': () => json({ error: 'code_not_claimable' }, 404),
+    });
+    await render(<Claim />);
+    await fireEvent.changeText(screen.getByTestId('claim-code'), 'FALSCH1234');
+    await fireEvent.press(screen.getByTestId('claim-check'));
+    expect(await screen.findByText(pt('claim.invalid'))).toBeTruthy();
+
+    api({
+      'GET /v1/claim/K7QX4M2R9T': () => json({ partner: null, promoCode: null }),
+      'GET /v1/billing/subscription': () => json({ subscription: null }),
+      'GET /v1/vehicles': () => json({ vehicles: [] }),
+    });
+    await fireEvent.changeText(screen.getByTestId('claim-code'), 'K7QX4M2R9T');
+    await fireEvent.press(screen.getByTestId('claim-check'));
+    await fireEvent.press(await screen.findByLabelText(pt('claim.subscribe')));
+    expect(mockPush).toHaveBeenCalledWith('/tarif');
   });
 });

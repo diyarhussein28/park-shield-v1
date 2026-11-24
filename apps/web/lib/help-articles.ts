@@ -279,14 +279,14 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'vorgedruckter-aufkleber-aktivieren',
     category: 'decal',
-    action: { href: '/aktivieren', de: 'Aufkleber einrichten', en: 'Set up a decal' },
+    action: { href: '/app', de: 'Zur ParkShield-App', en: 'Get the ParkShield app' },
     de: {
       title: 'Aufkleber von der Hausverwaltung einrichten',
       summary:
         'Vorgedruckte Aufkleber von Partnern richten Sie mit dem Code in wenigen Schritten ein.',
       body: [
-        'Manche Hausverwaltungen und Partner verteilen ParkShield-Aufkleber. Scannen Sie den Aufkleber selbst; die Seite bietet Ihnen „Aufkleber einrichten“ an. Den Code finden Sie auch unter dem QR-Code.',
-        'Melden Sie sich an und schließen Sie das Abo ab. Ein Gutscheincode des Partners wird dabei automatisch eingetragen.',
+        'Manche Hausverwaltungen und Partner verteilen ParkShield-Aufkleber. Scannen Sie den Aufkleber selbst; die Seite bietet Ihnen „Aufkleber einrichten“ an und öffnet dafür die ParkShield-App. Den Code finden Sie auch unter dem QR-Code.',
+        'Melden Sie sich in der App an und schließen Sie das Abo ab.',
         'Wählen Sie das Fahrzeug, an dem der Aufkleber klebt, und testen Sie ihn einmal. Ein älterer Code dieses Fahrzeugs wird dabei ersetzt.',
       ],
     },
@@ -294,8 +294,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
       title: 'Setting up a decal from your property manager',
       summary: 'Pre-printed decals from partners are set up with the code in a few steps.',
       body: [
-        'Some property managers and partners hand out ParkShield decals. Scan the decal yourself; the page offers “Set up decal”. The code is also printed below the QR code.',
-        'Sign in and subscribe. A partner promo code is filled in automatically.',
+        'Some property managers and partners hand out ParkShield decals. Scan the decal yourself; the page offers “Set up decal” and opens the ParkShield app for it. The code is also printed below the QR code.',
+        'Sign in to the app and subscribe.',
         'Choose the vehicle the decal is on and test it once. An older code of this vehicle is replaced.',
       ],
     },

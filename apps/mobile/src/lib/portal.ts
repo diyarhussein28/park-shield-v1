@@ -138,6 +138,13 @@ export interface NewCodeOptions {
   reason: 'subscription_required' | 'cooldown' | 'code_active' | 'free_used' | null;
 }
 
+/** The decal code from a set-up link (fragment `#c=…` of /app/aktivieren or parkshield://aktivieren). */
+export function claimCodeFromLink(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const m = /[#?&]c=([0-9A-Za-z-]{6,20})(?:&|$)/.exec(url);
+  return m?.[1] ?? null;
+}
+
 /** „3 €“ for whole euros (the button text of the spec), else „3,50 €“. */
 export function shortEuro(cents: number, locale: string): string {
   if (cents % 100 === 0) return `${cents / 100} €`;

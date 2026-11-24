@@ -11,7 +11,7 @@ import type { ChannelType } from '../db/types.generated';
 import { EntitlementService } from '../billing/entitlements.service';
 import { APP_PUSH, SMS, type AppPushSender, type SmsSender } from '../providers/ports';
 import { PreferencesService } from '../preferences/preferences.service';
-import { AckService, type ReplyLinks } from './ack.service';
+import { AckService } from './ack.service';
 import { FairUseService } from './fair-use.service';
 import { type OrderableChannel } from './channel-order';
 import { APP_ALERT_CATEGORY, appPushText } from './push-texts';
@@ -48,7 +48,6 @@ export function planChannels(_plan?: string | null): PlanChannels {
 interface Message {
   kind: Kind;
   token: string;
-  links: ReplyLinks;
   /**
    * The view page of the alert (`/v/<token>`): type, time, message, photos, "Ich komme". Every e-mail
    * and SMS carries this link only; no photo is ever attached or embedded.
@@ -171,7 +170,6 @@ export class DispatchService {
     const msg: Message = {
       kind: alert.is_test ? 'test' : 'alert',
       token,
-      links: this.ack.links(token),
       viewUrl: this.viewTokens.urlFor(alert.id),
     };
     const { outcomes, errors } = await this.deliver(alert, msg, this.channelsFor(alert.userId));
@@ -216,7 +214,6 @@ export class DispatchService {
     const msg: Message = {
       kind: 'reminder',
       token,
-      links: this.ack.links(token),
       viewUrl: this.viewTokens.urlFor(alert.id),
       since: alert.reminded_at,
     };
@@ -275,7 +272,6 @@ export class DispatchService {
     const msg: Message = {
       kind: 'escalation',
       token,
-      links: this.ack.links(token),
       viewUrl: this.viewTokens.urlFor(alert.id),
     };
     const { errors } = await this.deliver(alert, msg, ['sms']);
@@ -291,7 +287,6 @@ export class DispatchService {
     const msg: Message = {
       kind: 'followup',
       token,
-      links: this.ack.links(token),
       viewUrl: this.viewTokens.urlFor(alert.id),
       since: alert.scanner_waiting_at,
     };

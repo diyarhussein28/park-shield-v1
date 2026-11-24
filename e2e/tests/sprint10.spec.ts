@@ -149,11 +149,15 @@ test('partner batch: the scanner offers set-up and the owner claims the decal (U
   await expect(
     page.getByRole('heading', { name: 'Dieser Aufkleber ist noch nicht eingerichtet' }),
   ).toBeVisible();
+  // „Aufkleber einrichten“ opens the app (2026-11-24); without it the page offers the app link.
   await page.getByRole('link', { name: 'Aufkleber einrichten' }).click();
-  await expect(page.getByText(`Diesen Aufkleber hat ${name} ausgegeben.`)).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/app/aktivieren#c=${codes[0]}$`));
+  await expect(page.getByRole('link', { name: 'In der App öffnen' })).toHaveAttribute(
+    'href',
+    `parkshield://aktivieren#c=${codes[0]}`,
+  );
   await expectAccessible(page);
-  // Signing in happens in the app since 2026-11-24 (open question: a claim screen in the app);
-  // the claim itself is the owner API's `POST /v1/vehicles/:id/claim`.
+  // The app's set-up screen (`/aktivieren`) then calls the owner API's claim.
   const claimed = await request.post(`${API_URL}/v1/vehicles/${owner.vehicleId}/claim`, {
     headers: owner.headers,
     data: { code: codes[0] },

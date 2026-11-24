@@ -96,6 +96,8 @@ test.describe('app first (2026-11-24)', () => {
       '/konto',
       '/konto/fahrzeuge/123',
       '/konto/abo',
+      '/aktivieren',
+      '/antwort',
     ]) {
       await page.goto(path);
       await expect(page, path).toHaveURL(/\/app$/);

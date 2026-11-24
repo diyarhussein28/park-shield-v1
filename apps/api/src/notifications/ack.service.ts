@@ -25,13 +25,6 @@ type Generation = 'a' | 'f';
 const ID_LEN = 22; // 16-byte UUID, base64url
 const TOKEN_LEN = ID_LEN + 1 + 43; // + generation + 256-bit MAC
 
-export interface ReplyLinks {
-  page: string;
-  coming: string;
-  in_30_min: string;
-  not_nearby: string;
-}
-
 const uuidToB64 = (id: string) => Buffer.from(id.replace(/-/g, ''), 'hex').toString('base64url');
 const b64ToUuid = (s: string) => {
   const hex = Buffer.from(s, 'base64url').toString('hex');
@@ -43,8 +36,9 @@ const b64ToUuid = (s: string) => {
 /**
  * Single-use reply token per alert (NT-02, 02-architecture §5): 256-bit MAC, only its hash in PostgreSQL.
  * The token is derived (HMAC with a server key) instead of stored, so every channel and every outbox
- * retry carries the same link, and links keep working after a Valkey restart (US-25). A reply clears
- * the hash; the reminder issues the second generation.
+ * retry carries the same token, and it keeps working after a Valkey restart (US-25). A reply clears
+ * the hash; the reminder issues the second generation. Since 2026-11-24 the only page that uses it is
+ * the view page `/v/<token>` (the old e-mail reply page `/antwort` was removed).
  */
 @Injectable()
 export class AckService {
@@ -58,10 +52,7 @@ export class AckService {
     this.key = createHmac('sha256', Buffer.from(env.SESSION_SECRET, 'base64'))
       .update('parkshield/ack/v1')
       .digest();
-    this.webBase = env.WEB_BASE_URL;
   }
-
-  private readonly webBase: string;
 
   private derive(alertId: string, gen: Generation): string {
     const mac = createHmac('sha256', this.key).update(`${alertId}:${gen}`).digest('base64url');
@@ -119,17 +110,6 @@ export class AckService {
       .where('id', '=', alertId)
       .execute();
     return token;
-  }
-
-  links(token: string): ReplyLinks {
-    const base = `${this.webBase}/antwort`;
-    return {
-      // The token travels in the fragment: never sent to a server log or in a Referer header.
-      page: `${base}#t=${token}`,
-      coming: `${base}?r=coming#t=${token}`,
-      in_30_min: `${base}?r=in_30_min#t=${token}`,
-      not_nearby: `${base}?r=not_nearby#t=${token}`,
-    };
   }
 
   private async load(token: string) {

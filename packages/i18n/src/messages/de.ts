@@ -1753,8 +1753,9 @@ const de = {
     signInFirst:
       'Melden Sie sich zuerst an oder legen Sie ein Konto an. Danach geht es hier weiter.',
     signIn: 'Anmelden oder registrieren',
-    subscribeFirst: 'Buchen Sie zuerst ParkShield Plus, dann richten Sie den Aufkleber ein.',
-    subscribe: 'Plus buchen',
+    subscribeFirst:
+      'Schließen Sie zuerst das ParkShield-Abo ab, dann richten Sie den Aufkleber ein.',
+    subscribe: 'Abo abschließen',
     addVehicleFirst: 'Legen Sie zuerst das Fahrzeug an, an dem der Aufkleber klebt.',
     addVehicle: 'Fahrzeug anlegen',
     vehicle: 'An welchem Fahrzeug klebt der Aufkleber?',
@@ -1764,7 +1765,7 @@ const de = {
     done: 'Fertig! Testen Sie den Aufkleber jetzt einmal, dann ist er aktiv.',
     testNow: 'Zum Fahrzeug und Aufkleber testen',
     pendingTitle: 'Ihr Partner-Aufkleber wartet',
-    pendingPay: 'Buchen Sie Plus, um ihn einzurichten. Ihr Gutscheincode ist schon eingetragen.',
+    pendingPay: 'Schließen Sie das Abo ab, um ihn einzurichten.',
     pendingReady: 'Sie können ihn jetzt einrichten.',
     pendingLink: 'Aufkleber einrichten',
   },
@@ -2322,6 +2323,12 @@ const de = {
     invalid: 'Dieser Link ist unvollständig. Bitte fordern Sie einen neuen Anmeldelink an.',
   },
   // The website's account page (/app, 2026-11-24): registration, sign-in and the portal live in the app.
+  // „Aufkleber einrichten“ of a pre-printed partner decal opens the app (/app/aktivieren, 2026-11-24).
+  appClaim: {
+    title: 'Aufkleber in der ParkShield-App einrichten',
+    lead: 'Öffnen Sie diesen Link auf dem Smartphone, auf dem die ParkShield-App installiert ist. Dort richten Sie den Aufkleber für Ihr Fahrzeug ein.',
+    invalid: 'Dieser Link ist unvollständig. Bitte scannen Sie den Aufkleber noch einmal.',
+  },
   appPage: {
     title: 'Ihr ParkShield-Konto ist in der App',
     lead: 'Anmeldung, Fahrzeug und QR-Code, Warnungen, Tarif und Rechnungen: Das alles verwalten Sie in der ParkShield-App für iPhone und Android.',

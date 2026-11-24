@@ -143,15 +143,17 @@ export function renderInactive(locale: Locale): string {
 }
 
 /**
- * AD-07: a pre-printed partner decal nobody has set up. The owner sets it up; a stranger learns that
- * this decal cannot reach anyone yet. The code goes in the fragment, so no server log ever sees it.
+ * AD-07: a pre-printed partner decal nobody has set up. The owner sets it up in the app (2026-11-24:
+ * `/app/aktivieren` is a universal / app link; without the app its page offers the app); a stranger
+ * learns that this decal cannot reach anyone yet. The code goes in the fragment, so no server log
+ * ever sees it.
  */
 export function renderUnclaimed(locale: Locale, code: string): string {
   return simplePage(
     locale,
     'unclaimedTitle',
     (label) => `<p class="muted" ${label('unclaimedText')}</p>
-<p><a class="primary" href="/aktivieren#c=${encodeURIComponent(code)}" ${label('unclaimedButton')}</a></p>
+<p><a class="primary" href="/app/aktivieren#c=${encodeURIComponent(code)}" ${label('unclaimedButton')}</a></p>
 <p class="note info inote">${I.info}<span ${label('unclaimedStranger')}</span></p>`,
   );
 }

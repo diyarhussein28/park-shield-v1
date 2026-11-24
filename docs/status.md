@@ -10,7 +10,7 @@ on one laptop, so **everyone (and every AI agent) on every machine reads the sam
 > The repository is **public**. Never write secrets, keys, passwords, customer data, phone numbers
 > or e-mail addresses of real customers here. Names of env vars are fine; their values are not.
 
-_Last updated: 2026-11-24 (app first, all four phases done incl. the app screens; `docs/handover.md` §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe). Before: 2026-11-24 (phase 2: new-code rules in the API). Before: 2026-11-24 (phase 1: the website lost sign-in, portal and checkout). Before: 2026-11-24 (`park-shield.de` DNS now on the server, Vercel no longer serves it). Before: 2026-11-24 (`__Host-` cookies; Vercel dropped, public pages of `park-shield.de` from the server). Before: 2026-11-24 (website e-mail change, trusted-contact clean-up migration, ops subscription source, Google Play pause; `docs/handover.md` §12). Before: 2026-11-22 (unified billing RevenueCat + Stripe and the personalised sticker, see §3)._
+_Last updated: 2026-11-24 (`/aktivieren` → app, `/antwort` removed, first code never waits; `docs/handover.md` §14). Before: 2026-11-24 (app first, all four phases done incl. the app screens). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe). Before: 2026-11-24 (phase 2: new-code rules in the API). Before: 2026-11-24 (phase 1: the website lost sign-in, portal and checkout). Before: 2026-11-24 (`park-shield.de` DNS now on the server, Vercel no longer serves it). Before: 2026-11-24 (`__Host-` cookies; Vercel dropped, public pages of `park-shield.de` from the server). Before: 2026-11-24 (website e-mail change, trusted-contact clean-up migration, ops subscription source, Google Play pause; `docs/handover.md` §12). Before: 2026-11-22 (unified billing RevenueCat + Stripe and the personalised sticker, see §3)._
 
 ---
 
@@ -121,7 +121,9 @@ records. Old SendGrid and Brevo records stay but are unused.
   per vehicle every **10 days** (setting). After a payment the code is always issued; a refund never
   revokes it. **All four phases done 2026-11-24** (website; API rules, migration
   `20261211000000_code_issuances`; 3 € Stripe flow, migration `20261211000100_paid_new_code`, Customer
-  360; app screens). Not deployed yet: API deploy + new EAS build.
+  360; app screens). Same day: `/aktivieren` and `/antwort` removed from the website (partner decals
+  are set up in the app), no passkey UI on the website, the first code never waits. Not deployed yet:
+  API deploy + new EAS build.
   Lawyer: `LEGAL_REVIEW.md` §14.
 - **Vercel dropped, `__Host-` cookies (2026-11-24).** The website moves to our own server: until
   go-live the test server shows only the public pages on `park-shield.de` (Caddyfile `{$PUBLIC_DOMAIN}`);

@@ -32,8 +32,7 @@ const WEB_PUBLIC = [
   '/hilfe/push-auf-dem-iphone',
   '/hilfe/erinnerung-und-sms',
   '/hilfe/kontakt',
-  '/aktivieren',
-  '/antwort',
+  '/app/aktivieren',
   '/konto-loeschen-abbrechen',
   '/datenschutz-anfrage',
 ];

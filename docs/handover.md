@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-24 (app first, all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-24 (owner decisions on `/aktivieren`, `/antwort`, passkeys and the first code done, §14). Before: 2026-11-24 (all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -612,5 +612,24 @@ audit `qr_code.replaced`; e-mail stays Mailjet.
 - **Needed to reach testers:** deploy the API (migrations `20261211000000`, `…0100`) and a new EAS build
   of the app.
 
-**All four phases are done.** Open owner questions: `/aktivieren`, `/antwort`, owner passkeys, whether
-the first code should count for the cooldown; lawyer `LEGAL_REVIEW.md` §14.
+**All four phases are done.**
+
+### Owner decisions on the open points (2026-11-24, done the same day)
+
+1. **`/aktivieren`**: no pre-printed decals were handed out (test only). The website page and
+   `lib/pending-claim.ts` are deleted; `/aktivieren` → 308 `/app`. The scanner page of an unclaimed
+   decal links „Aufkleber einrichten“ to `/app/aktivieren#c=<code>` (Universal Link in the AASA file,
+   Android App Link through the `/app` path prefix); without the app that web page offers
+   `parkshield://aktivieren#c=…`. The set-up itself is the app screen `src/app/aktivieren.tsx`
+   (code check, partner, plan/vehicle first, choose the vehicle, claim); `src/app/app/aktivieren.tsx`
+   receives the link. Texts `claim.*` no longer say „Plus“.
+2. **`/antwort`**: page deleted, 308 `/app`; `AckService.links()` and `Message.links` removed. The reply
+   token and `POST /v1/ack` stay (the view page `/v/<token>` uses them).
+3. **Passkeys**: no website UI (gone with the portal; the web `Me` type no longer has `passkeys`); the
+   passkey API stays for the app.
+4. **First code**: issued at once with the vehicle, never waits; the 10 days for every later new code
+   (free or paid) count from it. That is the behaviour since phase 2; a test now states it
+   (`code-rules.test.ts`). Note: deleting the vehicle and adding it again gives a new first code at once
+   (one vehicle per account) — an owner who wants to close that loophole must decide it.
+
+Tests: API 673, app Jest 177, E2E 118 green (12 skipped as before).

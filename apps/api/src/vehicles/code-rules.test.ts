@@ -139,6 +139,21 @@ describe('new-code rules (2026-11-24)', () => {
     expect(new Date(refused.json().nextEligibleAt).getTime()).toBe(next);
   });
 
+  it('the first code is never held back: issued at once with the vehicle (owner, 2026-11-24)', async () => {
+    const { s, vehicleId } = await owner();
+    // Issued immediately, no wait, and the 10 days for the next code start with it.
+    const first = await h.db
+      .selectFrom('qr_tokens')
+      .select(['status', 'assigned_at'])
+      .where('vehicle_id', '=', vehicleId)
+      .executeTakeFirstOrThrow();
+    expect(first.status).toBe('assigned');
+    const o = await options(s, vehicleId);
+    expect(new Date(o.nextEligibleAt).getTime() - new Date(first.assigned_at!).getTime()).toBe(
+      10 * DAY,
+    );
+  });
+
   it('respects the exact boundary of the cooldown', async () => {
     const { s, vehicleId } = await owner();
     await sperren(s, vehicleId);
