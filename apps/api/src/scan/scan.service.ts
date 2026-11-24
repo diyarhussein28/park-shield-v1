@@ -399,7 +399,6 @@ export class ScanService {
         'scanner_waiting_at',
         'seen_at',
         'acknowledged_by',
-        'escalation_step',
       ])
       .where('id', '=', alertId)
       .where('status_view_hash', '=', sha256(statusToken))
@@ -428,12 +427,8 @@ export class ScanService {
       ownerReply: a.owner_reply,
       // „Fahrzeughalter hat die Nachricht gesehen" (opened in the app; not an answer).
       seenAt: a.status === 'blocked' ? null : a.seen_at,
-      // Who is on the way: the owner or one of their trusted contacts (never a name).
-      acknowledgedBy: a.acknowledged_by
-        ? a.acknowledged_by === 'owner'
-          ? 'owner'
-          : 'contact'
-        : null,
+      // Who is on the way: only ever the owner (trusted contacts were removed 2026-11-21).
+      acknowledgedBy: a.acknowledged_by ? ('owner' as const) : null,
       escalatedAt: a.escalated_at,
       expiresAt: a.expires_at,
       // The scanner's own country (24 h), so guidance names the right emergency numbers (SC-13).

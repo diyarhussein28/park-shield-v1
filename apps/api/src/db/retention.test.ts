@@ -325,7 +325,7 @@ describe('run_retention() (US-33)', () => {
     ).toBe('expired');
   });
 
-  it('deletes unanswered invitations of contacts and co-drivers after 14 days', async () => {
+  it('deletes unanswered co-driver invitations after 14 days', async () => {
     const f = await fixture();
     const other = await subscribe(h, 'codriver@example.de');
     void other;
@@ -335,22 +335,10 @@ describe('run_retention() (US-33)', () => {
       .where('email', '=', 'codriver@example.de')
       .executeTakeFirstOrThrow();
     await h.db
-      .insertInto('emergency_contacts')
-      .values({
-        user_id: f.userId,
-        display_name: 'Kim',
-        channel: 'email',
-        address_enc: crypto.encrypt('k@example.de'),
-        address_bidx: randomBytes(32),
-        consent_requested_at: ago('15 days'),
-      })
-      .execute();
-    await h.db
       .insertInto('vehicle_members')
       .values({ vehicle_id: f.vehicleId, user_id: co.id, invited_at: ago('15 days') })
       .execute();
     await run();
-    expect(await count('emergency_contacts')).toBe(0);
     expect(await count('vehicle_members')).toBe(0);
   });
 

@@ -162,12 +162,26 @@ export interface SubscriptionSummary {
   /** Where it was bought (docs/billing-unified.md); Stripe for older API answers. */
   provider?: BillingProvider;
   unifiedStatus?:
-    'ACTIVE' | 'CANCEL_SCHEDULED' | 'BILLING_ISSUE' | 'EXPIRED' | 'REFUNDED' | 'WITHDRAWN';
+    | 'ACTIVE'
+    | 'CANCEL_SCHEDULED'
+    | 'BILLING_ISSUE'
+    | 'PAUSED'
+    | 'EXPIRED'
+    | 'REFUNDED'
+    | 'WITHDRAWN';
   willRenew?: boolean;
   /** Store subscription management (RevenueCat), store subscriptions only. */
   managementUrl?: string | null;
   stickerValueCents?: number;
   refundRoute?: RefundRoute | null;
+}
+
+/** Google Play „Pause“ (GET /v1/billing/subscription → `paused`): no protection until the date. */
+export interface PausedSubscription {
+  provider: 'app_store' | 'play_store';
+  pausedUntil: string;
+  contractNo: string | null;
+  managementUrl: string;
 }
 
 export type TokenStatus = 'in_stock' | 'assigned' | 'revoked';
@@ -236,6 +250,7 @@ export function errorText(err: unknown): string {
     if (err.body?.error === 'captcha_failed') return pt('auth.captchaFailed');
     if (err.body?.error === 'promo_invalid') return pt('checkout.promoInvalid');
     if (err.body?.error === 'already_subscribed') return pt('checkout.already');
+    if (err.body?.error === 'subscription_paused') return pt('account.pausedTitle');
     if (err.body?.error === 'profile_incomplete') return pt('profile.needed');
     if (err.body?.error === 'phone_required') return t('phoneRequiredError');
     if (err.body?.error === 'code_active') return t('codeActive');

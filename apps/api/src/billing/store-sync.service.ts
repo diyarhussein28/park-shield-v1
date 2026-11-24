@@ -59,16 +59,30 @@ export function storeStatus(
   s: StoreSubscriber,
   hint: SyncHint | undefined,
   now = new Date(),
-): { status: 'active' | 'past_due' | 'expired'; refunded: boolean } {
+): {
+  status: 'active' | 'past_due' | 'expired';
+  refunded: boolean;
+  /** Google Play „Pause“: no entitlement until this date, then Play resumes the same contract. */
+  pausedUntil: Date | null;
+} {
   // RevenueCat reports refunds as CANCELLATION with cancel_reason CUSTOMER_SUPPORT.
   const refunded =
     s.refundedAt !== null ||
     (hint?.type === 'CANCELLATION' && hint.cancelReason === 'CUSTOMER_SUPPORT');
-  if (refunded) return { status: 'expired', refunded: true };
+  if (refunded) return { status: 'expired', refunded: true, pausedUntil: null };
   if (s.periodEnd.getTime() > now.getTime()) {
-    return { status: s.billingIssueAt ? 'past_due' : 'active', refunded: false };
+    return {
+      status: s.billingIssueAt ? 'past_due' : 'active',
+      refunded: false,
+      pausedUntil: null,
+    };
   }
-  return { status: 'expired', refunded: false };
+  const resume = s.autoResumeAt ?? null;
+  return {
+    status: 'expired',
+    refunded: false,
+    pausedUntil: resume && resume.getTime() > now.getTime() ? resume : null,
+  };
 }
 
 const LIVE = ['active', 'past_due'] as const;
@@ -182,6 +196,8 @@ export class StoreSyncService {
   ): Promise<{ appUserId: string }> {
     if (await this.billing.liveSubscription(user.userId))
       throw new ConflictException({ error: 'already_subscribed' });
+    if (await this.billing.pausedSubscription(user.userId))
+      throw new ConflictException({ error: 'subscription_paused' });
     if (!(await this.profiles.postalAddress(user.userId)))
       throw new ConflictException({ error: 'profile_incomplete' });
     if (!(await this.profiles.phoneVerified(user.userId)))
@@ -262,7 +278,7 @@ export class StoreSyncService {
         return { created: null, existing: null, refunded: false, renewal: null, live: false };
       }
 
-      const { status, refunded } = storeStatus(sub, hint);
+      const { status, refunded, pausedUntil } = storeStatus(sub, hint);
       const live = status === 'active' || status === 'past_due';
       const same = rows.find(
         (r) =>
@@ -312,7 +328,10 @@ export class StoreSyncService {
               ...(status === 'past_due'
                 ? { past_due_since: sql`coalesce(past_due_since, now())` }
                 : { past_due_since: null }),
-              ...(!live ? { canceled_at: sql`coalesce(canceled_at, now())` } : {}),
+              // A pause is not an end: no canceled_at, and the contract comes back on resume.
+              paused_until: pausedUntil,
+              ...(!live && !pausedUntil ? { canceled_at: sql`coalesce(canceled_at, now())` } : {}),
+              ...(live && same.paused_until ? { canceled_at: null } : {}),
             })
             .where('id', '=', same.id)
             .execute();

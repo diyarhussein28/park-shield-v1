@@ -2,6 +2,7 @@
 
 import { Button, Text, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
+import { EmailChange } from '@/components/email-change';
 import { KontoShell, Section } from '@/components/konto-shell';
 import type { CreditNote, InvoiceSummary, Me, SubscriptionSummary } from '@/lib/api-server';
 import {
@@ -66,6 +67,8 @@ export function AboView({
       {!store && <Invoices invoices={invoices} creditNotes={creditNotes} />}
 
       {subscription && <SummarySettings initial={me.summaryFrequency} />}
+
+      <EmailChange email={me.email} />
 
       <Passkeys initial={me.passkeys} />
     </KontoShell>

@@ -20,12 +20,12 @@ export type Summary =
         status: string;
         periodEnd: string | null;
         cancelAtPeriodEnd: boolean;
+        provider: string;
       } | null;
       vehicles: number;
       activeDecals: number;
       pushDevices: number;
       sms: boolean;
-      contacts: number;
       lastAlertAt: string | null;
       openDsr: number;
       protection: number;
@@ -47,7 +47,7 @@ export function ZammadSummary({ me, data }: { me: StaffMe; data: Summary | null 
                 <dt>{t('opsZammad.plan')}</dt>
                 <dd>
                   {data.subscription
-                    ? `${label(t, 'plan', data.subscription.plan)} · ${label(t, 'sub', data.subscription.status)} · ${fmt(data.subscription.periodEnd, locale)}${data.subscription.cancelAtPeriodEnd ? ' · ✕' : ''}`
+                    ? `${label(t, 'plan', data.subscription.plan)} · ${label(t, 'sub', data.subscription.status)} · ${fmt(data.subscription.periodEnd, locale)}${data.subscription.cancelAtPeriodEnd ? ' · ✕' : ''} · ${label(t, 'provider', data.subscription.provider)}`
                     : t('opsCustomers.noSubscription')}
                 </dd>
                 <dt>{t('opsZammad.since')}</dt>
@@ -66,8 +66,6 @@ export function ZammadSummary({ me, data }: { me: StaffMe; data: Summary | null 
                     sms: data.sms ? t('ops.yes') : t('ops.no'),
                   })}
                 </dd>
-                <dt>{t('opsZammad.contacts')}</dt>
-                <dd>{data.contacts}</dd>
                 <dt>{t('opsZammad.protection')}</dt>
                 <dd>{data.protection} %</dd>
                 <dt>{t('opsZammad.lastAlert')}</dt>

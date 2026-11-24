@@ -135,9 +135,7 @@ export interface AlertDeliveries {
   channel: ChannelType;
   cost_micros_eur: number | null;
   delivered_at: Timestamp | null;
-  emergency_contact_id: string | null;
   error_code: string | null;
-  escalation_step: number | null;
   id: Generated<string>;
   provider: string;
   provider_message_id: string | null;
@@ -190,7 +188,6 @@ export interface Alerts {
   escalate_at: Timestamp | null;
   escalated_at: Timestamp | null;
   escalation_stage: Generated<EscalationStage>;
-  escalation_step: Generated<number>;
   escalation_stop_reason: string | null;
   escalation_stopped_at: Timestamp | null;
   expires_at: Generated<Timestamp>;
@@ -442,26 +439,6 @@ export interface DsrProcessorSteps {
   status: Generated<StepStatus>;
 }
 
-export interface EmergencyContacts {
-  address_bidx: Buffer | null;
-  address_enc: Buffer | null;
-  channel: ChannelType;
-  consent: Generated<ConsentState>;
-  consent_decided_at: Timestamp | null;
-  consent_requested_at: Generated<Timestamp>;
-  consent_token_hash: Buffer | null;
-  created_at: Generated<Timestamp>;
-  deactivated_at: Timestamp | null;
-  display_name: string;
-  escalation_order: Generated<number>;
-  id: Generated<string>;
-  key_version: Generated<number>;
-  phone_bidx: Buffer | null;
-  phone_enc: Buffer | null;
-  user_id: string;
-  vehicle_id: string | null;
-}
-
 export interface FilterWordLists {
   created_at: Generated<Timestamp>;
   created_by: string | null;
@@ -495,11 +472,11 @@ export interface MagicLinkTokens {
 
 export interface MetricsActivationFunnel {
   cohort: Timestamp | null;
-  emergency_contact: number | null;
   paid: number | null;
   second_channel: number | null;
   shipped: number | null;
   tested: number | null;
+  verified_phone: number | null;
 }
 
 export interface MetricsChurnMonthly {
@@ -829,6 +806,7 @@ export interface Subscriptions {
   organization_id: string | null;
   original_purchase_at: Timestamp | null;
   past_due_since: Timestamp | null;
+  paused_until: Timestamp | null;
   plan: PlanCode;
   price_locked_until: Timestamp | null;
   promo_code_id: string | null;
@@ -917,7 +895,6 @@ export interface Users {
   display_name: string | null;
   email: string;
   email_verified_at: Timestamp | null;
-  escalation_enabled: Generated<boolean>;
   escalation_minutes: number | null;
   free_replacements: Generated<number>;
   free_welcome_print_used: Generated<boolean>;
@@ -969,7 +946,6 @@ export interface VehicleProtection {
 export interface Vehicles {
   color: string | null;
   created_at: Generated<Timestamp>;
-  escalation_enabled: boolean | null;
   id: Generated<string>;
   key_version: Generated<number>;
   make_model: string | null;
@@ -1061,7 +1037,6 @@ export interface DB {
   decal_order_items: DecalOrderItems;
   decal_orders: DecalOrders;
   dsr_processor_steps: DsrProcessorSteps;
-  emergency_contacts: EmergencyContacts;
   filter_word_lists: FilterWordLists;
   legal_texts: LegalTexts;
   magic_link_tokens: MagicLinkTokens;

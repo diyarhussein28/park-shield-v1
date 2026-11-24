@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -232,9 +232,10 @@ Still open:
    `apps/mobile/firebase/README.md` → „Android“). After pulling, run `npm ci` in `apps/mobile`:
    new native modules (`expo-font`, `expo-image-picker`, …) make `expo config` fail otherwise.
 4. Lawyer: `LEGAL_REVIEW.md` §9 (price change, phone purpose, § 356a card, 3 € print withdrawal).
-5. Small follow-ups: 110/112 as tappable links on the scanner page; `scanner.escalated` /
-   `contactOnTheWay` texts still mention contacts (unused by the flow now); a clean-up migration to drop
-   the empty `emergency_contacts` table and the unused escalation columns.
+5. ~~Small follow-ups: 110/112 as tappable links on the scanner page; contact texts; clean-up
+   migration~~ (done 2026-11-24, §12). Left on purpose: `alert_types.escalates`, `alerts.escalate_at` /
+   `escalated_at` and `notification_rules.escalation_minutes` are still read by old code paths (privacy
+   export, history); a later migration can drop them with that code.
 6. Findings of the real run (2026-11-22): ~~the vehicle row „Druck oder Versand“ shows no price after
    the welcome print was used~~ (fixed 2026-11-22: it shows „3,00 € einmalig inkl. MwSt.“); ~~the
    Warnungen tab badge still counts an alert whose sender was blocked as open~~ (fixed 2026-11-22: the
@@ -376,7 +377,7 @@ Still open (owner accounts):
     contract. Test: `store.test.ts` „a store purchase moved to another of our accounts“.
     Open: license testers (Play Console → Settings → License testing) for free test purchases; closed
     test track for the 12-testers/14-days rule (needs the store listing and the App content forms). Play's subscription „Pause“ is on by default (Monetization
-    setup); our backend has no paused state yet — switch it off or handle it before launch. A personal
+    setup); the backend handles it since 2026-11-24 (§12). A personal
     account must run a closed test (12 testers, 14 days) before production.
 
 ## 9. In-app contact form and the hourly renewal reminder (2026-11-23)
@@ -437,4 +438,27 @@ Konto tab → new group „Anmeldung & Kontakt“ with two rows (current e-mail,
 - Tests: `apps/api/src/profile/contact-change.test.ts` (6). API profile/channels/billing/auth/mail/ops/
   worker green, app Jest 166 green. **Not deployed yet; the app needs a new EAS build.** Open: lawyer
   check of the consent wording (`TODO [LEGAL REVIEW]` in `nummer-aendern.tsx`).
+
+## 12. Open code items of 2026-11-24 (owner: „make all of them and test“)
+
+- **Website: change the e-mail address** (`apps/web/components/email-change.tsx` on `/konto/abo`): the
+  same API and flow as the app (§11): code to the new address, confirmed on the page, notice to the
+  old one. E2E `e2e/tests/account-contact.spec.ts`.
+- **Scanner page: 110 and 112 are `tel:` links** in the danger line (`render.ts` `telLinks`,
+  `client.ts` `telText` keeps them after the DE/EN switch). E2E in the same file.
+- **Trusted contacts, last remains:** migration `20261210000000_drop_trusted_contacts` (table, delivery
+  columns, `alerts.escalation_step`, `escalation_enabled` on users and vehicles, `acknowledged_by` =
+  `owner` only; metrics views: the last funnel step / a quarter of the protection score is now the
+  verified mobile number, column `verified_phone`). Code: break-glass targets, Customer 360, Zammad
+  summary, GDPR export, chaos drill; texts on the scanner, reply pages and ops reworded or removed; the
+  ops alert-type switch „Eskaliert an Notfallkontakt“ (no effect any more) is gone.
+- **Ops: where a subscription was bought:** Customer 360 shows the source (Website/Stripe, App Store,
+  Google Play), the unified status, „verlängert sich nicht“ and the store price; the refund link is only
+  offered for Stripe, the refund page explains that Apple/Google refund store purchases (the API already
+  refused them, now with a German error text). Zammad summary shows the source too.
+- **Google Play „Pause“:** migration `20261210000100_store_pause`, see AGENTS.md §7. Website and app
+  show „Ihr Abo ist bei Google Play pausiert“ with „In Google Play fortsetzen“ instead of the paywall.
+  Tests: `store.test.ts` (pause → 409 → resume, same contract, one confirmation), app
+  `portal-screens.test.tsx`.
+- Not deployed yet; the app part needs a new EAS build.
 

@@ -149,6 +149,32 @@ export class BillingService {
       .executeTakeFirst();
   }
 
+  /** A Google Play subscription the customer paused (no entitlement until `paused_until`). */
+  async pausedSubscription(userId: string) {
+    return this.db
+      .selectFrom('subscriptions')
+      .selectAll()
+      .where('user_id', '=', userId)
+      .where('status', '=', 'expired')
+      .where('paused_until', '>', sql<Date>`now()`)
+      .where('refunded_at', 'is', null)
+      .orderBy('created_at', 'desc')
+      .executeTakeFirst();
+  }
+
+  /** What the portal shows instead of the checkout while a store subscription is paused. */
+  async pausedSummary(userId: string) {
+    if (await this.liveSubscription(userId)) return null;
+    const s = await this.pausedSubscription(userId);
+    if (!s || s.provider === 'stripe') return null;
+    return {
+      provider: s.provider,
+      pausedUntil: s.paused_until!,
+      contractNo: s.contract_no,
+      managementUrl: s.management_url ?? STORE_MANAGE_URL[s.provider],
+    };
+  }
+
   async summary(userId: string) {
     const s = await this.liveSubscription(userId);
     if (!s) return null;
@@ -236,6 +262,9 @@ export class BillingService {
       throw new BadRequestException({ error: 'plan_unavailable' });
     if (await this.liveSubscription(user.userId))
       throw new ConflictException({ error: 'already_subscribed' });
+    // A Google Play subscription on pause is still the customer's contract: resume it in Play.
+    if (await this.pausedSubscription(user.userId))
+      throw new ConflictException({ error: 'subscription_paused' });
     // Sign-up before payment (docs/app-redesign.md §7): name and postal address first.
     const address = await this.profiles.postalAddress(user.userId);
     if (!address) throw new ConflictException({ error: 'profile_incomplete' });

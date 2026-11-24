@@ -918,7 +918,8 @@ describe('US-43 metrics for Metabase (AD-18)', () => {
     const score = await run<{ score: number; customers: number }>(
       'SELECT * FROM metrics.protection_score_distribution',
     );
-    expect(score).toEqual([{ score: 50, customers: 1 }]);
+    // E-mail, a device and the verified mobile number (the step that replaced trusted contacts).
+    expect(score).toEqual([{ score: 75, customers: 1 }]);
     for (const v of [
       'churn_monthly',
       'delivery_daily',
@@ -1048,7 +1049,7 @@ describe('US-44 contact form to Zammad and the ticket sidebar summary (SP-01, AD
       found: true,
       id: c.userId,
       email: 'k•••@example.de',
-      subscription: { plan: 'standard', status: 'active' },
+      subscription: { plan: 'standard', status: 'active', provider: 'stripe' },
       vehicles: 1,
       protection: 50, // e-mail and the verified number (no app, decal not tested)
     });

@@ -17,6 +17,7 @@ import { useState, type FormEvent } from 'react';
 import { OpsShell } from '@/components/ops-shell';
 import { opsApi } from '@/lib/api';
 import { errorCode, euro, fmt } from '@/lib/format';
+import { label } from '@/lib/labels';
 import type { StaffMe } from '@/lib/server';
 import type { CustomerView } from '../customer-360';
 
@@ -62,6 +63,7 @@ export function RefundTool({
   initial: RefundList | null;
 }) {
   const { t, locale } = useI18n();
+  const store = subscription !== null && subscription.provider !== 'stripe';
   const kinds: Kind[] = subscription
     ? ['withdrawal', 'proration', 'goodwill']
     : ['decal_defect', 'goodwill'];
@@ -90,6 +92,7 @@ export function RefundTool({
       'not_paid_online',
       'no_charge',
       'not_live',
+      'store_subscription',
     ];
     return code && known.includes(code)
       ? t(`opsRefund.error_${code}` as MessageKey)
@@ -153,54 +156,68 @@ export function RefundTool({
         </div>
         {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
 
-        <Card>
-          <form onSubmit={compute} className="flex flex-col gap-4">
-            <fieldset className="flex flex-col gap-2">
-              <legend className="mb-1 font-semibold">{t('opsRefund.kind')}</legend>
-              {kinds.map((k) => (
-                <label key={k} className="flex min-h-12 cursor-pointer items-start gap-3">
-                  <input
-                    type="radio"
-                    name="kind"
-                    className="mt-1 size-5 accent-[var(--ps-primary)]"
-                    checked={kind === k}
-                    onChange={() => {
-                      setKind(k);
-                      setQuote(null);
-                    }}
-                  />
-                  <span>
-                    <span className="font-semibold">{t(`opsRefund.kind_${k}` as MessageKey)}</span>
-                    <span className="block text-sm text-muted">
-                      {t(`opsRefund.kindHint_${k}` as MessageKey)}
-                    </span>
-                  </span>
-                </label>
-              ))}
-            </fieldset>
-            {kind === 'goodwill' && (
-              <div className="sm:max-w-64">
-                <Field label={t('opsRefund.amount')}>
-                  {({ id }) => (
-                    <Input
-                      id={id}
-                      required
-                      inputMode="decimal"
-                      pattern="\d+([.,]\d{1,2})?"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
+        {store ? (
+          // A6: Apple/Google are the seller of store subscriptions; the API refuses refunds for them.
+          <Notice
+            tone="info"
+            title={t('opsRefund.storeTitle', {
+              provider: label(t, 'provider', subscription!.provider),
+            })}
+          >
+            {t('opsRefund.storeText')}
+          </Notice>
+        ) : (
+          <Card>
+            <form onSubmit={compute} className="flex flex-col gap-4">
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-1 font-semibold">{t('opsRefund.kind')}</legend>
+                {kinds.map((k) => (
+                  <label key={k} className="flex min-h-12 cursor-pointer items-start gap-3">
+                    <input
+                      type="radio"
+                      name="kind"
+                      className="mt-1 size-5 accent-[var(--ps-primary)]"
+                      checked={kind === k}
+                      onChange={() => {
+                        setKind(k);
+                        setQuote(null);
+                      }}
                     />
-                  )}
-                </Field>
-              </div>
-            )}
-            <Button type="submit" variant="secondary" className="w-fit">
-              {t('opsRefund.compute')}
-            </Button>
-          </form>
-        </Card>
+                    <span>
+                      <span className="font-semibold">
+                        {t(`opsRefund.kind_${k}` as MessageKey)}
+                      </span>
+                      <span className="block text-sm text-muted">
+                        {t(`opsRefund.kindHint_${k}` as MessageKey)}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+              {kind === 'goodwill' && (
+                <div className="sm:max-w-64">
+                  <Field label={t('opsRefund.amount')}>
+                    {({ id }) => (
+                      <Input
+                        id={id}
+                        required
+                        inputMode="decimal"
+                        pattern="\d+([.,]\d{1,2})?"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                      />
+                    )}
+                  </Field>
+                </div>
+              )}
+              <Button type="submit" variant="secondary" className="w-fit">
+                {t('opsRefund.compute')}
+              </Button>
+            </form>
+          </Card>
+        )}
 
-        {quote && (
+        {!store && quote && (
           <Card>
             <Stack gap={3}>
               <Heading level={2} className="text-xl">

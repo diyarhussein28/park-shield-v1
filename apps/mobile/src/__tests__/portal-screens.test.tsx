@@ -809,6 +809,37 @@ describe('store subscriptions (App Store / Google Play)', () => {
     expect(screen.queryByTestId('pay')).toBeNull();
   });
 
+  it('a Google Play subscription on pause: „In Google Play fortsetzen“ instead of a purchase', async () => {
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+    api({
+      'GET /v1/me': () => json(me),
+      'GET /v1/billing/subscription': () =>
+        json({
+          subscription: null,
+          hadSubscription: true,
+          paused: {
+            provider: 'play_store',
+            pausedUntil: '2027-01-15T00:00:00Z',
+            contractNo: 'PS-ABCD1234',
+            managementUrl: 'https://play.google.com/store/account/subscriptions',
+          },
+        }),
+      'GET /v1/legal/checkout-texts': () =>
+        json({
+          immediateStart: { version: 3, text: 'Ich verlange ausdrücklich den sofortigen Beginn.' },
+          terms: { version: 2, text: 'Es gelten unsere AGB.' },
+          renewalRule: 'Jährlich.',
+        }),
+    });
+    await render(<Plans />);
+    expect(await screen.findByTestId('subscription-paused')).toBeTruthy();
+    expect(screen.getByText(pt('account.pausedTitle'))).toBeTruthy();
+    expect(screen.queryByTestId('pay')).toBeNull();
+    await fireEvent.press(screen.getByText(pt('account.pausedResume')));
+    expect(open).toHaveBeenCalledWith('https://play.google.com/store/account/subscriptions');
+    open.mockRestore();
+  });
+
   it('the Stripe fallback paywall shows the price breakdown and the sticker notice', async () => {
     api({
       'GET /v1/me': () => json(me),

@@ -365,7 +365,6 @@ function AlertTypeRow({ a, onSaved }: { a: AlertType; onSaved: (ok: boolean) => 
               body: {
                 active: v.active,
                 severity: v.severity,
-                escalates: v.escalates,
                 labelDe: v.labelDe,
                 labelEn: v.labelEn,
               },
@@ -416,11 +415,6 @@ function AlertTypeRow({ a, onSaved }: { a: AlertType; onSaved: (ok: boolean) => 
           )}
         </Field>
         <div className="flex flex-wrap gap-x-6">
-          <Checkbox
-            label={t('opsSettings.escalates')}
-            checked={v.escalates}
-            onChange={(e) => setV({ ...v, escalates: e.target.checked })}
-          />
           <Checkbox
             label={t('opsSettings.typeActive')}
             checked={v.active}

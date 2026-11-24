@@ -25,6 +25,7 @@ import type {
   InvoiceSummary,
   Me,
   ProfileSummary,
+  PausedSubscription,
   SubscriptionSummary,
 } from '@/lib/api-server';
 import { usePendingClaim } from '@/lib/pending-claim';
@@ -376,21 +377,29 @@ function Checkout({ phone }: { phone: string | null }) {
   const [stickerMissing, setStickerMissing] = useState(false);
   // A live subscription from any provider (app or web): no second checkout (A4).
   const [current, setCurrent] = useState<SubscriptionSummary | null>(null);
+  // A paused Google Play subscription is still the contract: resume it in Play, no new checkout.
+  const [paused, setPaused] = useState<PausedSubscription | null>(null);
 
   useEffect(() => {
     let live = true;
     void Promise.all([
       api<CheckoutTexts>(`/v1/legal/checkout-texts?locale=${locale}`, { method: 'GET' }),
-      api<{ hadSubscription?: boolean; subscription?: SubscriptionSummary | null }>(
-        '/v1/billing/subscription',
-        { method: 'GET' },
-      ).catch(() => ({ hadSubscription: false, subscription: null })),
+      api<{
+        hadSubscription?: boolean;
+        subscription?: SubscriptionSummary | null;
+        paused?: PausedSubscription | null;
+      }>('/v1/billing/subscription', { method: 'GET' }).catch(() => ({
+        hadSubscription: false,
+        subscription: null,
+        paused: null,
+      })),
     ])
       .then(([tx, sub]) => {
         if (!live) return;
         setTexts(tx);
         setResubscribe(Boolean(sub.hadSubscription));
         setCurrent(sub.subscription ?? null);
+        setPaused(sub.paused ?? null);
       })
       .catch(() => live && setTexts('error'));
     return () => {
@@ -428,6 +437,7 @@ function Checkout({ phone }: { phone: string | null }) {
   }
 
   if (current) return <AlreadySubscribed sub={current} />;
+  if (paused) return <PausedNotice paused={paused} />;
   if (texts === null) return <Text muted>{t('checkout.textsLoading')}</Text>;
   if (texts === 'error') return <Notice tone="danger">{t('checkout.textsMissing')}</Notice>;
 
@@ -535,6 +545,26 @@ function Checkout({ phone }: { phone: string | null }) {
 }
 
 /** A subscription is already live (bought in the app or on the website): where, and how to manage it. */
+/** Google Play „Pause“: the contract runs on, without protection until Play resumes it. */
+export function PausedNotice({ paused }: { paused: PausedSubscription }) {
+  const { t } = useI18n();
+  return (
+    <div className="flex flex-col gap-3" data-testid="subscription-paused">
+      <Notice tone="warning" title={t('account.pausedTitle')}>
+        {t('account.pausedText', { date: new Date(paused.pausedUntil) })}
+      </Notice>
+      <a
+        href={paused.managementUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex min-h-12 w-fit items-center rounded-xl bg-primary px-4 font-semibold text-primary-fg hover:bg-primary-hover"
+      >
+        {t('account.pausedResume')}
+      </a>
+    </div>
+  );
+}
+
 function AlreadySubscribed({ sub }: { sub: SubscriptionSummary }) {
   const { t } = useI18n();
   return (

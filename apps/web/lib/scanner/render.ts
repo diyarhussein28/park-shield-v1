@@ -112,8 +112,12 @@ function footer(label: (k: keyof Strings) => string): string {
 <p><a href="https://park-shield.de/"><span ${label('protectToo')}</span> ${I.out}</a></p></footer>`;
 }
 
-const emergencyRow = (label: (k: keyof Strings) => string, attrs = '') =>
-  `<p class="danger"${attrs}>${I.alert}<span ${label('emergency')}</span></p>`;
+/** German emergency numbers in a text, as `tel:` links (the client does the same after a language switch). */
+const telLinks = (html: string) => html.replace(/\b(11[02])\b/g, '<a href="tel:$1">$1</a>');
+
+/** „In echter Gefahr: 110 … 112 …“ with both numbers tappable (`data-tt` = text with tel links). */
+const emergencyRow = (s: Strings, attrs = '') =>
+  `<p class="danger"${attrs}>${I.alert}<span data-tt="emergency">${telLinks(esc(s.emergency))}</span></p>`;
 
 function simplePage(
   locale: Locale,
@@ -125,7 +129,7 @@ function simplePage(
   return shell(
     locale,
     s[titleKey],
-    `${header()}<main><h1 ${label(titleKey)}</h1>${inner(label)}${emergencyRow(label)}</main>${footer(label)}`,
+    `${header()}<main><h1 ${label(titleKey)}</h1>${inner(label)}${emergencyRow(s)}</main>${footer(label)}`,
   );
 }
 
@@ -304,7 +308,7 @@ ${data.photos ? photoBox(label) : ''}
 <p id="busy" class="note info" role="status" hidden ${label('sending')}</p>
 <p id="error" class="note err" role="alert" hidden></p>
 <button type="button" id="go" class="primary big">${I.send}<span ${label('sendAlert')}</span></button>
-${emergencyRow(label, ' id="emergency-line" hidden')}
+${emergencyRow(s, ' id="emergency-line" hidden')}
 ${captcha.mode === 'frc' ? `<div id="frc" data-sitekey="${esc(captcha.sitekey)}" data-endpoint="${frcEndpoint()}" hidden></div>` : ''}
 </main>
 ${footer(label)}

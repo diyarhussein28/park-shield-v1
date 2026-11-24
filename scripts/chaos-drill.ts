@@ -152,7 +152,7 @@ const dup = await db.query<{ n: number }>(
   `SELECT count(*)::int AS n FROM (
      SELECT alert_id FROM alert_deliveries
       WHERE alert_id = ANY($1::uuid[]) AND status IN ('sent', 'delivered', 'read')
-      GROUP BY alert_id, channel, recipient, emergency_contact_id, provider_message_id
+      GROUP BY alert_id, channel, recipient, provider_message_id
      HAVING count(*) > 1) x`,
   [accepted],
 );

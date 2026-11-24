@@ -72,6 +72,8 @@ export class BillingController {
     return {
       subscription: await this.billing.summary(user.userId),
       hadSubscription: await this.billing.hadSubscription(user.userId),
+      // Google Play „Pause“: no protection until `pausedUntil`; the portal offers „Fortsetzen“.
+      paused: await this.billing.pausedSummary(user.userId),
     };
   }
 

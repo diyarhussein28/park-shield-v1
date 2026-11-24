@@ -100,7 +100,7 @@ describe('annual checkout (US-06)', () => {
       url: '/v1/billing/subscription',
       headers: { cookie: s.cookie },
     });
-    expect(before.json()).toEqual({ subscription: null, hadSubscription: false });
+    expect(before.json()).toEqual({ subscription: null, hadSubscription: false, paused: null });
 
     const res = await checkout(s, {
       plan: 'standard',

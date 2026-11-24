@@ -14,7 +14,7 @@
 | `metrics.churn_monthly` | active at month start, churned, churn rate |
 | `metrics.delivery_daily` | alerts, reached ≥ 1 channel, acknowledged; target ≥ 99 % delivery |
 | `metrics.message_cost_daily` | deliveries, failures and cost per channel |
-| `metrics.activation_funnel` | paid → shipped → tested → second channel → emergency contact, by cohort |
+| `metrics.activation_funnel` | paid → shipped → tested → second channel → verified mobile number, by cohort |
 | `metrics.ios_push` | iOS users and the share with working Push |
 | `metrics.protection_score_distribution` | customers per protection score (0–100) |
 | `metrics.refunds_monthly` | refunds per month and kind (gate G2: < 3 %) |

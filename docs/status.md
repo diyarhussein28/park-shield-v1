@@ -10,7 +10,7 @@ on one laptop, so **everyone (and every AI agent) on every machine reads the sam
 > The repository is **public**. Never write secrets, keys, passwords, customer data, phone numbers
 > or e-mail addresses of real customers here. Names of env vars are fine; their values are not.
 
-_Last updated: 2026-11-22 (unified billing RevenueCat + Stripe and the personalised sticker, see §3)._
+_Last updated: 2026-11-24 (website e-mail change, trusted-contact clean-up migration, ops subscription source, Google Play pause; `docs/handover.md` §12). Before: 2026-11-22 (unified billing RevenueCat + Stripe and the personalised sticker, see §3)._
 
 ---
 

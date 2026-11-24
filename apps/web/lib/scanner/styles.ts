@@ -57,6 +57,7 @@ a.primary{text-decoration:none;border-radius:14px}
 .row>svg:first-child{color:var(--primary)}.row>svg:last-child{color:var(--muted)}
 .danger{display:flex;gap:12px;align-items:center;padding:12px 14px;margin:12px 0;border-radius:16px;background:var(--err-bg);color:var(--err-fg);border:1px solid var(--urg-line);font-weight:600}
 .danger svg{color:var(--urgent)}
+.danger a{color:inherit;font-weight:800;text-decoration:underline;text-underline-offset:2px}
 .hint{font-size:15px;color:var(--muted);margin:6px 0 12px}
 .h-ic{display:flex;align-items:center;gap:8px;margin:20px 0 4px;font-size:19px}.h-ic svg{color:var(--primary)}
 .steps{list-style:none;padding:0;margin:4px 0 12px;display:grid;grid-template-columns:repeat(3,1fr);text-align:center}

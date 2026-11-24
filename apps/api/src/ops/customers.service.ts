@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { sql } from 'kysely';
 import { SessionService } from '../auth/session.service';
+import { unifiedStatus } from '../billing/unified-status';
 import type { Env } from '../config/env';
 import type { Db } from '../core/core.module';
 import { normalizeEmail, randomToken, sha256, type FieldCrypto } from '../core/crypto';
@@ -315,7 +316,6 @@ export class CustomersService {
       push,
       sms,
       smsStats,
-      contacts,
       orders,
       refunds,
       alerts,
@@ -335,6 +335,13 @@ export class CustomersService {
           'cancel_at_period_end',
           'canceled_at',
           'created_at',
+          'provider',
+          'will_renew',
+          'refunded_at',
+          'withdrawn_at',
+          'store_product_id',
+          'store_price_cents',
+          'paused_until',
         ])
         .where('user_id', '=', userId)
         .orderBy('created_at', 'desc')
@@ -382,20 +389,6 @@ export class CustomersService {
            WHERE v.owner_user_id = ${userId} AND d.channel = 'sms' AND d.recipient = 'owner'`.execute(
         db,
       ),
-      db
-        .selectFrom('emergency_contacts')
-        .select([
-          'id',
-          'display_name',
-          'address_enc',
-          'phone_enc',
-          'consent',
-          'consent_requested_at',
-          'consent_decided_at',
-          'vehicle_id',
-        ])
-        .where('user_id', '=', userId)
-        .execute(),
       db
         .selectFrom('decal_orders')
         .select([
@@ -477,6 +470,15 @@ export class CustomersService {
         periodEnd: s.current_period_end,
         cancelAtPeriodEnd: s.cancel_at_period_end,
         canceledAt: s.canceled_at,
+        // Where it was bought (unified billing, docs/billing-unified.md): Stripe on the web, or the
+        // App Store / Google Play through RevenueCat. Store purchases are refunded by Apple/Google.
+        provider: s.provider,
+        unifiedStatus: unifiedStatus(s),
+        willRenew: s.will_renew,
+        refundedAt: s.refunded_at,
+        storeProductId: s.store_product_id,
+        storePriceCents: s.store_price_cents,
+        pausedUntil: s.paused_until,
       })),
       vehicles: vehicles.map((v) => {
         const plate = dec(v.plate_enc);
@@ -521,16 +523,6 @@ export class CustomersService {
             }
           : null,
       },
-      emergencyContacts: contacts.map((c) => ({
-        id: c.id,
-        name: c.display_name,
-        emailMasked: c.address_enc ? maskEmail(dec(c.address_enc) ?? '') : null,
-        phoneMasked: c.phone_enc ? maskPhone(dec(c.phone_enc) ?? '') : null,
-        consent: c.consent,
-        requestedAt: c.consent_requested_at,
-        decidedAt: c.consent_decided_at,
-        vehicleId: c.vehicle_id,
-      })),
       orders: orders.map((o) => {
         const address = dec(o.shipping_address_enc);
         return {
@@ -593,7 +585,7 @@ export class CustomersService {
     const [sub, counts, protection] = await Promise.all([
       this.db
         .selectFrom('subscriptions')
-        .select(['plan', 'status', 'current_period_end', 'cancel_at_period_end'])
+        .select(['plan', 'status', 'current_period_end', 'cancel_at_period_end', 'provider'])
         .where('user_id', '=', u.id)
         .orderBy('created_at', 'desc')
         .executeTakeFirst(),
@@ -624,12 +616,6 @@ export class CustomersService {
             .where('verified_at', 'is not', null)
             .as('sms'),
           eb
-            .selectFrom('emergency_contacts')
-            .select((e) => e.fn.countAll<string>().as('n'))
-            .where('user_id', '=', u.id)
-            .where('consent', '=', 'confirmed')
-            .as('contacts'),
-          eb
             .selectFrom('alerts as a')
             .innerJoin('vehicles as v', 'v.id', 'a.vehicle_id')
             .select((e) => e.fn.max('a.created_at').as('m'))
@@ -658,13 +644,13 @@ export class CustomersService {
             status: sub.status,
             periodEnd: sub.current_period_end,
             cancelAtPeriodEnd: sub.cancel_at_period_end,
+            provider: sub.provider,
           }
         : null,
       vehicles: Number(counts.vehicles ?? 0),
       activeDecals: Number(counts.activeDecals ?? 0),
       pushDevices: Number(counts.pushDevices ?? 0),
       sms: Number(counts.sms ?? 0) > 0,
-      contacts: Number(counts.contacts ?? 0),
       lastAlertAt: (counts.lastAlertAt as Date | null) ?? null,
       openDsr: Number(counts.openDsr ?? 0),
       protection: protection.percent,

@@ -9,6 +9,8 @@ interface RcSubscription {
   is_sandbox: boolean;
   unsubscribe_detected_at: string | null;
   billing_issues_detected_at: string | null;
+  /** Google Play only: a paused subscription resumes on this date. */
+  auto_resume_date?: string | null;
   refunded_at?: string | null;
   store_transaction_id?: string | null;
   /** The price the store charged, e.g. `{ amount: 19.99, currency: 'EUR' }`. */
@@ -61,6 +63,7 @@ export function parseSubscriber(
     periodStart: new Date(sub.purchase_date),
     periodEnd: toDate(sub.expires_date ?? ent.expires_date) ?? new Date(sub.purchase_date),
     willRenew: !sub.unsubscribe_detected_at,
+    autoResumeAt: toDate(sub.auto_resume_date),
     billingIssueAt: toDate(sub.billing_issues_detected_at),
     refundedAt: toDate(sub.refunded_at),
     managementUrl: body.subscriber.management_url,
@@ -128,6 +131,7 @@ export class FakeStore implements StoreBilling {
       periodEnd: d('periodEnd')!,
       billingIssueAt: d('billingIssueAt'),
       refundedAt: d('refundedAt'),
+      autoResumeAt: d('autoResumeAt'),
       priceCents: typeof s.priceCents === 'number' ? s.priceCents : null,
     };
   }

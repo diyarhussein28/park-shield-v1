@@ -178,11 +178,7 @@ export function AlertView({ token }: { token: string }) {
 
                 {/* The same reply buttons as the reply page (NT-02), so one link does both. */}
                 {replied ? (
-                  <Notice tone="success">
-                    {replied.escalating
-                      ? t('reply.doneNotNearbyEscalating')
-                      : t(DONE[replied.reply])}
-                  </Notice>
+                  <Notice tone="success">{t(DONE[replied.reply])}</Notice>
                 ) : data.replyToken ? (
                   <Stack gap={3}>
                     <Text>{t('reply.intro')}</Text>

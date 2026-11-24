@@ -392,7 +392,12 @@ Storage or IndexedDB (E2E `abuse-protection.spec.ts`).
   one, Stripe sync through outbox `billing.customer_email`, audit `user.email_changed`); the number via
   `/v1/channels/phone` (SMS only, replaced in place after the code, audit `user.phone_changed`).
 - **Trusted contacts are gone** (2026-11-21): module, pages (`/k/…`, `/notfallkontakt`) and data
-  removed; the empty `emergency_contacts` table stays until a clean-up migration.
+  removed; migration `20261210000000_drop_trusted_contacts` dropped the table, the contact columns of
+  `alert_deliveries`, `alerts.escalation_step` and the `escalation_enabled` switches (2026-11-24).
+- **Google Play „Pause“** (2026-11-24, migration `20261210000100_store_pause`): RevenueCat's
+  `auto_resume_date` → `subscriptions.paused_until`; the row is `expired` (no protection) with unified
+  status `PAUSED`, `GET /v1/billing/subscription` returns `paused`, checkout and store prepare answer
+  409 `subscription_paused`, and Play's resume (RENEWAL) brings the same contract back.
 - **Block sender** (`HistoryService.block`, `POST /v1/app/alerts/:id/block`, `POST /v1/alerts/:id/block`):
   chat closed at once (`close_reason = 'blocked'`), escalation stopped, existing abuse module report.
   The block state is computed on the server per alert (`senderBlocked`, `blockedUntil` in

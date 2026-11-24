@@ -4,7 +4,7 @@ import { Badge, Notice, Stack, Text, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
 import { OpsShell, Section } from '@/components/ops-shell';
 import { RevealRequest } from '@/components/reveal-request';
-import { fmt } from '@/lib/format';
+import { euro, fmt } from '@/lib/format';
 import type { StaffMe } from '@/lib/server';
 import { label } from '@/lib/labels';
 import {
@@ -36,6 +36,11 @@ export interface CustomerView {
     contractNo: string | null;
     periodEnd: string | null;
     cancelAtPeriodEnd: boolean;
+    /** Unified billing: Stripe (web) or the App Store / Google Play through RevenueCat. */
+    provider: 'stripe' | 'app_store' | 'play_store';
+    unifiedStatus: string;
+    willRenew: boolean;
+    storePriceCents: number | null;
   }[];
   vehicles: {
     id: string;
@@ -70,13 +75,6 @@ export interface CustomerView {
       errorCount: number;
     } | null;
   };
-  emergencyContacts: {
-    id: string;
-    name: string;
-    emailMasked: string | null;
-    phoneMasked: string | null;
-    consent: string;
-  }[];
   orders: {
     id: string;
     status: string;
@@ -161,10 +159,27 @@ export function Customer360({
               <ul className="flex flex-col gap-1 text-sm">
                 {data.subscriptions.map((s) => (
                   <li key={s.id}>
-                    <b>{label(t, 'plan', s.plan)}</b> · {label(t, 'sub', s.status)} ·{' '}
+                    <b>{label(t, 'plan', s.plan)}</b> · {label(t, 'unified', s.unifiedStatus)} ·{' '}
                     {s.contractNo ?? '–'} · {d(s.periodEnd)}
-                    {s.cancelAtPeriodEnd ? ' · ✕' : ''}
-                    {canRefund && (
+                    {s.cancelAtPeriodEnd || !s.willRenew
+                      ? ` · ${t('opsCustomers.subNoRenew')}`
+                      : ''}
+                    <br />
+                    <span className="text-muted" data-testid="sub-provider">
+                      {t('opsCustomers.subSource')}: {label(t, 'provider', s.provider)}
+                      {s.provider !== 'stripe' && s.storePriceCents !== null
+                        ? ` · ${t('opsCustomers.subStorePrice', { price: euro(s.storePriceCents, locale) })}`
+                        : ''}
+                    </span>
+                    {canRefund && s.provider !== 'stripe' && (
+                      <>
+                        {' · '}
+                        <span className="text-muted">
+                          {t('opsRefund.storeOnly', { provider: label(t, 'provider', s.provider) })}
+                        </span>
+                      </>
+                    )}
+                    {canRefund && s.provider === 'stripe' && (
                       <>
                         {' · '}
                         <Link

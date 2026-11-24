@@ -18,7 +18,9 @@ type Group =
   | 'refund'
   | 'refundStatus'
   | 'recipient'
-  | 'letter';
+  | 'letter'
+  | 'provider'
+  | 'unified';
 
 /**
  * German (or English) label for a status or code from the API, so staff never read raw values like

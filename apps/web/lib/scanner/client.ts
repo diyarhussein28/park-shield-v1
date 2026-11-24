@@ -19,6 +19,7 @@ function remember(c) { history.replaceState(null, '', c ? '#a=' + c.id + '.' + c
 function applyLang() {
   document.documentElement.lang = lang;
   document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = t(el.dataset.t); });
+  document.querySelectorAll('[data-tt]').forEach((el) => telText(el, t(el.dataset.tt)));
   document.querySelectorAll('[data-tp]').forEach((el) => { el.placeholder = t(el.dataset.tp); });
   document.querySelectorAll('[data-ta]').forEach((el) => el.setAttribute('aria-label', t(el.dataset.ta)));
   document.querySelectorAll('[data-de]').forEach((el) => { el.textContent = el.dataset[lang]; });
@@ -64,6 +65,8 @@ const GUIDE = {
   IT: { office: 'Polizia Locale', police: '113', sos: ['113', '112'] },
   PL: { office: 'Straż Miejska (986)', police: null, sos: ['112'] },
 };
+// Text with the emergency numbers 110/112 as tel: links (server: telLinks in render.ts).
+function telText(el, text) { el.textContent = ''; text.split(/(11[02])/).forEach((p, i) => el.appendChild(i % 2 ? tel(p) : document.createTextNode(p))); }
 function tel(n) { const a = document.createElement('a'); a.href = 'tel:' + n.replace(/[^0-9+]/g, ''); a.textContent = n; return a; }
 function guide(country, show) {
   const box = $('guide');
@@ -325,7 +328,7 @@ function render(s) {
   let tone = 'info';
   if (s.status === 'acknowledged') {
     tone = 'ok';
-    lines.push(s.ownerReply === 'not_nearby' ? t('replyNotNearby') : s.acknowledgedBy === 'contact' ? t('contactOnTheWay') : t('acknowledged'));
+    lines.push(s.ownerReply === 'not_nearby' ? t('replyNotNearby') : t('acknowledged'));
     if (s.ownerReply === 'in_30_min') lines.push(t('replyIn30'));
     if (s.acknowledgedAt) lines.push(t('acknowledgedAt', { time: time(s.acknowledgedAt) }));
     if (s.waitingSentAt) lines.push(t('waitingSent'));

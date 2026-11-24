@@ -90,9 +90,7 @@ export default function ReplyPage() {
                 </p>
                 {preview.isTest && <Notice tone="info">{t('reply.testNote')}</Notice>}
                 {result ? (
-                  <Notice tone="success">
-                    {result.escalating ? t('reply.doneNotNearbyEscalating') : t(DONE[result.reply])}
-                  </Notice>
+                  <Notice tone="success">{t(DONE[result.reply])}</Notice>
                 ) : answered ? (
                   <Notice tone="info">{t('reply.already', { reply: shownReply ?? 'none' })}</Notice>
                 ) : preview.expired ? (
@@ -100,7 +98,6 @@ export default function ReplyPage() {
                 ) : (
                   <>
                     <Text>{t('reply.intro')}</Text>
-                    {preview.escalated && <Notice tone="warning">{t('reply.escalated')}</Notice>}
                     <div className="flex flex-col gap-3">
                       {REPLIES.map((r) => (
                         <Button

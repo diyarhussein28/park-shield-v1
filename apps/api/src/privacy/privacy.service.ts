@@ -89,7 +89,6 @@ export class PrivacyService {
       deliveries,
       channels,
       push,
-      contacts,
       consents,
       rules,
       sessions,
@@ -155,7 +154,6 @@ export class PrivacyService {
         .select(['platform', 'device_label', 'created_at', 'last_ok_at'])
         .where('user_id', '=', userId)
         .execute(),
-      db.selectFrom('emergency_contacts').selectAll().where('user_id', '=', userId).execute(),
       db.selectFrom('consents').selectAll().where('user_id', '=', userId).execute(),
       db.selectFrom('notification_rules').selectAll().where('user_id', '=', userId).execute(),
       db
@@ -270,14 +268,6 @@ export class PrivacyService {
           lastOkAt: fmt(p.last_ok_at),
         })),
       },
-      emergencyContacts: contacts.map((c) => ({
-        name: c.display_name,
-        email: this.dec(c.address_enc),
-        vehicleId: c.vehicle_id,
-        consent: c.consent,
-        requestedAt: fmt(c.consent_requested_at),
-        decidedAt: fmt(c.consent_decided_at),
-      })),
       consents: consents.map((c) => ({
         purpose: c.purpose,
         version: c.doc_version,
@@ -398,19 +388,12 @@ export class PrivacyService {
             .select('stripe_customer_id')
             .where('id', '=', userId)
             .executeTakeFirst(),
-          // SMS go through Twilio: the owner's own number, or a trusted contact's.
+          // SMS go through Twilio: the owner's own number.
           db
             .selectFrom('contact_channels')
             .select('id')
             .where('user_id', '=', userId)
             .where('type', '=', 'sms')
-            .unionAll(
-              db
-                .selectFrom('emergency_contacts')
-                .select('id')
-                .where('user_id', '=', userId)
-                .where('phone_enc', 'is not', null),
-            )
             .executeTakeFirst(),
           db
             .selectFrom('decal_orders')

@@ -174,7 +174,15 @@ export interface PostalAddressInput {
 /** Where the subscription was bought (docs/billing-unified.md). */
 export type BillingProvider = 'stripe' | 'app_store' | 'play_store';
 export type UnifiedStatus =
-  'ACTIVE' | 'CANCEL_SCHEDULED' | 'BILLING_ISSUE' | 'EXPIRED' | 'REFUNDED' | 'WITHDRAWN';
+  'ACTIVE' | 'CANCEL_SCHEDULED' | 'BILLING_ISSUE' | 'PAUSED' | 'EXPIRED' | 'REFUNDED' | 'WITHDRAWN';
+
+/** Google Play „Pause“ (GET /v1/billing/subscription → `paused`): no protection until the date. */
+export interface PausedSubscription {
+  provider: 'app_store' | 'play_store';
+  pausedUntil: string;
+  contractNo: string | null;
+  managementUrl: string;
+}
 
 export interface Me {
   id?: string;

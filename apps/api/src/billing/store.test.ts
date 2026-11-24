@@ -318,6 +318,89 @@ describe('in-app subscription through RevenueCat (Part A)', () => {
     expect(await summary(s)).toBeNull();
   });
 
+  it('Google Play pause: no protection until the resume date, no second purchase, same contract back', async () => {
+    const { s, userId } = await appUser('pause@example.de');
+    const play = (over: Partial<StoreSubscriber> = {}) =>
+      subscriber(userId, {
+        store: 'play_store',
+        managementUrl: null,
+        transactionId: 'GPA.1',
+        ...over,
+      });
+    await store().set(userId, play());
+    await sync().sync(userId, {
+      eventId: 'p0',
+      type: 'INITIAL_PURCHASE',
+      originalTransactionId: 'GPA.1',
+    });
+    const id = (await h.db.selectFrom('subscriptions').select('id').executeTakeFirstOrThrow()).id;
+
+    // Paused: the paid period is over, Play resumes in 30 days (RevenueCat auto_resume_date).
+    const resumeAt = new Date(Date.now() + 30 * DAY);
+    await store().set(
+      userId,
+      play({ periodEnd: new Date(Date.now() - 1000), autoResumeAt: resumeAt }),
+    );
+    await sync().sync(userId, { eventId: 'p1', type: 'SUBSCRIPTION_PAUSED' });
+    const paused = await h.db
+      .selectFrom('subscriptions')
+      .select(['status', 'paused_until', 'canceled_at', 'will_renew'])
+      .where('id', '=', id)
+      .executeTakeFirstOrThrow();
+    expect(paused.status).toBe('expired');
+    expect(paused.paused_until?.getTime()).toBe(resumeAt.getTime());
+    expect(paused.canceled_at).toBeNull();
+
+    const res = await h.app.inject({
+      method: 'GET',
+      url: '/v1/billing/subscription',
+      headers: { cookie: s.cookie },
+    });
+    expect(res.json().subscription).toBeNull();
+    expect(res.json().paused).toMatchObject({
+      provider: 'play_store',
+      managementUrl: 'https://play.google.com/store/account/subscriptions',
+    });
+    expect(new Date(res.json().paused.pausedUntil).getTime()).toBe(resumeAt.getTime());
+
+    // No second purchase while paused: neither in the app nor on the web.
+    const again = await prepare(s);
+    expect(again.statusCode).toBe(409);
+    expect(again.json().error).toBe('subscription_paused');
+    const web = await h.app.inject({
+      method: 'POST',
+      url: '/v1/billing/checkout',
+      headers: s.headers,
+      payload: {
+        plan: 'standard',
+        immediateStart: true,
+        immediateStartVersion: 1,
+        termsVersion: 1,
+      },
+    });
+    expect(web.statusCode).toBe(409);
+    expect(web.json().error).toBe('subscription_paused');
+
+    // Play resumes it: the same contract is live again, the pause is gone.
+    await store().set(
+      userId,
+      play({
+        periodStart: new Date(),
+        periodEnd: new Date(Date.now() + 365 * DAY),
+        transactionId: 'GPA.1..1',
+      }),
+    );
+    await sync().sync(userId, { eventId: 'p2', type: 'RENEWAL', originalTransactionId: 'GPA.1' });
+    const back = await h.db
+      .selectFrom('subscriptions')
+      .select(['id', 'status', 'paused_until', 'canceled_at'])
+      .executeTakeFirstOrThrow();
+    expect(back).toMatchObject({ id, status: 'active', paused_until: null, canceled_at: null });
+    expect((await summary(s)).unifiedStatus).toBe('ACTIVE');
+    // Still one contract confirmation: a resume is no new contract.
+    expect((await mailbox(h)).filter((m) => m.tag === 'contract_confirmation')).toHaveLength(1);
+  });
+
   it('a store refund before personalisation cancels the fulfillment order', async () => {
     const { s, userId } = await appUser('refund@example.de');
     await store().set(userId, subscriber(userId));
@@ -390,6 +473,22 @@ describe('RevenueCat adapter', () => {
       periodEnd: new Date('2028-01-01T00:00:00Z'),
     });
     expect(parseSubscriber('u1', body, 'other')).toBeNull();
+    // Google Play „Pause“: RevenueCat reports the resume date on the subscription.
+    const pausedBody = {
+      subscriber: {
+        ...body.subscriber,
+        subscriptions: {
+          parkshield_yearly: {
+            ...body.subscriber.subscriptions.parkshield_yearly,
+            auto_resume_date: '2028-02-01T00:00:00Z',
+          },
+        },
+      },
+    };
+    expect(parseSubscriber('u1', pausedBody, 'parkshield')?.autoResumeAt).toEqual(
+      new Date('2028-02-01T00:00:00Z'),
+    );
+    expect(parseSubscriber('u1', body, 'parkshield')?.autoResumeAt).toBeNull();
     // The REST API reports the store in lower case (webhooks in upper case).
     const lower = {
       subscriber: {
@@ -441,9 +540,13 @@ describe('RevenueCat adapter', () => {
   it('refund reason and expiry decide the status', () => {
     const s = parseSubscriber('u1', body, 'parkshield')!;
     const now = new Date('2027-06-01T00:00:00Z');
-    expect(storeStatus(s, undefined, now)).toEqual({ status: 'active', refunded: false });
+    expect(storeStatus(s, undefined, now)).toEqual({
+      status: 'active',
+      refunded: false,
+      pausedUntil: null,
+    });
     expect(storeStatus(s, { type: 'CANCELLATION', cancelReason: 'CUSTOMER_SUPPORT' }, now)).toEqual(
-      { status: 'expired', refunded: true },
+      { status: 'expired', refunded: true, pausedUntil: null },
     );
     expect(storeStatus(s, undefined, new Date('2028-02-01T00:00:00Z')).status).toBe('expired');
   });

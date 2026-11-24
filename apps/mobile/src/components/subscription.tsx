@@ -23,6 +23,7 @@ import {
   longDate,
   openInBrowser,
   payInApp,
+  type PausedSubscription,
   type PortalMe,
   type SubscriptionSummary,
 } from '@/lib/portal';
@@ -193,6 +194,8 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
   const [texts, setTexts] = useState<CheckoutTexts | null | 'error'>(null);
   const [resubscribe, setResubscribe] = useState(false);
   const [live, setLive] = useState<SubscriptionSummary | null>(null);
+  // Google Play „Pause“: the contract runs on; resume it in Play, never a second purchase.
+  const [paused, setPaused] = useState<PausedSubscription | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [pkg, setPkg] = useState<PurchasesPackage | null | 'error'>(null);
   const [sticker, setSticker] = useState<'keep' | 'replace' | null>(null);
@@ -203,9 +206,15 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
     let on = true;
     void Promise.all([
       api<CheckoutTexts>(`/v1/legal/checkout-texts?locale=${lang()}`),
-      api<{ subscription?: SubscriptionSummary | null; hadSubscription?: boolean }>(
-        '/v1/billing/subscription',
-      ).catch(() => ({ subscription: null, hadSubscription: false })),
+      api<{
+        subscription?: SubscriptionSummary | null;
+        hadSubscription?: boolean;
+        paused?: PausedSubscription | null;
+      }>('/v1/billing/subscription').catch(() => ({
+        subscription: null,
+        hadSubscription: false,
+        paused: null,
+      })),
       api<PortalMe>('/v1/me').catch(() => null),
     ])
       .then(([tx, sub, me]) => {
@@ -213,6 +222,7 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
         setTexts(tx);
         setResubscribe(Boolean(sub.hadSubscription));
         setLive(sub.subscription ?? null);
+        setPaused(sub.paused ?? null);
         setUserId(me?.id ?? null);
       })
       .catch(() => on && setTexts('error'));
@@ -351,6 +361,19 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
         ) : (
           <P muted>{t('manageWeb')}</P>
         )}
+      </View>
+    );
+  }
+
+  if (paused) {
+    return (
+      <View style={s.form} testID="subscription-paused">
+        <Banner tone="warn">{pt('account.pausedTitle')}</Banner>
+        <P>{pt('account.pausedText', { date: new Date(paused.pausedUntil) })}</P>
+        <Button
+          label={pt('account.pausedResume')}
+          onPress={() => void Linking.openURL(paused.managementUrl)}
+        />
       </View>
     );
   }

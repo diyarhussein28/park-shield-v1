@@ -121,7 +121,14 @@ describe('Customer 360 and delivery trace (US-35, AD-03/04/05)', () => {
     const data = view.json();
     expect(data.vehicles[0]).toMatchObject({ nickname: 'Der Blaue', plateMasked: 'K-•• ••34' });
     expect(data.vehicles[0].decals[0]).toMatchObject({ codeHint: c.hint });
-    expect(data.subscriptions[0]).toMatchObject({ plan: 'standard', status: 'active' });
+    expect(data.subscriptions[0]).toMatchObject({
+      plan: 'standard',
+      status: 'active',
+      provider: 'stripe',
+      unifiedStatus: 'ACTIVE',
+      willRenew: true,
+    });
+    expect(data).not.toHaveProperty('emergencyContacts');
     expect(JSON.stringify(data)).not.toContain('K-AB 1234');
     expect(JSON.stringify(data)).not.toContain(c.code);
     const reads = await audit('customer.view');
