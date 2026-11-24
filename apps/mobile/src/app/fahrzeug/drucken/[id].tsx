@@ -13,6 +13,7 @@ import {
   errorText,
   euro,
   payInApp,
+  shortEuro,
   type OrderSummary,
   type PortalVehicle,
   type PrintOptions,
@@ -182,11 +183,8 @@ function SelfPrint({ vehicleId }: { vehicleId: string }) {
   );
 }
 
-/** „3 €“ for whole euros (the button text of the spec), else „3,50 €“. */
-export function shortEuro(cents: number, locale: string): string {
-  if (cents % 100 === 0) return `${cents / 100} €`;
-  return euro(cents, locale);
-}
+// „3 €“ for whole euros: moved to lib/portal.ts (also used by the new-code screen).
+export { shortEuro } from '@/lib/portal';
 
 /**
  * „Drucken und zusenden lassen“ (B1): the price is on the card before anything is confirmed. One

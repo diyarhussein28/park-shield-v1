@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-24 (app first, phase 3 of 4 done: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-24 (app first, all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -583,15 +583,34 @@ audit `qr_code.replaced`; e-mail stays Mailjet.
   `new-code.spec.ts` (fake Stripe page, Customer 360 history, override, support without the button).
 - Legal questions: `LEGAL_REVIEW.md` §14 (withdrawal for the bundle, § 356 Abs. 5, AGB text).
 
-### Phase 4 — app UI (next)
+### Phase 4 — app UI (done 2026-11-24)
 
-App vehicle screen (`apps/mobile/src/app/fahrzeug/[id].tsx`): load `GET /v1/vehicles/:id/new-code`;
-„Neuen Code erstellen (kostenlos)“ when `freeAvailable` (`POST …/tokens`); otherwise „Neuer Code +
-gedruckter Aufkleber (3 €)“ when `paidAvailable` → confirmation step (preview, label, address prefill
-from `print-options`, personalisation notice) → `POST …/new-code/order` with `appReturn` → Stripe page in
-the app → back via `/app/zurueck?to=order` → reload; during the cooldown both disabled with
-„Ein neuer Code ist ab dem {date} möglich.“ (Europe/Berlin); permanent hint „Ein neuer Code ist
-höchstens alle {days} Tage möglich.“; after success the new QR code with PDF download / print.
-„Tarif und Rechnungen“: list the 3 € purchases (`GET /v1/orders`, `paid_print`/`new_code` need to be
-added to that list). Texts in `packages/i18n` (de + en) or the app's `src/lib/i18n.ts`; app Jest +
-typecheck.
+- `src/components/new-code.tsx`: `useNewCodeOptions()` (`GET /v1/vehicles/:id/new-code`, on focus and
+  whenever the vehicle's code changes) and `NewCodeActions`: „Neuen Code erstellen (kostenlos)“ when
+  `freeAvailable`; „Neuer Code + gedruckter Aufkleber (3 €)“ when `paidAvailable` (opens the paid
+  screen); within the cooldown the buttons are off and „Ein neuer Code ist ab dem {date} möglich.“
+  (Europe/Berlin, `newCodeDate()` in `lib/portal.ts`); always „Ein neuer Code ist höchstens alle {days}
+  Tage möglich.“; texts for `code_active`, `free_used`, `subscription_required`.
+- „Kein aktiver Code“ (`no-code.tsx`, on Start, Fahrzeuge, the vehicle and the print screen) uses it;
+  the vehicle screen has a card „Neuer Code“ while a code is active; the „Sperren“ dialog says „einmal pro
+  Vertragsjahr kostenlos, höchstens alle {days} Tage“.
+- New screen `src/app/fahrzeug/neuer-code/[id].tsx`: price chip, what happens, preview, label and
+  design („Design ändern“), personalisation notice, address (prefilled from `print-options`), „3 €
+  bezahlen und zusenden“ → `POST …/new-code/order` with `appReturn` → Stripe's page in the app
+  (`payInApp`) → waits for the webhook (the vehicle's code changes, `waitForNewCode`) → the new QR code
+  with „Drucken“ and the PDF; „Zahlung wird noch bestätigt“ if it takes longer; the wait date instead of
+  the form inside the cooldown.
+- „Tarif und Rechnungen“ (`abo.tsx`): „Einmalige Käufe“ lists the paid 3 € orders („Neuer Code +
+  gedruckter Aufkleber“ / „Gedruckter Aufkleber“, date, price, „erstattet“). API: `GET /v1/orders`
+  now returns `totalCents`, `paidPrint`, `newCode`.
+- `shortEuro()` moved to `lib/portal.ts`. Texts in `src/lib/i18n.ts` (de + en).
+- Tests: app Jest 174 (7 new in `portal-screens.test.tsx`: texts, active code, cooldown date in German
+  time, free used, paid flow through Stripe to the new code, paid screen inside the cooldown, purchases
+  list); typecheck green. Note: `npx expo lint` adds a `lint` script to `package.json` when it runs —
+  do not commit that; the pre-existing lint errors (`_layout.tsx` font `require`, test mocks) are
+  unchanged.
+- **Needed to reach testers:** deploy the API (migrations `20261211000000`, `…0100`) and a new EAS build
+  of the app.
+
+**All four phases are done.** Open owner questions: `/aktivieren`, `/antwort`, owner passkeys, whether
+the first code should count for the cooldown; lawyer `LEGAL_REVIEW.md` §14.

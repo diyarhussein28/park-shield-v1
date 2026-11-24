@@ -362,7 +362,7 @@ const de = {
   helpPhoneFix: 'Handynummer bestätigen',
   noCodeTitle: 'Kein aktiver Code – Ihr Fahrzeug ist nicht geschützt',
   noCodeText:
-    'Wer einen alten Aufkleber scannt, erreicht Sie nicht. Erstellen Sie einen neuen Code – das ist kostenlos.',
+    'Wer einen alten Aufkleber scannt, erreicht Sie nicht. Erstellen Sie einen neuen Code.',
   noCodeChip: 'Kein aktiver Code',
   newCode: 'Neuen Code erstellen',
   newCodeDone:
@@ -380,7 +380,8 @@ const de = {
   revokeConfirmTitle: 'Aufkleber wirklich sperren?',
   revokeConfirm1: 'Der alte Aufkleber funktioniert sofort nicht mehr.',
   revokeConfirm2: 'Es wird nicht automatisch ein neuer Code erstellt.',
-  revokeConfirm3: 'Einen neuen Code erstellen Sie danach selbst – kostenlos.',
+  revokeConfirm3:
+    'Einen neuen Code erstellen Sie danach selbst: einmal pro Vertragsjahr kostenlos, höchstens alle {days} Tage.',
   revokeConfirm4: 'Selbst drucken ist kostenlos, drucken und zusenden lassen kostet {price}.',
   revokeDone: 'Gesperrt. Der alte Aufkleber funktioniert nicht mehr.',
   vehicleLimitNote: 'Ihr Tarif gilt für {limit, plural, one {# Fahrzeug} other {# Fahrzeuge}}.',
@@ -511,6 +512,31 @@ const de = {
   welcomeCta: 'Aufkleber gestalten und zusenden lassen – kostenlos',
   welcomeCtaText: 'Ihr erster gedruckter Aufkleber inklusive Versand ist im Abo enthalten.',
   welcomeCtaButton: 'Jetzt gestalten',
+  // New code (owner decision 2026-11-24): free once per contract year after „Sperren“, else 3 € with
+  // the printed sticker (Stripe), at most one new code every {days} days per vehicle.
+  newCodeTitle: 'Neuer Code',
+  newCodeLimit: 'Ein neuer Code ist höchstens alle {days} Tage möglich.',
+  newCodeFree: 'Neuen Code erstellen (kostenlos)',
+  newCodePaid: 'Neuer Code + gedruckter Aufkleber ({price})',
+  newCodeFreeInfo: 'Nach „Sperren“ ist ein neuer Code einmal pro Vertragsjahr kostenlos.',
+  newCodeFreeUsed:
+    'Den kostenlosen neuen Code für dieses Vertragsjahr haben Sie schon genutzt. Ein weiterer kommt mit dem gedruckten Aufkleber.',
+  newCodeActiveInfo:
+    'Ihr Code ist aktiv. Mit dem gedruckten Aufkleber bekommen Sie einen neuen Code: Sobald die Zahlung eingegangen ist, gilt nur noch der neue.',
+  newCodeWait: 'Ein neuer Code ist ab dem {date} möglich.',
+  newCodeNoPlan: 'Für einen neuen Code brauchen Sie ein aktives Abo.',
+  newCodePaidTitle: 'Neuer Code mit gedrucktem Aufkleber',
+  newCodePaidIntro:
+    'Sie bekommen einen neuen Code und den Aufkleber gedruckt per Post. Sobald die Zahlung eingegangen ist, funktioniert Ihr bisheriger Code nicht mehr und der neue sofort. Das PDF zum Selbstdrucken haben Sie gleich danach.',
+  newCodePaying: 'Zahlung eingegangen. Ihr neuer Code wird erstellt …',
+  newCodePaidDone: 'Ihr neuer Code ist aktiv. Der gedruckte Aufkleber ist unterwegs.',
+  newCodePaidLater:
+    'Die Zahlung wird noch bestätigt. Ihr neuer Code erscheint hier, sobald sie eingegangen ist.',
+  purchasesTitle: 'Einmalige Käufe',
+  purchaseNewCode: 'Neuer Code + gedruckter Aufkleber',
+  purchasePrint: 'Gedruckter Aufkleber',
+  purchaseLine: '{what} · {date} · {price}',
+  purchaseRefunded: 'erstattet',
 } as const;
 
 export type Key = keyof typeof de;
@@ -857,7 +883,7 @@ const en: Record<Key, string> = {
   helpPhoneMissing: 'Mobile number not confirmed',
   helpPhoneFix: 'Confirm mobile number',
   noCodeTitle: 'No active code – your vehicle is not protected',
-  noCodeText: 'Whoever scans an old decal cannot reach you. Create a new code – it is free.',
+  noCodeText: 'Whoever scans an old decal cannot reach you. Create a new code.',
   noCodeChip: 'No active code',
   newCode: 'Create a new code',
   newCodeDone: 'Your new code is ready. Print it yourself or have it printed and sent to you.',
@@ -874,7 +900,8 @@ const en: Record<Key, string> = {
   revokeConfirmTitle: 'Really block the decal?',
   revokeConfirm1: 'The old decal stops working at once.',
   revokeConfirm2: 'No new code is created automatically.',
-  revokeConfirm3: 'You create a new code yourself afterwards – free of charge.',
+  revokeConfirm3:
+    'You create a new code yourself afterwards: free once per contract year, at most every {days} days.',
   revokeConfirm4: 'Printing it yourself is free; having it printed and shipped costs {price}.',
   revokeDone: 'Blocked. The old decal no longer works.',
   vehicleLimitNote: 'Your plan covers {limit, plural, one {# vehicle} other {# vehicles}}.',
@@ -994,6 +1021,29 @@ const en: Record<Key, string> = {
   welcomeCta: 'Design your decal and have it sent – free',
   welcomeCtaText: 'Your first printed decal including shipping is included in your plan.',
   welcomeCtaButton: 'Design it now',
+  newCodeTitle: 'New code',
+  newCodeLimit: 'A new code is possible at most every {days} days.',
+  newCodeFree: 'Create a new code (free)',
+  newCodePaid: 'New code + printed decal ({price})',
+  newCodeFreeInfo: 'After „Sperren“ a new code is free once per contract year.',
+  newCodeFreeUsed:
+    'You have already used the free new code for this contract year. Another one comes with the printed decal.',
+  newCodeActiveInfo:
+    'Your code is active. With the printed decal you get a new code: once the payment has arrived, only the new one works.',
+  newCodeWait: 'A new code is possible from {date}.',
+  newCodeNoPlan: 'You need an active plan for a new code.',
+  newCodePaidTitle: 'New code with a printed decal',
+  newCodePaidIntro:
+    'You get a new code and the decal printed and sent by post. Once the payment has arrived, your current code stops working and the new one works at once. The PDF to print yourself is ready right after.',
+  newCodePaying: 'Payment received. Your new code is being created …',
+  newCodePaidDone: 'Your new code is active. The printed decal is on its way.',
+  newCodePaidLater:
+    'The payment is still being confirmed. Your new code appears here as soon as it has arrived.',
+  purchasesTitle: 'One-time purchases',
+  purchaseNewCode: 'New code + printed decal',
+  purchasePrint: 'Printed decal',
+  purchaseLine: '{what} · {date} · {price}',
+  purchaseRefunded: 'refunded',
 };
 
 export const messages = { de, en } as const;

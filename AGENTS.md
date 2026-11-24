@@ -351,6 +351,8 @@ Single API test file: `cd apps/api && npx vitest run src/scan`. Single E2E file:
   The paid one: `POST /v1/vehicles/:id/new-code/order` (Stripe one-time payment, order `new_code`);
   `OrdersService.markPaid` issues the code when the payment arrives (ledger `stripe_ref = order:<id>`);
   `charge.refunded` never revokes it (`code_issuances.refunded_at`, audit `qr_code.payment_refunded`).
+  App: `components/new-code.tsx` (free / 3 € / wait date, „höchstens alle 10 Tage“) and the screen
+  `app/fahrzeug/neuer-code/[id].tsx` (confirmation, Stripe in the app, then the new QR code and PDF).
 - **Alert photos (Phase 2, `ALERT_PHOTOS_ENABLED`, off by default).** `apps/api/src/alert-media/`:
   up to 2 photos per alert (multipart on `POST /v1/scan/:code/alerts`), magic bytes + sharp re-encode
   without metadata, one AES-256-GCM key per file wrapped with the data key, files in `ALERT_MEDIA_DIR`

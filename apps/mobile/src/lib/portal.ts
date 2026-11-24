@@ -121,6 +121,39 @@ export interface Usage {
 }
 
 /** GET /v1/vehicles/:id/print-options: both prices before the owner confirms (cents incl. VAT). */
+/**
+ * `GET /v1/vehicles/:id/new-code` (2026-11-24): what „Neuer Code“ offers right now. Free once per
+ * contract year after „Sperren“; else the 3 € printed sticker; within the cooldown neither.
+ */
+export interface NewCodeOptions {
+  freeAvailable: boolean;
+  paidAvailable: boolean;
+  nextEligibleAt: string | null;
+  lastIssuedAt: string | null;
+  cooldownDays: number;
+  priceCents: number;
+  freePerYear: number;
+  freeUsed: number;
+  hasActiveCode: boolean;
+  reason: 'subscription_required' | 'cooldown' | 'code_active' | 'free_used' | null;
+}
+
+/** „3 €“ for whole euros (the button text of the spec), else „3,50 €“. */
+export function shortEuro(cents: number, locale: string): string {
+  if (cents % 100 === 0) return `${cents / 100} €`;
+  return euro(cents, locale);
+}
+
+/** The date a new code is possible again, in German time (the service is for Germany). */
+export function newCodeDate(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'de-DE', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Europe/Berlin',
+  }).format(new Date(iso));
+}
+
 export interface PrintOptions {
   selfPrint: { priceCents: number };
   shipped: { priceCents: number; free: boolean; welcomePrint: boolean };
@@ -217,6 +250,10 @@ export interface OrderSummary {
     | 'canceled'
     | 'refunded';
   included: boolean;
+  /** 2026-11-24: the price paid (0 for the welcome print) and what was bought. */
+  totalCents?: number;
+  paidPrint?: boolean;
+  newCode?: boolean;
   trackingNumber: string | null;
   createdAt: string;
   product: string;

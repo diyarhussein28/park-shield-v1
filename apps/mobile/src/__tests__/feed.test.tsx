@@ -90,6 +90,19 @@ const vehicle = {
 };
 
 const calls: { path: string; body?: unknown }[] = [];
+/** After „Sperren“, outside the 10-day wait, the free code of this contract year unused (2026-11-24). */
+const NEW_CODE_FREE = {
+  freeAvailable: true,
+  paidAvailable: true,
+  nextEligibleAt: null,
+  lastIssuedAt: '2026-11-01T10:00:00Z',
+  cooldownDays: 10,
+  priceCents: 300,
+  freePerYear: 1,
+  freeUsed: 0,
+  hasActiveCode: false,
+  reason: null,
+};
 function api({
   alerts = [] as AlertListItem[] | 'down',
   sub = subscription() as object | null,
@@ -123,7 +136,9 @@ function api({
               ? { vehicles }
               : path === '/v1/vehicles/v1/tokens'
                 ? { ...vehicle, decal }
-                : {};
+                : path === '/v1/vehicles/v1/new-code'
+                  ? NEW_CODE_FREE
+                  : {};
     if (body === null) throw new Error('offline');
     return { ok: true, status: 200, json: async () => body } as Response;
   }) as unknown as typeof fetch;
@@ -277,7 +292,7 @@ describe('Start (Home)', () => {
     // The status says so too; no decal preview without a code.
     expect(screen.getByText(t('noCodeChip'))).toBeTruthy();
     expect(screen.queryByTestId('home-decal')).toBeNull();
-    await fireEvent.press(screen.getByTestId('new-code'));
+    await fireEvent.press(await screen.findByTestId('new-code'));
     await waitFor(() => expect(calls).toContainEqual({ path: '/v1/vehicles/v1/tokens', body: {} }));
   });
 

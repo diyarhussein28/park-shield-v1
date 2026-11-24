@@ -514,6 +514,10 @@ export class OrdersService {
         'o.id',
         'o.status',
         'o.included_in_plan as included',
+        // „Tarif und Rechnungen“ in the app lists the 3 € purchases (2026-11-24).
+        'o.total_gross_cents as totalCents',
+        'o.paid_print as paidPrint',
+        'o.new_code as newCode',
         'o.tracking_number as trackingNumber',
         'o.created_at as createdAt',
         'o.shipped_at as shippedAt',

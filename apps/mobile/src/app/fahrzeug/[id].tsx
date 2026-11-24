@@ -6,6 +6,7 @@ import { Alert, Linking, StyleSheet, View } from 'react-native';
 import { Badge, Choice, H3 } from '@/components/form';
 import { WindscreenArt } from '@/components/art';
 import { Collapsible, Group, Row } from '@/components/list';
+import { NewCodeActions, useNewCodeOptions } from '@/components/new-code';
 import { NoCodeCard } from '@/components/no-code';
 import { VehicleForm } from '@/components/vehicle-forms';
 import { Banner, Button, Card, Loading, P, Screen, Title, useTheme } from '@/components/ui';
@@ -45,6 +46,8 @@ export default function VehicleDetail() {
   const [protection, setProtection] = useState<VehicleProtection | null>(null);
   const [headers, setHeaders] = useState<Record<string, string> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // „Neuer Code“ (2026-11-24): reloaded whenever the vehicle's code changes.
+  const newCode = useNewCodeOptions(id, v?.decal?.tokenId ?? 'none');
 
   const load = useCallback(async () => {
     try {
@@ -157,7 +160,23 @@ export default function VehicleDetail() {
       <Details vehicle={v} onSaved={setV} />
 
       {v.decal && (
+        <Card>
+          <Title>{t('newCodeTitle')}</Title>
+          <NewCodeActions
+            vehicle={v}
+            options={newCode.options}
+            onCreated={async (fresh) => {
+              if (fresh) setV(fresh);
+              else await load();
+              setCreated(true);
+            }}
+          />
+        </Card>
+      )}
+
+      {v.decal && (
         <RevokeCard
+          cooldownDays={newCode.options?.cooldownDays ?? 10}
           vehicle={v}
           shipPriceCents={
             options && !options.shipped.free
@@ -463,16 +482,19 @@ const REASONS = ['leaked', 'car_sold', 'damaged', 'other'] as const;
 
 /**
  * „Sperren“ (2026-11-21): the code stops working at once and NO new code is created. The dialog says
- * exactly that, and what comes next costs: a new code is free, self-printing is free, printing and
- * shipping costs 3 € (after the free welcome print). Afterwards the vehicle shows „Kein aktiver Code“.
+ * exactly that, and what comes next costs: a new code is free once per contract year and at most every
+ * 10 days (2026-11-24), self-printing is free, printing and shipping costs 3 € (after the free welcome
+ * print). Afterwards the vehicle shows „Kein aktiver Code“.
  */
 function RevokeCard({
   vehicle,
   shipPriceCents,
+  cooldownDays,
   onRevoked,
 }: {
   vehicle: PortalVehicle;
   shipPriceCents: number;
+  cooldownDays: number;
   onRevoked: (v: PortalVehicle) => void;
 }) {
   const [reason, setReason] = useState<(typeof REASONS)[number]>('leaked');
@@ -485,7 +507,7 @@ function RevokeCard({
       [
         t('revokeConfirm1'),
         t('revokeConfirm2'),
-        t('revokeConfirm3'),
+        t('revokeConfirm3', { days: cooldownDays }),
         t('revokeConfirm4', { price }),
       ]
         .map((line) => `• ${line}`)

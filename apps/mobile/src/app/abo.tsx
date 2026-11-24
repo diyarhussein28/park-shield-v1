@@ -24,6 +24,7 @@ import {
   openInBrowser,
   type CreditNote,
   type InvoiceSummary,
+  type OrderSummary,
   type PortalMe,
   type SubscriptionSummary,
 } from '@/lib/portal';
@@ -42,6 +43,7 @@ export default function Subscription() {
   const [sub, setSub] = useState<SubscriptionSummary | null | undefined>(undefined);
   const [invoices, setInvoices] = useState<InvoiceSummary[]>([]);
   const [credits, setCredits] = useState<CreditNote[]>([]);
+  const [purchases, setPurchases] = useState<OrderSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -54,14 +56,21 @@ export default function Subscription() {
       ]);
       setMe(m);
       setSub(s.subscription);
-      const [inv, cn] = await Promise.all([
+      const [inv, cn, orders] = await Promise.all([
         api<{ invoices: InvoiceSummary[] }>('/v1/billing/invoices').catch(() => ({ invoices: [] })),
         api<{ creditNotes: CreditNote[] }>('/v1/billing/credit-notes').catch(() => ({
           creditNotes: [],
         })),
+        api<{ orders: OrderSummary[] }>('/v1/orders').catch(() => ({ orders: [] })),
       ]);
       setInvoices(inv.invoices);
       setCredits(cn.creditNotes);
+      // The 3 € purchases (printed sticker, new code + sticker), paid with Stripe (2026-11-24).
+      setPurchases(
+        orders.orders.filter(
+          (o) => o.paidPrint && (o.totalCents ?? 0) > 0 && o.status !== 'pending_payment',
+        ),
+      );
     } catch (err) {
       setError(errorText(err));
     }
@@ -182,6 +191,26 @@ export default function Subscription() {
           </>
         )}
       </Card>
+
+      {purchases.length > 0 && (
+        <Card>
+          <Title>{t('purchasesTitle')}</Title>
+          <View testID="purchases">
+            {purchases.map((o) => (
+              <P key={o.id}>
+                {t('purchaseLine', {
+                  what: o.newCode ? t('purchaseNewCode') : t('purchasePrint'),
+                  date: new Date(o.createdAt).toLocaleDateString(
+                    lang() === 'en' ? 'en-GB' : 'de-DE',
+                  ),
+                  price: euro(o.totalCents ?? 0, lang()),
+                })}
+                {o.status === 'refunded' ? ` · ${t('purchaseRefunded')}` : ''}
+              </P>
+            ))}
+          </View>
+        </Card>
+      )}
 
       {sub && me && (
         <Card>

@@ -17,6 +17,7 @@ import Account from '@/app/abo';
 import { ContractCard } from '@/components/subscription';
 import Notifications from '@/app/benachrichtigungen';
 import PrintScreen from '@/app/fahrzeug/drucken/[id]';
+import PaidNewCode from '@/app/fahrzeug/neuer-code/[id]';
 import Plans from '@/app/tarif';
 
 const VEHICLE = '7c2e1f40-5b6a-4d3e-9f10-2a3b4c5d6e7f';
@@ -94,6 +95,21 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 const SESSION = 'session-token-0000000000000000000001';
+
+/** `GET /v1/vehicles/:id/new-code` (2026-11-24); default: after „Sperren“, the free code unused. */
+const newCode = (over: object = {}) => ({
+  freeAvailable: true,
+  paidAvailable: true,
+  nextEligibleAt: null,
+  lastIssuedAt: '2026-11-01T10:00:00Z',
+  cooldownDays: 10,
+  priceCents: 300,
+  freePerYear: 1,
+  freeUsed: 0,
+  hasActiveCode: false,
+  reason: null,
+  ...over,
+});
 const json = (body: unknown, status = 200) =>
   Promise.resolve({
     ok: status < 300,
@@ -236,12 +252,13 @@ describe('vehicles', () => {
     api({
       'GET /v1/vehicles': () => json({ vehicles: [vehicle({ decal: null })] }),
       'GET /v1/billing/subscription': () => json({ subscription: subscription() }),
+      [`GET /v1/vehicles/${VEHICLE}/new-code`]: () => json(newCode()),
       [`POST /v1/vehicles/${VEHICLE}/tokens`]: () => json(vehicle()),
     });
     await render(<Vehicles />);
     expect(await screen.findByText(t('noCodeTitle'))).toBeTruthy();
     expect(screen.getByText(t('noCodeChip'))).toBeTruthy();
-    await fireEvent.press(screen.getByTestId('new-code'));
+    await fireEvent.press(await screen.findByTestId('new-code'));
     await waitFor(() => expect(sent('POST', `/v1/vehicles/${VEHICLE}/tokens`)).toEqual({}));
   });
 
@@ -300,6 +317,8 @@ describe('vehicle detail', () => {
       [`GET /v1/vehicles/${VEHICLE}/mode`]: () => json({ mode: null }),
       [`GET /v1/vehicles/${VEHICLE}/protection`]: () =>
         json({ active: false, source: null, activeUntil: null }),
+      [`GET /v1/vehicles/${VEHICLE}/new-code`]: () =>
+        json(newCode({ freeAvailable: false, hasActiveCode: true, reason: 'code_active' })),
       ...over,
     });
 
@@ -349,6 +368,7 @@ describe('vehicle detail', () => {
         current = vehicle({ decal: null });
         return json(current);
       },
+      [`GET /v1/vehicles/${VEHICLE}/new-code`]: () => json(newCode()),
     });
     const ask = jest
       .spyOn(Alert, 'alert')
@@ -360,7 +380,7 @@ describe('vehicle detail', () => {
     for (const line of [
       t('revokeConfirm1'),
       t('revokeConfirm2'),
-      t('revokeConfirm3'),
+      t('revokeConfirm3', { days: 10 }),
       t('revokeConfirm4', { price: euro(300, 'de') }),
     ]) {
       expect(message).toContain(line);
@@ -384,6 +404,7 @@ describe('vehicle detail', () => {
         current = vehicle();
         return json(current);
       },
+      [`GET /v1/vehicles/${VEHICLE}/new-code`]: () => json(newCode()),
     });
     await render(<VehicleDetail />);
     await fireEvent.press(await screen.findByTestId('new-code'));
@@ -1081,5 +1102,202 @@ describe('notification settings', () => {
         ([, i]: [string, RequestInit | undefined]) => i?.method === 'DELETE',
       ),
     ).toBe(false);
+  });
+});
+
+describe('new code (2026-11-24): free once a year, 3 € with the printed decal, 10-day wait', () => {
+  const vehicleRoutes = (code: object, over: Record<string, Handler> = {}, decal = true) =>
+    api({
+      [`GET /v1/vehicles/${VEHICLE}`]: () => json(decal ? vehicle() : vehicle({ decal: null })),
+      [`GET /v1/vehicles/${VEHICLE}/print-options`]: () =>
+        json({
+          selfPrint: { priceCents: 0 },
+          shipped: { priceCents: 300, free: false, welcomePrint: false },
+          personalization: {
+            label: 'Der Blaue',
+            labelValid: true,
+            template: 'classic',
+            cta: 'Bitte scannen bei Problemen',
+          },
+          addressPrefill: {
+            name: 'Kim Muster',
+            line1: 'Hauptstraße 1',
+            postalCode: '50667',
+            city: 'Köln',
+            country: 'DE',
+          },
+        }),
+      [`GET /v1/vehicles/${VEHICLE}/mode`]: () => json({ mode: null }),
+      [`GET /v1/vehicles/${VEHICLE}/protection`]: () =>
+        json({ active: false, source: null, activeUntil: null }),
+      [`GET /v1/vehicles/${VEHICLE}/new-code`]: () => json(code),
+      ...over,
+    });
+
+  it('texts say it exactly (German)', () => {
+    expect(t('newCodeFree')).toBe('Neuen Code erstellen (kostenlos)');
+    expect(t('newCodePaid', { price: '3 €' })).toBe('Neuer Code + gedruckter Aufkleber (3 €)');
+    expect(t('newCodeLimit', { days: 10 })).toBe(
+      'Ein neuer Code ist höchstens alle 10 Tage möglich.',
+    );
+    expect(t('newCodeWait', { date: '4. Dezember 2026' })).toBe(
+      'Ein neuer Code ist ab dem 4. Dezember 2026 möglich.',
+    );
+  });
+
+  it('with an active code: only the 3 € option, the hint, and it opens the paid screen', async () => {
+    vehicleRoutes(newCode({ freeAvailable: false, hasActiveCode: true, reason: 'code_active' }));
+    await render(<VehicleDetail />);
+    expect(await screen.findByText(t('newCodeTitle'))).toBeTruthy();
+    expect(screen.getByText(t('newCodeActiveInfo'))).toBeTruthy();
+    expect(screen.getByText(t('newCodeLimit', { days: 10 }))).toBeTruthy();
+    expect(screen.queryByTestId('new-code')).toBeNull();
+    await fireEvent.press(screen.getByLabelText(t('newCodePaid', { price: '3 €' })));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/fahrzeug/neuer-code/[id]',
+      params: { id: VEHICLE },
+    });
+  });
+
+  it('within the 10 days: the buttons are off and the exact date is shown (German time)', async () => {
+    vehicleRoutes(
+      newCode({
+        freeAvailable: false,
+        paidAvailable: false,
+        reason: 'cooldown',
+        // 23:30 UTC on 3 Dec = 00:30 on 4 Dec in Germany.
+        nextEligibleAt: '2026-12-03T23:30:00Z',
+      }),
+      {},
+      false,
+    );
+    await render(<VehicleDetail />);
+    expect(await screen.findByText(t('newCodeWait', { date: '4. Dezember 2026' }))).toBeTruthy();
+    const free = screen.getByTestId('new-code');
+    expect(free.props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(free);
+    const posts = (global.fetch as jest.Mock).mock.calls.filter(
+      ([, i]: [string, RequestInit | undefined]) => i?.method === 'POST',
+    );
+    expect(posts).toHaveLength(0);
+  });
+
+  it('the free code of this contract year is used: the 3 € option instead', async () => {
+    vehicleRoutes(newCode({ freeAvailable: false, freeUsed: 1, reason: 'free_used' }), {}, false);
+    await render(<VehicleDetail />);
+    expect(await screen.findByTestId('new-code-free-used')).toBeTruthy();
+    expect(screen.queryByTestId('new-code')).toBeNull();
+    expect(screen.getByTestId('new-code-paid')).toBeTruthy();
+  });
+
+  it('pays 3 € on Stripe inside the app, then shows the new code with print and PDF', async () => {
+    let current = vehicle();
+    vehicleRoutes(newCode({ freeAvailable: false, hasActiveCode: true, reason: 'code_active' }), {
+      [`GET /v1/vehicles/${VEHICLE}`]: () => json(current),
+      [`POST /v1/vehicles/${VEHICLE}/new-code/order`]: () => {
+        // The payment webhook issues the new code on the server.
+        current = vehicle({ decal: { ...vehicle().decal!, tokenId: 't2', codeHint: 'ZZ99' } });
+        return json({ id: 'o9', url: 'https://checkout.stripe.com/c/pay/cs_new_code' });
+      },
+    });
+    (WebBrowser.openAuthSessionAsync as jest.Mock).mockResolvedValue({
+      type: 'success',
+      url: 'exp://192.168.178.25:8082/--/zurueck?to=order&result=success',
+    });
+    await render(<PaidNewCode />);
+    expect(await screen.findByText(t('newCodePaidTitle'))).toBeTruthy();
+    expect(screen.getByText('3 €')).toBeTruthy();
+    expect(screen.getByText(t('printPersonalNotice'))).toBeTruthy();
+    expect(await screen.findByDisplayValue('Kim Muster')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText(t('printConfirmPaid', { price: '3 €' })));
+    expect(await screen.findByTestId('new-code-done')).toBeTruthy();
+    expect(screen.getByText(t('newCodePaidDone'))).toBeTruthy();
+    expect(screen.getByTestId('new-code-print')).toBeTruthy();
+    expect(screen.getByTestId('new-code-pdf')).toBeTruthy();
+    expect(sent('POST', '/new-code/order')).toEqual({
+      address: {
+        name: 'Kim Muster',
+        line1: 'Hauptstraße 1',
+        postalCode: '50667',
+        city: 'Köln',
+        country: 'DE',
+      },
+      personalizationConfirmed: true,
+      appReturn: 'exp://192.168.178.25:8082/--/zurueck',
+    });
+    expect(WebBrowser.openAuthSessionAsync).toHaveBeenCalledWith(
+      'https://checkout.stripe.com/c/pay/cs_new_code',
+      'exp://192.168.178.25:8082/--/zurueck',
+    );
+  });
+
+  it('the paid screen within the wait: the date, no address form, no payment page', async () => {
+    vehicleRoutes(
+      newCode({
+        freeAvailable: false,
+        paidAvailable: false,
+        hasActiveCode: true,
+        reason: 'cooldown',
+        nextEligibleAt: '2026-12-04T09:00:00Z',
+      }),
+    );
+    await render(<PaidNewCode />);
+    expect(await screen.findByTestId('new-code-paid-wait')).toBeTruthy();
+    expect(screen.getByText(t('newCodeWait', { date: '4. Dezember 2026' }))).toBeTruthy();
+    expect(screen.queryByLabelText(t('printConfirmPaid', { price: '3 €' }))).toBeNull();
+    expect(WebBrowser.openAuthSessionAsync).not.toHaveBeenCalled();
+  });
+
+  it('„Tarif und Rechnungen“ lists the 3 € purchases', async () => {
+    api({
+      'GET /v1/me': () => json(me),
+      'GET /v1/billing/subscription': () => json({ subscription: subscription() }),
+      'GET /v1/billing/invoices': () => json({ invoices: [] }),
+      'GET /v1/billing/credit-notes': () => json({ creditNotes: [] }),
+      'GET /v1/orders': () =>
+        json({
+          orders: [
+            {
+              id: 'o2',
+              status: 'in_production',
+              included: false,
+              totalCents: 300,
+              paidPrint: true,
+              newCode: true,
+              trackingNumber: null,
+              createdAt: '2026-11-24T10:00:00Z',
+              product: 'uv_vinyl_sticker',
+              vehicleId: VEHICLE,
+              nickname: 'Der Blaue',
+            },
+            {
+              id: 'o1',
+              status: 'delivered',
+              included: true,
+              totalCents: 0,
+              paidPrint: false,
+              newCode: false,
+              trackingNumber: null,
+              createdAt: '2026-11-19T10:00:00Z',
+              product: 'uv_vinyl_sticker',
+              vehicleId: VEHICLE,
+              nickname: 'Der Blaue',
+            },
+          ],
+        }),
+    });
+    await render(<Account />);
+    expect(await screen.findByText(t('purchasesTitle'))).toBeTruthy();
+    expect(
+      screen.getByText(
+        t('purchaseLine', {
+          what: t('purchaseNewCode'),
+          date: '24.11.2026',
+          price: euro(300, 'de'),
+        }),
+      ),
+    ).toBeTruthy();
+    // The free welcome print is no purchase.
+    expect(screen.queryAllByText(new RegExp(`^${t('purchasePrint')} ·`))).toHaveLength(0);
   });
 });
