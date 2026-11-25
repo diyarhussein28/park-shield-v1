@@ -1,9 +1,8 @@
 import { AuthOpen } from './auth-open';
+import { pageMetadata } from '@/lib/meta';
 
-export const metadata = {
-  title: 'Anmeldung in der ParkShield-App',
-  robots: { index: false, follow: false },
-};
+export const generateMetadata = () =>
+  pageMetadata('meta.appSignIn', { robots: { index: false, follow: false } });
 
 /**
  * The bridge page of the app's sign-in e-mail (`/auth/open#t=…&r=…&c=…`, AUTH.md). It never signs

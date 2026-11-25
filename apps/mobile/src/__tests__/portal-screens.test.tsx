@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
 import { Alert, Linking } from 'react-native';
@@ -677,6 +678,67 @@ describe('subscription and checkout in the app', () => {
       type: 'ordinary',
       effective: 'next',
     });
+  });
+
+  it('the cancellation receipt can be printed and saved as a PDF (QA 2026-11-25)', async () => {
+    api({
+      'GET /v1/billing/subscription': () => json({ subscription: subscription() }),
+      'POST /v1/portal/cancellations': () =>
+        json({ receivedAt: '2026-11-19T12:00:00Z', endsAt: '2027-11-19T12:00:00Z' }),
+    });
+    await render(<Cancel />);
+    await screen.findByText(pt('cancel.signedInHint', { contractNo: 'PS-7K3Q9X2M' }));
+    await fireEvent.press(screen.getByLabelText(pt('cancel.submit')));
+    await screen.findByText(pt('cancel.receivedTitle'));
+
+    await fireEvent.press(screen.getByLabelText(pt('cancel.print')));
+    await waitFor(() => expect(Print.printAsync).toHaveBeenCalledTimes(1));
+    const { html } = (Print.printAsync as jest.Mock).mock.calls[0][0] as { html: string };
+    expect(html).toContain(pt('cancel.receivedTitle'));
+    expect(html).toContain(
+      pt('cancel.endsText', { date: new Date('2027-11-19T12:00:00Z') }).replace(/'/g, '&#39;'),
+    );
+
+    await fireEvent.press(screen.getByLabelText(t('receiptSavePdf')));
+    await waitFor(() =>
+      expect(Sharing.shareAsync).toHaveBeenCalledWith('file:///cache/receipt.pdf', {
+        mimeType: 'application/pdf',
+        UTI: 'com.adobe.pdf',
+      }),
+    );
+    expect(Print.printToFileAsync).toHaveBeenCalledWith({
+      html: expect.stringContaining(pt('cancel.receivedTitle')),
+    });
+  });
+
+  it('the paywall does not jump when the box is ticked and is locked while paying (QA 2026-11-25)', async () => {
+    api({
+      'GET /v1/billing/subscription': () => json({ subscription: null, hadSubscription: false }),
+      'GET /v1/legal/checkout-texts': () => json(texts),
+      'POST /v1/billing/checkout': () =>
+        json({ url: 'https://checkout.stripe.com/c/pay/cs_test_1' }),
+    });
+    // The payment page stays open: the checkout is still running.
+    (WebBrowser.openAuthSessionAsync as jest.Mock).mockReturnValue(new Promise(() => undefined));
+    await render(<Plans />);
+    const box = await screen.findByTestId('immediate-start');
+    const hint = screen.getByTestId('immediate-required');
+    expect(hint.props.style).toMatchObject({ opacity: 1 });
+    await fireEvent.press(box);
+    // Still there, only invisible and hidden from screen readers: the button below stays put.
+    const kept = screen.getByTestId('immediate-required', { includeHiddenElements: true });
+    expect(kept.props.style).toMatchObject({ opacity: 0 });
+    expect(kept.props.accessibilityElementsHidden).toBe(true);
+
+    await fireEvent.press(screen.getByTestId('pay'));
+    await waitFor(() =>
+      expect(screen.getByTestId('immediate-start').props.accessibilityState).toMatchObject({
+        checked: true,
+        disabled: true,
+      }),
+    );
+    await fireEvent.press(screen.getByTestId('immediate-start'));
+    expect(screen.getByTestId('immediate-start').props.accessibilityState.checked).toBe(true);
   });
 });
 

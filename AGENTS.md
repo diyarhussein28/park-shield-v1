@@ -346,7 +346,8 @@ Single API test file: `cd apps/api && npx vitest run src/scan`. Single E2E file:
   `welcome_letter.in_portal` (default off) offers the letter under „Dokumente“ (was `/konto/daten`; the portal is in the app since 2026-11-24).
 - **New decal code** (2026-11-24, `vehicles/code-rules.ts`, `docs/handover.md` §14): „Sperren“ is free
   and immediate; a new code at most every `codes.reissue_cooldown_days` (10) per vehicle, counted from
-  the newest code; free once per subscription year after a „Sperren“ (`codes.free_reissues_per_year`),
+  the newest code (except after the first „Sperren“ of the vehicle's only code, 2026-11-25); free once
+  per subscription year after a „Sperren“ (`codes.free_reissues_per_year`),
   else 402 `payment_required` (3 € = new code + printed sticker, Stripe only). Every issued code is a
   row in `code_issuances`; `GET /v1/vehicles/:id/new-code` tells the app what is possible; staff with
   `codes.override_cooldown` use `POST /ops/v1/vehicles/:id/new-code` (audit `qr_code.replaced`).

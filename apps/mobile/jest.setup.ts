@@ -73,7 +73,10 @@ jest.mock('expo-local-authentication', () => ({
   authenticateAsync: jest.fn(async () => ({ success: true })),
 }));
 
-jest.mock('expo-print', () => ({ printAsync: jest.fn(async () => undefined) }));
+jest.mock('expo-print', () => ({
+  printAsync: jest.fn(async () => undefined),
+  printToFileAsync: jest.fn(async () => ({ uri: 'file:///cache/receipt.pdf' })),
+}));
 
 jest.mock('expo-font', () => ({
   useFonts: () => [true, null],

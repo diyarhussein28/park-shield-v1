@@ -1,6 +1,7 @@
 import { AppAccount } from './app-account';
+import { pageMetadata } from '@/lib/meta';
 
-export const metadata = { title: 'ParkShield-App' };
+export const generateMetadata = () => pageMetadata('meta.app');
 // The store links are runtime settings of the server (APP_STORE_URL, PLAY_STORE_URL), not build-time.
 export const dynamic = 'force-dynamic';
 

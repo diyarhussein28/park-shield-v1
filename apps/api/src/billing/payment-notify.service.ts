@@ -3,6 +3,7 @@ import { sql } from 'kysely';
 import type { Logger } from 'pino';
 import type { Env } from '../config/env';
 import type { Db } from '../core/core.module';
+import { RetryLaterError } from '../core/retry-later';
 import { DB, ENV, LOGGER } from '../core/tokens';
 import { WelcomeLettersService } from '../letters/welcome-letters.service';
 import { MailService } from '../mail/mail.service';
@@ -198,7 +199,7 @@ export class PaymentNotifyService {
     const n = await this.load(id);
     if (!n || n.attachment_sent_at) return;
     const pdf = await this.letterPdf(n.user_id);
-    if (!pdf) throw new Error('letter not available yet');
+    if (!pdf) throw new RetryLaterError('letter not available yet');
     const customerNo = n.customer_no ?? '–';
     const contractNo = await this.contractNo(n.user_id, n.contract_no);
     const file = letterFileName(customerNo, contractNo);

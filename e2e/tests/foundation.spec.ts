@@ -31,6 +31,28 @@ test('language follows Accept-Language and switches without a reload (US-03)', a
   await ctx.close();
 });
 
+test('the page <title> follows the phone language and the language switch (QA 2026-11-25)', async ({
+  browser,
+}) => {
+  const ctx = await browser.newContext({ locale: 'en-US' });
+  const page = await ctx.newPage();
+  await page.goto('/agb');
+  await expect(page).toHaveTitle('Terms and conditions · ParkShield');
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    'content',
+    'Your phone number does not belong behind the windscreen.',
+  );
+  // The marker survives the switch: no full reload, the server only renders the head again.
+  await page.evaluate(() => ((window as unknown as { __marker: number }).__marker = 7));
+  await page.getByRole('button', { name: 'Deutsch' }).click();
+  await expect(page).toHaveTitle('AGB · ParkShield');
+  expect(await page.evaluate(() => (window as unknown as { __marker?: number }).__marker)).toBe(7);
+  // The picked language wins over the phone language on the next page.
+  await page.goto('/hilfe');
+  await expect(page).toHaveTitle('Hilfe · ParkShield');
+  await ctx.close();
+});
+
 for (const colorScheme of ['light', 'dark'] as const) {
   test(`design system has no WCAG 2.2 AA violations (${colorScheme})`, async ({ page }) => {
     await page.emulateMedia({ colorScheme });

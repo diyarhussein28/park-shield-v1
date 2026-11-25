@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-25 (full QA run on web, iOS, Android, e-mails and ops; fixes and open findings in §15). Before: 2026-11-24 (owner decisions on `/aktivieren`, `/antwort`, passkeys and the first code done, §14). Before: 2026-11-24 (all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-25 (owner decisions on the QA findings: first lock without cooldown, paywall, receipt print/PDF, localized `<title>`, worker warn, §15b). Before: 2026-11-25 (full QA run on web, iOS, Android, e-mails and ops; fixes and open findings in §15). Before: 2026-11-24 (owner decisions on `/aktivieren`, `/antwort`, passkeys and the first code done, §14). Before: 2026-11-24 (all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -659,17 +659,15 @@ Open findings (not changed, need a decision or a dev build):
 - Android: after the Stripe page the browser tab does not return to the app by itself (Expo Go,
   `exp://`); verify with a development build (`parkshield://`). Locally the fake checkout also needs
   `adb reverse tcp:3000 tcp:3000` because its URL is `localhost`.
-- Lock within 10 days of the first code: the car stays unprotected until the cooldown ends, the 3 € route
-  is blocked too (follows the owner rule; consider an exception for the first lock).
-- Paywall: ticking the consent box removes the hint and moves the pay button (layout jump); the box can
-  still be toggled while the checkout loads.
+- ~~Lock within 10 days of the first code: the car stays unprotected until the cooldown ends~~ (done
+  2026-11-25, §15b: the first lock is an exception).
+- ~~Paywall: layout jump when ticking the consent box; box toggles while the checkout loads~~ (done, §15b).
 - „Ich komme“ shows the chip „Erledigt“ although „Erledigt“ is also a separate button.
-- App cancellation receipt says „You can save or print this page“ without a print/save button.
-- Website `<title>` stays German on EN pages (static `metadata`).
+- ~~App cancellation receipt without a print/save button~~ (done, §15b).
+- ~~Website `<title>` stays German on EN pages~~ (done, §15b).
 - Ops pages without permission still show filters / „Noch keine …“ next to „Dafür fehlt Ihnen die
   Berechtigung“.
-- Worker logs `payment.notify_attachment … letter not available yet` as ERROR on every retry (by design,
-  max 10 attempts) — log level could be `warn`.
+- ~~Worker logs `payment.notify_attachment … letter not available yet` as ERROR~~ (done, §15b: `warn`).
 
 
 ### 15a. Price 19,99 € everywhere (owner decision 2026-11-25)
@@ -682,3 +680,31 @@ from the displayed price, instead of charging 20,00 € while showing 19,99 €
 `price_1UfUvLFjhnZQE717fgQNDj4f` (EUR 19.99, yearly, inclusive) in `STRIPE_PRICE_YEARLY` (backup
 `server.env.bak-20261125-price`), deployed `674c6e9`. **Open:** the same price in live mode before go-live. Existing test subscriptions
 keep their 20 € price until they are changed in Stripe.
+
+### 15b. Owner decisions on the QA findings (2026-11-25)
+
+Work on the branch `claude/gifted-heisenberg-pmqvj7` (owner: push only after the E2E tests pass, not
+straight to `main`).
+
+- **First lock is an exception to the 10-day wait** (`vehicles/code-rules.ts`): while a vehicle has had
+  exactly one code and that code is locked, the cooldown does not apply — the free new code (once per
+  subscription year) and the 3 € route are available at once. `GET /v1/vehicles/:id/new-code` also
+  returns `firstLock`. Every later new code waits 10 days from the newest code as before. The 3 €
+  replacement of an *active* first code still waits. Tests: `code-rules.test.ts`, E2E `sprint4.spec.ts`.
+- **Paywall** (`components/subscription.tsx`): the „Bitte bestätigen …“ hint keeps its space once the box
+  is ticked (invisible and hidden from screen readers), so the pay button no longer jumps; while the
+  checkout runs the consent box, the sticker choice and the promo field are locked (`Check` and `Choice`
+  got a `disabled` prop in `components/form.tsx`).
+- **Receipt** of a cancellation and a withdrawal in the app: „Seite drucken“ (system print dialog) and
+  „Als PDF sichern“ (share sheet), built on the device from the receipt lines (`lib/receipt.ts`,
+  `components/receipt.tsx`, `expo-print` + `expo-sharing`, nothing sent to the server).
+- **Website `<title>` and description in the visitor's language** (`apps/web/lib/meta.ts`, texts
+  `meta.*` in `packages/i18n`): picked language (cookie), else the phone's or browser's language
+  (Accept-Language); switching the language on the page calls `router.refresh()` so the title follows.
+- **Worker log level**: an outbox handler that waits for something expected throws `RetryLaterError`
+  (`core/retry-later.ts`) and is logged as `warn` („outbox handler waiting, will retry“); the last
+  attempt is still an `error`. Used for the payment-notification letter attachment.
+- Still open from §15: Android return from the Stripe page (needs a development build), the „Erledigt“
+  chip after „Ich komme“, ops pages without permission showing filters.
+- Needed to reach testers: API deploy (no migration) and a new EAS build of the app.
+

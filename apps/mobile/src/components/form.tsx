@@ -72,6 +72,7 @@ export function Choice<T extends string | number>({
   onChange,
   label,
   hint,
+  disabled = false,
 }: {
   legend?: string;
   options: readonly T[];
@@ -79,6 +80,7 @@ export function Choice<T extends string | number>({
   onChange: (v: T) => void;
   label: (v: T) => string;
   hint?: (v: T) => string | undefined;
+  disabled?: boolean;
 }) {
   const c = useTheme();
   return (
@@ -92,10 +94,12 @@ export function Choice<T extends string | number>({
             key={String(o)}
             accessibilityRole="radio"
             accessibilityLabel={label(o)}
-            accessibilityState={{ checked: on }}
+            accessibilityState={{ checked: on, disabled }}
+            disabled={disabled}
             onPress={() => onChange(o)}
             style={[
               s.option,
+              disabled && { opacity: 0.6 },
               {
                 borderColor: on ? c.primary : c.borderStrong,
                 backgroundColor: on ? c.infoBg : c.bg,
@@ -123,19 +127,26 @@ export function Check({
   label,
   checked,
   onChange,
+  disabled = false,
+  testID,
 }: {
   label: string;
   checked: boolean;
   onChange: (v: boolean) => void;
+  /** While a payment loads: the agreement cannot change under the running checkout. */
+  disabled?: boolean;
+  testID?: string;
 }) {
   const c = useTheme();
   return (
     <Pressable
       accessibilityRole="checkbox"
       accessibilityLabel={label}
-      accessibilityState={{ checked }}
+      accessibilityState={{ checked, disabled }}
+      disabled={disabled}
       onPress={() => onChange(!checked)}
-      style={s.check}
+      style={[s.check, disabled && { opacity: 0.6 }]}
+      testID={testID}
     >
       <View
         style={[

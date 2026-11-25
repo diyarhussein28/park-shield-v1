@@ -148,7 +148,7 @@ test('custom messages are filtered before they are sent (US-15)', async ({ reque
   await ctx.close();
 });
 
-test('„Sperren“ makes the old decal inactive and creates no new code; after the 10-day wait a new code is free (US-13, SC-07)', async ({
+test('„Sperren“ makes the old decal inactive and creates no new code; the first lock gets a free new code at once, later ones wait 10 days (US-13, SC-07)', async ({
   request,
   browser,
 }) => {
@@ -183,7 +183,8 @@ test('„Sperren“ makes the old decal inactive and creates no new code; after 
   await expectAccessible(scan);
   await ctx.close();
 
-  // A new code waits 10 days after the newest one (2026-11-24); the app shows the date.
+  // The first „Sperren“ of the first code is an exception (owner, 2026-11-25): a new code at once,
+  // free once per subscription year. Every later new code waits 10 days after the newest one.
   const newCode = () =>
     request.post(`${API_URL}/v1/vehicles/${owner.vehicleId}/tokens`, { headers: owner.headers });
   const options = async () =>
@@ -192,6 +193,23 @@ test('„Sperren“ makes the old decal inactive and creates no new code; after 
         headers: owner.headers,
       })
     ).json()) as { freeAvailable: boolean; reason: string | null; nextEligibleAt: string | null };
+  expect(await options()).toMatchObject({
+    freeAvailable: true,
+    reason: null,
+    nextEligibleAt: null,
+  });
+  const created = await newCode();
+  expect(created.status(), await created.text()).toBe(201);
+  expect((await tokens()).map((t) => t.status)).toEqual(['revoked', 'assigned']);
+  const newUrl = await testWindowUrl(request, owner);
+  expect(newUrl).not.toBe(oldUrl);
+
+  // Locked again right away: now the 10-day wait applies and the app shows the date.
+  const again = await request.post(`${API_URL}/v1/vehicles/${owner.vehicleId}/tokens/revoke`, {
+    headers: owner.headers,
+    data: { confirm: true, reason: 'leaked' },
+  });
+  expect(again.status(), await again.text()).toBe(200);
   const waiting = await options();
   expect(waiting).toMatchObject({ freeAvailable: false, reason: 'cooldown' });
   expect(waiting.nextEligibleAt).not.toBeNull();
@@ -207,12 +225,8 @@ test('„Sperren“ makes the old decal inactive and creates no new code; after 
     `UPDATE code_issuances SET issued_at = issued_at - interval '11 days' WHERE vehicle_id = $1`,
     [owner.vehicleId],
   );
-  expect(await options()).toMatchObject({ freeAvailable: true, reason: null });
-
-  // „Neuen Code erstellen“ after a „Sperren“: free once per subscription year, no payment.
-  const created = await newCode();
-  expect(created.status(), await created.text()).toBe(201);
-  expect((await tokens()).map((t) => t.status)).toEqual(['revoked', 'assigned']);
-  const newUrl = await testWindowUrl(request, owner);
-  expect(newUrl).not.toBe(oldUrl);
+  // The free one of this subscription year is used: the next code comes with the 3 € print.
+  expect(await options()).toMatchObject({ freeAvailable: false, reason: 'free_used' });
+  const third = await newCode();
+  expect(third.status()).toBe(402);
 });

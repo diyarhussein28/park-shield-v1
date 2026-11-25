@@ -2265,6 +2265,27 @@ const en: typeof de = {
     withoutLogin: 'No sign-in needed',
     nav: 'Get the app',
   },
+  meta: {
+    description: 'Your phone number does not belong behind the windscreen.',
+    app: 'ParkShield app',
+    appSignIn: 'Sign in to the ParkShield app',
+    appClaim: 'Set up your decal in the ParkShield app',
+    agb: 'Terms and conditions',
+    impressum: 'Legal notice',
+    datenschutz: 'Privacy',
+    barrierefreiheit: 'Accessibility',
+    sicherheit: 'Report a vulnerability',
+    widerruf: 'Right of withdrawal',
+    widerrufen: 'Withdraw from the contract',
+    kuendigen: 'Cancel contracts here',
+    kuendigenRevoke: 'Take back the cancellation',
+    help: 'Help',
+    helpDescription:
+      'Answers about the decal, alerts, your plan and privacy – and how to contact us.',
+    helpContact: 'Contact · Help',
+    helpArticle: '{title} · Help',
+    alertPhotos: 'Photos of the alert',
+  },
 };
 
 export default en;

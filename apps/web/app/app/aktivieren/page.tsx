@@ -1,9 +1,8 @@
 import { AppClaim } from './app-claim';
+import { pageMetadata } from '@/lib/meta';
 
-export const metadata = {
-  title: 'Aufkleber in der ParkShield-App einrichten',
-  robots: { index: false, follow: false },
-};
+export const generateMetadata = () =>
+  pageMetadata('meta.appClaim', { robots: { index: false, follow: false } });
 
 /**
  * „Aufkleber einrichten“ from the scanner page of a pre-printed partner decal (`/app/aktivieren#c=…`,

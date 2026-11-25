@@ -1,7 +1,8 @@
 import { serverApi, type Me, type SubscriptionSummary } from '@/lib/api-server';
 import { WithdrawFlow } from './withdraw-flow';
+import { pageMetadata } from '@/lib/meta';
 
-export const metadata = { title: 'Vertrag widerrufen' };
+export const generateMetadata = () => pageMetadata('meta.widerrufen');
 export const dynamic = 'force-dynamic';
 
 /** § 356a BGB: reached from the "Vertrag widerrufen" button; signed-in owners get it pre-filled. */

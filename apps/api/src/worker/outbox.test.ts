@@ -2,6 +2,7 @@ import { sql } from 'kysely';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { loadEnv } from '../config/env';
 import { createLogger } from '../core/logger';
+import { RetryLaterError } from '../core/retry-later';
 import { createHarness, resetState, type Harness } from '../test/harness';
 import { OutboxService } from './outbox.service';
 
@@ -73,6 +74,27 @@ describe('outbox (02-architecture §3, US-45 chaos drills)', () => {
       .where('processed_at', 'is', null)
       .executeTakeFirstOrThrow();
     expect(failed).toMatchObject({ attempts: 1, locked_until: null, later: true });
+  });
+
+  it('an expected wait (RetryLaterError) is a warning until the last attempt gives up', async () => {
+    await add(1);
+    const calls: { level: string; msg: string }[] = [];
+    const logger = createLogger(env);
+    const spy = (level: 'warn' | 'error') => (_o: unknown, msg: string) =>
+      void calls.push({ level, msg });
+    logger.warn = spy('warn') as typeof logger.warn;
+    logger.error = spy('error') as typeof logger.error;
+    const w = new OutboxService(h.db, logger, env);
+    w.register('test.topic', async () => {
+      throw new RetryLaterError('letter not available yet');
+    });
+    expect(await w.drain()).toBe(0);
+    expect(calls).toEqual([{ level: 'warn', msg: 'outbox handler waiting, will retry' }]);
+    // The tenth attempt is the last one: nothing will try again, so it is an error.
+    await sql`UPDATE outbox_events SET attempts = 9, available_at = now()`.execute(h.db);
+    calls.length = 0;
+    expect(await w.drain()).toBe(0);
+    expect(calls).toEqual([{ level: 'error', msg: 'outbox handler failed' }]);
   });
 
   it('wakes up on NOTIFY instead of waiting for the poll', async () => {

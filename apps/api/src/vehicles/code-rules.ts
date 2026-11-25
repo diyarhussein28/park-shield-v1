@@ -38,6 +38,8 @@ export interface NewCodeEligibility {
   hasActiveCode: boolean;
   /** Why the free code is not available (null when it is). */
   reason: NewCodeBlock | null;
+  /** The vehicle's first and only code is locked: the cooldown does not apply (2026-11-25). */
+  firstLock: boolean;
 }
 
 /**
@@ -148,35 +150,52 @@ export class CodeRulesService {
     vehicleId: string,
     now = new Date(),
   ): Promise<NewCodeEligibility & { subscriptionId: string | null; yearStart: Date | null }> {
-    const [cooldownDays, freePerYear, priceCents, year, active, last] = await Promise.all([
-      this.cooldownDays(),
-      this.settings
-        .get('codes.free_reissues_per_year', FREE_PER_YEAR_DEFAULT)
-        .then((v) => Number(v)),
-      this.settings.get('prices.print_shipped_cents', PRINT_PRICE_DEFAULT).then((v) => Number(v)),
-      this.subscriptionYear(exec, userId, now),
-      exec
-        .selectFrom('qr_tokens')
-        .select('id')
-        .where('vehicle_id', '=', vehicleId)
-        .where('status', '<>', 'revoked')
-        .executeTakeFirst(),
-      // The newest code: the ledger, and the codes themselves (assigned_at) as a safety net.
-      exec
-        .selectFrom('qr_tokens')
-        .select(sql<Date | null>`max(coalesce(assigned_at, created_at))`.as('at'))
-        .where('vehicle_id', '=', vehicleId)
-        .executeTakeFirst()
-        .then(async (t) => {
-          const l = await exec
-            .selectFrom('code_issuances')
-            .select(sql<Date | null>`max(issued_at)`.as('at'))
-            .where('vehicle_id', '=', vehicleId)
-            .executeTakeFirst();
-          const times = [t?.at, l?.at].filter((d): d is Date => d != null).map((d) => +new Date(d));
-          return times.length ? new Date(Math.max(...times)) : null;
-        }),
-    ]);
+    const [cooldownDays, freePerYear, priceCents, year, active, last, codesEver] =
+      await Promise.all([
+        this.cooldownDays(),
+        this.settings
+          .get('codes.free_reissues_per_year', FREE_PER_YEAR_DEFAULT)
+          .then((v) => Number(v)),
+        this.settings.get('prices.print_shipped_cents', PRINT_PRICE_DEFAULT).then((v) => Number(v)),
+        this.subscriptionYear(exec, userId, now),
+        exec
+          .selectFrom('qr_tokens')
+          .select('id')
+          .where('vehicle_id', '=', vehicleId)
+          .where('status', '<>', 'revoked')
+          .executeTakeFirst(),
+        // The newest code: the ledger, and the codes themselves (assigned_at) as a safety net.
+        exec
+          .selectFrom('qr_tokens')
+          .select(sql<Date | null>`max(coalesce(assigned_at, created_at))`.as('at'))
+          .where('vehicle_id', '=', vehicleId)
+          .executeTakeFirst()
+          .then(async (t) => {
+            const l = await exec
+              .selectFrom('code_issuances')
+              .select(sql<Date | null>`max(issued_at)`.as('at'))
+              .where('vehicle_id', '=', vehicleId)
+              .executeTakeFirst();
+            const times = [t?.at, l?.at]
+              .filter((d): d is Date => d != null)
+              .map((d) => +new Date(d));
+            return times.length ? new Date(Math.max(...times)) : null;
+          }),
+        // How many codes the vehicle ever had (the ledger, and the codes themselves).
+        exec
+          .selectFrom('qr_tokens')
+          .select((eb) => eb.fn.countAll<string>().as('n'))
+          .where('vehicle_id', '=', vehicleId)
+          .executeTakeFirstOrThrow()
+          .then(async (t) => {
+            const l = await exec
+              .selectFrom('code_issuances')
+              .select((eb) => eb.fn.countAll<string>().as('n'))
+              .where('vehicle_id', '=', vehicleId)
+              .executeTakeFirstOrThrow();
+            return Math.max(Number(t.n), Number(l.n));
+          }),
+      ]);
     const freeUsed = year
       ? Number(
           (
@@ -192,7 +211,9 @@ export class CodeRulesService {
         )
       : 0;
     const until = last ? new Date(+last + cooldownDays * 86_400_000) : null;
-    const inCooldown = until !== null && until > now;
+    // The first lock: the only code the vehicle ever had is locked → no cooldown for its replacement.
+    const firstLock = !active && codesEver <= 1;
+    const inCooldown = !firstLock && until !== null && until > now;
     const reason: NewCodeBlock | null = !year
       ? 'subscription_required'
       : inCooldown
@@ -213,6 +234,7 @@ export class CodeRulesService {
       freeUsed,
       hasActiveCode: Boolean(active),
       reason,
+      firstLock,
       subscriptionId: year?.subscriptionId ?? null,
       yearStart: year?.yearStart ?? null,
     };

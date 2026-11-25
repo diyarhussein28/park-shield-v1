@@ -131,12 +131,33 @@ describe('new-code rules (2026-11-24)', () => {
     const issued = new Date(o.lastIssuedAt).getTime();
     expect(next - issued).toBe(10 * DAY);
 
-    // „Sperren“ is always possible at once; a new code has to wait for the date.
+    // A 3 € replacement of the active first code waits for the date too.
+    expect(next).toBeGreaterThan(Date.now());
+  });
+
+  it('the first „Sperren“ of the first code is not held by the cooldown (owner, 2026-11-25)', async () => {
+    await setSetting(h, 'codes.free_reissues_per_year', 2);
+    const { s, vehicleId } = await owner();
     expect((await sperren(s, vehicleId)).statusCode).toBe(200);
+    expect(await options(s, vehicleId)).toMatchObject({
+      freeAvailable: true,
+      paidAvailable: true,
+      reason: null,
+      nextEligibleAt: null,
+      firstLock: true,
+    });
+    const fresh = await newCode(s, vehicleId);
+    expect(fresh.statusCode, fresh.body).toBe(201);
+    expect(await kinds(vehicleId)).toEqual(['initial', 'free']);
+
+    // The exception is used: the next lock waits 10 days from the new code, free quota or not.
+    expect((await sperren(s, vehicleId)).statusCode).toBe(200);
+    const o = await options(s, vehicleId);
+    expect(o).toMatchObject({ freeAvailable: false, reason: 'cooldown', firstLock: false });
     const refused = await newCode(s, vehicleId);
     expect(refused.statusCode).toBe(409);
     expect(refused.json()).toMatchObject({ error: 'code_cooldown', cooldownDays: 10 });
-    expect(new Date(refused.json().nextEligibleAt).getTime()).toBe(next);
+    expect(refused.json().nextEligibleAt).toBe(o.nextEligibleAt);
   });
 
   it('the first code is never held back: issued at once with the vehicle (owner, 2026-11-24)', async () => {
@@ -155,7 +176,10 @@ describe('new-code rules (2026-11-24)', () => {
   });
 
   it('respects the exact boundary of the cooldown', async () => {
+    await setSetting(h, 'codes.free_reissues_per_year', 2);
     const { s, vehicleId } = await owner();
+    await sperren(s, vehicleId);
+    expect((await newCode(s, vehicleId)).statusCode).toBe(201); // the first lock: at once
     await sperren(s, vehicleId);
     await age(vehicleId, 10 - 60 / 86_400); // one minute short of 10 days
     expect((await newCode(s, vehicleId)).statusCode).toBe(409);

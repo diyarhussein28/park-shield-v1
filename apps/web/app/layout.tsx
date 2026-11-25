@@ -1,3 +1,4 @@
+import { createTranslator } from '@parkshield/i18n';
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { Providers } from '@/components/providers';
@@ -6,9 +7,8 @@ import { requestLocale } from '@/lib/locale';
 import '@fontsource-variable/plus-jakarta-sans';
 import './globals.css';
 
-export const metadata: Metadata = {
+const baseMetadata: Metadata = {
   title: { default: 'ParkShield', template: '%s · ParkShield' },
-  description: 'Ihre Handynummer gehört nicht hinter die Windschutzscheibe.',
   // PWA: on iOS, Web Push works only for sites added to the home screen (US-20).
   manifest: '/manifest.webmanifest',
   icons: {
@@ -17,6 +17,12 @@ export const metadata: Metadata = {
   },
   appleWebApp: { capable: true, title: 'ParkShield', statusBarStyle: 'default' },
 };
+
+/** The description in the visitor's language (picked, else the phone's or browser's language). */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = createTranslator(await requestLocale());
+  return { ...baseMetadata, description: t('meta.description') };
+}
 
 export const viewport: Viewport = {
   width: 'device-width',

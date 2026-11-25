@@ -1,6 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Choice, Field } from '@/components/form';
+import { ReceiptActions } from '@/components/receipt';
 import { StoreManageCard } from '@/components/subscription';
 import { isStoreProvider } from '@/lib/billing';
 import { Banner, Button, Card, P, Screen, Title } from '@/components/ui';
@@ -70,6 +71,15 @@ export default function Cancel() {
           <Banner tone="ok">{pt('cancel.receivedText', { date: done.receivedAt })}</Banner>
           {done.endsAt && <P>{pt('cancel.endsText', { date: done.endsAt })}</P>}
           <P muted>{pt('cancel.receivedSave')}</P>
+          <ReceiptActions
+            receipt={{
+              title: pt('cancel.receivedTitle'),
+              lines: [
+                pt('cancel.receivedText', { date: done.receivedAt }),
+                ...(done.endsAt ? [pt('cancel.endsText', { date: done.endsAt })] : []),
+              ],
+            }}
+          />
         </Card>
       </Screen>
     );

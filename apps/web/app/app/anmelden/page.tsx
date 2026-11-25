@@ -1,9 +1,8 @@
 import { AppSignIn } from './app-sign-in';
+import { pageMetadata } from '@/lib/meta';
 
-export const metadata = {
-  title: 'Anmeldung in der ParkShield-App',
-  robots: { index: false, follow: false },
-};
+export const generateMetadata = () =>
+  pageMetadata('meta.appSignIn', { robots: { index: false, follow: false } });
 
 /**
  * The app's sign-in link (`/app/anmelden#t=…`). With the app installed, iOS Universal Links / Android

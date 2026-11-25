@@ -2343,6 +2343,27 @@ const de = {
     withoutLogin: 'Ohne Anmeldung möglich',
     nav: 'Zur App',
   },
+  meta: {
+    description: 'Ihre Handynummer gehört nicht hinter die Windschutzscheibe.',
+    app: 'ParkShield-App',
+    appSignIn: 'Anmeldung in der ParkShield-App',
+    appClaim: 'Aufkleber in der ParkShield-App einrichten',
+    agb: 'AGB',
+    impressum: 'Impressum',
+    datenschutz: 'Datenschutz',
+    barrierefreiheit: 'Barrierefreiheit',
+    sicherheit: 'Sicherheitslücken melden',
+    widerruf: 'Widerrufsbelehrung',
+    widerrufen: 'Vertrag widerrufen',
+    kuendigen: 'Verträge hier kündigen',
+    kuendigenRevoke: 'Kündigung zurücknehmen',
+    help: 'Hilfe',
+    helpDescription:
+      'Antworten zu Aufkleber, Warnungen, Abo und Datenschutz – und der Kontakt zu uns.',
+    helpContact: 'Kontakt · Hilfe',
+    helpArticle: '{title} · Hilfe',
+    alertPhotos: 'Fotos zur Warnung',
+  },
 };
 
 export default de;

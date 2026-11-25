@@ -1,6 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Field } from '@/components/form';
+import { ReceiptActions } from '@/components/receipt';
 import { StoreRefundCard } from '@/components/subscription';
 import { Banner, Button, Card, P, Screen, Title } from '@/components/ui';
 import { isStoreProvider } from '@/lib/billing';
@@ -66,6 +67,12 @@ export default function Withdraw() {
           <Title>{pt('withdraw.receivedTitle')}</Title>
           <Banner tone="ok">{pt('withdraw.receivedText', { date: receivedAt })}</Banner>
           <P muted>{pt('cancel.receivedSave')}</P>
+          <ReceiptActions
+            receipt={{
+              title: pt('withdraw.receivedTitle'),
+              lines: [pt('withdraw.receivedText', { date: receivedAt })],
+            }}
+          />
         </Card>
       </Screen>
     );

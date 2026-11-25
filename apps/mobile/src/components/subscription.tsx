@@ -407,6 +407,7 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
             legend={pt('checkout.stickerQuestion')}
             options={['keep', 'replace'] as const}
             value={sticker}
+            disabled={busy}
             onChange={(v) => {
               setSticker(v);
               setStickerMissing(false);
@@ -418,7 +419,13 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
         </>
       )}
       {/* TODO [LEGAL REVIEW: mandatory immediate-start consent] text comes from legal_texts */}
-      <Check label={texts.immediateStart.text} checked={immediate} onChange={setImmediate} />
+      <Check
+        label={texts.immediateStart.text}
+        checked={immediate}
+        onChange={setImmediate}
+        disabled={busy}
+        testID="immediate-start"
+      />
       {/* TODO [LEGAL REVIEW] § 312g Abs. 2 Nr. 1 BGB: info line next to the consent, no checkbox (B3). */}
       <View testID="sticker-notice">
         <P muted>{t('stickerNotice')}</P>
@@ -444,7 +451,15 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
             : t('paySecure')}
         </Text>
       </View>
-      {!immediate && <P muted>{pt('checkout.immediateRequired')}</P>}
+      {/* QA 2026-11-25: the hint keeps its space once the box is ticked, so nothing below it jumps. */}
+      <View
+        testID="immediate-required"
+        style={{ opacity: immediate ? 0 : 1 }}
+        accessibilityElementsHidden={immediate}
+        importantForAccessibility={immediate ? 'no-hide-descendants' : 'auto'}
+      >
+        <P muted>{pt('checkout.immediateRequired')}</P>
+      </View>
       <P muted>
         <Text style={s.link} accessibilityRole="link" onPress={() => void openInBrowser('/agb')}>
           {pt('common.footer.terms')}
@@ -486,6 +501,7 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
             optional={pt('common.optional')}
             value={promo}
             onChangeText={setPromo}
+            editable={!busy}
             autoCapitalize="characters"
             autoCorrect={false}
             maxLength={40}

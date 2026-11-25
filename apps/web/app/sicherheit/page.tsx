@@ -1,6 +1,7 @@
 import { LegalPage } from '@/components/legal-page';
+import { pageMetadata } from '@/lib/meta';
 
-export const metadata = { title: 'Sicherheitslücken melden' };
+export const generateMetadata = () => pageMetadata('meta.sicherheit');
 
 export default function Page() {
   return <LegalPage slug="sicherheit" />;

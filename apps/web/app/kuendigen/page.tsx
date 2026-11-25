@@ -1,7 +1,8 @@
 import { serverApi, type SubscriptionSummary } from '@/lib/api-server';
 import { CancelFlow } from './cancel-flow';
+import { pageMetadata } from '@/lib/meta';
 
-export const metadata = { title: 'Verträge hier kündigen' };
+export const generateMetadata = () => pageMetadata('meta.kuendigen');
 export const dynamic = 'force-dynamic';
 
 export default async function CancelPage() {

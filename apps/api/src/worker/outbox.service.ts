@@ -4,6 +4,7 @@ import pg from 'pg';
 import type { Logger } from 'pino';
 import type { Env } from '../config/env';
 import type { Db } from '../core/core.module';
+import { RetryLaterError } from '../core/retry-later';
 import { DB, ENV, LOGGER } from '../core/tokens';
 
 export type OutboxHandler = (payload: Record<string, unknown>) => Promise<void>;
@@ -129,10 +130,13 @@ export class OutboxService implements OnModuleDestroy {
       return true;
     } catch (err) {
       const attempts = e.attempts + 1;
-      this.logger.error(
-        { topic: e.topic, eventId: e.id, attempts, err: String(err) },
-        'outbox handler failed',
-      );
+      const log = { topic: e.topic, eventId: e.id, attempts, err: String(err) };
+      // An expected wait (RetryLaterError) is a warning until the last attempt gives up.
+      if (err instanceof RetryLaterError && attempts < MAX_ATTEMPTS) {
+        this.logger.warn(log, 'outbox handler waiting, will retry');
+      } else {
+        this.logger.error(log, 'outbox handler failed');
+      }
       await this.db
         .updateTable('outbox_events')
         .set({

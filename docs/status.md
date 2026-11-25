@@ -10,7 +10,7 @@ on one laptop, so **everyone (and every AI agent) on every machine reads the sam
 > The repository is **public**. Never write secrets, keys, passwords, customer data, phone numbers
 > or e-mail addresses of real customers here. Names of env vars are fine; their values are not.
 
-_Last updated: 2026-11-25 (full QA run on web, iOS, Android, e-mails and ops; fixes and open findings in `docs/handover.md` §15). Before: 2026-11-24 (`/aktivieren` → app, `/antwort` removed, first code never waits; `docs/handover.md` §14). Before: 2026-11-24 (app first, all four phases done incl. the app screens). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe). Before: 2026-11-24 (phase 2: new-code rules in the API). Before: 2026-11-24 (phase 1: the website lost sign-in, portal and checkout). Before: 2026-11-24 (`park-shield.de` DNS now on the server, Vercel no longer serves it). Before: 2026-11-24 (`__Host-` cookies; Vercel dropped, public pages of `park-shield.de` from the server). Before: 2026-11-24 (website e-mail change, trusted-contact clean-up migration, ops subscription source, Google Play pause; `docs/handover.md` §12). Before: 2026-11-22 (unified billing RevenueCat + Stripe and the personalised sticker, see §3)._
+_Last updated: 2026-11-25 (QA decisions: the first „Sperren“ is not held by the 10-day wait, paywall, receipt print/PDF, localized page titles, worker warn; `docs/handover.md` §15b). Before: 2026-11-25 (full QA run on web, iOS, Android, e-mails and ops; fixes and open findings in `docs/handover.md` §15). Before: 2026-11-24 (`/aktivieren` → app, `/antwort` removed, first code never waits; `docs/handover.md` §14). Before: 2026-11-24 (app first, all four phases done incl. the app screens). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe). Before: 2026-11-24 (phase 2: new-code rules in the API). Before: 2026-11-24 (phase 1: the website lost sign-in, portal and checkout). Before: 2026-11-24 (`park-shield.de` DNS now on the server, Vercel no longer serves it). Before: 2026-11-24 (`__Host-` cookies; Vercel dropped, public pages of `park-shield.de` from the server). Before: 2026-11-24 (website e-mail change, trusted-contact clean-up migration, ops subscription source, Google Play pause; `docs/handover.md` §12). Before: 2026-11-22 (unified billing RevenueCat + Stripe and the personalised sticker, see §3)._
 
 ---
 
@@ -110,6 +110,11 @@ off on purpose). **Never touch** the existing DMARC (`p=reject`) and MX (`smtpin
 records. Old SendGrid and Brevo records stay but are unused.
 
 ## 3. Decisions
+
+- **First „Sperren“ without the 10-day wait (2026-11-25).** Owner decision on the QA finding: while a
+  vehicle has had only its first code and that code is locked, a new code (free once per subscription
+  year, or 3 € with the printed sticker) is possible at once; every later new code waits 10 days as
+  before (`docs/handover.md` §15b). Not deployed yet.
 
 - **Price 19,99 € everywhere (2026-11-25).** Owner decision: the plan costs 19,99 € / year incl. 19 % MwSt.
   on the website, in the app (Stripe) and in the stores alike (was 20,00 € on Stripe and 19,99 € in the
