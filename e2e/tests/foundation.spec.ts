@@ -33,7 +33,9 @@ test('language follows Accept-Language and switches without a reload (US-03)', a
 
 test('the page <title> follows the phone language and the language switch (QA 2026-11-25)', async ({
   browser,
-}) => {
+}, info) => {
+  // The title does not depend on the screen; on a phone the switch sits in the menu.
+  test.skip(info.project.name !== 'desktop-chrome', 'one run is enough');
   const ctx = await browser.newContext({ locale: 'en-US' });
   const page = await ctx.newPage();
   await page.goto('/agb');
