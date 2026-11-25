@@ -373,18 +373,18 @@ export const HELP_ARTICLES: HelpArticle[] = [
     category: 'billing',
     de: {
       title: 'Abo und Preis',
-      summary: 'ParkShield kostet 20 € im Jahr inklusive Mehrwertsteuer, alles inklusive.',
+      summary: 'ParkShield kostet 19,99 € im Jahr inklusive Mehrwertsteuer, alles inklusive.',
       body: [
-        'ParkShield kostet 20 € pro Jahr und gilt für 1 Fahrzeug. Enthalten sind die Mitteilungen der App, die Erinnerung nach 10 Minuten, eine SMS nach 30 Minuten ohne Reaktion, Fotos bei Warnungen, der anonyme Chat und ein gedruckter Aufkleber mit Versand.',
+        'ParkShield kostet 19,99 € pro Jahr und gilt für 1 Fahrzeug. Enthalten sind die Mitteilungen der App, die Erinnerung nach 10 Minuten, eine SMS nach 30 Minuten ohne Reaktion, Fotos bei Warnungen, der anonyme Chat und ein gedruckter Aufkleber mit Versand.',
         'Bezahlen können Sie mit Karte, SEPA-Lastschrift, PayPal oder Apple Pay. Die Rechnung finden Sie im Konto.',
         'Das Abo verlängert sich jeweils um ein Jahr, wenn Sie nicht vor Ende der Laufzeit kündigen.',
       ],
     },
     en: {
       title: 'Subscription and price',
-      summary: 'ParkShield costs €20 a year including VAT, everything included.',
+      summary: 'ParkShield costs €19.99 a year including VAT, everything included.',
       body: [
-        'ParkShield costs €20 a year and covers 1 vehicle. It includes app notifications, a reminder after 10 minutes, one SMS after 30 minutes without a response, photos with alerts, the anonymous chat and one printed decal with shipping.',
+        'ParkShield costs €19.99 a year and covers 1 vehicle. It includes app notifications, a reminder after 10 minutes, one SMS after 30 minutes without a response, photos with alerts, the anonymous chat and one printed decal with shipping.',
         'You can pay by card, SEPA direct debit, PayPal or Apple Pay. The invoice is in your account.',
         'The subscription renews for one year at a time unless you cancel before the end of the term.',
       ],

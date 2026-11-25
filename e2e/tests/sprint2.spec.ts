@@ -10,7 +10,7 @@ import {
 } from './helpers';
 
 test.describe('landing and legal pages (US-04)', () => {
-  test('shows the single plan (20 € / year incl. VAT, one vehicle), no Plus or Premium, and is accessible', async ({
+  test('shows the single plan (19,99 € / year incl. VAT, one vehicle), no Plus or Premium, and is accessible', async ({
     page,
   }) => {
     await page.goto('/');
@@ -19,7 +19,7 @@ test.describe('landing and legal pages (US-04)', () => {
     );
     const pricing = page.locator('#preise');
     await expect(pricing.getByRole('heading', { name: 'ParkShield', exact: true })).toBeVisible();
-    await expect(pricing.getByText(/^20\s?€\s?\/ Jahr inkl\. 19 % MwSt\.$/)).toBeVisible();
+    await expect(pricing.getByText(/^19,99\s?€\s?\/ Jahr inkl\. 19 % MwSt\.$/)).toBeVisible();
     await expect(pricing.getByText('Für 1 Fahrzeug')).toBeVisible();
     // One plan (owner decision 2026-11-21): no plan comparison, no upgrade, no other prices.
     await expect(pricing.getByRole('heading', { level: 3 })).toHaveCount(1);
@@ -122,7 +122,7 @@ test.describe('app first (2026-11-24)', () => {
     await page.waitForLoadState('networkidle');
     await page
       .locator('#main')
-      .getByRole('link', { name: /ParkShield für 20 € im Jahr/ })
+      .getByRole('link', { name: /ParkShield für 19,99 € im Jahr/ })
       .first()
       .click();
     await expect(page).toHaveURL(/\/app$/);
@@ -152,7 +152,7 @@ test.describe('sign-up, annual checkout, cancellation (US-05, US-06, US-07)', ()
       'session',
     );
     const session = await request.get(`${API_URL}/v1/dev/payments/sessions/${sessionId}`);
-    expect(((await session.json()) as { amountCents: number }).amountCents).toBe(2000);
+    expect(((await session.json()) as { amountCents: number }).amountCents).toBe(1999);
     await payPlan(request, owner);
 
     const summary = async () =>

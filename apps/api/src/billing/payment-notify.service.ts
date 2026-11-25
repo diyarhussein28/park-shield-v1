@@ -30,7 +30,7 @@ export const letterFileName = (customerNo: string, contractNo: string) =>
 
 /**
  * Internal payment notifications (2026-11-22): every new subscription and every completed payment
- * (20 € / year, renewals, the 3 € print order) mails the payment mailbox, once per Stripe event, from
+ * (19,99 € / year, renewals, the 3 € print order) mails the payment mailbox, once per Stripe event, from
  * the webhook after it was processed. The customer's postal letter is attached („als Anlage“), made by
  * the one letter generator from the same frozen snapshot as the admin download (the customer's
  * current welcome letter), so the attachment and the admin PDF are identical.

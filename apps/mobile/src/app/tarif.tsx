@@ -8,7 +8,7 @@ import { useOptionalProfile } from '@/lib/profile';
 import { radius, space, type as typeScale, useTheme } from '@/theme/tokens';
 import { SIGNUP_STEPS } from './registrieren';
 
-/** The one plan (owner decision 2026-11-21): 20 € a year incl. VAT, everything included. */
+/** The one plan (owner decision 2026-11-21, price 2026-11-25): 19,99 € a year incl. VAT, everything included. */
 function PlanCard() {
   const c = useTheme();
   const price = usePlanPrice();
@@ -35,7 +35,7 @@ function PlanCard() {
 
 /**
  * The paywall (§5.4, P7), last step of the sign-up: a summary of the one plan with everything it
- * includes, then the § 312j checkout („Zahlungspflichtig bestellen – 20 € / Jahr“) with the
+ * includes, then the § 312j checkout („Zahlungspflichtig bestellen – 19,99 € / Jahr“) with the
  * immediate-start declaration. No plan choice, no upgrade. After the payment: the welcome moment, then
  * straight to „Auto anlegen“.
  */

@@ -34,7 +34,7 @@ import { Icon } from './icons';
 import { Collapsible } from './list';
 import { Banner, Button, Card, P, Title, useTheme } from './ui';
 
-/** The one plan's price (20 € incl. VAT), formatted for the app's language. */
+/** The one plan's price (19,99 € incl. VAT), formatted for the app's language. */
 export const planPrice = () => euro(PLAN_PRICE_CENTS, lang());
 
 /**
@@ -236,7 +236,7 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
     };
   }, [store]);
 
-  // The store's own price (closest price point to 20 €) when the store is used.
+  // The store's own price (19,99 €, the same as Stripe) when the store is used.
   const price = store && pkg && pkg !== 'error' ? pkg.product.priceString : planPrice();
 
   const check = (sessionId: string | null) =>

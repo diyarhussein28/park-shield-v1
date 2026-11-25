@@ -72,7 +72,7 @@ const en: typeof de = {
     heroTitle: 'Your phone number does not belong behind the windscreen.',
     heroText:
       'With the ParkShield decal, people can reach you in seconds when your car blocks an exit, the lights are on or something has happened. No app, no account, and nobody sees your number.',
-    heroCta: 'ParkShield for €20 a year',
+    heroCta: 'ParkShield for €19.99 a year',
     heroSecondary: 'How it works',
     trust: 'Servers in Germany · No ads · No tracking',
     howTitle: 'Protected in three steps',
@@ -250,7 +250,7 @@ const en: typeof de = {
     startIntro: 'Once you have paid, you create your QR code right here in your account.',
     start1Title: 'Choose your plan',
     start1Go: 'Go to the order form',
-    start1Text: '€20 a year, everything included, cancel any time for the end of the year.',
+    start1Text: '€19.99 a year, everything included, cancel any time for the end of the year.',
     start2Title: 'Get your QR code',
     start2Text: 'Add your vehicle. Your QR code is created and stored at once.',
     start3Title: 'Put it on and test it',
@@ -271,7 +271,7 @@ const en: typeof de = {
     planIntro: 'Your contract, payments, invoices and how you sign in.',
     lockedTitle: 'Subscribe first, then continue here',
     lockedText:
-      'You set up your vehicle, notifications and history once your subscription is active. It takes a minute: €20 a year, cancel any time for the end of the year.',
+      'You set up your vehicle, notifications and history once your subscription is active. It takes a minute: €19.99 a year, cancel any time for the end of the year.',
     lockedButton: 'Go to the subscription',
     completeTitle: 'Complete your account',
     completePhoneIntro:
@@ -994,7 +994,7 @@ const en: typeof de = {
   },
   checkout: {
     title: 'Get ParkShield',
-    priceLine: 'ParkShield · €20 / year incl. 19% VAT',
+    priceLine: 'ParkShield · €19.99 / year incl. 19% VAT',
     pricePlan: 'ParkShield · {price} / year incl. 19% VAT',
     payPrice: 'Order with obligation to pay – {price} / year',
     phoneRequired: 'Please verify your mobile number first.',

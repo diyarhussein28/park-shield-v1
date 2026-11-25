@@ -440,13 +440,13 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
       subscriptionId: c.sub.id,
     });
     expect(quote.statusCode).toBe(200);
-    // 20.00 € paid, 10 days of 365 → round(2000 × 10 / 365) = 0.55 €; no sticker personalised yet.
+    // 19.99 € paid, 10 days of 365 → round(1999 × 10 / 365) = 0.55 €; no sticker personalised yet.
     expect(quote.json()).toMatchObject({
-      paidCents: 2000,
+      paidCents: 1999,
       daysUsed: 10,
       wertersatzCents: 55,
       decalCostCents: 0,
-      refundCents: 1945,
+      refundCents: 1944,
       endsSubscriptionNow: true,
     });
 
@@ -464,9 +464,9 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     expect(sub.status).toBe('withdrawn');
     expect((await h.app.inject({ method: 'GET', url: `/v1/scan/${c.code}` })).statusCode).toBe(404);
     const mail = await lastMail(h, 'refund_issued');
-    expect(mail?.text).toMatch(/19,45\s€/);
+    expect(mail?.text).toMatch(/19,44\s€/);
     expect(mail?.text).toMatch(
-      /Gezahlt 20,00\s€ − genutzte Leistung \(10 Tage\) 0,55\s€ = Erstattung 19,45\s€/,
+      /Gezahlt 19,99\s€ − genutzte Leistung \(10 Tage\) 0,55\s€ = Erstattung 19,44\s€/,
     );
     expect(mail?.text).toContain(r.json().creditNoteNo);
 
@@ -481,7 +481,7 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     expect(notes).toEqual([
       expect.objectContaining({
         number: r.json().creditNoteNo,
-        amountCents: 1945,
+        amountCents: 1944,
         kind: 'withdrawal',
       }),
     ]);
@@ -489,7 +489,7 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
     expect(file.statusCode).toBe(200);
     expect(file.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');
     expect(file.rawPayload.toString('latin1')).toMatch(
-      /Erstattungsbetrag \\\(brutto\\\): 19,45\s\x80/,
+      /Erstattungsbetrag \\\(brutto\\\): 19,44\s\x80/,
     ); // PDF escapes "(" and ")"
     const other = await signIn(h, 'fremd@example.de');
     expect(
@@ -510,7 +510,7 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
       await post(finance, '/ops/v1/refunds/quote', { kind: 'withdrawal', subscriptionId: c.sub.id })
     ).json();
     // B4: personalised before the withdrawal → 3 € kept; day 0 → no service value.
-    expect(q).toMatchObject({ decalCostCents: 300, wertersatzCents: 0, refundCents: 1700 });
+    expect(q).toMatchObject({ decalCostCents: 300, wertersatzCents: 0, refundCents: 1699 });
 
     await h.db
       .updateTable('subscriptions')
@@ -544,7 +544,7 @@ describe('US-40 withdrawal, refunds, credit notes and promo codes (AD-12, AD-13)
       amountCents: 1800,
     });
     expect(tooMuch.statusCode).toBe(409);
-    expect(tooMuch.json()).toMatchObject({ error: 'amount_too_high', max: 1700 });
+    expect(tooMuch.json()).toMatchObject({ error: 'amount_too_high', max: 1699 });
     expect(
       (
         await h.db

@@ -107,7 +107,7 @@ describe('payment@ notification', () => {
     const { userId, customerNo, contractNo } = await ids('kunde@example.de');
     const rows = await h.db.selectFrom('payment_notifications').selectAll().execute();
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ kind: 'subscription', user_id: userId, amount_cents: 2000 });
+    expect(rows[0]).toMatchObject({ kind: 'subscription', user_id: userId, amount_cents: 1999 });
 
     // A retried webhook (same Stripe event) queues nothing more.
     expect(
@@ -115,7 +115,7 @@ describe('payment@ notification', () => {
         eventId: rows[0]!.stripe_event_id,
         kind: 'subscription',
         userId,
-        amountCents: 2000,
+        amountCents: 1999,
         paymentRef: 'pi_x',
         paidAt: new Date(),
       }),
@@ -131,7 +131,7 @@ describe('payment@ notification', () => {
       `Kundennummer: ${customerNo}`,
       `Vertragsnummer: ${contractNo}`,
       'Produkt: ParkShield-Jahresabo (neu)',
-      'Betrag: 20,00',
+      'Betrag: 19,99',
       'Stripe-Zahlungs-ID: pi_fake_',
       `/kunden/${userId}`,
     ]) {
@@ -199,7 +199,7 @@ describe('payment@ notification', () => {
       eventId: 'evt_renewal_1',
       kind: 'renewal',
       userId,
-      amountCents: 2000,
+      amountCents: 1999,
       paymentRef: 'pi_renew',
       paidAt: new Date(),
     });

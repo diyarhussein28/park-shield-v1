@@ -82,7 +82,7 @@ export const SETTINGS: Record<string, Def> = {
   'sms.cost_micros': { group: 'limits', schema: int(0, 1_000_000), default: 100_000 },
   // Prices in euro cents incl. 19 % VAT. The yearly price must match the Stripe price
   // (STRIPE_PRICE_YEARLY); it is what the app, the website and the fake checkout show.
-  'prices.plan_year_cents': { group: 'limits', schema: int(100, 100_000), default: 2000 },
+  'prices.plan_year_cents': { group: 'limits', schema: int(100, 100_000), default: 1999 },
   // A printed and shipped decal after the free welcome print (one-time Stripe payment).
   'prices.print_shipped_cents': { group: 'limits', schema: int(0, 5000), default: 300 },
   // B2 (2026-11-22): value of the personalised sticker incl. shipping included in the yearly price

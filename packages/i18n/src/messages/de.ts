@@ -71,7 +71,7 @@ const de = {
     heroTitle: 'Ihre Handynummer gehört nicht hinter die Windschutzscheibe.',
     heroText:
       'Mit dem ParkShield-Aufkleber erreicht man Sie in Sekunden, wenn Ihr Auto eine Ausfahrt blockiert, das Licht brennt oder etwas passiert ist. Ohne App, ohne Konto und ohne dass jemand Ihre Nummer sieht.',
-    heroCta: 'ParkShield für 20 € im Jahr',
+    heroCta: 'ParkShield für 19,99 € im Jahr',
     heroSecondary: "So funktioniert's",
     trust: 'Server in Deutschland · Keine Werbung · Kein Tracking',
     howTitle: 'In drei Schritten geschützt',
@@ -257,7 +257,7 @@ const de = {
     startIntro: 'Nach der Zahlung erstellen Sie Ihren QR-Code direkt hier im Konto.',
     start1Title: 'Abo abschließen',
     start1Go: 'Zur Bestellung',
-    start1Text: '20 € im Jahr, alles inklusive, jederzeit zum Ende des Jahres kündbar.',
+    start1Text: '19,99 € im Jahr, alles inklusive, jederzeit zum Ende des Jahres kündbar.',
     start2Title: 'QR-Code erhalten',
     start2Text: 'Fahrzeug anlegen. Ihr QR-Code wird sofort erstellt und gespeichert.',
     start3Title: 'Anbringen und testen',
@@ -280,7 +280,7 @@ const de = {
     planIntro: 'Ihr Vertrag, Zahlungen, Rechnungen und wie Sie sich anmelden.',
     lockedTitle: 'Erst das Abo, dann geht es hier weiter',
     lockedText:
-      'Fahrzeug, Benachrichtigungen und Verlauf richten Sie ein, sobald Ihr Abo läuft. Das dauert nur eine Minute: 20 € im Jahr, jederzeit zum Ende des Jahres kündbar.',
+      'Fahrzeug, Benachrichtigungen und Verlauf richten Sie ein, sobald Ihr Abo läuft. Das dauert nur eine Minute: 19,99 € im Jahr, jederzeit zum Ende des Jahres kündbar.',
     lockedButton: 'Zum Abo',
     completeTitle: 'Konto vervollständigen',
     completePhoneIntro:
@@ -1041,7 +1041,7 @@ const de = {
   },
   checkout: {
     title: 'ParkShield abschließen',
-    priceLine: 'ParkShield · 20 € / Jahr inkl. 19 % MwSt.',
+    priceLine: 'ParkShield · 19,99 € / Jahr inkl. 19 % MwSt.',
     pricePlan: 'ParkShield · {price} / Jahr inkl. 19 % MwSt.',
     payPrice: 'Zahlungspflichtig bestellen – {price} / Jahr',
     phoneRequired: 'Bitte bestätigen Sie zuerst Ihre Handynummer.',

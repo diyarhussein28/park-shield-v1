@@ -29,7 +29,7 @@ export const envSchema = z.object({
   APP_ENV: z.string().default('local'),
   STRIPE_SECRET_KEY: z.string().default(''),
   STRIPE_WEBHOOK_SECRET: z.string().default(''),
-  // The single plan: 20 € a year incl. VAT, tax behaviour inclusive (price ID, not product ID).
+  // The single plan: 19,99 € a year incl. VAT, tax behaviour inclusive (price ID, not product ID).
   STRIPE_PRICE_YEARLY: z.string().default(''),
   // Monthly price (annual / 12) only for renewal.mode_b2c = monthly_after_first_term (legal fallback).
   STRIPE_PRICE_MONTHLY: z.string().default(''),

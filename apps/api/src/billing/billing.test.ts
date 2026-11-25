@@ -35,14 +35,14 @@ async function checkout(s: Session, payload: Record<string, unknown>, phone = tr
 const subscribe = (email: string, promoCode?: string) => subscribeWith(h, email, promoCode);
 
 describe('plans (US-04, single plan since 2026-11-21)', () => {
-  it('lists the one plan at 20 € a year; no Plus, Premium or Business', async () => {
+  it('lists the one plan at 19,99 € a year; no Plus, Premium or Business', async () => {
     const res = await h.app.inject({ method: 'GET', url: '/v1/plans' });
     expect(res.json()).toEqual([
       {
         code: 'standard',
         name: 'ParkShield',
         availability: 'available',
-        priceYearGrossCents: 2000,
+        priceYearGrossCents: 1999,
         purchasable: true,
       },
     ]);
@@ -56,7 +56,7 @@ describe('annual checkout (US-06)', () => {
     expect((await checkout(s, { plan: 'plus', immediateStart: false })).statusCode).toBe(400);
   });
 
-  it('maps an old client’s plan „plus“ or „premium“ to the single plan at 20 €', async () => {
+  it('maps an old client’s plan „plus“ or „premium“ to the single plan at 19,99 €', async () => {
     for (const [email, plan] of [
       ['aylin@example.de', 'premium'],
       ['old-client@example.de', 'plus'],
@@ -74,7 +74,7 @@ describe('annual checkout (US-06)', () => {
         method: 'GET',
         url: `/v1/dev/payments/sessions/${sessionId}`,
       });
-      expect(session.json().amountCents).toBe(2000);
+      expect(session.json().amountCents).toBe(1999);
     }
   });
 
@@ -113,7 +113,7 @@ describe('annual checkout (US-06)', () => {
       method: 'GET',
       url: `/v1/dev/payments/sessions/${sessionId}`,
     });
-    expect(amount.json().amountCents).toBe(2000);
+    expect(amount.json().amountCents).toBe(1999);
     await h.app.inject({
       method: 'POST',
       url: '/v1/dev/payments/complete',
@@ -142,7 +142,7 @@ describe('annual checkout (US-06)', () => {
         })
       | undefined;
     expect(welcome?.text).toContain(sub.contractNo);
-    expect(welcome?.text).toMatch(/Preis: 20,00\s€ \/ Jahr \(inkl\. 19 % MwSt\.\)/);
+    expect(welcome?.text).toMatch(/Preis: 19,99\s€ \/ Jahr \(inkl\. 19 % MwSt\.\)/);
     expect(welcome?.text).toMatch(
       /Im Preis enthalten: personalisierter Aufkleber inkl\. Versand im Wert von 3,00\s€/,
     );
@@ -288,7 +288,7 @@ describe('annual checkout (US-06)', () => {
       headers: { cookie: s.cookie },
     });
     const [invoice] = res.json().invoices;
-    expect(invoice).toMatchObject({ totalCents: 2000, pdfUrl: expect.stringMatching(/\.pdf$/) });
+    expect(invoice).toMatchObject({ totalCents: 1999, pdfUrl: expect.stringMatching(/\.pdf$/) });
     const pdf = await h.app.inject({ method: 'GET', url: invoice.pdfUrl });
     expect(pdf.headers['content-type']).toBe('application/pdf');
     expect(pdf.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');

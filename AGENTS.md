@@ -7,7 +7,7 @@ Product specs live in [`docs/`](docs/README.md); this file is the practical map.
 **The current go-live state, decisions, test-only relaxations and team rules are in
 [`docs/status.md`](docs/status.md).** Read it too, and update it when you finish a step.
 
-_Last updated: 24 November 2026 (app first: the website lost sign-in, portal and checkout, §3). Before: 21 November 2026 (single plan 20 €, app-only alerts with 10-min reminder and one SMS after 30 min, trusted contacts removed, Sperren without reissue, 3 € print; progress in `docs/handover.md`)._
+_Last updated: 25 November 2026 (price 19,99 € everywhere, Stripe and stores alike). Before: 24 November 2026 (app first: the website lost sign-in, portal and checkout, §3). Before: 21 November 2026 (single plan 20 €, app-only alerts with 10-min reminder and one SMS after 30 min, trusted contacts removed, Sperren without reissue, 3 € print; progress in `docs/handover.md`)._
 
 ---
 
@@ -21,7 +21,7 @@ and replies with one tap ("Ich komme", "In ca. 30 Min", "Bin nicht in der Nähe"
 the car sees the reply live. Trusted/emergency contacts were removed on 2026-11-21: only the owner is escalated to.
 
 - Market: Germany first (German is the source language, English is the second UI language).
-- Model: one paid yearly plan **„ParkShield“, 20 € / year incl. 19 % MwSt., one vehicle**, everything
+- Model: one paid yearly plan **„ParkShield“, 19,99 € / year incl. 19 % MwSt., one vehicle** (20 € until 2026-11-25), everything
   included (owner decision 2026-11-21; Plus/Premium and Business were dropped).
 - Privacy is the product: servers in Germany/EU, no ads, no tracking, data minimisation by design.
 
@@ -178,7 +178,7 @@ product works offline. Production refuses to start with fakes (unless `APP_ENV=c
 
 | Provider                       | Env vars                                                                                                                                                                        | Fake behaviour                                         |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| Stripe (payments)              | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_YEARLY` (20 €), `STRIPE_PRICE_MONTHLY` (fallback)                                                                   | `/dev/checkout` simulates payment                      |
+| Stripe (payments)              | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_YEARLY` (19,99 €), `STRIPE_PRICE_MONTHLY` (fallback)                                                                | `/dev/checkout` simulates payment                      |
 | RevenueCat (in-app purchases)  | `REVENUECAT_SECRET_KEY`, `REVENUECAT_WEBHOOK_AUTH`, `REVENUECAT_ENTITLEMENT_ID` (`parkshield_pro`); app: `EXPO_PUBLIC_REVENUECAT_IOS_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` | fake store in Valkey (tests); app falls back to Stripe |
 | E-mail: Mailjet (default)      | `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, `MAIL_FROM` (tracking off per message)                                                                                                 | `/dev/postfach` inbox                                  |
 | E-mail: Brevo (optional)       | `MAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `MAIL_FROM`                                                                                                                             | `/dev/postfach` inbox                                  |
@@ -221,7 +221,7 @@ Stripe account settings the code relies on (test mode and live, set once per acc
 
 - Use a test key (`sk_test_…`) locally, never a live or restricted live key (`rk_live_…`).
 - `STRIPE_PRICE_*` are **price** IDs (`price_…`), not product IDs (`prod_…`): `STRIPE_PRICE_YEARLY` =
-  yearly, EUR 20.00, **tax behaviour inclusive** (checkout uses `automatic_tax`); it must match the
+  yearly, EUR 19.99, **tax behaviour inclusive** (checkout uses `automatic_tax`); it must match the
   setting `prices.plan_year_cents`. The 3 € print is a one-time payment without a price ID.
 - Stripe Tax active with the German head office and a **registration for Germany** (otherwise
   invoices show 0 € VAT instead of the included 19 %).
@@ -557,7 +557,7 @@ Also:
 - [ ] **Lawyer review:** AGB, Datenschutzerklärung, Widerrufsbelehrung, and the withdrawal formula
       (Wertersatz per started day; printed decal valued via setting
       `refunds.custom_decal_cost_cents`, currently 2.50 €).
-- [ ] **Stripe:** live/test keys, the yearly price (20 €, tax-inclusive, `STRIPE_PRICE_YEARLY`),
+- [ ] **Stripe:** live/test keys, the yearly price (19,99 €, tax-inclusive, `STRIPE_PRICE_YEARLY`),
       webhook secret.
 - [ ] **Friendly Captcha:** account, sitekey and API key.
 - [ ] **Twilio (SMS):** Twilio account, sender ID, status callback URL (needs hosting or a tunnel).

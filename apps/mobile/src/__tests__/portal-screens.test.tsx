@@ -495,11 +495,11 @@ describe('subscription and checkout in the app', () => {
       url: 'exp://192.168.178.25:8082/--/zurueck?to=checkout&result=success&session_id=cs_test_1',
     });
     await render(<Plans />);
-    const pay = await screen.findByLabelText(t('payButton', { price: euro(2000, 'de') }));
+    const pay = await screen.findByLabelText(t('payButton', { price: euro(1999, 'de') }));
     expect(pay.props.accessibilityState.disabled).toBe(true); // § 312j: only after the declaration
     // Price, term and renewal stay visible next to the button (§ 312j BGB).
     expect(screen.getByTestId('price-line').props.children).toBe(
-      `ParkShield · ${t('planPriceLine', { price: euro(2000, 'de') })}`,
+      `ParkShield · ${t('planPriceLine', { price: euro(1999, 'de') })}`,
     );
     expect(screen.getByText(texts.renewalRule, { exact: false })).toBeTruthy();
     await fireEvent.press(screen.getByLabelText(texts.immediateStart.text));
@@ -598,15 +598,15 @@ describe('subscription and checkout in the app', () => {
     expect(mockPush).toHaveBeenCalledWith('/tarif');
   });
 
-  it('the paywall: one plan, 20 € a year, everything included, no choice; legal details folded (P7)', async () => {
+  it('the paywall: one plan, 19,99 € a year, everything included, no choice; legal details folded (P7)', async () => {
     api({
       'GET /v1/billing/subscription': () => json({ subscription: null, hadSubscription: false }),
       'GET /v1/legal/checkout-texts': () => json(texts),
     });
     await render(<Plans />);
-    await screen.findByLabelText(t('payButton', { price: euro(2000, 'de') }));
-    expect(t('payButton', { price: euro(2000, 'de') })).toBe(
-      `Zahlungspflichtig bestellen – ${euro(2000, 'de')} / Jahr`,
+    await screen.findByLabelText(t('payButton', { price: euro(1999, 'de') }));
+    expect(t('payButton', { price: euro(1999, 'de') })).toBe(
+      `Zahlungspflichtig bestellen – ${euro(1999, 'de')} / Jahr`,
     );
     expect(screen.getByTestId('plan-card')).toBeTruthy();
     for (const k of [

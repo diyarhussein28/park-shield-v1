@@ -2195,7 +2195,7 @@ exports[`mail templates > refund_issued: snapshot in the shared layout (DE and E
 
 Wir haben Ihnen 7,42 € erstattet (Gutschrift GS-2027-000001). Das Geld ist meist nach 5 bis 10 Werktagen auf Ihrem Konto.
 
-Gezahlt 20,00 € − personalisierter Aufkleber 3,00 € − genutzte Leistung (10 Tage) 0,47 € = Erstattung 16,53 €
+Gezahlt 19,99 € − personalisierter Aufkleber 3,00 € − genutzte Leistung (10 Tage) 0,47 € = Erstattung 16,52 €
 
 Ihr Abo ist damit beendet, Ihre Aufkleber sind ab sofort inaktiv. Die Gutschrift finden Sie in Ihrem Konto.
 
@@ -2225,7 +2225,7 @@ exports[`mail templates > refund_issued: snapshot in the shared layout (DE and E
 
 We refunded 7,42 € to you (credit note GS-2027-000001). The money usually arrives within 5 to 10 working days.
 
-Gezahlt 20,00 € − personalisierter Aufkleber 3,00 € − genutzte Leistung (10 Tage) 0,47 € = Erstattung 16,53 €
+Gezahlt 19,99 € − personalisierter Aufkleber 3,00 € − genutzte Leistung (10 Tage) 0,47 € = Erstattung 16,52 €
 
 Your subscription has ended, your decals are inactive from now on. You will find the credit note in your account.
 

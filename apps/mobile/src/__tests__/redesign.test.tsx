@@ -211,7 +211,7 @@ describe('routing gate', () => {
 });
 
 describe('onboarding', () => {
-  it('four German slides (what, alerts, privacy, 20 € price), skippable, then „Registrieren“ or „Anmelden“', async () => {
+  it('four German slides (what, alerts, privacy, 19,99 € price), skippable, then „Registrieren“ or „Anmelden“', async () => {
     await render(<Welcome />);
     // A fresh install is German without asking (2026-11-22).
     expect(screen.getByText('Ihr Auto ist erreichbar – ohne Ihre Nummer')).toBeTruthy();

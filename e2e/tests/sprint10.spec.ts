@@ -36,10 +36,10 @@ test('withdrawal: finance refunds a fresh subscription, the customer gets the cr
   await finance.waitForLoadState('networkidle');
   await expect(finance.getByLabel(/^Widerruf/)).toBeChecked();
   await finance.getByRole('button', { name: 'Berechnen' }).click();
-  // B4 (2026-11-22): whole days used; a same-day withdrawal of an unprinted decal refunds all 20 €.
+  // B4 (2026-11-22): whole days used; a same-day withdrawal of an unprinted decal refunds all 19,99 €.
   const quote = finance
     .getByRole('definition')
-    .filter({ hasText: /^20,00\s€$/ })
+    .filter({ hasText: /^19,99\s€$/ })
     .last();
   await expect(quote).toBeVisible();
   await expect(finance.getByText(/Das Abo endet mit der Erstattung sofort/)).toBeVisible();
@@ -54,7 +54,7 @@ test('withdrawal: finance refunds a fresh subscription, the customer gets the cr
   );
 
   const mail = await waitForMail(request, email, 'refund_issued');
-  expect(mail.text).toMatch(/20,00\s€/);
+  expect(mail.text).toMatch(/19,99\s€/);
   // The contract has ended, so the decal no longer works.
   const scan = await browser.newContext({ locale: 'de-DE' });
   expect((await (await scan.newPage()).goto(url))!.status()).toBe(404);
@@ -102,7 +102,7 @@ test('promo code from ops is valid at checkout at once (US-40, AD-13)', async ({
   const sessionId = new URL(((await checkout.json()) as { url: string }).url).searchParams.get(
     'session',
   );
-  // 50 % off the single plan's 20 €.
+  // 50 % off the single plan's 19,99 €.
   const session = await request.get(`${API_URL}/v1/dev/payments/sessions/${sessionId}`);
   expect(((await session.json()) as { amountCents: number }).amountCents).toBe(1000);
 });

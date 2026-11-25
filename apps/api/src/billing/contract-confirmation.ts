@@ -30,7 +30,7 @@ export interface ContractConfirmationInput {
   contractNo: string;
   /** The customer as in the profile (name, address lines); null for accounts without a profile. */
   customer?: { name: string; address: string[] } | null;
-  /** e.g. „20,00 €“ */
+  /** e.g. „19,99 €“ */
   price: string;
   /** Contract start = first purchase (not the start of the current period). */
   startedAt: Date;

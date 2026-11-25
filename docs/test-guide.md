@@ -62,9 +62,9 @@ What behaves differently on the test server (expected, not bugs):
 
 - [ ] `/konto` shows the checkout. Without ticking the withdrawal consent („Ich verlange
       ausdrücklich …“) ordering is not possible.
-- [ ] The home page and `/konto` show **one** plan „ParkShield“, 20 € / Jahr incl. MwSt., one
+- [ ] The home page and `/konto` show **one** plan „ParkShield“, 19,99 € / Jahr incl. MwSt., one
       vehicle; no Plus or Premium anywhere.
-- [ ] Tick it → „Zahlungspflichtig bestellen – 20 € / Jahr“ → Stripe checkout (test mode). First try the
+- [ ] Tick it → „Zahlungspflichtig bestellen – 19,99 € / Jahr“ → Stripe checkout (test mode). First try the
       declined card: you get an error and no subscription.
 - [ ] Pay with `4242 4242 4242 4242` → back on `/konto`, the subscription is active (yearly,
       365 days); `/konto/abo` shows the contract card and „Vertrag widerrufen“ in the first 14 days.

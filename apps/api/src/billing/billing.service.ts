@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 import { sql } from 'kysely';
@@ -31,7 +32,13 @@ import {
   STICKER_VALUE_CENTS,
   type LegalSlug,
 } from '@parkshield/shared';
-import { PAYMENTS, type BillingEvent, type PaidPlan, type Payments } from '../providers/ports';
+import {
+  PAYMENTS,
+  PRICE_MISMATCH,
+  type BillingEvent,
+  type PaidPlan,
+  type Payments,
+} from '../providers/ports';
 import { queueWelcomeLetterCheck } from '../letters/trigger';
 import { ProfileService } from '../profile/profile.service';
 import { returnUrls } from './app-return';
@@ -124,10 +131,10 @@ export class BillingService {
     }));
   }
 
-  /** Yearly gross price in cents (setting `prices.plan_year_cents`, default 20 €). */
+  /** Yearly gross price in cents (setting `prices.plan_year_cents`, default 19,99 €). */
   /**
    * App Store / Google Play price when RevenueCat does not report one (setting
-   * `prices.store_year_cents`, 1999: 20,00 € is no App Store price point).
+   * `prices.store_year_cents`, 1999, the same as the Stripe price since 2026-11-25).
    */
   async storeYearPrice(): Promise<number> {
     return Number(await this.settings.get('prices.store_year_cents', 1999));
@@ -351,21 +358,32 @@ export class BillingService {
       success: `${this.env.WEB_BASE_URL}/konto?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel: `${this.env.WEB_BASE_URL}/konto?checkout=canceled`,
     });
-    return this.payments.createCheckout({
-      customerId,
-      plan: input.plan,
-      // B2: the price breakdown on the subscription and every invoice. TODO [LEGAL REVIEW]
-      description: priceBreakdown(
-        user.preferredLang,
-        euro(await this.yearPrice(), user.preferredLang),
-        euro(await this.stickerValue(), user.preferredLang),
-      ).join(' '),
-      locale: user.preferredLang,
-      stripeCouponId: promo?.stripe_coupon_id ?? null,
-      successUrl: back.success,
-      cancelUrl: back.cancel,
-      metadata,
-    });
+    const yearPrice = await this.yearPrice();
+    try {
+      return await this.payments.createCheckout({
+        customerId,
+        plan: input.plan,
+        // B2: the price breakdown on the subscription and every invoice. TODO [LEGAL REVIEW]
+        description: priceBreakdown(
+          user.preferredLang,
+          euro(yearPrice, user.preferredLang),
+          euro(await this.stickerValue(), user.preferredLang),
+        ).join(' '),
+        locale: user.preferredLang,
+        stripeCouponId: promo?.stripe_coupon_id ?? null,
+        successUrl: back.success,
+        cancelUrl: back.cancel,
+        metadata,
+        expectedAmountCents: yearPrice,
+      });
+    } catch (err) {
+      // Never charge another amount than shown: fail loudly until STRIPE_PRICE_YEARLY is fixed.
+      if ((err as { code?: string }).code === PRICE_MISMATCH) {
+        this.logger.error({ err }, 'stripe price differs from prices.plan_year_cents');
+        throw new ServiceUnavailableException({ error: PRICE_MISMATCH });
+      }
+      throw err;
+    }
   }
 
   /**

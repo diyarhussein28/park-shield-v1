@@ -10,6 +10,7 @@ import type {
   Payments,
   PostalAddress,
 } from './ports';
+import { PRICE_MISMATCH } from './ports';
 
 type SubStatus = Extract<BillingEvent, { kind: 'subscription_updated' }>['status'];
 
@@ -193,9 +194,35 @@ export class StripePayments implements Payments {
     }
   }
 
+  /** Unit amounts of Stripe prices, read once per process (prices are immutable in Stripe). */
+  private readonly priceAmounts = new Map<string, { amount: number | null; currency: string }>();
+
+  /**
+   * The Stripe price must charge exactly what the customer was shown (2026-11-25: the price moved from
+   * 20,00 € to 19,99 €; an old `STRIPE_PRICE_YEARLY` would otherwise charge 20,00 €).
+   */
+  private async assertPrice(priceId: string, expectedCents: number): Promise<void> {
+    let p = this.priceAmounts.get(priceId);
+    if (!p) {
+      const r = await this.stripe.prices.retrieve(priceId);
+      p = { amount: r.unit_amount, currency: r.currency };
+      this.priceAmounts.set(priceId, p);
+    }
+    if (p.amount !== expectedCents || p.currency !== 'eur') {
+      throw Object.assign(
+        new Error(
+          `Stripe price ${priceId} is ${p.amount} ${p.currency}, but the app shows ${expectedCents} eur`,
+        ),
+        { code: PRICE_MISMATCH },
+      );
+    }
+  }
+
   async createCheckout(req: CheckoutRequest): Promise<{ id: string; url: string }> {
     const price = req.plan === 'standard' ? this.yearlyPrice : '';
     if (!price) throw new Error(`No Stripe price configured for plan ${req.plan}`);
+    if (req.expectedAmountCents !== undefined)
+      await this.assertPrice(price, req.expectedAmountCents);
     const session = await this.stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: req.customerId,

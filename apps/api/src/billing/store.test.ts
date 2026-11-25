@@ -146,7 +146,7 @@ describe('in-app subscription through RevenueCat (Part A)', () => {
     expect(contract[0]!.text).not.toContain('Stripe');
     expect(contract[0]!.text).toContain('keine Rechnung');
     expect(contract[0]!.text).toContain('Im Preis enthalten: personalisierter Aufkleber');
-    // The price the store charged (19,99 €), not the web price (20,00 €).
+    // The price the store charged (19,99 €; the same as the web price since 2026-11-25).
     expect(contract[0]!.text).toContain('19,99');
     expect(contract[0]!.text).not.toContain('20,00');
     // Staff can send it again (e.g. after a price correction); a second record is kept.
@@ -665,11 +665,11 @@ describe('personalised sticker (Part B)', () => {
         new Date(Date.now() + 10 * DAY + 3600_000),
       );
     expect(q).toMatchObject({
-      paidCents: 2000,
+      paidCents: 1999,
       decalCostCents: 300,
       daysUsed: 10,
       wertersatzCents: 47,
-      refundCents: 1653,
+      refundCents: 1652,
     });
 
     // Old contract style: no personalised order → no sticker deduction.

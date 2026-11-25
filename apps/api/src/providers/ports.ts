@@ -178,7 +178,15 @@ export interface CheckoutRequest {
   successUrl: string;
   cancelUrl: string;
   metadata: Record<string, string>;
+  /**
+   * The yearly gross price the customer was shown (cents). The adapter refuses the checkout when the
+   * provider's price differs, so nobody is charged another amount than displayed (PAngV).
+   */
+  expectedAmountCents?: number;
 }
+
+/** Error code when the configured provider price and the displayed price differ. */
+export const PRICE_MISMATCH = 'price_mismatch';
 
 /** One-time purchase (replacement decal, add-ons). Amount is gross, VAT included. */
 export interface PaymentCheckoutRequest {

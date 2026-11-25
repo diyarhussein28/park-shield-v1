@@ -89,7 +89,7 @@ print. Open findings: `docs/handover.md` §6 item 6.
 
 | Provider         | State                                                                                   |
 | ---------------- | --------------------------------------------------------------------------------------- |
-| Stripe           | **test mode** keys, single yearly price 20 € (`STRIPE_PRICE_YEARLY`, 2026-11-21), webhook → `https://test.park-shield.de/v1/webhooks/stripe` (5 events), signed delivery verified |
+| Stripe           | **test mode** keys, single yearly price 20 € (`STRIPE_PRICE_YEARLY`, 2026-11-21) — **must be replaced by a 19,99 € price** (owner decision 2026-11-25), webhook → `https://test.park-shield.de/v1/webhooks/stripe` (5 events), signed delivery verified |
 | E-mail           | **Mailjet** (`MAIL_PROVIDER=mailjet`), tracking off per message, SPF + DKIM green        |
 | SMS              | Twilio, sender ID `ParkShield`, Trust Hub business profile approved, delivery verified; Verify service for owners' and scanners' numbers (`TWILIO_VERIFY_SERVICE_SID`, 2026-11-21) |
 | ~~WhatsApp~~     | **Removed 2026-12** (no Meta dependency; was: **Twilio** (`WHATSAPP_PROVIDER=twilio`, 2026-11-18): Meta business verified, sender `ParkShield` online, all 8 content templates approved (`ps_test` uses the `ps_test_v2_*` SIDs), sender webhook → `https://test.park-shield.de/v1/webhooks/twilio/whatsapp`. End-to-end test passed (link number, alert, reply button). Profile: logo, description, park-shield.de, contact e-mail. Photo alerts use `ps_alert_photos_test_*` (URL button to the test domain; submitted 2026-11-18). The chat header shows the number, not the name, until Meta grants an official business account (needs a messaging limit above 250) Before the removal, from 2026-11-18 ~20:15 every WhatsApp alert failed with Twilio 63112 (Meta disabled the WhatsApp Business Account); `eacc3b4` added the fallback to the next channel, which the dispatcher keeps for late SMS failures) |
@@ -110,6 +110,12 @@ off on purpose). **Never touch** the existing DMARC (`p=reject`) and MX (`smtpin
 records. Old SendGrid and Brevo records stay but are unused.
 
 ## 3. Decisions
+
+- **Price 19,99 € everywhere (2026-11-25).** Owner decision: the plan costs 19,99 € / year incl. 19 % MwSt.
+  on the website, in the app (Stripe) and in the stores alike (was 20,00 € on Stripe and 19,99 € in the
+  stores). Code default `PLAN_PRICE_CENTS` / setting `prices.plan_year_cents` = 1999; texts, AGB, help and
+  tests updated. Open: a new 19,99 € Stripe price (test and live, tax-inclusive) → `STRIPE_PRICE_YEARLY`;
+  lawyer to confirm the AGB change (`LEGAL_REVIEW.md` §14 item 6 resolved: no channel difference any more).
 
 - **App first, paid new code, 10-day cooldown (2026-11-24).** Owner decisions (task in four phases,
   `docs/handover.md` §14): registration, sign-in, the owner portal and billing live in the app; the
@@ -237,7 +243,7 @@ Relaxed only for testing on the test server. Restore every item before step 5:
 
 9. **Single plan (2026-11-21):** on the test server done 2026-11-21: `STRIPE_PRICE_YEARLY` (20 €, test
    mode) set and the old `STRIPE_PRICE_PLUS_*` / `STRIPE_PRICE_PREMIUM_*` removed, `TWILIO_VERIFY_SERVICE_SID`
-   set, new EAS build made. **Before go-live:** a live 20 € price, `SCANNER_BASE_URL=https://park-shield.de`
+   set, new EAS build made. **Before go-live:** a live 19,99 € price, `SCANNER_BASE_URL=https://park-shield.de`
    and, if decals with `pkshd.de` exist, a 301 from `pkshd.de/s/*` to `park-shield.de/s/*`.
 
 ## 4a. Launch checklist

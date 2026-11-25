@@ -468,7 +468,7 @@ function Channels() {
   );
 }
 
-/** "20 € / Jahr inkl. 19 % MwSt." as one sentence, with the amount set large. */
+/** "19,99 € / Jahr inkl. 19 % MwSt." as one sentence, with the amount set large. */
 function Price({ cents }: { cents: number }) {
   const { t } = useI18n();
   const price = useEuro()(cents);

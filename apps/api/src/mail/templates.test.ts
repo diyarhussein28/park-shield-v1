@@ -85,7 +85,7 @@ const values = {
   consent: 'yes',
   consentLabel: '3. August 2027, 11:14 Uhr',
   breakdown:
-    'Gezahlt 20,00 € − personalisierter Aufkleber 3,00 € − genutzte Leistung (10 Tage) 0,47 € = Erstattung 16,53 €',
+    'Gezahlt 19,99 € − personalisierter Aufkleber 3,00 € − genutzte Leistung (10 Tage) 0,47 € = Erstattung 16,52 €',
   provider: 'stripe',
 };
 

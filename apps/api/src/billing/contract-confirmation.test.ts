@@ -16,7 +16,7 @@ const input = (locale: 'de' | 'en'): ContractConfirmationInput => ({
     name: 'Maximilian Müller-Lüdenscheidt',
     address: ['Große Straße der Einheit 128a', '51371 Leverkusen', 'Deutschland'],
   },
-  price: locale === 'de' ? '20,00 €' : '€20.00',
+  price: locale === 'de' ? '19,99 €' : '€19.99',
   startedAt: new Date('2027-08-03T09:15:00Z'),
   renewsAt: new Date('2028-08-03T09:15:00Z'),
   renewalMode: 'annual',
@@ -90,8 +90,8 @@ describe('PDF „Vertragsbestätigung“ (§ 312f BGB)', () => {
     }
     expect(all('contract')).toMatch(
       locale === 'de'
-        ? /Jahrespreis: 20,00 € \/ Jahr \(inkl\. 19 % MwSt\.\)/
-        : /Annual price: €20\.00 \/ year \(incl\. 19% VAT\)/,
+        ? /Jahrespreis: 19,99 € \/ Jahr \(inkl\. 19 % MwSt\.\)/
+        : /Annual price: €19\.99 \/ year \(incl\. 19% VAT\)/,
     );
     // B2: the sticker value included in the price.
     expect(all('contract')).toMatch(
