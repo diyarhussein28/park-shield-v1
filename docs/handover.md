@@ -678,7 +678,7 @@ Open findings (not changed, need a decision or a dev build):
 paywall), tests and docs say 19,99 €. New safety check: the Stripe subscription checkout reads the
 `STRIPE_PRICE_YEARLY` price once and answers 503 `price_mismatch` (logged as error) when its amount differs
 from the displayed price, instead of charging 20,00 € while showing 19,99 €
-(`StripePayments.assertPrice`, test `providers/stripe-payments.test.ts`). **Before the next deploy:**
-create a 19,99 € yearly price (EUR, tax behaviour inclusive) in Stripe test mode, put its `price_…` ID into
-`STRIPE_PRICE_YEARLY` in `server.env`; the same in live mode before go-live. Existing test subscriptions
+(`StripePayments.assertPrice`, test `providers/stripe-payments.test.ts`). **Test server done 2026-11-25:** price
+`price_1UfUvLFjhnZQE717fgQNDj4f` (EUR 19.99, yearly, inclusive) in `STRIPE_PRICE_YEARLY` (backup
+`server.env.bak-20261125-price`), deployed `674c6e9`. **Open:** the same price in live mode before go-live. Existing test subscriptions
 keep their 20 € price until they are changed in Stripe.
