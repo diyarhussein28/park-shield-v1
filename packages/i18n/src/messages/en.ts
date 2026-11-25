@@ -65,7 +65,7 @@ const en: typeof de = {
     faq: 'FAQ',
     login: 'Sign in',
     account: 'My account',
-    home: 'To the home page',
+    homeLogo: 'ParkShield – Home',
     menu: 'Menu',
   },
   landing: {

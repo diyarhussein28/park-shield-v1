@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-25 (deployed `1a13c01` to the test server, §15b). Before: 2026-11-25 (owner decisions on the QA findings: first lock without cooldown, paywall, receipt print/PDF, localized `<title>`, worker warn, §15b). Before: 2026-11-25 (full QA run on web, iOS, Android, e-mails and ops; fixes and open findings in §15). Before: 2026-11-24 (owner decisions on `/aktivieren`, `/antwort`, passkeys and the first code done, §14). Before: 2026-11-24 (all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-25 (website: one logo source, pages open at the top, §16). Before: 2026-11-25 (deployed `1a13c01` to the test server, §15b). Before: 2026-11-25 (owner decisions on the QA findings: first lock without cooldown, paywall, receipt print/PDF, localized `<title>`, worker warn, §15b). Before: 2026-11-25 (full QA run on web, iOS, Android, e-mails and ops; fixes and open findings in §15). Before: 2026-11-24 (owner decisions on `/aktivieren`, `/antwort`, passkeys and the first code done, §14). Before: 2026-11-24 (all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -709,3 +709,24 @@ straight to `main`).
 - ✅ API, web and ops deployed to the test server 2026-11-25 (`1a13c01`, no new migration; containers
   healthy, `/v1/ready` ok). Still needed to reach testers: a new EAS build of the app.
 
+## 16. Website: one logo and pages open at the top (2026-11-25)
+
+- **One logo source.** The official mark (blue shield, white QR finder squares, one yellow) is defined
+  once in `apps/web/lib/brand-mark.ts`. Built from it: `components/brand/logo.tsx` (`LogoMark`, and
+  `Logo` with `variant` `onLight` / `onDark` and `size`), the scanner page (`lib/scanner/render.ts`)
+  and, via `npx tsx scripts/email-assets.ts`, the e-mail logo (unchanged, byte-identical) and the
+  favicon and app icons in `public/icons` (they showed an old shield with a check mark before). The
+  footer's star shield (`StarShield`) is gone; header and footer both use `Logo` (footer: white
+  „Park“, blue „Shield“, a faint glow on dark). Logo link name `nav.homeLogo` („ParkShield –
+  Startseite“ / „ParkShield – Home“); the unused `nav.home` was removed. The API's PDFs and the decal
+  already draw the same mark (own copies in `apps/api`, not touched).
+- **Bug: the logo on `/app` opened the home page at the footer.** Cause: `scroll-behavior: smooth` on
+  `<html>` (globals.css). Since Next.js 16 the router switches it off during page changes only when
+  `<html>` has `data-scroll-behavior="smooth"`; without it the router's jump to the top ran smoothly
+  and was overtaken by its `scrollIntoView` on the page's elements (footer first). Fix: the attribute in
+  `app/layout.tsx`, plus the safety net `components/scroll-to-top.tsx` (top on every path change, not
+  for links with a hash and not for back/forward). The logo on the home page itself scrolls smoothly up.
+- Tested locally (DE/EN, 1024 px and 375 px): `/app` → logo at the top; footer „Preise“ jumps to the
+  section; footer „Hilfe & Kontakt“, „Verträge hier kündigen“, „Vertrag widerrufen“ and the `/app`
+  links open at the top; logo on the scrolled home page → smooth to the top; Back restores the position;
+  no console errors. **Not deployed yet.**

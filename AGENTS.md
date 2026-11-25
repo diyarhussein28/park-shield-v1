@@ -531,6 +531,12 @@ Also:
   `build.env` in `turbo.json` (root scripts use `--env-mode=loose`, the Docker build too).
 - **CI is a production build with fakes** (`APP_ENV=ci`). Test-only routes (dev mailbox, local push
   receiver) are gated by `isTestEnvironment()` in `apps/api/src/config/env.ts`, not by `NODE_ENV`.
+- **Smooth scrolling and Next.js 16:** `scroll-behavior: smooth` on `<html>` needs
+  `data-scroll-behavior="smooth"` on `<html>` (`apps/web/app/layout.tsx`), or page changes open
+  scrolled down (the home page at the footer). Keep both together.
+- **The logo** is defined once in `apps/web/lib/brand-mark.ts`; use `Logo` / `LogoMark` from
+  `apps/web/components/brand/logo.tsx` and re-render the images with `npx tsx scripts/email-assets.ts`.
+  Never draw another icon (star, check mark) as the logo.
 - **Linux fonts are wider than Windows fonts:** reflow at 320 px can fail only in CI. Long e-mail
   addresses, codes and keys need `min-w-0` / `wrap-anywhere`; fieldsets may shrink (theme.css).
 - **`next-env.d.ts` is git-ignored**; image import types come from `apps/web/image-types.d.ts`.

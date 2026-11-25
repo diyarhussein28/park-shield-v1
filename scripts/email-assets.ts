@@ -1,32 +1,33 @@
-// Renders the images of the e-mails (logo and line icons) into apps/web/public/email.
+// Renders the logo images into apps/web/public: the e-mail logo and line icons (public/email) and the
+// favicon and app icons (public/icons).
 //   npx tsx scripts/email-assets.ts
-// The logo is the app's mark (`LogoMark`, shield with the QR finder pattern); the icons are the paths
-// in apps/api/src/mail/icons.ts. 2× size for sharp edges on high-density screens.
+// The logo is the official mark from apps/web/lib/brand-mark.ts (shield with the QR finder squares),
+// the one definition the website's header and footer use too; the icons are the paths in
+// apps/api/src/mail/icons.ts. 2× size for sharp edges on high-density screens.
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { MAIL_ICONS } from '../apps/api/src/mail/icons.ts';
+import { markSvgBody } from '../apps/web/lib/brand-mark.ts';
 import { ROOT } from './lib/paths.ts';
 
 const OUT = join(ROOT, 'apps/web/public/email');
+const ICONS = join(ROOT, 'apps/web/public/icons');
 mkdirSync(join(OUT, 'icons'), { recursive: true });
+mkdirSync(ICONS, { recursive: true });
 
-const defs = `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b82f6"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs>`;
+/** The mark (32 × 32 grid), moved to x/y and scaled by s. */
 const mark = (x = 0, y = 0, s = 1) =>
-  `<g transform="translate(${x} ${y}) scale(${s})"><path d="M16 2 4 6.5v8.6C4 22.4 9.1 28.2 16 30c6.9-1.8 12-7.6 12-14.9V6.5L16 2Z" fill="url(#g)"/><rect x="10" y="10" width="5" height="5" rx="1" fill="#fff"/><rect x="17" y="10" width="5" height="5" rx="1" fill="#facc15"/><rect x="10" y="17" width="5" height="5" rx="1" fill="#fff"/><rect x="17.5" y="17.5" width="2" height="2" fill="#fff"/><rect x="20.5" y="20.5" width="2" height="2" fill="#fff"/></g>`;
+  `<g transform="translate(${x} ${y}) scale(${s})">${markSvgBody('g')}</g>`;
 const svg = (body: string, size: number, box = 32) =>
   Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${box} ${box}" width="${size}" height="${size}">${body}</svg>`,
   );
 
-await sharp(svg(defs + mark(), 192))
-  .png()
-  .toFile(join(OUT, 'parkshield-logo.png'));
+await sharp(svg(mark(), 192)).png().toFile(join(OUT, 'parkshield-logo.png'));
 // The old file name, still referenced by e-mails sent before 2026-11-23.
-await sharp(svg(defs + mark(), 192))
-  .png()
-  .toFile(join(OUT, 'parkshield-shield.png'));
-await sharp(svg(`${defs}<rect width="32" height="32" rx="8" fill="#fff"/>${mark(4, 4, 0.75)}`, 192))
+await sharp(svg(mark(), 192)).png().toFile(join(OUT, 'parkshield-shield.png'));
+await sharp(svg(`<rect width="32" height="32" rx="8" fill="#fff"/>${mark(4, 4, 0.75)}`, 192))
   .png()
   .toFile(join(OUT, 'parkshield-logo-tile.png'));
 
@@ -47,4 +48,19 @@ await sharp(
 )
   .png()
   .toFile(join(OUT, 'icons', 'success.png'));
-console.log(`e-mail assets written to ${OUT}`);
+
+// Favicon and app icons (app/layout.tsx, public/manifest.webmanifest): the same mark. The browser tab
+// shows it on transparent; home screens get it on a white tile (iOS fills transparency with black);
+// the maskable icon keeps the mark inside the central safe zone (80 %).
+await sharp(svg(mark(), 32)).png().toFile(join(ICONS, 'favicon-32.png'));
+const tile = `<rect width="32" height="32" fill="#fff"/>${mark(3.5, 3.5, 0.78)}`;
+await sharp(svg(tile, 180)).png().toFile(join(ICONS, 'apple-touch-icon.png'));
+for (const size of [192, 512]) {
+  await sharp(svg(`<rect width="32" height="32" rx="7" fill="#fff"/>${mark(3.5, 3.5, 0.78)}`, size))
+    .png()
+    .toFile(join(ICONS, `icon-${size}.png`));
+}
+await sharp(svg(`<rect width="32" height="32" fill="#fff"/>${mark(6.4, 6.4, 0.6)}`, 512))
+  .png()
+  .toFile(join(ICONS, 'icon-maskable-512.png'));
+console.log(`e-mail assets written to ${OUT}, icons to ${ICONS}`);

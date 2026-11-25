@@ -1,4 +1,4 @@
-import { useId, type SVGProps } from 'react';
+import type { SVGProps } from 'react';
 
 /** Line icons (24 px grid, stroke 2), always decorative: the text next to them carries the meaning. */
 const paths = {
@@ -62,53 +62,6 @@ export function Icon({ name, ...rest }: { name: IconName } & SVGProps<SVGSVGElem
       {...rest}
     >
       <path d={paths[name]} />
-    </svg>
-  );
-}
-
-/** The ParkShield mark: a shield with a QR finder pattern. */
-/** The footer's shield (design 2026-11-22): the brand blue shield with a white star. */
-export function StarShield({ className }: { className?: string }) {
-  const id = useId();
-  return (
-    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false" className={className}>
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#3b82f6" />
-          <stop offset="1" stopColor="#1d4ed8" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M16 2 4 6.5v8.6C4 22.4 9.1 28.2 16 30c6.9-1.8 12-7.6 12-14.9V6.5L16 2Z"
-        fill={`url(#${id})`}
-      />
-      <path
-        d="m16 8.6 2.2 4.5 4.9.7-3.6 3.5.9 4.9-4.4-2.3-4.4 2.3.9-4.9-3.6-3.5 4.9-.7L16 8.6Z"
-        fill="#fff"
-      />
-    </svg>
-  );
-}
-
-export function LogoMark({ className }: { className?: string }) {
-  const id = useId(); // header and footer both show the mark: gradient ids must not clash
-  return (
-    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false" className={className}>
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#3b82f6" />
-          <stop offset="1" stopColor="#1d4ed8" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M16 2 4 6.5v8.6C4 22.4 9.1 28.2 16 30c6.9-1.8 12-7.6 12-14.9V6.5L16 2Z"
-        fill={`url(#${id})`}
-      />
-      <rect x="10" y="10" width="5" height="5" rx="1" fill="#fff" />
-      <rect x="17" y="10" width="5" height="5" rx="1" fill="#facc15" />
-      <rect x="10" y="17" width="5" height="5" rx="1" fill="#fff" />
-      <rect x="17.5" y="17.5" width="2" height="2" fill="#fff" />
-      <rect x="20.5" y="20.5" width="2" height="2" fill="#fff" />
     </svg>
   );
 }

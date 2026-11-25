@@ -61,6 +61,8 @@
     font-family: var(--font-sans);
     /* The sticky header must not cover anchors or focused controls (WCAG 2.4.11). */
     scroll-padding-top: 5.5rem;
+    /* Smooth only for in-page jumps (#preise): page changes scroll instantly, because <html> carries
+       data-scroll-behavior="smooth" (app/layout.tsx). Remove both together. */
     scroll-behavior: smooth;
   }
   @media (prefers-reduced-motion: reduce) {

@@ -4,7 +4,8 @@ import type { MessageKey } from '@parkshield/i18n';
 import { useI18n } from '@parkshield/ui';
 import { useEffect, useRef, useState } from 'react';
 import { cx } from '@/lib/cx';
-import { Icon, LogoMark } from './icons';
+import { LogoMark } from './brand/logo';
+import { Icon } from './icons';
 
 const STEPS = 4;
 const STEP_MS = 3800;

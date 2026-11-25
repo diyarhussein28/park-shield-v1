@@ -64,7 +64,7 @@ const de = {
     faq: 'FAQ',
     login: 'Anmelden',
     account: 'Mein Konto',
-    home: 'Zur Startseite',
+    homeLogo: 'ParkShield – Startseite',
     menu: 'Menü',
   },
   landing: {

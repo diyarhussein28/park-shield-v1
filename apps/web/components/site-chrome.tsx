@@ -2,25 +2,37 @@
 
 import { LanguageSwitch, SkipLink, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
-import { useEffect, useState, type ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
+import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { cx } from '@/lib/cx';
-import { Icon, LogoMark, StarShield } from './icons';
+import { Logo } from './brand/logo';
+import { Icon } from './icons';
 
 /** Width of header, footer and the landing page sections (content pages keep their narrow column). */
 export const WIDE = 'mx-auto w-full max-w-6xl px-4 sm:px-6';
 
-function Brand() {
+/**
+ * The logo link to the home page, in the header (`onLight`) and the footer (`onDark`). It opens the
+ * home page at the top; already on it, a click scrolls smoothly back up instead of reloading.
+ */
+function Brand({ variant }: { variant: 'onLight' | 'onDark' }) {
   const { t } = useI18n();
+  const pathname = usePathname();
+  const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (pathname !== '/' || location.hash || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
+      return;
+    e.preventDefault();
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    scrollTo({ top: 0, left: 0, behavior: reduce ? 'auto' : 'smooth' });
+  };
   return (
     <Link
       href="/"
-      className="inline-flex min-h-12 items-center gap-2.5 rounded-lg text-xl font-extrabold tracking-tight"
+      onClick={onClick}
+      aria-label={t('nav.homeLogo')}
+      className="inline-flex min-h-12 w-fit items-center rounded-lg"
     >
-      <LogoMark className="size-9" />
-      <span>
-        Park<span className="text-primary">Shield</span>
-      </span>
-      <span className="sr-only"> – {t('nav.home')}</span>
+      <Logo variant={variant} size={variant === 'onDark' ? 'lg' : 'md'} />
     </Link>
   );
 }
@@ -51,7 +63,7 @@ export function SiteHeader({ sticky = false }: { sticky?: boolean }) {
       <SkipLink>{t('common.skipToContent')}</SkipLink>
       <div className={`${WIDE} flex flex-wrap items-center gap-x-3 py-2`}>
         <div className="mr-auto">
-          <Brand />
+          <Brand variant="onLight" />
         </div>
         <button
           type="button"
@@ -93,8 +105,8 @@ export function SiteHeader({ sticky = false }: { sticky?: boolean }) {
 }
 
 /**
- * The site footer (design 2026-11-22, „exactly like the image“): very dark navy, the star shield and
- * „ParkShield“, the tagline, then the link groups in a 2 × 2 grid on phones (Produkt · Support /
+ * The site footer (design 2026-11-22, „exactly like the image“): very dark navy, the ParkShield logo
+ * (the same mark as the header, `components/brand/logo.tsx`), the tagline, then the link groups in a 2 × 2 grid on phones (Produkt · Support /
  * Rechtliches · Vertrag) and one row of four columns from 768 px, then „© 2026 ParkShield“ and
  * „Hosted in Germany“. „Verträge hier kündigen“ (§ 312k BGB) and „Vertrag widerrufen“ (§ 356a BGB)
  * are always visible, also without login. No tracking scripts.
@@ -137,16 +149,7 @@ export function SiteFooter() {
   return (
     <footer className="on-dark mt-16 bg-[#050b1a] text-slate-300">
       <div className={`${WIDE} py-12 sm:py-14 md:py-16`}>
-        <Link
-          href="/"
-          className="inline-flex min-h-12 w-fit items-center gap-3 rounded-lg text-3xl font-extrabold tracking-tight text-white sm:text-4xl"
-        >
-          <StarShield className="size-11 shrink-0 sm:size-12" />
-          <span>
-            Park<span className="text-blue-500">Shield</span>
-          </span>
-          <span className="sr-only"> – {t('nav.home')}</span>
-        </Link>
+        <Brand variant="onDark" />
         <p className="mt-3 max-w-2xl text-lg leading-relaxed">{t('common.siteFooter.tagline')}</p>
         <hr className="my-10 border-slate-700" />
         <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4">

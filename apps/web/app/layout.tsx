@@ -2,6 +2,7 @@ import { createTranslator } from '@parkshield/i18n';
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { Providers } from '@/components/providers';
+import { ScrollToTopOnRouteChange } from '@/components/scroll-to-top';
 import { requestLocale } from '@/lib/locale';
 // Self-hosted font files (served from /_next/static), so no third-party request (GDPR).
 import '@fontsource-variable/plus-jakarta-sans';
@@ -36,8 +37,13 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await requestLocale();
   return (
-    <html lang={locale}>
+    // data-scroll-behavior: since Next.js 16 the router turns the smooth scrolling of globals.css off
+    // during page changes only with this attribute. Without it, its scroll to the top of a new page ran
+    // smoothly and was overtaken by the scroll to the page's last element: the home page opened at
+    // the footer (2026-11-25).
+    <html lang={locale} data-scroll-behavior="smooth">
       <body className="min-h-dvh bg-bg text-fg antialiased">
+        <ScrollToTopOnRouteChange />
         <Providers locale={locale}>{children}</Providers>
       </body>
     </html>

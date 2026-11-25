@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { messages, type Locale } from '@parkshield/i18n';
+import { markSvgBody } from '../brand-mark';
 import { frcEndpoint, frcHosts } from '../frc-hosts';
 import { FRC_GLUE_JS, SCANNER_JS } from './client';
 import { SCANNER_CSS } from './styles';
@@ -93,7 +94,7 @@ const TYPE_ICON: Record<string, string> = {
   alarm: I.alarm,
   towing_risk: I.tow,
 };
-const LOGO = `<svg class="logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b82f6"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><path d="M16 2 4 6.5v8.6C4 22.4 9.1 28.2 16 30c6.9-1.8 12-7.6 12-14.9V6.5L16 2Z" fill="url(#lg)"/><rect x="10" y="10" width="5" height="5" rx="1" fill="#fff"/><rect x="17" y="10" width="5" height="5" rx="1" fill="#facc15"/><rect x="10" y="17" width="5" height="5" rx="1" fill="#fff"/><rect x="17.5" y="17.5" width="2" height="2" fill="#fff"/><rect x="20.5" y="20.5" width="2" height="2" fill="#fff"/></svg>`;
+const LOGO = `<svg class="logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false">${markSvgBody('lg')}</svg>`;
 
 function shell(locale: Locale, title: string, body: string, extraHead = ''): string {
   return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8">
