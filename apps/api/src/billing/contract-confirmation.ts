@@ -296,7 +296,11 @@ export function contractConfirmationContent(i: ContractConfirmationInput): PdfCo
     {
       icon: 'card',
       label: de ? 'Bezahlt über' : 'Paid through',
-      value: s ? STORE_NAME[s] : 'park-shield.de (Stripe)',
+      value: s
+        ? STORE_NAME[s]
+        : de
+          ? 'Stripe (direkt bei ParkShield)'
+          : 'Stripe (directly to ParkShield)',
     },
   ];
 

@@ -146,7 +146,7 @@ describe('annual checkout (US-06)', () => {
     expect(welcome?.text).toMatch(
       /Im Preis enthalten: personalisierter Aufkleber inkl\. Versand im Wert von 3,00\s€/,
     );
-    expect(welcome?.text).toContain('Bezahlt über: park-shield.de (Stripe)');
+    expect(welcome?.text).toContain('Bezahlt über: Stripe (direkt bei ParkShield)');
     expect(welcome?.text).not.toMatch(/App Store|Google Play/);
     expect(welcome?.text).toContain('/app');
     expect(welcome?.text).toContain('Nächste Verlängerung');

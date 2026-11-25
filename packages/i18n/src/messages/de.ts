@@ -366,7 +366,7 @@ const de = {
     cancelButton: 'Vertrag hier kündigen',
     // Store subscriptions (A6, 2026-11-22): Apple or Google is the seller. TODO [LEGAL REVIEW]
     providerLine:
-      '{provider, select, app_store {Gekauft im App Store (Apple).} play_store {Gekauft bei Google Play.} other {Gekauft auf park-shield.de.}}',
+      '{provider, select, app_store {Gekauft im App Store (Apple).} play_store {Gekauft bei Google Play.} other {Direkt bei ParkShield bezahlt (Stripe).}}',
     storeManage:
       '{provider, select, play_store {Abo in Google Play verwalten} other {Abo im App Store verwalten}}',
     storeCancelText:
@@ -1345,7 +1345,7 @@ const de = {
     plan_standard: 'ParkShield',
     plan_plus: 'Plus',
     plan_premium: 'Premium',
-    provider_stripe: 'Website (Stripe)',
+    provider_stripe: 'Stripe (direkt)',
     provider_app_store: 'App Store',
     provider_play_store: 'Google Play',
     unified_ACTIVE: 'Aktiv',

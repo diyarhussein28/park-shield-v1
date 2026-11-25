@@ -243,28 +243,25 @@ export default function Subscription() {
       )}
       {status && <Banner tone="info">{status}</Banner>}
 
-      {me && (
+      {/* Passkeys can no longer be added (the website's passkey UI was removed on 2026-11-24 and the app
+          has no WebAuthn yet): the card only lists existing ones so they can be removed. */}
+      {me && me.passkeys.length > 0 && (
         <Card>
           <Title>{pt('account.passkeys')}</Title>
           <P muted>{pt('account.passkeysIntro')}</P>
-          {me.passkeys.length === 0 ? (
-            <P muted>{pt('account.noPasskeys')}</P>
-          ) : (
-            me.passkeys.map((p) => (
-              <View key={p.id} style={s.passkey}>
-                <P>
-                  {p.label ?? 'Passkey'} ·{' '}
-                  {pt('account.passkeyAddedOn', { date: new Date(p.createdAt) })}
-                </P>
-                <Button
-                  variant="secondary"
-                  label={pt('account.removePasskey', { label: p.label ?? 'Passkey' })}
-                  onPress={() => void removePasskey(p.id)}
-                />
-              </View>
-            ))
-          )}
-          <P muted>{t('passkeyAddOnWeb')}</P>
+          {me.passkeys.map((p) => (
+            <View key={p.id} style={s.passkey}>
+              <P>
+                {p.label ?? 'Passkey'} ·{' '}
+                {pt('account.passkeyAddedOn', { date: new Date(p.createdAt) })}
+              </P>
+              <Button
+                variant="secondary"
+                label={pt('account.removePasskey', { label: p.label ?? 'Passkey' })}
+                onPress={() => void removePasskey(p.id)}
+              />
+            </View>
+          ))}
         </Card>
       )}
 

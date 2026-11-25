@@ -63,9 +63,14 @@ export default function AlertScreen() {
     // down at once and then takes the server's count.
     markSeen(id);
     void api<{ unseenCount?: number }>(`/v1/app/alerts/${id}/seen`, { body: {} })
-      .then((r) => markSeen(id, r.unseenCount))
+      .then((r) => {
+        markSeen(id, r.unseenCount);
+        // The detail is loaded in parallel and may still show the planned reminder and SMS that
+        // opening just cancelled: load it again so the escalation card shows „gestoppt“.
+        void load();
+      })
       .catch(() => undefined);
-  }, [id, markSeen]);
+  }, [id, markSeen, load]);
 
   useFocusEffect(
     useCallback(() => {

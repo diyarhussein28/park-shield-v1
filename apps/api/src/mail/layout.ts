@@ -144,13 +144,19 @@ function badge(web: string, label: string) {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px 0"><tr><td valign="middle" style="padding-right:10px">${icon(web, 'success', 28)}</td><td valign="middle" bgcolor="#e8f7ee" class="ps-badge" style="background:#e8f7ee;border-radius:999px;padding:6px 14px;font-family:${FONT};font-size:15px;font-weight:700;line-height:1.3;color:#166534">${escapeHtml(label)}</td></tr></table>`;
 }
 
+/**
+ * Words wrap only at spaces (overflow-wrap:anywhere used to split „personalisierter“ on phones);
+ * long tokens such as e-mail addresses and links may break after @ . / _ instead.
+ */
+const breakable = (html: string) => html.replace(/([@./_])(?=[^\s<])/g, '$1<wbr>');
+
 function details(web: string, b: Extract<MailBlock, { kind: 'details' }>) {
   const rows = b.rows.filter((r) => r.value.trim() !== '');
   if (!rows.length) return '';
   const tr = rows
     .map(
       (r, i) =>
-        `<tr><td valign="top" width="28" style="padding:10px 10px 10px 0;${i ? `border-top:1px solid ${RULE};` : ''}" class="ps-rule">${r.icon ? icon(web, r.icon, 20) : ''}</td><td valign="top" width="38%" class="ps-text ps-rule" style="padding:10px 12px 10px 0;${i ? `border-top:1px solid ${RULE};` : ''}font-family:${FONT};font-size:15px;line-height:1.4;font-weight:700;color:${INK}">${escapeHtml(r.label)}</td><td valign="top" class="ps-text ps-rule" style="padding:10px 0;${i ? `border-top:1px solid ${RULE};` : ''}font-family:${FONT};font-size:15px;line-height:1.4;color:${INK};overflow-wrap:anywhere;word-break:break-word">${escapeHtml(r.value).replace(/\n/g, '<br>')}</td></tr>`,
+        `<tr><td valign="top" width="28" style="padding:10px 10px 10px 0;${i ? `border-top:1px solid ${RULE};` : ''}" class="ps-rule">${r.icon ? icon(web, r.icon, 20) : ''}</td><td valign="top" width="38%" class="ps-text ps-rule" style="padding:10px 12px 10px 0;${i ? `border-top:1px solid ${RULE};` : ''}font-family:${FONT};font-size:15px;line-height:1.4;font-weight:700;color:${INK}">${escapeHtml(r.label)}</td><td valign="top" class="ps-text ps-rule" style="padding:10px 0;${i ? `border-top:1px solid ${RULE};` : ''}font-family:${FONT};font-size:15px;line-height:1.4;color:${INK};overflow-wrap:break-word;word-break:normal">${breakable(escapeHtml(r.value)).replace(/\n/g, '<br>')}</td></tr>`,
     )
     .join('');
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 16px 0"><tr><td bgcolor="${PANEL}" class="ps-panel" style="background:${PANEL};border-radius:14px;padding:18px 20px">${

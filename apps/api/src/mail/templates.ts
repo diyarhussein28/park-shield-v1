@@ -103,7 +103,7 @@ const templates = {
               icon: 'card',
               label: 'Bezahlt über',
               value:
-                '{provider, select, app_store {Apple App Store} play_store {Google Play} other {park-shield.de (Stripe)}}',
+                '{provider, select, app_store {Apple App Store} play_store {Google Play} other {Stripe (direkt bei ParkShield)}}',
             },
           ],
         },
@@ -111,7 +111,7 @@ const templates = {
           kind: 'card',
           icon: 'card',
           title:
-            '{provider, select, app_store {Gekauft über den App Store} play_store {Gekauft über Google Play} other {Bezahlt auf park-shield.de}}',
+            '{provider, select, app_store {Gekauft über den App Store} play_store {Gekauft über Google Play} other {Direkt bei ParkShield bezahlt}}',
           text: '{provider, select, app_store {Apple rechnet das Abo ab und schickt Ihnen den Zahlungsbeleg.} play_store {Google rechnet das Abo ab und schickt Ihnen den Zahlungsbeleg.} other {Die Zahlung läuft über Stripe; Ihre Rechnungen finden Sie in Ihrem Konto unter „Abo“.}} Das PDF im Anhang ist eine Vertragsbestätigung, keine Rechnung.',
         },
         {
@@ -576,7 +576,7 @@ const templates = {
               icon: 'card',
               label: 'Paid through',
               value:
-                '{provider, select, app_store {Apple App Store} play_store {Google Play} other {park-shield.de (Stripe)}}',
+                '{provider, select, app_store {Apple App Store} play_store {Google Play} other {Stripe (directly to ParkShield)}}',
             },
           ],
         },
@@ -584,7 +584,7 @@ const templates = {
           kind: 'card',
           icon: 'card',
           title:
-            '{provider, select, app_store {Bought through the App Store} play_store {Bought through Google Play} other {Paid on park-shield.de}}',
+            '{provider, select, app_store {Bought through the App Store} play_store {Bought through Google Play} other {Paid directly to ParkShield}}',
           text: '{provider, select, app_store {Apple bills the subscription and sends you the receipt.} play_store {Google bills the subscription and sends you the receipt.} other {The payment runs through Stripe; you find your invoices in your account under “Plan”.}} The attached PDF is a contract confirmation, not an invoice.',
         },
         {

@@ -353,7 +353,7 @@ const en: typeof de = {
     withdrawUntil: 'You can withdraw until {date, date, long} without giving reasons.',
     cancelButton: 'Cancel contract here',
     providerLine:
-      '{provider, select, app_store {Bought in the App Store (Apple).} play_store {Bought on Google Play.} other {Bought on park-shield.de.}}',
+      '{provider, select, app_store {Bought in the App Store (Apple).} play_store {Bought on Google Play.} other {Paid directly to ParkShield (Stripe).}}',
     storeManage:
       '{provider, select, play_store {Manage subscription on Google Play} other {Manage subscription in the App Store}}',
     storeCancelText:
@@ -1284,7 +1284,7 @@ const en: typeof de = {
     plan_standard: 'ParkShield',
     plan_plus: 'Plus',
     plan_premium: 'Premium',
-    provider_stripe: 'Website (Stripe)',
+    provider_stripe: 'Stripe (direct)',
     provider_app_store: 'App Store',
     provider_play_store: 'Google Play',
     unified_ACTIVE: 'Active',

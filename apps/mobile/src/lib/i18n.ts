@@ -121,7 +121,6 @@ const de = {
   appDevices: 'Handys mit dieser App',
   appDevicesNone: 'Noch kein Handy mit Mitteilungen angemeldet.',
   appDevice: '{platform}, App {version}, zuletzt aktiv am {date}',
-  passkeyAddOnWeb: 'Einen neuen Passkey legen Sie auf der Website an (Abo & Konto).',
   chatErr_filtered:
     'Diese Nachricht kann nicht gesendet werden. Bitte ohne Telefonnummern, Links, Adressen oder Beleidigungen.',
   chatErr_limit_reached: 'Sie haben die höchste Anzahl an Nachrichten erreicht.',
@@ -473,7 +472,7 @@ const de = {
   alreadySubscribed: 'Sie haben bereits ein aktives ParkShield-Abo.',
   providerAppStore: 'Gekauft im App Store',
   providerPlayStore: 'Gekauft bei Google Play',
-  providerWeb: 'Gekauft auf park-shield.de',
+  providerWeb: 'Direkt bei ParkShield bezahlt (Stripe)',
   manageWeb:
     'Verwalten können Sie es unter „Konto“ → „Abo und Rechnungen“ oder auf park-shield.de.',
   storeNameApple: 'Apple',
@@ -651,7 +650,6 @@ const en: Record<Key, string> = {
   appDevices: 'Phones with this app',
   appDevicesNone: 'No phone with notifications signed in yet.',
   appDevice: '{platform}, app {version}, last active on {date}',
-  passkeyAddOnWeb: 'You add a new passkey on the website (Plan & account).',
   chatErr_filtered:
     'This message cannot be sent. Please leave out phone numbers, links, addresses and insults.',
   chatErr_limit_reached: 'You have reached the maximum number of messages.',
@@ -985,7 +983,7 @@ const en: Record<Key, string> = {
   alreadySubscribed: 'You already have an active ParkShield subscription.',
   providerAppStore: 'Bought in the App Store',
   providerPlayStore: 'Bought on Google Play',
-  providerWeb: 'Bought on park-shield.de',
+  providerWeb: 'Paid directly to ParkShield (Stripe)',
   manageWeb: 'You manage it under “Account” → “Plan and invoices” or on park-shield.de.',
   storeNameApple: 'Apple',
   storeNameGoogle: 'Google Play',

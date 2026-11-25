@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-24 (owner decisions on `/aktivieren`, `/antwort`, passkeys and the first code done, §14). Before: 2026-11-24 (all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-25 (full QA run on web, iOS, Android, e-mails and ops; fixes and open findings in §15). Before: 2026-11-24 (owner decisions on `/aktivieren`, `/antwort`, passkeys and the first code done, §14). Before: 2026-11-24 (all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -633,3 +633,41 @@ audit `qr_code.replaced`; e-mail stays Mailjet.
    (one vehicle per account) — an owner who wants to close that loophole must decide it.
 
 Tests: API 673, app Jest 177, E2E 118 green (12 skipped as before).
+
+## 15. Full QA run (2026-11-25)
+
+Local stack with fake providers (`.claude/launch.json` config `stack`), app in Expo Go on the iOS
+simulator (iPhone 15 Pro) and the Android emulator (Pixel 9). Automated: API 673, E2E 120 (10 desktop-only
+skips), app Jest 177, typecheck and lint green. By hand: website (all public pages DE/EN at 1280 and
+320 px, axe, redirects), scanner (moderation, alert, live status, locked code), app sign-up end to end on
+both platforms (validation, landline rejected, national number normalised, AT address, consent gate,
+fake checkout incl. cancel), alert detail and replies, Sperren and cooldown, language switch, plan,
+cancellation in the app and on `/kuendigen` (wrong plate → `needs_review`, right plate → `scheduled`),
+e-mails light/dark, ops pages for all roles and the audit trail.
+
+Fixed in this commit:
+- App alert detail showed the planned reminder/SMS after opening, because the detail loaded in parallel
+  with `POST /seen`; it now reloads after `/seen` (`app/alerts/[id].tsx`).
+- „Gekauft auf park-shield.de“ / „Website (Stripe)“ for Stripe purchases (they come from the app since
+  2026-11-24): now „Direkt bei ParkShield bezahlt (Stripe)“ in the app, e-mail, contract PDF and ops.
+- App Plan screen told users to add passkeys on the website (removed 2026-11-24): the card now only
+  appears when passkeys exist, to remove them.
+- E-mail details table split words on phones (`overflow-wrap:anywhere`, e.g. „personalisierte|r“): words
+  now wrap at spaces only; e-mail addresses and links may break after `@ . / _` (`<wbr>`).
+
+Open findings (not changed, need a decision or a dev build):
+- Android: after the Stripe page the browser tab does not return to the app by itself (Expo Go,
+  `exp://`); verify with a development build (`parkshield://`). Locally the fake checkout also needs
+  `adb reverse tcp:3000 tcp:3000` because its URL is `localhost`.
+- Lock within 10 days of the first code: the car stays unprotected until the cooldown ends, the 3 € route
+  is blocked too (follows the owner rule; consider an exception for the first lock).
+- Paywall: ticking the consent box removes the hint and moves the pay button (layout jump); the box can
+  still be toggled while the checkout loads.
+- „Ich komme“ shows the chip „Erledigt“ although „Erledigt“ is also a separate button.
+- App cancellation receipt says „You can save or print this page“ without a print/save button.
+- Website `<title>` stays German on EN pages (static `metadata`).
+- Ops pages without permission still show filters / „Noch keine …“ next to „Dafür fehlt Ihnen die
+  Berechtigung“.
+- Worker logs `payment.notify_attachment … letter not available yet` as ERROR on every retry (by design,
+  max 10 attempts) — log level could be `warn`.
+
