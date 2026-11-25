@@ -375,7 +375,9 @@ Still open (owner accounts):
     (provider, original transaction) key and the app showed „activating takes a moment longer“
     forever. `StoreSyncService.sync` now ends A's rows (id marked `#moved:<row>`) and creates B's
     contract. Test: `store.test.ts` „a store purchase moved to another of our accounts“.
-    Open: license testers (Play Console → Settings → License testing) for free test purchases; closed
+    ✅ 2026-11-25: license testing (Play Console → Manage account → Play apps settings → License
+    testing) uses the list „ParkShield intern“ (response RESPOND_NORMALLY): its accounts buy for free.
+    Open: closed
     test track for the 12-testers/14-days rule (needs the store listing and the App content forms). Play's subscription „Pause“ is on by default (Monetization
     setup); the backend handles it since 2026-11-24 (§12). A personal
     account must run a closed test (12 testers, 14 days) before production.
@@ -766,6 +768,8 @@ bestellen“ ended in Google Play's „The item you were attempting to purchase 
   phone's Google account is not an internal tester who accepted the opt-in link. To check: install from
   the internal-test opt-in link (`play-internal` build, §8 item 10), Google account in the tester list
   „ParkShield intern“ and under Settings → License testing (free test purchases), payments profile
-  verified.
+  verified. ✅ 2026-11-25: „ParkShield intern“ (2 owner Google accounts) is the internal-test list
+  (track active, release 4) and now also the license-tester list. A phone's Google account outside that
+  list must be added to it first.
 - ✅ API deployed 2026-11-25 (`7726a04`): `ended` is live (the two test accounts answer `moved` and
   `expired`). The app texts reach testers with the next EAS build (`play-internal` for Play).
