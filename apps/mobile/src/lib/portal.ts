@@ -216,6 +216,14 @@ export interface SubscriptionSummary {
   refundRoute?: RefundRoute | null;
 }
 
+/** The last contract that ended (GET /v1/billing/subscription → `ended`), only without a live one. */
+export interface EndedSubscription {
+  provider: BillingProvider;
+  reason: 'withdrawn' | 'refunded' | 'moved' | 'expired';
+  endedAt: string;
+  contractNo: string | null;
+}
+
 /** Google Play „Pause“ (GET /v1/billing/subscription → `paused`): no protection until the date. */
 export interface PausedSubscription {
   provider: 'app_store' | 'play_store';

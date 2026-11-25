@@ -470,6 +470,25 @@ const de = {
   restoreNone: 'Wir haben zu diesem Konto keinen aktiven Kauf gefunden.',
   storeUnavailable:
     'Der Store ist gerade nicht erreichbar. Bitte versuchen Sie es später noch einmal.',
+  // Store purchase errors (RevenueCat codes, `storeErrorKey` in lib/billing.ts), 2026-11-25.
+  storeErrNotAvailable:
+    '{store} bietet dieses Abo auf diesem Gerät gerade nicht an. Bitte installieren oder aktualisieren Sie ParkShield aus dem Store und melden Sie sich dort mit Ihrem Store-Konto an.',
+  storeErrAlreadyOwned:
+    'Sie haben dieses Abo bei {store} schon gekauft. Tippen Sie auf „Käufe wiederherstellen“.',
+  storeErrOtherAccount:
+    'Dieser Kauf bei {store} gehört schon zu einem anderen ParkShield-Konto. Melden Sie sich mit diesem Konto an oder kaufen Sie mit einem anderen Store-Konto.',
+  storeErrPending:
+    'Die Zahlung ist noch nicht abgeschlossen. Ihr Schutz beginnt, sobald {store} sie bestätigt.',
+  storeErrNotAllowed:
+    'Käufe sind auf diesem Gerät nicht erlaubt (zum Beispiel durch Jugendschutz-Einstellungen). Bitte prüfen Sie die Einstellungen von {store}.',
+  // „Abo und Rechnungen“ without a live plan: why the last one ended (API `ended`), 2026-11-25.
+  endedWithdrawn:
+    'Sie haben Ihren Vertrag am {date} widerrufen. Mit einem neuen Abo sind Sie wieder geschützt.',
+  endedRefunded:
+    'Ihr Abo wurde am {date} erstattet und ist beendet. Mit einem neuen Abo sind Sie wieder geschützt.',
+  endedExpired: 'Ihr Abo ist am {date} abgelaufen. Mit einem neuen Abo sind Sie wieder geschützt.',
+  endedMoved:
+    'Ihr Kauf bei {store} gehört seit dem {date} zu einem anderen ParkShield-Konto: Mit demselben Store-Konto wurde dort gekauft oder wiederhergestellt. Melden Sie sich mit dem anderen ParkShield-Konto an, um das Abo zu sehen.',
   alreadySubscribed: 'Sie haben bereits ein aktives ParkShield-Abo.',
   providerAppStore: 'Gekauft im App Store',
   providerPlayStore: 'Gekauft bei Google Play',
@@ -982,6 +1001,23 @@ const en: Record<Key, string> = {
   restorePurchases: 'Restore purchases',
   restoreNone: 'We found no active purchase for this account.',
   storeUnavailable: 'The store cannot be reached right now. Please try again later.',
+  storeErrNotAvailable:
+    '{store} does not offer this subscription on this device right now. Please install or update ParkShield from the store and sign in there with your store account.',
+  storeErrAlreadyOwned:
+    'You have already bought this subscription on {store}. Tap “Restore purchases”.',
+  storeErrOtherAccount:
+    'This {store} purchase already belongs to another ParkShield account. Sign in with that account or buy with another store account.',
+  storeErrPending:
+    'The payment is not complete yet. Your protection starts as soon as {store} confirms it.',
+  storeErrNotAllowed:
+    'Purchases are not allowed on this device (for example by parental controls). Please check the {store} settings.',
+  endedWithdrawn:
+    'You withdrew from your contract on {date}. A new subscription protects you again.',
+  endedRefunded:
+    'Your subscription was refunded on {date} and has ended. A new subscription protects you again.',
+  endedExpired: 'Your subscription expired on {date}. A new subscription protects you again.',
+  endedMoved:
+    'Since {date} your {store} purchase belongs to another ParkShield account: it was bought or restored there with the same store account. Sign in with the other ParkShield account to see the subscription.',
   alreadySubscribed: 'You already have an active ParkShield subscription.',
   providerAppStore: 'Bought in the App Store',
   providerPlayStore: 'Bought on Google Play',

@@ -599,6 +599,43 @@ describe('subscription and checkout in the app', () => {
     expect(mockPush).toHaveBeenCalledWith('/tarif');
   });
 
+  it('after a plan ended it says why instead of „noch kein Abo“ (2026-11-25)', async () => {
+    const view = (ended: Record<string, unknown>) =>
+      api({
+        'GET /v1/me': () => json(me),
+        'GET /v1/billing/subscription': () =>
+          json({ subscription: null, hadSubscription: true, ended }),
+        'GET /v1/billing/invoices': () => json({ invoices: [] }),
+        'GET /v1/billing/credit-notes': () => json({ creditNotes: [] }),
+      });
+    view({
+      provider: 'app_store',
+      reason: 'moved',
+      endedAt: '2026-11-23T23:44:00Z',
+      contractNo: null,
+    });
+    await render(<Account />);
+    await screen.findByTestId('sub-ended');
+    expect(
+      screen.getByText(
+        t('endedMoved', { date: longDate('2026-11-23T23:44:00Z'), store: t('storeNameApple') }),
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(pt('account.noSubscription'))).toBeNull();
+    expect(screen.getByLabelText(t('homeNoPlanCta'))).toBeTruthy();
+
+    view({
+      provider: 'stripe',
+      reason: 'withdrawn',
+      endedAt: '2026-11-23T00:28:00Z',
+      contractNo: 'PS-1',
+    });
+    await render(<Account />);
+    expect(
+      await screen.findByText(t('endedWithdrawn', { date: longDate('2026-11-23T00:28:00Z') })),
+    ).toBeTruthy();
+  });
+
   it('the paywall: one plan, 19,99 € a year, everything included, no choice; legal details folded (P7)', async () => {
     api({
       'GET /v1/billing/subscription': () => json({ subscription: null, hadSubscription: false }),

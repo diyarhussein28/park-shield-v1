@@ -7,6 +7,7 @@ import {
   STICKER_VALUE_CENTS,
   isStoreProvider,
   refundRouteUrl,
+  storeErrorKey,
   storeManageUrl,
   type BillingProvider,
 } from '@/lib/billing';
@@ -23,6 +24,7 @@ import {
   longDate,
   openInBrowser,
   payInApp,
+  type EndedSubscription,
   type PausedSubscription,
   type PortalMe,
   type SubscriptionSummary,
@@ -66,6 +68,23 @@ export function usePlanPrice(): string {
 /** „Im Preis enthalten: personalisierter Aufkleber … im Wert von 3,00 €.“ (B2). */
 export const stickerValueText = (cents: number = STICKER_VALUE_CENTS) =>
   t('stickerValueLine', { price: euro(cents, lang()) });
+
+/** The text for a failed store purchase or restore: the store's reason when known, else generic. */
+export const storePurchaseErrorText = (err: unknown) => {
+  const key = storeErrorKey(err);
+  return key
+    ? t(key, { store: storeName(Platform.OS === 'ios' ? 'app_store' : 'play_store') })
+    : errorText(err);
+};
+
+/** Why the last plan ended: withdrawn, refunded, expired, or moved to another ParkShield account. */
+export const endedText = (e: EndedSubscription) => {
+  const date = longDate(e.endedAt);
+  if (e.reason === 'withdrawn') return t('endedWithdrawn', { date });
+  if (e.reason === 'refunded') return t('endedRefunded', { date });
+  if (e.reason === 'moved') return t('endedMoved', { date, store: storeName(e.provider) });
+  return t('endedExpired', { date });
+};
 
 /** „Apple“ / „Google Play“ for a store subscription. */
 export const storeName = (p: BillingProvider | null | undefined) =>
@@ -316,7 +335,7 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
     try {
       await (store ? submitStore() : submitStripe());
     } catch (err) {
-      setError(errorText(err));
+      setError(store ? storePurchaseErrorText(err) : errorText(err));
     } finally {
       setBusy(false);
     }
@@ -333,7 +352,7 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
       if ((await syncStore()).status === 'active') onPaid();
       else setInfo(t('restoreNone'));
     } catch (err) {
-      setError(errorText(err));
+      setError(storePurchaseErrorText(err));
     } finally {
       setRestoring(false);
     }

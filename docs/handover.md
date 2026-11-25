@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-25 (website: one logo source, pages open at the top, deployed `162ec31`, §16). Before: 2026-11-25 (deployed `1a13c01` to the test server, §15b). Before: 2026-11-25 (owner decisions on the QA findings: first lock without cooldown, paywall, receipt print/PDF, localized `<title>`, worker warn, §15b). Before: 2026-11-25 (full QA run on web, iOS, Android, e-mails and ops; fixes and open findings in §15). Before: 2026-11-24 (owner decisions on `/aktivieren`, `/antwort`, passkeys and the first code done, §14). Before: 2026-11-24 (all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-25 (Android test: the app says why a plan ended, clear store purchase errors, §17). Before: 2026-11-25 (website: one logo source, pages open at the top, deployed `162ec31`, §16). Before: 2026-11-25 (deployed `1a13c01` to the test server, §15b). Before: 2026-11-25 (owner decisions on the QA findings: first lock without cooldown, paywall, receipt print/PDF, localized `<title>`, worker warn, §15b). Before: 2026-11-25 (full QA run on web, iOS, Android, e-mails and ops; fixes and open findings in §15). Before: 2026-11-24 (owner decisions on `/aktivieren`, `/antwort`, passkeys and the first code done, §14). Before: 2026-11-24 (all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -734,3 +734,37 @@ straight to `main`).
   On `park-shield.de` the footer links „Verträge hier kündigen“ and „Vertrag widerrufen“ lead back to
   the home page: until go-live Caddy serves only the public pages there (`infra/single/Caddyfile`,
   `@website`) and redirects everything else to `/` — on purpose, not a scroll bug.
+
+## 17. Android test: „noch kein Abo“ on another phone and the Google Play purchase error (2026-11-25)
+
+Owner report from a real Android phone: after signing in on another phone the app said „Sie haben noch
+kein Abo“ (account with an invoice of 21 Nov and a credit note of 23 Nov), and „Zahlungspflichtig
+bestellen“ ended in Google Play's „The item you were attempting to purchase could not be found“ and
+„Etwas ist schiefgelaufen“.
+
+- **Server data checked, no lost subscription.** Account A (the owner's test account): Stripe contract
+  withdrawn on 2026-11-23 (the credit note of 19,95 €); its later Apple sandbox purchase was moved to
+  account B on 2026-11-23 (RevenueCat TRANSFER: the same sandbox Apple ID bought on B). Account B
+  (a second owner test account): that Apple **sandbox** subscription renewed hourly (a sandbox „year“ is one hour),
+  Apple stopped renewing it and it expired on 2026-11-24 11:32 UTC; RevenueCat shows no entitlement.
+  Signing in on another phone changes nothing: the API reads only `subscriptions`.
+- **Fix: the app says why there is no plan.** `GET /v1/billing/subscription` has a new field `ended`
+  (`BillingService.endedSummary`: the latest ended contract while nothing is live or paused, with
+  `reason` `withdrawn` / `refunded` / `moved` / `expired`, `endedAt`, `provider`, `contractNo`).
+  „Abo und Rechnungen“ shows „Sie haben Ihren Vertrag am … widerrufen“, „Ihr Abo ist am … abgelaufen“
+  or „Ihr Kauf bei Apple gehört seit dem … zu einem anderen ParkShield-Konto …“ instead of „noch kein
+  Abo“ (app texts `ended*`). Tests: `billing.test.ts` (withdrawn), `store.test.ts` (moved, expired),
+  app `portal-screens.test.tsx`.
+- **Fix: store purchase errors have their own text.** `storeErrorKey()` (`apps/mobile/src/lib/billing.ts`)
+  maps RevenueCat codes: 5 product not available (Play's „item could not be found“), 6 already bought
+  (→ „Käufe wiederherstellen“), 7/13 the purchase belongs to another ParkShield account, 20 payment
+  pending, 3 purchases not allowed, 2/10/32/35 store not reachable. Used by the paywall and by „Käufe
+  wiederherstellen“; unknown codes keep the generic error.
+- **The Play error itself is a Play Console / test set-up issue, not code.** The product loaded (the
+  paywall showed Play's „€19.99“), so `parkshield_yearly:yearly` exists; Play refuses the purchase
+  (ITEM_UNAVAILABLE) when the app was not installed from Play (for example the EAS `preview` APK) or the
+  phone's Google account is not an internal tester who accepted the opt-in link. To check: install from
+  the internal-test opt-in link (`play-internal` build, §8 item 10), Google account in the tester list
+  „ParkShield intern“ and under Settings → License testing (free test purchases), payments profile
+  verified.
+- Not deployed yet: API deploy for `ended`; the app texts need a new EAS build (`play-internal` for Play).

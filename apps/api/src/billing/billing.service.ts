@@ -211,6 +211,42 @@ export class BillingService {
     };
   }
 
+  /**
+   * The most recent contract that has ended, while nothing is live or paused (2026-11-25: an owner
+   * signing in on another phone saw „Sie haben noch kein Abo“ although they had one before). Says why
+   * it ended: `withdrawn`, `refunded`, `moved` (the store purchase now belongs to another of our
+   * accounts: the same Apple ID / Google account bought there, RevenueCat TRANSFER) or `expired`.
+   */
+  async endedSummary(userId: string) {
+    if (await this.liveSubscription(userId)) return null;
+    if (await this.pausedSubscription(userId)) return null;
+    const s = await this.db
+      .selectFrom('subscriptions')
+      .selectAll()
+      .where('user_id', '=', userId)
+      .where('status', 'in', ['canceled', 'expired', 'withdrawn'])
+      .orderBy('created_at', 'desc')
+      .executeTakeFirst();
+    if (!s) return null;
+    const moved = s.store_original_transaction_id?.includes('#moved:') ?? false;
+    const reason = s.withdrawn_at
+      ? ('withdrawn' as const)
+      : s.refunded_at
+        ? ('refunded' as const)
+        : moved
+          ? ('moved' as const)
+          : ('expired' as const);
+    const endedAt =
+      reason === 'withdrawn'
+        ? s.withdrawn_at
+        : reason === 'refunded'
+          ? s.refunded_at
+          : reason === 'moved'
+            ? s.updated_at
+            : (s.current_period_end ?? s.canceled_at ?? s.updated_at);
+    return { provider: s.provider, reason, endedAt, contractNo: s.contract_no };
+  }
+
   /** Whether the user had a subscription before (re-subscription asks about the old sticker). */
   async hadSubscription(userId: string): Promise<boolean> {
     const r = await this.db

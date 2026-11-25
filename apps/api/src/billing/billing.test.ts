@@ -100,7 +100,12 @@ describe('annual checkout (US-06)', () => {
       url: '/v1/billing/subscription',
       headers: { cookie: s.cookie },
     });
-    expect(before.json()).toEqual({ subscription: null, hadSubscription: false, paused: null });
+    expect(before.json()).toEqual({
+      subscription: null,
+      hadSubscription: false,
+      paused: null,
+      ended: null,
+    });
 
     const res = await checkout(s, {
       plan: 'standard',
@@ -458,6 +463,21 @@ describe('online withdrawal (§ 356a BGB)', () => {
       .select(['status', 'withdrawn_at'])
       .executeTakeFirstOrThrow();
     expect(sub.status).toBe('withdrawn');
+    // The app says why there is no plan any more (2026-11-25), not „noch kein Abo“.
+    const view = (
+      await h.app.inject({
+        method: 'GET',
+        url: '/v1/billing/subscription',
+        headers: { cookie: s.cookie },
+      })
+    ).json();
+    expect(view.subscription).toBeNull();
+    expect(view.ended).toMatchObject({
+      provider: 'stripe',
+      reason: 'withdrawn',
+      contractNo: contract_no,
+    });
+    expect(new Date(view.ended.endedAt).getTime()).toBe(sub.withdrawn_at!.getTime());
     const req = await h.db
       .selectFrom('withdrawal_requests')
       .select(['status', 'refund_amount_cents'])

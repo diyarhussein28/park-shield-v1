@@ -9,6 +9,7 @@ import {
   SubscriptionInfo,
   openPaymentPortal,
   openStoreManagement,
+  endedText,
   stickerValueText,
   storeName,
 } from '@/components/subscription';
@@ -23,6 +24,7 @@ import {
   euro,
   openInBrowser,
   type CreditNote,
+  type EndedSubscription,
   type InvoiceSummary,
   type OrderSummary,
   type PortalMe,
@@ -41,6 +43,7 @@ export default function Subscription() {
   const router = useRouter();
   const [me, setMe] = useState<PortalMe | null>(null);
   const [sub, setSub] = useState<SubscriptionSummary | null | undefined>(undefined);
+  const [ended, setEnded] = useState<EndedSubscription | null>(null);
   const [invoices, setInvoices] = useState<InvoiceSummary[]>([]);
   const [credits, setCredits] = useState<CreditNote[]>([]);
   const [purchases, setPurchases] = useState<OrderSummary[]>([]);
@@ -52,10 +55,13 @@ export default function Subscription() {
     try {
       const [m, s] = await Promise.all([
         api<PortalMe>('/v1/me'),
-        api<{ subscription: SubscriptionSummary | null }>('/v1/billing/subscription'),
+        api<{ subscription: SubscriptionSummary | null; ended?: EndedSubscription | null }>(
+          '/v1/billing/subscription',
+        ),
       ]);
       setMe(m);
       setSub(s.subscription);
+      setEnded(s.ended ?? null);
       const [inv, cn, orders] = await Promise.all([
         api<{ invoices: InvoiceSummary[] }>('/v1/billing/invoices').catch(() => ({ invoices: [] })),
         api<{ creditNotes: CreditNote[] }>('/v1/billing/credit-notes').catch(() => ({
@@ -146,7 +152,14 @@ export default function Subscription() {
           </>
         ) : (
           <>
-            <P muted>{pt('account.noSubscription')}</P>
+            {/* 2026-11-25: say why an earlier plan ended instead of „noch kein Abo“. */}
+            {ended ? (
+              <View testID="sub-ended">
+                <P>{endedText(ended)}</P>
+              </View>
+            ) : (
+              <P muted>{pt('account.noSubscription')}</P>
+            )}
             <Button label={t('homeNoPlanCta')} onPress={() => router.push('/tarif')} />
           </>
         )}

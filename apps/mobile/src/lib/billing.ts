@@ -60,6 +60,37 @@ export function storeBillingAvailable(input: {
 }
 
 /**
+ * The app text for a failed store purchase, from RevenueCat's error code (`PURCHASES_ERROR_CODE`,
+ * string values). Found 2026-11-25: Google Play's „The item you were attempting to purchase could not
+ * be found“ (code 5) ended in „Etwas ist schiefgelaufen“. `null` = no specific text (generic error).
+ */
+export type StoreErrorKey =
+  | 'storeErrNotAvailable'
+  | 'storeErrAlreadyOwned'
+  | 'storeErrOtherAccount'
+  | 'storeErrPending'
+  | 'storeErrNotAllowed'
+  | 'storeUnavailable';
+
+const STORE_ERRORS: Record<string, StoreErrorKey> = {
+  '2': 'storeUnavailable', // STORE_PROBLEM_ERROR
+  '3': 'storeErrNotAllowed', // PURCHASE_NOT_ALLOWED_ERROR
+  '5': 'storeErrNotAvailable', // PRODUCT_NOT_AVAILABLE_FOR_PURCHASE_ERROR (Play: ITEM_UNAVAILABLE)
+  '6': 'storeErrAlreadyOwned', // PRODUCT_ALREADY_PURCHASED_ERROR
+  '7': 'storeErrOtherAccount', // RECEIPT_ALREADY_IN_USE_ERROR
+  '10': 'storeUnavailable', // NETWORK_ERROR
+  '13': 'storeErrOtherAccount', // RECEIPT_IN_USE_BY_OTHER_SUBSCRIBER_ERROR
+  '20': 'storeErrPending', // PAYMENT_PENDING_ERROR
+  '32': 'storeUnavailable', // PRODUCT_REQUEST_TIMED_OUT_ERROR
+  '35': 'storeUnavailable', // OFFLINE_CONNECTION_ERROR
+};
+
+export function storeErrorKey(err: unknown): StoreErrorKey | null {
+  const code = (err as { code?: unknown } | null)?.code;
+  return code === undefined || code === null ? null : (STORE_ERRORS[String(code)] ?? null);
+}
+
+/**
  * The vehicle label printed on the decal (B1): required, 2–20 characters, letters, numbers, spaces and
  * basic punctuation. The bad-word filter runs on the server (`label_invalid`).
  */

@@ -84,6 +84,15 @@ const summary = async (s: Session) =>
     })
   ).json().subscription;
 
+const ended = async (s: Session) =>
+  (
+    await h.app.inject({
+      method: 'GET',
+      url: '/v1/billing/subscription',
+      headers: { cookie: s.cookie },
+    })
+  ).json().ended;
+
 const webhook = (event: Record<string, unknown>, auth = DEV_WEBHOOK_AUTH) =>
   h.app.inject({
     method: 'POST',
@@ -232,6 +241,9 @@ describe('in-app subscription through RevenueCat (Part A)', () => {
       expect(x.store_original_transaction_id).toContain('#moved:');
     }
     expect(rows.filter((x) => x.user_id === b.userId && x.status === 'active')).toHaveLength(1);
+    // A's app says the purchase now belongs to another account instead of „noch kein Abo“.
+    expect(await ended(a.s)).toMatchObject({ provider: 'app_store', reason: 'moved' });
+    expect(await ended(b.s)).toBeNull();
     // A later webhook for A (no entitlement any more) changes nothing for B.
     await sync().sync(a.userId);
     expect(await summary(b.s)).toMatchObject({ unifiedStatus: 'ACTIVE' });
@@ -316,6 +328,7 @@ describe('in-app subscription through RevenueCat (Part A)', () => {
     const row = await h.db.selectFrom('subscriptions').select(['status']).executeTakeFirstOrThrow();
     expect(row.status).toBe('expired');
     expect(await summary(s)).toBeNull();
+    expect(await ended(s)).toMatchObject({ provider: 'app_store', reason: 'expired' });
   });
 
   it('Google Play pause: no protection until the resume date, no second purchase, same contract back', async () => {

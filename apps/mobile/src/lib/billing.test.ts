@@ -5,6 +5,7 @@ import {
   refundRouteUrl,
   showWelcomePrintCta,
   storeBillingAvailable,
+  storeErrorKey,
   storeManageUrl,
 } from './billing';
 
@@ -68,5 +69,21 @@ describe('unified billing helpers', () => {
     expect(showWelcomePrintCta({ includedAvailable: true, hasDecal: false })).toBe(false);
     expect(showWelcomePrintCta({ includedAvailable: false, hasDecal: true })).toBe(false);
     expect(showWelcomePrintCta({ includedAvailable: undefined, hasDecal: true })).toBe(false);
+  });
+});
+
+describe('store purchase errors (2026-11-25)', () => {
+  it('maps RevenueCat codes to a clear text, everything else to the generic one', () => {
+    // Google Play „The item you were attempting to purchase could not be found“.
+    expect(storeErrorKey({ code: '5' })).toBe('storeErrNotAvailable');
+    expect(storeErrorKey({ code: '6' })).toBe('storeErrAlreadyOwned');
+    expect(storeErrorKey({ code: '7' })).toBe('storeErrOtherAccount');
+    expect(storeErrorKey({ code: '13' })).toBe('storeErrOtherAccount');
+    expect(storeErrorKey({ code: '20' })).toBe('storeErrPending');
+    expect(storeErrorKey({ code: '3' })).toBe('storeErrNotAllowed');
+    expect(storeErrorKey({ code: '10' })).toBe('storeUnavailable');
+    expect(storeErrorKey({ code: '0' })).toBeNull();
+    expect(storeErrorKey(new Error('x'))).toBeNull();
+    expect(storeErrorKey(null)).toBeNull();
   });
 });
