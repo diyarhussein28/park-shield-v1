@@ -18,9 +18,12 @@ import { ProfileProvider, useProfile } from '@/lib/profile';
 import {
   configureNotifications,
   handleResponse,
-  registerDevice,
+  onDataMessage,
   type PushTarget,
+  registerDevice,
+  statusPushOf,
 } from '@/lib/push';
+import { statusChanged } from '@/lib/vehicle-status';
 import { stackOptions } from '@/theme/navigation';
 import { HEADING_FONT, HEADING_FONT_BOLD, useTheme } from '@/theme/tokens';
 
@@ -123,16 +126,32 @@ function Gate() {
       allowAlert(id);
       router.push({ pathname: target === 'chat' ? '/chat/[id]' : '/alerts/[id]', params: { id } });
     };
+    // „Bin gleich zurück“: the pre-expiry push and its actions lead to the vehicle.
+    const openVehicle = (id: string) => router.push({ pathname: '/fahrzeug/[id]', params: { id } });
     void Notifications.getLastNotificationResponseAsync().then((r) => {
       if (r) {
-        void handleResponse(r, open);
+        void handleResponse(r, open, openVehicle);
         void Notifications.clearLastNotificationResponseAsync();
       }
     });
     const sub = Notifications.addNotificationResponseReceivedListener((r) => {
-      void handleResponse(r, open);
+      void handleResponse(r, open, openVehicle);
     });
-    return () => sub.remove();
+    // A „Bin gleich zurück“ push while the app is open (the visible pre-expiry one, or the silent
+    // „ended“ one where the platform hands it over): the banner refreshes at once.
+    const received = Notifications.addNotificationReceivedListener((n) => {
+      const push = statusPushOf(n.request.content.data as Record<string, unknown> | null);
+      if (push) statusChanged(push.vehicleId);
+    });
+    const offData = onDataMessage((data) => {
+      const push = statusPushOf(data);
+      if (push) statusChanged(push.vehicleId);
+    });
+    return () => {
+      sub.remove();
+      received.remove();
+      offData();
+    };
   }, [signedIn, router, allowAlert]);
 
   if (signedIn === undefined || onboarded === undefined) return <Loading />;

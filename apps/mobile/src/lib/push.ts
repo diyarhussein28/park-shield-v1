@@ -1,9 +1,19 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { api } from './api';
-import { ACK_ACTION, ALERT_CATEGORY, ALERT_CHANNEL, APP_VERSION, HAS_FIREBASE } from './config';
+import {
+  ACK_ACTION,
+  ALERT_CATEGORY,
+  ALERT_CHANNEL,
+  APP_VERSION,
+  BRB_CATEGORY,
+  BRB_END_ACTION,
+  BRB_EXTEND_ACTION,
+  HAS_FIREBASE,
+} from './config';
 import { lang, t } from './i18n';
 import { clearDeviceToken, getDeviceToken, setDeviceToken } from './session';
+import { endStatus, extendStatus, statusChanged } from './vehicle-status';
 
 export type PushPermission = 'granted' | 'denied' | 'undetermined';
 
@@ -35,6 +45,20 @@ export async function configureNotifications(): Promise<void> {
       identifier: ACK_ACTION,
       buttonTitle: t('coming'),
       // Opens the app, which sends the acknowledgement and shows that it worked.
+      options: { opensAppToForeground: true },
+    },
+  ]);
+  // „Bin gleich zurück“ ends in 1 min: „+5 Min“ and „Beenden“ (the app calls the API, then shows the
+  // vehicle with the updated banner).
+  await Notifications.setNotificationCategoryAsync(BRB_CATEGORY, [
+    {
+      identifier: BRB_EXTEND_ACTION,
+      buttonTitle: t('brbExtend'),
+      options: { opensAppToForeground: true },
+    },
+    {
+      identifier: BRB_END_ACTION,
+      buttonTitle: t('brbEnd'),
       options: { opensAppToForeground: true },
     },
   ]);
@@ -155,7 +179,10 @@ export type PushTarget = 'alert' | 'chat';
 export async function handleResponse(
   response: Notifications.NotificationResponse,
   open: (alertId: string, target: PushTarget) => void,
-): Promise<'acknowledged' | 'opened' | 'ignored'> {
+  openVehicle?: (vehicleId: string) => void,
+): Promise<'acknowledged' | 'opened' | 'extended' | 'ended' | 'ignored'> {
+  const brb = await handleStatusResponse(response, openVehicle);
+  if (brb) return brb;
   const alertId = alertIdOf(response);
   if (!alertId) return 'ignored';
   if (response.actionIdentifier === ACK_ACTION) {
@@ -167,4 +194,54 @@ export async function handleResponse(
   }
   open(alertId, pushField(response, 'kind') === 'chat' ? 'chat' : 'alert');
   return 'opened';
+}
+
+/** The vehicle of a „Bin gleich zurück“ push (pre-expiry or the silent „ended“), else null. */
+export function statusPushOf(
+  data: Record<string, unknown> | null | undefined,
+): { vehicleId: string; kind: 'brb_expiring' | 'brb_ended' } | null {
+  const kind = data?.kind;
+  const vehicleId = data?.vehicleId;
+  if ((kind !== 'brb_expiring' && kind !== 'brb_ended') || typeof vehicleId !== 'string')
+    return null;
+  return /^[0-9a-f-]{36}$/i.test(vehicleId) ? { vehicleId, kind } : null;
+}
+
+/** „+5 Min“ / „Beenden“ on the pre-expiry push, or a tap on it (opens the vehicle). */
+async function handleStatusResponse(
+  response: Notifications.NotificationResponse,
+  openVehicle?: (vehicleId: string) => void,
+): Promise<'extended' | 'ended' | 'opened' | null> {
+  const kind = pushField(response, 'kind');
+  const vehicleId = pushField(response, 'vehicleId');
+  const push = statusPushOf({ kind, vehicleId });
+  if (!push) return null;
+  let result: 'extended' | 'ended' | 'opened' = 'opened';
+  if (response.actionIdentifier === BRB_EXTEND_ACTION) {
+    await extendStatus(push.vehicleId).catch(() => undefined);
+    result = 'extended';
+  } else if (response.actionIdentifier === BRB_END_ACTION) {
+    await endStatus(push.vehicleId).catch(() => undefined);
+    result = 'ended';
+  }
+  statusChanged(push.vehicleId);
+  openVehicle?.(push.vehicleId);
+  return result;
+}
+
+/**
+ * Data-only FCM messages while the app is in the foreground (the silent „Bin gleich zurück ended“).
+ * React Native Firebase delivers them; builds without Firebase have none (the banner still ends with
+ * its own countdown and on every refetch).
+ */
+export function onDataMessage(fn: (data: Record<string, unknown>) => void): () => void {
+  if (!HAS_FIREBASE) return () => undefined;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const m =
+      require('@react-native-firebase/messaging') as typeof import('@react-native-firebase/messaging');
+    return m.onMessage(m.getMessaging(), async (msg) => fn(msg.data ?? {}));
+  } catch {
+    return () => undefined;
+  }
 }

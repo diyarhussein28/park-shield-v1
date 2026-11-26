@@ -6,6 +6,7 @@ import { Alert, Linking, StyleSheet, View } from 'react-native';
 import { Badge, Choice, H3 } from '@/components/form';
 import { WindscreenArt } from '@/components/art';
 import { Collapsible, Group, Row } from '@/components/list';
+import { BeRightBack } from '@/components/be-right-back';
 import { NewCodeActions, useNewCodeOptions } from '@/components/new-code';
 import { NoCodeCard } from '@/components/no-code';
 import { VehicleForm } from '@/components/vehicle-forms';
@@ -116,6 +117,8 @@ export default function VehicleDetail() {
         />
       )}
       {created && v.decal && <Banner tone="ok">{t('newCodeDone')}</Banner>}
+      {/* „Bin gleich zurück“ (owner spec 2026-11-26): only while the decal works. */}
+      {v.decal && <BeRightBack vehicleId={v.id} />}
       {v.decal && (
         <QrHero
           key={`${v.decal.tokenId}-${v.decal.template}-${v.decal.cta}`}

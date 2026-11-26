@@ -23,3 +23,8 @@ export const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 export const ALERT_CATEGORY = 'PS_ALERT';
 export const ACK_ACTION = 'PS_ACK';
 export const ALERT_CHANNEL = 'alerts';
+
+/** „Bin gleich zurück“ ends in 1 min: category with „+5 Min“ and „Beenden“ (API: APP_BRB_CATEGORY). */
+export const BRB_CATEGORY = 'PS_BRB';
+export const BRB_EXTEND_ACTION = 'PS_BRB_EXTEND';
+export const BRB_END_ACTION = 'PS_BRB_END';

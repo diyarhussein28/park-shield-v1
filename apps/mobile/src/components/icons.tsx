@@ -140,6 +140,8 @@ const TYPE_ICON: Record<string, IconName> = {
   alarm: 'bell',
   towing_risk: 'truck',
   custom: 'chat',
+  // „Ich warte“ while „Bin gleich zurück“ is on (2026-11-26).
+  waiting: 'clock',
 };
 export const alertTypeIcon = (code: string): IconName => TYPE_ICON[code] ?? 'alert';
 

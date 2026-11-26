@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CarArt } from '@/components/art';
+import { BeRightBack } from '@/components/be-right-back';
 import { CarPicture } from '@/components/car-picture';
 import { Icon } from '@/components/icons';
 import { NoCodeCard } from '@/components/no-code';
@@ -210,6 +211,8 @@ export default function Home() {
                 {[first.plate, first.makeModel].filter(Boolean).join(' · ')}
               </Text>
             )}
+            {/* „Bin gleich zurück“: the button, or the running status with its countdown. */}
+            {decal && <BeRightBack vehicleId={first.id} />}
 
             {decal && preview && (
               <View testID="home-decal" style={[s.decal, { borderColor: c.border }]}>
