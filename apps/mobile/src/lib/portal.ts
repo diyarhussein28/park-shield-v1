@@ -196,7 +196,9 @@ export interface SubscriptionSummary {
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
   canceledAt: string | null;
-  interval: 'year' | 'month';
+  interval: 'year' | 'month' | 'lifetime';
+  /** Paid once (2026-11-26): no renewal, no period end, nothing to cancel. */
+  lifetime?: boolean;
   renewalMode: 'annual' | 'monthly_after_first_term';
   withdrawalOpenUntil: string | null;
   /** Where it was bought (docs/billing-unified.md); Stripe for older API answers. */

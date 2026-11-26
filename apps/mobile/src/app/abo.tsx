@@ -135,7 +135,8 @@ export default function Subscription() {
             </Text>
             <PlanFeatures />
             <P muted>{stickerValueText(sub.stickerValueCents)}</P>
-            {isStoreProvider(sub.provider) ? (
+            {sub.lifetime ? null : isStoreProvider(sub.provider) ? (
+              // Lifetime (2026-11-26): paid once, no payment method or renewal to manage.
               // A6: Apple/Google manage payment and renewal of store subscriptions.
               <Button
                 label={t('storeManageButton', { store: storeName(sub.provider) })}

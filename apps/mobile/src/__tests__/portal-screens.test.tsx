@@ -21,7 +21,7 @@ import Vehicles from '@/app/(tabs)/fahrzeuge';
 import { HistoryList as History } from '@/components/history-list';
 import Cancel from '@/app/kuendigen';
 import Account from '@/app/abo';
-import { ContractCard } from '@/components/subscription';
+import { ContractCard, SubscriptionInfo } from '@/components/subscription';
 import Notifications from '@/app/benachrichtigungen';
 import PrintScreen from '@/app/fahrzeug/drucken/[id]';
 import PaidNewCode from '@/app/fahrzeug/neuer-code/[id]';
@@ -665,6 +665,60 @@ describe('subscription and checkout in the app', () => {
     expect(screen.queryByText(pt('checkout.withdrawalLink'))).toBeNull();
     await fireEvent.press(screen.getByTestId('pay-details'));
     expect(screen.getByText(pt('checkout.withdrawalLink'))).toBeTruthy();
+  });
+
+  it('the lifetime button sits under the yearly one: true facts, § 312j label, sends term=lifetime', async () => {
+    let body: Record<string, unknown> | null = null;
+    api({
+      'GET /v1/billing/subscription': () => json({ subscription: null, hadSubscription: false }),
+      'GET /v1/legal/checkout-texts': () => json(texts),
+      'POST /v1/billing/checkout': (init) => {
+        body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return json({ url: 'https://checkout.stripe.com/c/pay/cs_test_life' });
+      },
+      'POST /v1/billing/checkout/confirm': () => json({ status: 'pending' }),
+    });
+    (WebBrowser.openAuthSessionAsync as jest.Mock).mockResolvedValue({ type: 'cancel' });
+    await render(<Plans />);
+    const label = t('lifetimePayButton', { price: euro(2999, 'de') });
+    expect(label).toBe(`Zahlungspflichtig bestellen – ${euro(2999, 'de')} einmalig`);
+    await screen.findByLabelText(label);
+    expect(screen.getByTestId('lifetime-offer')).toBeTruthy();
+    // 29,99 € − 19,99 € = 10 € more; cheaper from the 2nd year; 5 × 19,99 € − 29,99 € = 69,96 € saved.
+    expect(screen.getByText(t('lifetimeBadge', { diff: euro(1000, 'de') }))).toBeTruthy();
+    expect(screen.getByText(t('lifetimeSave', { year: 2, saved: euro(6996, 'de') }))).toBeTruthy();
+    expect(screen.getByText(t('lifetimeNoRenew'))).toBeTruthy();
+    // Locked until the immediate-start declaration is ticked, like the yearly button.
+    expect(screen.getByTestId('pay-lifetime').props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(await screen.findByLabelText(texts.immediateStart.text));
+    await fireEvent.press(screen.getByTestId('pay-lifetime'));
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body).toMatchObject({ plan: 'standard', term: 'lifetime', immediateStart: true });
+  });
+
+  it('a lifetime contract shows „dauerhaft geschützt“ and nothing to cancel', async () => {
+    const sub = {
+      plan: 'standard' as const,
+      status: 'active' as const,
+      contractNo: 'PS-LIFE0001',
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
+      canceledAt: null,
+      interval: 'lifetime' as const,
+      lifetime: true,
+      renewalMode: 'annual' as const,
+      withdrawalOpenUntil: null,
+      provider: 'stripe' as const,
+    };
+    await render(
+      <>
+        <SubscriptionInfo sub={sub} />
+        <ContractCard sub={sub} onWithdraw={() => undefined} onCancel={() => undefined} />
+      </>,
+    );
+    expect(screen.getByText(t('lifetimeActive'))).toBeTruthy();
+    expect(screen.getByText(t('lifetimeNothingToCancel'))).toBeTruthy();
+    expect(screen.queryByTestId('cancel')).toBeNull();
   });
 
   it('a cancelled or closed payment page never says „Danke“ (P3)', async () => {

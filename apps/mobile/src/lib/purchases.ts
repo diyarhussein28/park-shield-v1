@@ -64,6 +64,20 @@ export async function yearlyPackage(): Promise<PurchasesPackage | null> {
   return current?.annual ?? current?.availablePackages[0] ?? null;
 }
 
+/**
+ * The lifetime package (non-consumable, owner decision 2026-11-26), or null while the store offers
+ * none: then the app simply shows no lifetime button where it buys through the store.
+ */
+export async function lifetimePackage(): Promise<PurchasesPackage | null> {
+  const offerings = await Purchases.getOfferings();
+  const current = offerings.current;
+  return (
+    current?.lifetime ??
+    current?.availablePackages.find((p) => p.packageType === Purchases.PACKAGE_TYPE.LIFETIME) ??
+    null
+  );
+}
+
 export type StorePurchaseResult = 'purchased' | 'canceled';
 
 /** Opens the store purchase sheet; only for the signed-in user (never anonymous). */

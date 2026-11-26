@@ -1,4 +1,10 @@
-import { PLAN_PRICE_CENTS, STORE_PLAN_PRICE_CENTS } from '@parkshield/shared/plans';
+import {
+  LIFETIME_PRICE_CENTS,
+  PLAN_PRICE_CENTS,
+  STORE_LIFETIME_PRICE_CENTS,
+  STORE_PLAN_PRICE_CENTS,
+  type PlanTerm,
+} from '@parkshield/shared/plans';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import type { PurchasesPackage } from 'react-native-purchases';
@@ -13,6 +19,7 @@ import {
 } from '@/lib/billing';
 import {
   isStoreBillingAvailable,
+  lifetimePackage,
   purchaseYearly,
   restoreStorePurchases,
   yearlyPackage,
@@ -33,6 +40,7 @@ import { pt } from '@/lib/portal-i18n';
 import { type as typeScale } from '@/theme/tokens';
 import { Badge, Check, Choice, Field } from './form';
 import { Icon } from './icons';
+import { LifetimeOffer } from './lifetime-offer';
 import { Collapsible } from './list';
 import { Banner, Button, Card, P, Title, useTheme } from './ui';
 
@@ -145,7 +153,8 @@ export function SubscriptionInfo({ sub }: { sub: SubscriptionSummary }) {
       </View>
       {sub.contractNo && <P>{pt('account.contractNo', { contractNo: sub.contractNo })}</P>}
       <P muted>{providerText(sub.provider)}</P>
-      {end && (
+      {sub.lifetime && <P>{t('lifetimeActive')}</P>}
+      {!sub.lifetime && end && (
         <P muted>
           {sub.cancelAtPeriodEnd
             ? pt('account.endsOn', { date: end })
@@ -217,6 +226,9 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
   const [paused, setPaused] = useState<PausedSubscription | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [pkg, setPkg] = useState<PurchasesPackage | null | 'error'>(null);
+  // Lifetime (2026-11-26): the store's non-consumable; null = the store offers none (no button).
+  const [lifePkg, setLifePkg] = useState<PurchasesPackage | null>(null);
+  const [busyTerm, setBusyTerm] = useState<PlanTerm>('year');
   const [sticker, setSticker] = useState<'keep' | 'replace' | null>(null);
   const [stickerMissing, setStickerMissing] = useState(false);
   const [state, setState] = useState<CheckoutState>('idle');
@@ -249,6 +261,9 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
       void yearlyPackage()
         .then((p) => on && setPkg(p ?? 'error'))
         .catch(() => on && setPkg('error'));
+      void lifetimePackage()
+        .then((p) => on && setLifePkg(p))
+        .catch(() => undefined);
     }
     return () => {
       on = false;
@@ -257,6 +272,22 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
 
   // The store's own price (19,99 €, the same as Stripe) when the store is used.
   const price = store && pkg && pkg !== 'error' ? pkg.product.priceString : planPrice();
+  const lifePrice =
+    store && lifePkg ? lifePkg.product.priceString : euro(LIFETIME_PRICE_CENTS, lang());
+  // The real amounts behind the comparison texts (the store's prices when it sells the plan).
+  const yearCents =
+    store && pkg && pkg !== 'error'
+      ? Math.round(pkg.product.price * 100)
+      : store
+        ? STORE_PLAN_PRICE_CENTS
+        : PLAN_PRICE_CENTS;
+  const lifeCents =
+    store && lifePkg
+      ? Math.round(lifePkg.product.price * 100)
+      : store
+        ? STORE_LIFETIME_PRICE_CENTS
+        : LIFETIME_PRICE_CENTS;
+  const lifetimeOffered = !store || Boolean(lifePkg);
 
   const check = (sessionId: string | null) =>
     api<{ status: 'active' | 'pending' }>('/v1/billing/checkout/confirm', {
@@ -282,8 +313,9 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
     setState(probe === syncStore ? 'failed_store' : 'failed');
   };
 
-  const submitStore = async () => {
-    if (!texts || texts === 'error' || !pkg || pkg === 'error') return;
+  const submitStore = async (term: PlanTerm) => {
+    const chosen = term === 'lifetime' ? lifePkg : pkg;
+    if (!texts || texts === 'error' || !chosen || chosen === 'error') return;
     // Proof of what was agreed, stored before the store sheet opens (same as the web checkout).
     const prepared = await api<{ appUserId: string }>('/v1/billing/store/prepare', {
       body: {
@@ -294,19 +326,21 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
     });
     const id = prepared.appUserId || userId;
     if (!id) throw new Error('no_user');
-    const r = await purchaseYearly(pkg, id);
+    const r = await purchaseYearly(chosen, id);
     if (r === 'canceled') setState('canceled');
     else await confirm(syncStore);
   };
 
-  const submitStripe = async () => {
+  const submitStripe = async (term: PlanTerm) => {
     if (!texts || texts === 'error') return;
+    const lifetime = term === 'lifetime';
     const body = {
       plan: 'standard',
+      ...(lifetime ? { term: 'lifetime' } : {}),
       immediateStart: true,
       immediateStartVersion: texts.immediateStart.version,
       termsVersion: texts.terms.version,
-      ...(promo.trim() ? { promoCode: promo.trim() } : {}),
+      ...(promo.trim() && !lifetime ? { promoCode: promo.trim() } : {}),
     };
     const r = await payInApp((appReturn) =>
       resubscribe
@@ -322,18 +356,19 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
     else setState('canceled');
   };
 
-  const submit = async () => {
+  const submit = async (term: PlanTerm = 'year') => {
     if (!immediate || !texts || texts === 'error') return;
     if (!store && resubscribe && !sticker) {
       setStickerMissing(true);
       return;
     }
     setBusy(true);
+    setBusyTerm(term);
     setError(null);
     setInfo(null);
     setState('idle');
     try {
-      await (store ? submitStore() : submitStripe());
+      await (store ? submitStore(term) : submitStripe(term));
     } catch (err) {
       setError(store ? storePurchaseErrorText(err) : errorText(err));
     } finally {
@@ -455,11 +490,21 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
       {/* § 312j BGB: the button names the obligation to pay and the price. */}
       <Button
         label={t('payButton', { price })}
-        onPress={() => void submit()}
-        busy={busy}
-        disabled={!immediate || (store && (!pkg || pkg === 'error'))}
+        onPress={() => void submit('year')}
+        busy={busy && busyTerm === 'year'}
+        disabled={busy || !immediate || (store && (!pkg || pkg === 'error'))}
         testID="pay"
       />
+      {lifetimeOffered && (
+        <LifetimeOffer
+          price={lifePrice}
+          yearCents={yearCents}
+          lifetimeCents={lifeCents}
+          onPress={() => void submit('lifetime')}
+          busy={busy && busyTerm === 'lifetime'}
+          disabled={busy || !immediate}
+        />
+      )}
       <View style={s.secure}>
         <Icon name="lock" size={16} color={c.muted} />
         <Text style={[typeScale.caption, { color: c.muted, flexShrink: 1 }]}>
@@ -577,7 +622,11 @@ export function ContractCard({
         </View>
       )}
       {/* TODO [LEGAL REVIEW] § 312k BGB cancellation text (annual renewal, end of the paid year). */}
-      {store ? (
+      {sub.lifetime ? (
+        <View style={s.part} testID="contract-lifetime">
+          <P>{t('lifetimeNothingToCancel')}</P>
+        </View>
+      ) : store ? (
         <View style={s.part} testID="contract-cancel-store">
           {sub.cancelAtPeriodEnd && sub.currentPeriodEnd && (
             <P>{pt('account.endsOn', { date: new Date(sub.currentPeriodEnd) })}</P>
