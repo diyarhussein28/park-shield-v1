@@ -132,7 +132,7 @@ function StaffRow({
     <Card>
       <Stack gap={3}>
         <div className="flex flex-wrap items-center gap-2">
-          <Heading level={2} className="text-lg">
+          <Heading level={2} className="min-w-0 text-lg wrap-anywhere">
             {person.name ?? person.email}
           </Heading>
           <Text muted className="min-w-0 wrap-anywhere">

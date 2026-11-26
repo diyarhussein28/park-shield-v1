@@ -14,7 +14,8 @@ import { Icon, alertTypeIcon, type IconName } from './icons';
 export const isDone = (a: AlertListItem) => a.acknowledged || Boolean(a.resolved);
 
 export function statusLabel(a: AlertListItem): string {
-  if (isDone(a)) return t('acknowledged');
+  if (a.resolved) return t('acknowledged');
+  if (isDone(a)) return t('answered');
   if (a.status === 'expired') return t('expired');
   // The owner did not react for 30 minutes: the one SMS went out.
   if (a.escalationStage === 'sms_sent') return t('escalated');

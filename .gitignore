@@ -38,3 +38,6 @@ infra/monitoring/*.tfvars
 # Ansible collections installed by CI for ansible-lint
 infra/ansible/collections/
 dump.rdb
+
+# Vitest cache (local runs)
+.vitest

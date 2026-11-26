@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-26 (NFC decal spec; company block in the website footer, deployed `f743aae`, §18). Before: 2026-11-25 (first Google Play purchase works, §17). Before: 2026-11-25 (deployed `7726a04`: the app says why a plan ended, clear store purchase errors, §17). Before: 2026-11-25 (website: one logo source, pages open at the top, deployed `162ec31`, §16). Before: 2026-11-25 (deployed `1a13c01` to the test server, §15b). Before: 2026-11-25 (owner decisions on the QA findings: first lock without cooldown, paywall, receipt print/PDF, localized `<title>`, worker warn, §15b). Before: 2026-11-25 (full QA run on web, iOS, Android, e-mails and ops; fixes and open findings in §15). Before: 2026-11-24 (owner decisions on `/aktivieren`, `/antwort`, passkeys and the first code done, §14). Before: 2026-11-24 (all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-26 (all 213 QA cases run, 5 defects fixed, §20). Before: 2026-11-26 (NFC decal spec; company block in the website footer, deployed `f743aae`, §19). Before: 2026-11-25 (first Google Play purchase works, §17). Before: 2026-11-25 (deployed `7726a04`: the app says why a plan ended, clear store purchase errors, §17). Before: 2026-11-25 (website: one logo source, pages open at the top, deployed `162ec31`, §16). Before: 2026-11-25 (deployed `1a13c01` to the test server, §15b). Before: 2026-11-25 (owner decisions on the QA findings: first lock without cooldown, paywall, receipt print/PDF, localized `<title>`, worker warn, §15b). Before: 2026-11-25 (full QA run on web, iOS, Android, e-mails and ops; fixes and open findings in §15). Before: 2026-11-24 (owner decisions on `/aktivieren`, `/antwort`, passkeys and the first code done, §14). Before: 2026-11-24 (all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -793,7 +793,7 @@ device matrix and defect log. No credentials inside; basic auth, TestFlight/APK 
 invites go to the company separately. Open: send it to the company, agree the window for load and
 intrusive security tests, provide app builds (push and Stripe return need a real build).
 
-## 18. NFC decal spec and the company block in the website footer (2026-11-26)
+## 19. NFC decal spec and the company block in the website footer (2026-11-26)
 
 - **NFC decals:** specification in [`docs/nfc-decals.md`](nfc-decals.md) (draft for the owner's
   decision, nothing built). Stage 1: NTAG213 with the same URL as the QR code, locked after writing; the
@@ -812,3 +812,36 @@ intrusive security tests, provide app builds (push and Stripe return need a real
 - Locally the E2E tests „… is linked in the footer and accessible“ fail now and then in dev mode (the
   click lands before hydration, the page stays on `/`); they fail the same way without this change.
 - ✅ Deployed 2026-11-26 (`f743aae`): the company block is live on https://park-shield.de and the test site.
+
+## 20. Full run of the 213 QA cases (2026-11-26)
+
+All 213 cases of `docs/qa/ParkShield-Test-Cases.xlsx` were run on the local stack (fake providers);
+results per case in `docs/qa/ParkShield-QA-Results-2026-11-26.xlsx` (status, actual result, evidence,
+defect log; rebuilt from `results-2026-11-26.mjs` with `fill.mjs`). **189 Pass, 24 Blocked, 0 Fail.**
+Automated: API 677, app Jest 182, UI/i18n/shared 58, typecheck and lint green, E2E 134 (120 existing +
+14 new in `e2e/tests/qa-blackbox.spec.ts`: old URLs, 404, app link files, security.txt, contact form
+validation, unknown/injected codes, message limits, captcha, double tap, tampered status/view tokens,
+IDOR on 15 owner routes, ops routes on the public API, security headers, forged Stripe/RevenueCat/
+Twilio webhooks, e-mail enumeration, e-mail/phone/address validation and number normalisation, vehicle,
+header and new-code rules, cancellation without login). Live check of park-shield.de: noindex header,
+HSTS, valid TLS, security.txt until 2027-11-10.
+
+Fixed:
+- D-01 ops `/mitarbeitende` and `/mitarbeitende/pruefung` were 355/342 px wide at 320 px (staff shown
+  by their e-mail address): names and addresses now wrap (`min-w-0 wrap-anywhere`).
+- D-02 ops pages without the permission showed filters, forms and „Noch keine …“ next to the notice
+  (open since §15): `/bestellungen`, `/gutscheine`, `/partner`, `/datenschutz`, `/missbrauch/woerter`,
+  `/willkommensbriefe` now show only the notice.
+- D-03 app: after „Ich komme“ the chip said „Erledigt“ (open since §15): now „Beantwortet“ / „Answered“;
+  „Erledigt“ only after the „Erledigt“ action (`alerts/[id].tsx`, `alert-card.tsx`). Needs a new EAS build.
+- D-04 `/app/zurueck` without a valid app target answered a bare „Not found“: now 303 to `/app`.
+- D-05 case ONB-10 used „0151 2345678“, which is too short for a 0151 number (rightly refused); the
+  case now uses 0151 23456789. WEB-07 no longer says „known finding“.
+- Tooling: `apps/api/.vitest` (local Vitest cache) is git- and Prettier-ignored (it broke `format:check`).
+
+Blocked (need what a local run cannot give): Face ID / lock (ONB-14, AUTH-06/07/08), sign-in link into
+the app (AUTH-02), Stripe declined/3DS cards and customer portal on the test server (PAY-02/03/15),
+Android return from Stripe in a dev build (PAY-05, open since §15), network loss while paying (PAY-06),
+store purchases, errors and Play pause (PAY-08/09/10/12), push on devices (ALERT-02/06), real inboxes and
+spam (MAIL-04), screen readers (A11Y-01/02), device timings and matrix (PERF-02, COMPAT-02/04/06), load
+test only with written approval (PERF-03). Not deployed yet: API/web/ops to the test server, app build.

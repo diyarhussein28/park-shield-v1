@@ -109,10 +109,19 @@ export function PromosView({
     }
   }
 
+  // No permission: only the notice, no filters, forms or „Noch keine …“ beside it.
+  if (!initial)
+    return (
+      <OpsShell me={me} title={t('opsPromo.title')} intro={t('opsPromo.intro')}>
+        <Stack gap={6}>
+          <Notice tone="danger">{t('ops.forbidden')}</Notice>
+        </Stack>
+      </OpsShell>
+    );
+
   return (
     <OpsShell me={me} title={t('opsPromo.title')} intro={t('opsPromo.intro')}>
       <Stack gap={6}>
-        {!initial && <Notice tone="danger">{t('ops.forbidden')}</Notice>}
         {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
         <ul className="flex flex-col gap-2" aria-label={t('opsPromo.list')}>
           {promos.length === 0 && <li>{t('opsPromo.empty')}</li>}

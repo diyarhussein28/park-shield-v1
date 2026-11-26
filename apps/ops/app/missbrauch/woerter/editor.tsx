@@ -85,10 +85,19 @@ export function WordListsEditor({ me, initial }: { me: StaffMe; initial: Version
     await reload();
   }
 
+  // No permission: only the notice, no filters, forms or „Noch keine …“ beside it.
+  if (!initial)
+    return (
+      <OpsShell me={me} title={t('opsWords.title')} intro={t('opsWords.intro')}>
+        <Stack gap={6}>
+          <Notice tone="danger">{t('ops.forbidden')}</Notice>
+        </Stack>
+      </OpsShell>
+    );
+
   return (
     <OpsShell me={me} title={t('opsWords.title')} intro={t('opsWords.intro')}>
       <Stack gap={6}>
-        {!initial && <Notice tone="danger">{t('ops.forbidden')}</Notice>}
         {message && <Notice tone={message.tone}>{message.text}</Notice>}
         <Card>
           <form onSubmit={publish} className="flex flex-col gap-4">

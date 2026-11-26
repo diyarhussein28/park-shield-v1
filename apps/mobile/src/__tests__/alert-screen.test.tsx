@@ -107,6 +107,9 @@ it('shows the alert, marks it seen, and „Ich komme" acknowledges it', async ()
   ).toBeTruthy();
   expect(calls).toContain(`POST /v1/app/alerts/${ALERT}/ack`);
   expect(screen.queryByTestId('ack')).toBeNull();
+  // A reply is not „Erledigt“ (that is its own button): the chip says „Beantwortet“ (QA 2026-11-25).
+  expect(screen.getByText(t('answered'))).toBeTruthy();
+  expect(screen.queryByText(t('acknowledged'))).toBeNull();
 });
 
 it('opens the chat only on the owner’s tap, and never for a blocked sender', async () => {

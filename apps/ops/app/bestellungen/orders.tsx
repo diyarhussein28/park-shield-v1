@@ -59,10 +59,19 @@ export function OrdersView({
   data: OrderList | null;
 }) {
   const { t, locale } = useI18n();
+  // No permission: only the notice, no filters, forms or „Noch keine …“ beside it.
+  if (!data)
+    return (
+      <OpsShell me={me} title={t('opsOrders.title')} intro={t('opsOrders.intro')}>
+        <Stack gap={6}>
+          <Notice tone="danger">{t('ops.forbidden')}</Notice>
+        </Stack>
+      </OpsShell>
+    );
+
   return (
     <OpsShell me={me} title={t('opsOrders.title')} intro={t('opsOrders.intro')}>
       <Stack gap={6}>
-        {!data && <Notice tone="danger">{t('ops.forbidden')}</Notice>}
         <nav aria-label={t('opsOrders.filters')} className="flex flex-wrap gap-2">
           {FILTERS.map((f) => (
             <Link

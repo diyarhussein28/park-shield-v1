@@ -105,8 +105,8 @@ export function AccessReview({ me, initial }: { me: StaffMe; initial: ReviewData
               {data.staff.map((s) => (
                 <li key={s.id} className="flex flex-col gap-1 rounded-xl border border-border p-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold">{s.name ?? s.email}</span>
-                    <span className="text-sm text-muted">{s.email}</span>
+                    <span className="min-w-0 font-semibold wrap-anywhere">{s.name ?? s.email}</span>
+                    <span className="min-w-0 text-sm text-muted wrap-anywhere">{s.email}</span>
                     {s.roles.map((r) => (
                       <Badge key={r}>{r}</Badge>
                     ))}

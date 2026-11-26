@@ -201,7 +201,7 @@ export default function AlertScreen() {
         </View>
         <View style={s.chips}>
           {done ? (
-            <Chip tone="ok">{t('acknowledged')}</Chip>
+            <Chip tone="ok">{t(resolved ? 'acknowledged' : 'answered')}</Chip>
           ) : a.status === 'expired' ? (
             <Chip tone="neutral">{t('expired')}</Chip>
           ) : a.seenAt ? (

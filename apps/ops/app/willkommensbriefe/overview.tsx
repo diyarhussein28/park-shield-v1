@@ -87,10 +87,19 @@ export function LettersOverview({
     }
   }
 
+  // No permission: only the notice, no filters, forms or „Noch keine …“ beside it.
+  if (!data)
+    return (
+      <OpsShell me={me} title={t('opsLetters.title')} intro={t('opsLetters.intro')}>
+        <Stack gap={6}>
+          <Notice tone="danger">{t('ops.forbidden')}</Notice>
+        </Stack>
+      </OpsShell>
+    );
+
   return (
     <OpsShell me={me} title={t('opsLetters.title')} intro={t('opsLetters.intro')}>
       <Stack gap={6}>
-        {!data && <Notice tone="danger">{t('ops.forbidden')}</Notice>}
         <nav aria-label={t('opsLetters.filter')} className="flex flex-wrap gap-2">
           {LETTER_FILTERS.map((f) => (
             <Link

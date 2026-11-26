@@ -32,6 +32,8 @@ const de = {
   alertsEmpty: 'Noch keine Warnungen. Wenn jemand Ihren Aufkleber scannt, sehen Sie es hier.',
   seen: 'Gesehen',
   acknowledged: 'Erledigt',
+  // After „Ich komme“ (a reply), not after „Erledigt“: the alert is answered, not closed (QA 2026-11-25).
+  answered: 'Beantwortet',
   open: 'Offen',
   expired: 'Abgelaufen',
   escalated: 'SMS gesendet',
@@ -589,6 +591,7 @@ const en: Record<Key, string> = {
   alertsEmpty: 'No alerts yet. When someone scans your decal, you see it here.',
   seen: 'Seen',
   acknowledged: 'Done',
+  answered: 'Answered',
   open: 'Open',
   expired: 'Expired',
   escalated: 'SMS sent',

@@ -45,10 +45,19 @@ export function DsrQueue({ me, initial }: { me: StaffMe; initial: DsrList | null
   const [list, setList] = useState(initial?.requests ?? []);
   const reload = async () => setList((await opsApi<DsrList>('/ops/v1/dsr')).requests);
 
+  // No permission: only the notice, no filters, forms or „Noch keine …“ beside it.
+  if (!initial)
+    return (
+      <OpsShell me={me} title={t('opsDsr.title')} intro={t('opsDsr.intro')}>
+        <Stack gap={6}>
+          <Notice tone="danger">{t('ops.forbidden')}</Notice>
+        </Stack>
+      </OpsShell>
+    );
+
   return (
     <OpsShell me={me} title={t('opsDsr.title')} intro={t('opsDsr.intro')}>
       <Stack gap={6}>
-        {!initial && <Notice tone="danger">{t('ops.forbidden')}</Notice>}
         {list.length === 0 ? (
           <Text>{t('opsDsr.none')}</Text>
         ) : (

@@ -12,7 +12,12 @@ export function GET(req: Request) {
   const q = new URL(req.url).searchParams;
   const target = q.get('u') ?? '';
   if (!APP.test(target) && !(testEnvironment() && EXPO_GO.test(target))) {
-    return new Response('Not found', { status: 404 });
+    // Opened in a normal browser (or with a foreign target): the app page explains where to go and
+    // links the stores, instead of a bare „Not found“ (QA NOLOGIN-10). Never the given target.
+    return new Response(null, {
+      status: 303,
+      headers: { location: '/app', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' },
+    });
   }
   const back = new URLSearchParams();
   for (const key of ['to', 'result', 'session_id']) {

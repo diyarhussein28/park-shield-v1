@@ -13,3 +13,4 @@ package-lock.json
 apps/mobile/.expo
 .superpowers
 apps/mobile/expo-env.d.ts
+apps/api/.vitest

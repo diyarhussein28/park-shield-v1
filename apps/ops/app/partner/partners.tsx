@@ -96,10 +96,19 @@ export function PartnersView({
   }
   const active = partners.filter((x) => x.active);
 
+  // No permission: only the notice, no filters, forms or „Noch keine …“ beside it.
+  if (!p0)
+    return (
+      <OpsShell me={me} title={t('opsPartners.title')} intro={t('opsPartners.intro')}>
+        <Stack gap={6}>
+          <Notice tone="danger">{t('ops.forbidden')}</Notice>
+        </Stack>
+      </OpsShell>
+    );
+
   return (
     <OpsShell me={me} title={t('opsPartners.title')} intro={t('opsPartners.intro')}>
       <Stack gap={6}>
-        {!p0 && <Notice tone="danger">{t('ops.forbidden')}</Notice>}
         {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
 
         <Card>
