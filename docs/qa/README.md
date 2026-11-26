@@ -10,6 +10,10 @@ Sheets: „Read me“ (scope, environment, test data, expected test-server diffe
 „Test cases“ (status dropdown, actual result, tester, defect ID), „Summary“ (formulas per module and
 type), „Devices“ (device matrix), „Defects“ (defect log).
 
+Version 1.1 (2026-11-26): every „Expected result“ was checked against the code and the test server and
+now lists all correct outcomes with the exact German texts (anything else is a defect); the Read me
+explains the alert limits per scanner (browser + network). See `docs/handover.md` §22.
+
 The file contains **no credentials**: basic auth, app build links and staff invites are sent to the
 company separately.
 
