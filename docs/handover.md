@@ -977,7 +977,7 @@ Design (owner: „no new card, one button under the yearly button, persuasive te
    **one-time product** `lifetime` (29,99 €).
 2. RevenueCat: add both products, attach them to the entitlement `parkshield_pro`, add a package of
    type **Lifetime** to the current offering.
-3. Deploy (API migration) to the test server, then a new EAS build for the app.
+3. ~~Deploy to the test server~~ done 2026-11-26 (`a97a688`, migration applied); still: a new EAS build for the app.
 4. Lawyer: AGB/Widerruf wording for the lifetime plan (`LEGAL_REVIEW.md` §15).
 
 Not done: upgrading a running yearly plan to lifetime (the paywall stays hidden while a contract is
