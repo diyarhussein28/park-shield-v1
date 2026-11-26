@@ -99,7 +99,7 @@ const en: typeof de = {
     feature4Text: 'Filters against insults, limits against spam, and blocking with one tap.',
     pricingTitle: 'One price, everything included',
     pricingNote:
-      'Includes 19% VAT. Billed yearly, cancellable at any time to the end of the paid year.',
+      'Incl. 19% VAT. Pay yearly and cancel at any time to the end of the paid year, or pay once and stay protected for good.',
     priceInclVat: '{price} / year incl. 19% VAT',
     planName: 'ParkShield',
     planFor: 'Everything included, for one vehicle',
@@ -110,6 +110,10 @@ const en: typeof de = {
     planF5: 'One printed, UV-resistant decal including shipping',
     planF6: 'For 1 vehicle',
     planCta: 'Order now',
+    lifetimeOr: 'or',
+    lifetimeBadge: 'Only {diff} more – and it lasts for good',
+    lifetimeCta: 'Lifetime: {price} once',
+    lifetimeLine: 'Cheaper from year {year} · no subscription, nothing to cancel',
     faqTitle: 'Frequently asked questions',
     faq1Q: 'Does the person who scans need an app?',
     faq1A: 'No. The code opens a web page. No account, nothing to install.',
@@ -121,7 +125,7 @@ const en: typeof de = {
       'After 10 minutes the app reminds you once more. If you do not respond for 30 minutes, we send one SMS to your verified mobile number, and only that one.',
     faq4Q: 'Can I cancel at any time?',
     faq4A:
-      'Yes, via “Cancel contract here”, even without signing in. Your subscription then runs until the end of the paid year.',
+      'Yes, via “Cancel contract here”, even without signing in. Your subscription then runs until the end of the paid year. With Lifetime there is nothing to cancel: paid once, no renewal.',
     faq5Q: 'Does ParkShield ever ask for payment through the decal?',
     faq5A: 'Never. A page that asks for money after scanning is a fake. Please report it to us.',
     heroEyebrow: 'The QR decal for your car',

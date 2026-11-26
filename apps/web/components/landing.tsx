@@ -1,7 +1,12 @@
 'use client';
 
 import type { MessageKey } from '@parkshield/i18n';
-import { PLAN_FEATURE_COUNT, PLAN_PRICE_CENTS } from '@parkshield/shared';
+import {
+  LIFETIME_PRICE_CENTS,
+  lifetimeCheaperFromYear,
+  PLAN_FEATURE_COUNT,
+  PLAN_PRICE_CENTS,
+} from '@parkshield/shared';
 import { useI18n } from '@parkshield/ui';
 import Image, { type StaticImageData } from 'next/image';
 import Link from 'next/link';
@@ -648,6 +653,7 @@ function Pricing() {
                 {t('landing.planCta')}
                 <Icon name="arrowRight" className="size-5 transition group-hover:translate-x-1" />
               </Link>
+              <LifetimeButton />
             </div>
           </div>
         </Reveal>
@@ -655,6 +661,54 @@ function Pricing() {
       </div>
     </section>
   );
+}
+
+/**
+ * Lifetime (owner decision 2026-11-26): one button under „Jetzt bestellen“, not a second card. Accent
+ * yellow with a short shine (three sweeps, then still; none with reduced motion), a badge with the real
+ * difference to one year and the year from which it is cheaper. The purchase itself is in the app.
+ */
+function LifetimeButton() {
+  const { t } = useI18n();
+  const euro = useEuroCents();
+  return (
+    <div className="flex flex-col gap-3" data-testid="lifetime-offer">
+      <div className="flex items-center gap-3 text-sm text-muted" aria-hidden="true">
+        <span className="h-px flex-1 bg-border" />
+        {t('landing.lifetimeOr')}
+        <span className="h-px flex-1 bg-border" />
+      </div>
+      <Link
+        href="/app"
+        className="lifetime-shine group relative flex min-h-12 flex-col items-center justify-center overflow-hidden rounded-3xl border-2 border-amber-400 bg-amber-300 px-6 py-2 text-center font-semibold text-slate-950 shadow-lg shadow-amber-500/25 transition duration-200 hover:-translate-y-0.5 hover:bg-amber-200 sm:rounded-full"
+      >
+        <span className="text-xs font-bold tracking-wide uppercase">
+          {t('landing.lifetimeBadge', { diff: euro(LIFETIME_PRICE_CENTS - PLAN_PRICE_CENTS) })}
+        </span>
+        <span className="flex items-center justify-center gap-2 text-lg">
+          {t('landing.lifetimeCta', { price: euro(LIFETIME_PRICE_CENTS) })}
+          <Icon name="arrowRight" className="size-5 transition group-hover:translate-x-1" />
+        </span>
+      </Link>
+      <p className="text-center text-sm text-muted">
+        {t('landing.lifetimeLine', {
+          year: lifetimeCheaperFromYear(PLAN_PRICE_CENTS, LIFETIME_PRICE_CENTS),
+        })}
+      </p>
+    </div>
+  );
+}
+
+/** Euro with cents („29,99 €“) where the amount has them. */
+function useEuroCents() {
+  const { locale } = useI18n();
+  return (cents: number) =>
+    new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: 'EUR',
+      // „10 €“ for a whole amount, „29,99 €“ otherwise.
+      minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    }).format(cents / 100);
 }
 
 /** What the printed decal is (2026-11-26): size, material, designs, self-print and reprint price. */

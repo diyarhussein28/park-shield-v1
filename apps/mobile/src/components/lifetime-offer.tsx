@@ -16,13 +16,23 @@ import { radius, space, touch, type as typeScale, useTheme } from '@/theme/token
 import { useReducedMotion } from './celebration';
 import { Icon } from './icons';
 
+/** „10 €“ for a whole amount, else „10,50 €“. */
+const wholeEuro = (cents: number, locale: string) =>
+  cents % 100 === 0
+    ? new Intl.NumberFormat(locale === 'en' ? 'en-IE' : 'de-DE', {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 0,
+      }).format(cents / 100)
+    : euro(cents, locale);
+
 /**
  * The honest numbers next to the lifetime button (owner decision 2026-11-26): how much more than one
  * year, from which year it is cheaper, and what it saves over five years. Pure, unit-tested.
  */
 export function lifetimeFacts(yearCents: number, lifetimeCents: number, locale = lang()) {
   return {
-    diff: euro(Math.max(0, lifetimeCents - yearCents), locale),
+    diff: wholeEuro(Math.max(0, lifetimeCents - yearCents), locale),
     year: lifetimeCheaperFromYear(yearCents, lifetimeCents),
     saved: euro(Math.max(0, yearlyTotalCents(5, yearCents) - lifetimeCents), locale),
   };

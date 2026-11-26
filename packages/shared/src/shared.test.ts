@@ -1,3 +1,4 @@
+import { LIFETIME_PRICE_CENTS, lifetimeCheaperFromYear, yearlyTotalCents } from './plans';
 import { describe, expect, it } from 'vitest';
 import { ALERT_TYPE_CODES, ALERT_TYPE_DEFAULTS } from './alert-types';
 import { PERMISSIONS, ROLE_PERMISSIONS, STAFF_ROLES } from './permissions';
@@ -85,5 +86,14 @@ describe('„Bin gleich zurück“ text rules', () => {
       'Danke fürs Warten :)',
     ])
       expect(checkStatusText(ok), ok).toBeNull();
+  });
+});
+
+describe('lifetime plan comparison (2026-11-26)', () => {
+  it('names the year from which paying once is cheaper, and the 5-year total', () => {
+    expect(lifetimeCheaperFromYear(1999, 2999)).toBe(2);
+    expect(lifetimeCheaperFromYear(1999, 3998)).toBe(3); // exactly two years is not cheaper yet
+    expect(lifetimeCheaperFromYear(1999, 4999)).toBe(3);
+    expect(yearlyTotalCents(5, 1999) - LIFETIME_PRICE_CENTS).toBe(6996);
   });
 });

@@ -101,7 +101,7 @@ const de = {
     feature4Text: 'Filter gegen Beleidigungen, Limits gegen Spam und Sperren mit einem Tipp.',
     pricingTitle: 'Ein Preis, alles inklusive',
     pricingNote:
-      'Inkl. 19 % MwSt. Jährliche Zahlung, jederzeit zum Ende des bezahlten Jahres kündbar.',
+      'Inkl. 19 % MwSt. Jährlich zahlen und jederzeit zum Ende des bezahlten Jahres kündigen, oder einmal zahlen und dauerhaft geschützt sein.',
     priceInclVat: '{price} / Jahr inkl. 19 % MwSt.',
     planName: 'ParkShield',
     planFor: 'Alles inklusive, für ein Fahrzeug',
@@ -113,6 +113,11 @@ const de = {
     planF5: 'Ein gedruckter, UV-beständiger Aufkleber inklusive Versand',
     planF6: 'Für 1 Fahrzeug',
     planCta: 'Jetzt bestellen',
+    // Lifetime (owner decision 2026-11-26): one button under „Jetzt bestellen“, every claim true.
+    lifetimeOr: 'oder',
+    lifetimeBadge: 'Nur {diff} mehr – dafür für immer',
+    lifetimeCta: 'Lifetime: {price} einmalig',
+    lifetimeLine: 'Ab dem {year}. Jahr günstiger · kein Abo, nichts zu kündigen',
     faqTitle: 'Häufige Fragen',
     faq1Q: 'Braucht die Person, die scannt, eine App?',
     faq1A: 'Nein. Der Code öffnet eine Webseite. Ohne Konto und ohne Installation.',
@@ -124,7 +129,7 @@ const de = {
       'Nach 10 Minuten erinnert Sie die App noch einmal. Reagieren Sie 30 Minuten lang nicht, schicken wir Ihnen eine SMS an Ihre bestätigte Handynummer, nur diese eine.',
     faq4Q: 'Kann ich jederzeit kündigen?',
     faq4A:
-      'Ja, über „Verträge hier kündigen“, auch ohne Anmeldung. Das Abo läuft dann bis zum Ende des bezahlten Jahres.',
+      'Ja, über „Verträge hier kündigen“, auch ohne Anmeldung. Das Abo läuft dann bis zum Ende des bezahlten Jahres. Mit Lifetime gibt es nichts zu kündigen: einmal bezahlt, keine Verlängerung.',
     faq5Q: 'Verlangt ParkShield jemals eine Zahlung über den Aufkleber?',
     faq5A:
       'Nie. Eine Seite, die beim Scannen Geld verlangt, ist eine Fälschung. Bitte melden Sie sie uns.',

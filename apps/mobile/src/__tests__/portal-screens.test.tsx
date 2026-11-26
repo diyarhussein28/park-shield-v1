@@ -685,7 +685,7 @@ describe('subscription and checkout in the app', () => {
     await screen.findByLabelText(label);
     expect(screen.getByTestId('lifetime-offer')).toBeTruthy();
     // 29,99 € − 19,99 € = 10 € more; cheaper from the 2nd year; 5 × 19,99 € − 29,99 € = 69,96 € saved.
-    expect(screen.getByText(t('lifetimeBadge', { diff: euro(1000, 'de') }))).toBeTruthy();
+    expect(screen.getByText(t('lifetimeBadge', { diff: '10 €' }))).toBeTruthy();
     expect(screen.getByText(t('lifetimeSave', { year: 2, saved: euro(6996, 'de') }))).toBeTruthy();
     expect(screen.getByText(t('lifetimeNoRenew'))).toBeTruthy();
     // Locked until the immediate-start declaration is ticked, like the yearly button.
