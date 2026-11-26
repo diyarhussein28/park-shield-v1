@@ -293,6 +293,25 @@ function Situations() {
           </Reveal>
         ))}
       </ul>
+      <Reveal className="mt-8 flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-semibold">{t('landing.situationsMore')}</span>
+          <ul className="contents">
+            {keys('landing.situationsMore', 3).map((k) => (
+              <li
+                key={k}
+                className="rounded-full border border-border bg-surface px-3.5 py-1.5 text-sm font-semibold"
+              >
+                {t(k)}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="flex items-center gap-2 text-muted">
+          <Icon name="alert" aria-hidden="true" className="size-5 shrink-0 text-danger-text" />
+          {t('landing.situationsUrgent')}
+        </p>
+      </Reveal>
     </section>
   );
 }
@@ -417,6 +436,27 @@ function Privacy() {
           </Reveal>
         ))}
       </ul>
+
+      <Reveal className="mt-10">
+        <div className="rounded-3xl border border-border bg-bg p-6 sm:p-8">
+          <h3 className="text-xl font-bold">{t('landing.factsTitle')}</h3>
+          <ul className="mt-5 grid gap-x-8 gap-y-3 md:grid-cols-2">
+            {keys('landing.facts', 5).map((k) => (
+              <li key={k} className="flex gap-2.5">
+                <Check />
+                <span>{t(k)}</span>
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/datenschutz"
+            className="mt-5 inline-flex min-h-12 items-center gap-2 font-semibold text-primary underline-offset-4 hover:underline"
+          >
+            {t('landing.factsLink')}
+            <Icon name="arrowRight" className="size-5" />
+          </Link>
+        </div>
+      </Reveal>
     </section>
   );
 }
@@ -428,44 +468,137 @@ const CHANNELS: { key: 'App' | 'Reminder' | 'Sms'; icon: IconName; tint: string 
   { key: 'Sms', icon: 'chat', tint: 'from-amber-400 to-orange-500' },
 ];
 
-function Channels() {
+const OWNER_FEATURES: { key: string; icon: IconName }[] = [
+  { key: 'Reply', icon: 'zap' },
+  { key: 'Chat', icon: 'chat' },
+  { key: 'Quiet', icon: 'moon' },
+  { key: 'Block', icon: 'lock' },
+];
+
+/**
+ * What the owner sees and controls in the app (2026-11-26), then the follow-ups when they do not react.
+ * „Bin gleich zurück“ is listed only while the feature flag is on (VEHICLE_STATUS_ENABLED).
+ */
+function OwnerApp({ beRightBack }: { beRightBack: boolean }) {
   const { t } = useI18n();
+  const features = beRightBack
+    ? [...OWNER_FEATURES, { key: 'Brb', icon: 'clock' as IconName }]
+    : OWNER_FEATURES;
   return (
-    <section aria-labelledby="channels" className="bg-surface py-20 sm:py-24">
+    <section aria-labelledby="owner" className="bg-surface py-20 sm:py-28">
       <div className={WIDE}>
-        <SectionHead
-          id="channels"
-          title={t('landing.channelsTitle')}
-          text={t('landing.channelsText')}
-          center
-        />
-        <ul className="grid gap-5 md:grid-cols-3">
-          {CHANNELS.map((c, i) => (
-            <Reveal as="li" key={c.key} delay={i * 100}>
-              <div className="flex h-full items-start gap-4 rounded-3xl bg-bg p-6 shadow-sm ring-1 ring-border">
-                <span
-                  aria-hidden="true"
-                  className={cx(
-                    'grid size-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br text-white shadow-md',
-                    c.tint,
-                  )}
-                >
-                  <Icon name={c.icon} className="size-6" />
-                </span>
-                <div>
-                  <h3 className="text-lg font-bold">
-                    {t(`landing.channel${c.key}` as MessageKey)}
-                  </h3>
-                  <p className="mt-1 text-muted">
-                    {t(`landing.channel${c.key}Text` as MessageKey)}
-                  </p>
+        <div className="grid items-center gap-12 lg:grid-cols-[1fr_1.2fr] lg:gap-20">
+          <OwnerPhone />
+          <div>
+            <SectionHead id="owner" title={t('landing.ownerTitle')} text={t('landing.ownerText')} />
+            <ul className="flex flex-col gap-5">
+              {features.map((f, i) => (
+                <Reveal as="li" key={f.key} delay={i * 80} className="flex gap-4">
+                  <span
+                    aria-hidden="true"
+                    className="grid size-12 shrink-0 place-items-center rounded-2xl bg-info-bg text-info-fg"
+                  >
+                    <Icon name={f.icon} className="size-6" />
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-bold">
+                      {t(`landing.owner${f.key}Title` as MessageKey)}
+                    </h3>
+                    <p className="mt-1 text-muted">
+                      {t(`landing.owner${f.key}Text` as MessageKey)}
+                    </p>
+                  </div>
+                </Reveal>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-20">
+          <SectionHead
+            id="channels"
+            eyebrow={t('landing.ownerFollowUp')}
+            title={t('landing.channelsTitle')}
+            text={t('landing.channelsText')}
+            center
+          />
+          <ul className="grid gap-5 md:grid-cols-3">
+            {CHANNELS.map((c, i) => (
+              <Reveal as="li" key={c.key} delay={i * 100}>
+                <div className="flex h-full items-start gap-4 rounded-3xl bg-bg p-6 shadow-sm ring-1 ring-border">
+                  <span
+                    aria-hidden="true"
+                    className={cx(
+                      'grid size-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br text-white shadow-md',
+                      c.tint,
+                    )}
+                  >
+                    <Icon name={c.icon} className="size-6" />
+                  </span>
+                  <div>
+                    <h3 className="text-lg font-bold">
+                      {t(`landing.channel${c.key}` as MessageKey)}
+                    </h3>
+                    <p className="mt-1 text-muted">
+                      {t(`landing.channel${c.key}Text` as MessageKey)}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </Reveal>
-          ))}
-        </ul>
+              </Reveal>
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
+  );
+}
+
+/** The alert as the app shows it, with the three replies and a chat line: a picture, so aria-hidden. */
+function OwnerPhone() {
+  const { t } = useI18n();
+  return (
+    <Reveal className="mx-auto w-full max-w-[19rem]">
+      <div
+        aria-hidden="true"
+        className="select-none rounded-[2.5rem] bg-slate-900 p-3 shadow-2xl ring-1 ring-black/10"
+      >
+        <div className="flex flex-col gap-3 rounded-[2rem] bg-slate-50 p-4 text-slate-900">
+          <div className="mx-auto h-1.5 w-16 rounded-full bg-slate-300" />
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            <LogoMark className="size-5" />
+            ParkShield
+            <span className="ml-auto font-normal">{t('landing.ownerPhoneTime')}</span>
+          </div>
+          <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+            <div className="flex items-start gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-red-600 text-white">
+                <Icon name="car" className="size-5" />
+              </span>
+              <p className="font-bold leading-snug">{t('landing.ownerPhoneAlert')}</p>
+            </div>
+            <div className="mt-4 flex flex-col gap-2 text-sm font-bold">
+              <span className="rounded-xl bg-blue-700 py-2.5 text-center text-white">
+                {t('reply.coming')}
+              </span>
+              <span className="rounded-xl bg-slate-200 py-2.5 text-center text-slate-800">
+                {t('reply.in_30_min')}
+              </span>
+              <span className="rounded-xl bg-slate-200 py-2.5 text-center text-slate-800">
+                {t('reply.not_nearby')}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-end gap-2">
+            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-slate-300 text-slate-700">
+              <Icon name="chat" className="size-4" />
+            </span>
+            <p className="rounded-2xl rounded-bl-sm bg-white px-3.5 py-2.5 text-sm shadow-sm ring-1 ring-slate-200">
+              {t('landing.ownerPhoneChat')}
+            </p>
+          </div>
+        </div>
+      </div>
+    </Reveal>
   );
 }
 
@@ -501,23 +634,51 @@ function Pricing() {
         text={t('landing.pricingNote')}
         center
       />
-      <Reveal className="mx-auto max-w-xl">
-        <div className="rounded-3xl bg-gradient-to-br from-blue-500 via-blue-700 to-amber-400 p-[2px] shadow-2xl shadow-primary/20">
-          <div className="flex flex-col gap-5 rounded-[calc(1.5rem-2px)] bg-bg p-7 sm:p-9">
-            <div>
-              <h3 className="text-2xl font-bold">{t('landing.planName')}</h3>
-              <p className="text-muted">{t('landing.planFor')}</p>
+      <div className="mx-auto grid max-w-5xl grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+        <Reveal>
+          <div className="h-full rounded-3xl bg-gradient-to-br from-blue-500 via-blue-700 to-amber-400 p-[2px] shadow-2xl shadow-primary/20">
+            <div className="flex h-full flex-col gap-5 rounded-[calc(1.5rem-2px)] bg-bg p-7 sm:p-9">
+              <div>
+                <h3 className="text-2xl font-bold">{t('landing.planName')}</h3>
+                <p className="text-muted">{t('landing.planFor')}</p>
+              </div>
+              <Price cents={PLAN_PRICE_CENTS} />
+              <FeatureList items={keys('landing.planF', PLAN_FEATURE_COUNT)} />
+              <Link href="/app" className={cx(btnPrimary, 'mt-2')}>
+                {t('landing.planCta')}
+                <Icon name="arrowRight" className="size-5 transition group-hover:translate-x-1" />
+              </Link>
             </div>
-            <Price cents={PLAN_PRICE_CENTS} />
-            <FeatureList items={keys('landing.planF', PLAN_FEATURE_COUNT)} />
-            <Link href="/app" className={cx(btnPrimary, 'mt-2')}>
-              {t('landing.planCta')}
-              <Icon name="arrowRight" className="size-5 transition group-hover:translate-x-1" />
-            </Link>
+          </div>
+        </Reveal>
+        <StickerCard />
+      </div>
+    </section>
+  );
+}
+
+/** What the printed decal is (2026-11-26): size, material, designs, self-print and reprint price. */
+function StickerCard() {
+  const { t } = useI18n();
+  return (
+    <Reveal delay={120}>
+      <div className="flex h-full flex-col gap-5 rounded-3xl border border-border bg-surface p-7 sm:p-9">
+        <div className="flex items-center gap-5">
+          <img
+            src="/images/decal-classic.svg"
+            alt={t('landing.stickerAlt')}
+            width={112}
+            height={112}
+            className="size-24 shrink-0 rotate-[-4deg] rounded-xl shadow-lg sm:size-28"
+          />
+          <div className="min-w-0">
+            <h3 className="text-2xl font-bold">{t('landing.stickerTitle')}</h3>
+            <p className="text-muted">{t('landing.stickerText')}</p>
           </div>
         </div>
-      </Reveal>
-    </section>
+        <FeatureList items={keys('landing.stickerF', 6)} />
+      </div>
+    </Reveal>
   );
 }
 
@@ -594,7 +755,7 @@ function ClosingCta() {
   );
 }
 
-export function Landing() {
+export function Landing({ beRightBack = false }: { beRightBack?: boolean }) {
   const root = useRef<HTMLDivElement>(null);
   useReveal(root);
   return (
@@ -604,7 +765,7 @@ export function Landing() {
         <Situations />
         <HowItWorks />
         <Privacy />
-        <Channels />
+        <OwnerApp beRightBack={beRightBack} />
         <Pricing />
         <Faq />
         <ClosingCta />

@@ -21,8 +21,12 @@ test.describe('landing and legal pages (US-04)', () => {
     await expect(pricing.getByRole('heading', { name: 'ParkShield', exact: true })).toBeVisible();
     await expect(pricing.getByText(/^19,99\s?€\s?\/ Jahr inkl\. 19 % MwSt\.$/)).toBeVisible();
     await expect(pricing.getByText('Für 1 Fahrzeug')).toBeVisible();
-    // One plan (owner decision 2026-11-21): no plan comparison, no upgrade, no other prices.
-    await expect(pricing.getByRole('heading', { level: 3 })).toHaveCount(1);
+    // One plan (owner decision 2026-11-21): no plan comparison, no upgrade, no other prices. The
+    // second card describes the decal that comes with it (2026-11-26), it is not a plan.
+    await expect(pricing.getByRole('heading', { level: 3 })).toHaveText([
+      'ParkShield',
+      'Der Aufkleber',
+    ]);
     const body = (await page.locator('body').innerText()).replace(/Plus Jakarta Sans/g, '');
     expect(body).not.toMatch(/\bPlus\b|Premium|Business|10 €|15 €/);
     await expect(page.getByRole('link', { name: 'Verträge hier kündigen' })).toBeVisible();
@@ -39,6 +43,8 @@ test.describe('landing and legal pages (US-04)', () => {
   ] as const) {
     test(`${path} is linked in the footer and accessible`, async ({ page }) => {
       await page.goto('/');
+      // Hydration first (AGENTS.md §9): a click during hydration can be lost on the longer home page.
+      await page.waitForLoadState('networkidle');
       await page.locator('footer').getByRole('link', { name: footerLabel, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`${path}$`));
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);

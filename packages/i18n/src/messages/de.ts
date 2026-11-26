@@ -196,6 +196,53 @@ const de = {
       'Inklusive UV-beständigem Aufkleber und Versand. Jederzeit zum Ende des Jahres kündbar.',
     channelApp: 'ParkShield-App',
     channelAppText: 'Mitteilung aufs Handy, mit „Ich komme“ direkt in der Mitteilung.',
+    // Rest of the problem list below the four situation cards (2026-11-26).
+    situationsMore: 'Außerdem in der Liste:',
+    situationsMore1: 'Schaden am Auto',
+    situationsMore2: 'Alarmanlage geht',
+    situationsMore3: 'Eigene Nachricht',
+    situationsUrgent: 'Dringende Warnungen erreichen Sie auch in Ihrer Ruhezeit.',
+    // „Alles in Ihrer App“: what the owner sees and controls (2026-11-26).
+    ownerTitle: 'Alles in Ihrer App',
+    ownerText:
+      'Sie sehen sofort, was los ist, und entscheiden selbst, wie Sie reagieren. Ihre Nummer bleibt dabei immer verborgen.',
+    ownerReplyTitle: 'Antworten mit einem Tipp',
+    ownerReplyText:
+      '„Ich komme“, „In ca. 30 Min“ oder „Bin nicht in der Nähe“. Die Person vor Ort sieht Ihre Antwort live.',
+    ownerChatTitle: 'Anonymer Chat',
+    ownerChatText:
+      'Wenn Sie möchten, öffnen Sie einen Chat mit der Person am Auto. Niemand sieht eine Nummer oder einen Namen.',
+    ownerQuietTitle: 'Ruhezeiten',
+    ownerQuietText:
+      'Nachts oder im Büro bleiben normale Warnungen stumm. Dringende Warnungen kommen trotzdem in der App an.',
+    ownerBlockTitle: 'Blockieren und Sperren',
+    ownerBlockText:
+      'Einen Absender blockieren Sie mit einem Tipp. Wurde ein Foto Ihres Aufklebers geteilt, sperren Sie den Code sofort.',
+    ownerBrbTitle: '„Bin gleich zurück“',
+    ownerBrbText:
+      'Nur kurz beim Bäcker? Wer scannt, sieht Ihre Nachricht und die Zeit, bis Sie zurück sind, und kann „Ich warte“ tippen.',
+    ownerPhoneAlert: 'Ihr Kombi versperrt eine Ausfahrt',
+    ownerPhoneTime: 'vor 1 Min',
+    ownerPhoneChat: 'Ich stehe direkt dahinter, danke!',
+    ownerFollowUp: 'Wenn Sie nicht reagieren',
+    // „Der Aufkleber“ next to the price (2026-11-26).
+    stickerTitle: 'Der Aufkleber',
+    stickerText: 'Ihr persönlicher QR-Aufkleber, gestaltet in der App.',
+    stickerF1: '8 × 8 cm, wetterfeste und UV-beständige Folie',
+    stickerF2: 'Für die Innenseite der Windschutzscheibe',
+    stickerF3: 'Sechs Designs, mit dem Namen Ihres Fahrzeugs',
+    stickerF4: 'Sofort als PDF zum Selbstdrucken, immer kostenlos',
+    stickerF5: 'Ein gedruckter Aufkleber inklusive Versand',
+    stickerF6: 'Jeder weitere gedruckte Aufkleber 3 €',
+    stickerAlt: 'Beispiel eines ParkShield-Aufklebers mit QR-Code',
+    // Concrete privacy facts below the feature cards (2026-11-26).
+    factsTitle: 'Datenschutz in Zahlen',
+    facts1: 'Keine Cookies und kein Speicher auf der Scan-Seite',
+    facts2: 'Keine Werbung, keine Analyse-Tools, kein Tracking',
+    facts3: 'Die Mitteilung aufs Handy enthält keinen Inhalt. Details lädt nur die App.',
+    facts4: 'Nachrichten nach 7 Tagen gelöscht, Fotos nach 30 Tagen, Warnungen nach 90 Tagen',
+    facts5: 'Daten verschlüsselt, Server in Deutschland',
+    factsLink: 'Datenschutzerklärung lesen',
   },
   auth: {
     loginTitle: 'Anmelden oder registrieren',

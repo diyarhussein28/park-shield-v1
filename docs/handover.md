@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-26 („Bin gleich zurück“ tested on an Android phone, two app fixes, §23). Before: 2026-11-26 („Bin gleich zurück“ deployed to the test server `9618790`, §23). Before: 2026-11-26 (QA case file 1.1: expected results checked against the build, §22). Before: 2026-11-26 (scan page asked for basic auth after „Senden“: `/scanner-assets/*` opened in the Caddyfile, §21, deployed `cf1a6ca`). Before: 2026-11-26 (QA fixes deployed `7c15291`, §20). Before: 2026-11-26 (all 213 QA cases run, 5 defects fixed, §20). Before: 2026-11-26 (NFC decal spec; company block in the website footer, deployed `f743aae`, §19). Before: 2026-11-25 (first Google Play purchase works, §17). Before: 2026-11-25 (deployed `7726a04`: the app says why a plan ended, clear store purchase errors, §17). Before: 2026-11-25 (website: one logo source, pages open at the top, deployed `162ec31`, §16). Before: 2026-11-25 (deployed `1a13c01` to the test server, §15b). Before: 2026-11-25 (owner decisions on the QA findings: first lock without cooldown, paywall, receipt print/PDF, localized `<title>`, worker warn, §15b). Before: 2026-11-25 (full QA run on web, iOS, Android, e-mails and ops; fixes and open findings in §15). Before: 2026-11-24 (owner decisions on `/aktivieren`, `/antwort`, passkeys and the first code done, §14). Before: 2026-11-24 (all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-26 (home page: four new parts after comparing a competitor site, §24; not deployed). Before: 2026-11-26 („Bin gleich zurück“ tested on an Android phone, two app fixes, §23). Before: 2026-11-26 („Bin gleich zurück“ deployed to the test server `9618790`, §23). Before: 2026-11-26 (QA case file 1.1: expected results checked against the build, §22). Before: 2026-11-26 (scan page asked for basic auth after „Senden“: `/scanner-assets/*` opened in the Caddyfile, §21, deployed `cf1a6ca`). Before: 2026-11-26 (QA fixes deployed `7c15291`, §20). Before: 2026-11-26 (all 213 QA cases run, 5 defects fixed, §20). Before: 2026-11-26 (NFC decal spec; company block in the website footer, deployed `f743aae`, §19). Before: 2026-11-25 (first Google Play purchase works, §17). Before: 2026-11-25 (deployed `7726a04`: the app says why a plan ended, clear store purchase errors, §17). Before: 2026-11-25 (website: one logo source, pages open at the top, deployed `162ec31`, §16). Before: 2026-11-25 (deployed `1a13c01` to the test server, §15b). Before: 2026-11-25 (owner decisions on the QA findings: first lock without cooldown, paywall, receipt print/PDF, localized `<title>`, worker warn, §15b). Before: 2026-11-25 (full QA run on web, iOS, Android, e-mails and ops; fixes and open findings in §15). Before: 2026-11-24 (owner decisions on `/aktivieren`, `/antwort`, passkeys and the first code done, §14). Before: 2026-11-24 (all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -908,3 +908,34 @@ work and the scan page is the normal one again. Two bugs that only the device sh
 bare import `@parkshield/shared` (Metro resolves subpaths only; it would have broken the EAS bundle, a
 Jest test now guards it) and `HAS_FIREBASE` in Expo Go (no native Firebase module there). Not testable in
 Expo Go: pushes (pre-expiry with „+5 Min“ / „Beenden“, silent „ended“) — needs the EAS build.
+
+## 24. Home page: four new parts (2026-11-26)
+
+The owner had a competitor site (laqeeni.me, Egypt, same idea: QR + NFC sticker, alerts by WhatsApp/SMS,
+one-time price) compared with ours. Our home page already covered almost everything; the owner chose to
+build the four gaps (`apps/web/components/landing.tsx`, texts in `packages/i18n` `landing.*`, DE + EN):
+
+1. **Situations:** below the four photo cards, the rest of the problem list as chips (Schaden,
+   Alarmanlage, eigene Nachricht) and „Dringende Warnungen erreichen Sie auch in Ihrer Ruhezeit.“
+2. **„Alles in Ihrer App“** (replaces the old Channels section, which is now its second row „Wenn Sie
+   nicht reagieren“): a drawn phone with the alert, the three replies and a chat line, and the owner's
+   controls — one-tap replies, anonymous chat, quiet hours (urgent alerts still arrive in the app), block
+   sender / lock code, and **„Bin gleich zurück“ only while `VEHICLE_STATUS_ENABLED=true`** (the home page
+   reads the same server variable at runtime, `app/page.tsx` is `force-dynamic`; on the test server it is
+   on, so `park-shield.de` shows it too).
+3. **„Der Aufkleber“** card next to the price: 8 × 8 cm UV-resistant film, inside of the windscreen, six
+   designs with the vehicle's name, free PDF to print yourself, one printed decal incl. shipping, every
+   further one 3 €.
+4. **„Datenschutz in Zahlen“** below the privacy cards, each fact checked in the code: no cookies or
+   storage on the scan page; no ads, analytics or tracking (no analytics script in `apps/web`); the push
+   carries no content (FCM rule); free text after 7 days, photos after 30 days, alerts after 90 days
+   (`run_retention()`, `alert_media`); encrypted data, servers in Germany.
+
+Not copied on purpose: the scanner's location, a one-time price, WhatsApp/Meta, a cookie on the scan
+page, invented testimonials or customer numbers (we have no customers yet).
+
+Tests: E2E `a11y.spec.ts` (axe at 320 and 1280 px, WCAG text spacing at 320 px), `sprint2.spec.ts` and
+`foundation.spec.ts` green on desktop and mobile. `sprint2.spec.ts` now expects two headings in the
+pricing section (the plan and the decal card) and waits for `networkidle` before clicking footer links
+(a click during hydration was lost now and then). Screenshots (DE/EN, desktop/mobile) are in the session
+notes, not in the repo. **Not deployed yet.**
