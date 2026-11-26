@@ -940,3 +940,45 @@ pricing section (the plan and the decal card) and waits for `networkidle` before
 (a click during hydration was lost now and then). Screenshots (DE/EN, desktop/mobile) are in the session
 notes, not in the repo. **Deployed to the test server on 2026-11-26 (`288e6db`)**: all four parts are live on
 `park-shield.de` (with „Bin gleich zurück“, the flag is on there), web and API logs clean.
+
+## 25. Lifetime plan: 29,99 € once, one button under the yearly one (2026-11-26)
+
+Owner decision: next to the yearly plan (19,99 € / year, unchanged) the same plan can be paid **once
+for 29,99 €** (one vehicle, everything included, no renewal, nothing to cancel). The owner kept 29,99 €
+after being told that only 10 € more than one year will move most buyers to lifetime and end most
+recurring revenue from the 2nd year (SMS, server and support costs keep running).
+
+Design (owner: „no new card, one button under the yearly button, persuasive texts and motion“):
+- **App paywall** (`components/lifetime-offer.tsx`, used by `CheckoutForm`): under „Zahlungspflichtig
+  bestellen – 19,99 € / Jahr“ an „oder“ divider and a yellow box (accent tokens) with the badge „Nur
+  10 € mehr – dafür für immer“, „Einmal zahlen. Für immer geschützt.“, „Ab dem 2. Jahr günstiger · in
+  5 Jahren 69,96 € gespart“ and the button „Zahlungspflichtig bestellen – 29,99 € einmalig“ (§ 312j).
+  A light band sweeps over it three times, then stops (none with reduced motion). The same
+  immediate-start checkbox unlocks both buttons. Every number is computed from the real prices
+  (`lifetimeCheaperFromYear`, `yearlyTotalCents` in `packages/shared`; the store's prices in store
+  builds). Deliberately not used: timers, „only 3 left“, „most popular“, shaming „no“ texts (UWG).
+- **Website** (`landing.tsx` `LifetimeButton`, CSS `.lifetime-shine`): the same under „Jetzt bestellen“
+  on the pricing card; it links to `/app` like the yearly button (purchases are in the app).
+- **Contract**: lifetime = a `subscriptions` row with `interval = 'lifetime'`, `current_period_end`
+  NULL, `will_renew` false (migration `20261213000000_lifetime_plan`). Summary/API: `lifetime: true`,
+  unified status ACTIVE. Cancellation finds nothing to cancel (request kept for review);
+  withdrawal works (refund of the one-time charge, Wertersatz per used day against one contract year,
+  TODO legal). Contract confirmation e-mail and PDF say „29,99 € einmalig“, „Laufzeit: dauerhaft, ohne
+  Verlängerung“. Renewal reminders and the expiry sweep never touch it.
+- **Stripe**: one-time Checkout with `price_data` (no price ID to create), metadata `term=lifetime`;
+  `stripe_payment_intent` identifies the contract (webhook + return confirmation idempotent). Settings
+  `prices.lifetime_cents` / `prices.store_lifetime_cents` (2999). No promo codes on lifetime.
+- **Stores**: a non-consumable read from RevenueCat `non_subscriptions`, same entitlement
+  `parkshield_pro`. The app shows the lifetime button in store builds only when the current offering
+  has a lifetime package.
+
+**Still to do (owner, outside the code):**
+1. App Store Connect: in-app purchase **Non-Consumable** `lifetime` (29,99 €), and Google Play Console:
+   **one-time product** `lifetime` (29,99 €).
+2. RevenueCat: add both products, attach them to the entitlement `parkshield_pro`, add a package of
+   type **Lifetime** to the current offering.
+3. Deploy (API migration) to the test server, then a new EAS build for the app.
+4. Lawyer: AGB/Widerruf wording for the lifetime plan (`LEGAL_REVIEW.md` §15).
+
+Not done: upgrading a running yearly plan to lifetime (the paywall stays hidden while a contract is
+live); possible follow-up.

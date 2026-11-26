@@ -577,3 +577,17 @@ days (`codes.reissue_cooldown_days`); support can make an exception (e.g. theft)
    code is issued at once, the 10 days for later codes count from it). A customer who locks the code within
    the first 10 days waits until day 10 (or asks support for the exception). Consumer-law concern
    about a paid service that cannot be used for up to 10 days after a theft?
+
+## 15. Lifetime plan (2026-11-26)
+
+The plan can also be bought once for 29,99 € (no renewal). Please check:
+
+1. **„Lifetime“ / „dauerhaft“ / „für immer“:** our definition is „as long as ParkShield offers the
+   service“ (contract confirmation PDF). Does the AGB need a clause on what happens if the service ends
+   (notice period, partial refund)?
+2. **Withdrawal (§ 357a Abs. 2 BGB):** Wertersatz is computed per used day against one contract year
+   (365 days) of the 29,99 € minus the sticker value. Is that a fair value for a service without a term?
+3. **Advertising claims (UWG):** „Nur 10 € mehr – dafür für immer“, „Ab dem 2. Jahr günstiger“, „in
+   5 Jahren 69,96 € gespart“ (compared with five yearly payments at today's price). Acceptable?
+4. **Vehicle change:** the lifetime plan is for one vehicle; our assumption is that the owner may move
+   it to a new car (new code / sticker as usual). Needs a sentence in the AGB.

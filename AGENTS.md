@@ -23,6 +23,9 @@ the car sees the reply live. Trusted/emergency contacts were removed on 2026-11-
 - Market: Germany first (German is the source language, English is the second UI language).
 - Model: one paid yearly plan **„ParkShield“, 19,99 € / year incl. 19 % MwSt., one vehicle** (20 € until 2026-11-25), everything
   included (owner decision 2026-11-21; Plus/Premium and Business were dropped).
+- **Lifetime** (owner decision 2026-11-26): the same plan paid **once, 29,99 €** (no renewal, nothing to
+  cancel): `subscriptions.interval = 'lifetime'`, Stripe one-time Checkout or a store non-consumable.
+  One button under the yearly pay button (`docs/handover.md` §25).
 - Privacy is the product: servers in Germany/EU, no ads, no tracking, data minimisation by design.
 
 The full specification (requirements with IDs such as `SC-`, `OW-`, `NT-`, `AD-`, `US-`) is in
