@@ -67,6 +67,15 @@ test.describe('site footer (design 2026-11-22)', () => {
       footer.getByRole('link', { name: 'Vertrag widerrufen', exact: true }),
     ).toHaveAttribute('href', '/widerrufen');
     await expect(footer.getByText('Hosted in Germany', { exact: true })).toBeVisible();
+    // Company block (2026-11-26), from the same data as the Impressum.
+    const company = footer.locator('address');
+    await expect(company).toContainText('Diyar Hussein Dienstleistungen');
+    await expect(company).toContainText('Monheimer Str. 24, 51371 Leverkusen');
+    await expect(company).toContainText('USt-IdNr. DE454570643');
+    await expect(company.getByRole('link', { name: 'contact@park-shield.de' })).toHaveAttribute(
+      'href',
+      'mailto:contact@park-shield.de',
+    );
     for (const [width, columns] of [
       [320, 2],
       [375, 2],

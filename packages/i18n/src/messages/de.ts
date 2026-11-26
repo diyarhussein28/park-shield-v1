@@ -33,8 +33,6 @@ const de = {
       support: 'Hilfe',
       legal: 'Rechtliches',
       faq: 'Häufige Fragen',
-      operator:
-        'ParkShield ist ein Angebot von Diyar Hussein (Diyar Hussein Dienstleistungen), Monheimer Str. 24, 51371 Leverkusen, contact@park-shield.de',
     },
     siteFooter: {
       tagline:
@@ -55,6 +53,11 @@ const de = {
       cancel: 'Verträge hier kündigen',
       withdraw: 'Vertrag widerrufen',
       hosted: 'Hosted in Germany',
+      // Company block (2026-11-26); the data comes from COMPANY in packages/shared (as the Impressum).
+      operatorIntro: 'ParkShield ist ein Angebot von',
+      owner: 'Inhaber: {owner}',
+      country: 'Deutschland',
+      vatId: 'USt-IdNr. {vatId}',
     },
   },
   nav: {

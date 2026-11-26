@@ -4,7 +4,7 @@
 `CLAUDE.md`). The full task is [single-plan-update-prompt.md](single-plan-update-prompt.md); the owner's
 answers and the design sheets are summarised below.
 
-_Last updated: 2026-11-25 (first Google Play purchase works, §17). Before: 2026-11-25 (deployed `7726a04`: the app says why a plan ended, clear store purchase errors, §17). Before: 2026-11-25 (website: one logo source, pages open at the top, deployed `162ec31`, §16). Before: 2026-11-25 (deployed `1a13c01` to the test server, §15b). Before: 2026-11-25 (owner decisions on the QA findings: first lock without cooldown, paywall, receipt print/PDF, localized `<title>`, worker warn, §15b). Before: 2026-11-25 (full QA run on web, iOS, Android, e-mails and ops; fixes and open findings in §15). Before: 2026-11-24 (owner decisions on `/aktivieren`, `/antwort`, passkeys and the first code done, §14). Before: 2026-11-24 (all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
+_Last updated: 2026-11-26 (NFC decal spec, company block in the website footer, §18). Before: 2026-11-25 (first Google Play purchase works, §17). Before: 2026-11-25 (deployed `7726a04`: the app says why a plan ended, clear store purchase errors, §17). Before: 2026-11-25 (website: one logo source, pages open at the top, deployed `162ec31`, §16). Before: 2026-11-25 (deployed `1a13c01` to the test server, §15b). Before: 2026-11-25 (owner decisions on the QA findings: first lock without cooldown, paywall, receipt print/PDF, localized `<title>`, worker warn, §15b). Before: 2026-11-25 (full QA run on web, iOS, Android, e-mails and ops; fixes and open findings in §15). Before: 2026-11-24 (owner decisions on `/aktivieren`, `/antwort`, passkeys and the first code done, §14). Before: 2026-11-24 (all 4 phases done: app UI for the new code, §14). Before: 2026-11-24 (phase 3: paid 3 € new code through Stripe, refunds keep the code, Customer 360, §14). Before: 2026-11-24 (phase 2: new-code rules, 10-day cooldown, free once per year, §14). Before: 2026-11-24 (phase 1: website without sign-in, portal and checkout, §14). Before: 2026-11-24 (park-shield.de switched to the server, §13). Before: 2026-11-24 (`__Host-` cookies, Vercel dropped, §13). Before: 2026-11-24 (website e-mail change, scanner 110/112 links, trusted-contact clean-up, ops subscription source, Google Play pause, §12). Before: 2026-11-24 (Konto: change e-mail and mobile number, §11). Before: 2026-11-23 (USt-IdNr. in the e-mail footer and support replies via Webmail signatures, §10). Before: 2026-11-23 (in-app contact form and the renewal reminder fix, §9). Before: 2026-11-22 (evening). **Unified billing (RevenueCat + Stripe) and the personalised sticker are implemented** (§8, `docs/billing-unified.md`). Earlier the same day: **the seven fix prompts of 2026-11-22 are implemented, tested and pushed** (see §7): block state + unblock, Alerts screen design, German default + onboarding + sign-out, badge, website footer, unified e-mail layout + contract PDF, support@/payment@ routing. API 615 tests, app Jest 152, typecheck, lint, prettier, db:check green. Deployed to the test server with this commit; the app changes need a new EAS build._
 
 ---
 
@@ -792,3 +792,23 @@ with negative, edge, security, accessibility, performance and compatibility case
 device matrix and defect log. No credentials inside; basic auth, TestFlight/APK links and staff
 invites go to the company separately. Open: send it to the company, agree the window for load and
 intrusive security tests, provide app builds (push and Stripe return need a real build).
+
+## 18. NFC decal spec and the company block in the website footer (2026-11-26)
+
+- **NFC decals:** specification in [`docs/nfc-decals.md`](nfc-decals.md) (draft for the owner's
+  decision, nothing built). Stage 1: NTAG213 with the same URL as the QR code, locked after writing; the
+  URL goes into the job ticket (`nfc` field of `PrintJob`, product `nfc_vinyl_sticker` already in the DB
+  enum) and is written by the print partner's encoder or by staff with a new ops page „NFC schreiben“
+  (Web NFC, read-back and QR/NFC comparison, UID stored as a blind index in `nfc_tags`). Stage 2: NTAG
+  424 DNA with SUN (signed tap counter, keys derived from `NFC_MASTER_KEY_V<n>`), checked on the scanner
+  route. Material and placement (inside the glass, „innenklebend“), tests and open decisions are in the
+  spec.
+- **Website footer:** a company block above „© ParkShield“ — „ParkShield ist ein Angebot von“, company
+  name, owner, address, e-mail (mailto) and USt-IdNr., all from `COMPANY` in
+  `packages/shared/src/legal-content.ts` (the Impressum's data), texts `common.siteFooter.operatorIntro`,
+  `owner`, `country`, `vatId` (DE/EN). The unused hard-coded `common.footer.operator` text was removed.
+  The phone number stays on the Impressum only. Checked at 320 px and 1024 px, DE and EN, no horizontal
+  scroll; E2E `sprint2.spec.ts` („site footer“) asserts the block.
+- Locally the E2E tests „… is linked in the footer and accessible“ fail now and then in dev mode (the
+  click lands before hydration, the page stays on `/`); they fail the same way without this change.
+- Not deployed yet.

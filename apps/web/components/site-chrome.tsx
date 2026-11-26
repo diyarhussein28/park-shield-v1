@@ -1,5 +1,6 @@
 'use client';
 
+import { COMPANY } from '@parkshield/shared';
 import { LanguageSwitch, SkipLink, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -108,7 +109,8 @@ export function SiteHeader({ sticky = false }: { sticky?: boolean }) {
  * The site footer (design 2026-11-22, „exactly like the image“): very dark navy, the ParkShield logo
  * (the same mark as the header, `components/brand/logo.tsx`), the tagline, then the link groups in a 2 × 2 grid on phones (Produkt · Support /
  * Rechtliches · Vertrag) and one row of four columns from 768 px, then „© 2026 ParkShield“ and
- * „Hosted in Germany“. „Verträge hier kündigen“ (§ 312k BGB) and „Vertrag widerrufen“ (§ 356a BGB)
+ * „Hosted in Germany“. Above that line, the company block (2026-11-26): name, owner, address, e-mail and
+ * VAT ID from `COMPANY` (packages/shared, the same data as the Impressum). „Verträge hier kündigen“ (§ 312k BGB) and „Vertrag widerrufen“ (§ 356a BGB)
  * are always visible, also without login. No tracking scripts.
  */
 export function SiteFooter() {
@@ -172,7 +174,32 @@ export function SiteFooter() {
           ))}
         </div>
         <hr className="my-10 border-slate-700" />
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-sm min-[380px]:text-base">
+        <address className="text-sm leading-relaxed not-italic min-[380px]:text-base">
+          <p>{t('common.siteFooter.operatorIntro')}</p>
+          <p className="font-semibold text-white">{COMPANY.name}</p>
+          <p>
+            {t('common.siteFooter.owner', { owner: COMPANY.owner })}
+            <span aria-hidden="true" className="hidden sm:inline">
+              {' · '}
+            </span>
+            <br className="sm:hidden" />
+            {`${COMPANY.street}, ${COMPANY.postalCode} ${COMPANY.city}, ${t('common.siteFooter.country')}`}
+          </p>
+          <p>
+            <a
+              href={`mailto:${COMPANY.email}`}
+              className="rounded underline-offset-4 hover:text-white hover:underline focus-visible:text-white focus-visible:underline"
+            >
+              {COMPANY.email}
+            </a>
+            <span aria-hidden="true" className="hidden sm:inline">
+              {' · '}
+            </span>
+            <br className="sm:hidden" />
+            {t('common.siteFooter.vatId', { vatId: COMPANY.vatId })}
+          </p>
+        </address>
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-sm min-[380px]:text-base">
           <p className="whitespace-nowrap">© {new Date().getFullYear()} ParkShield</p>
           <p className="inline-flex items-center gap-1.5 whitespace-nowrap min-[380px]:gap-2">
             <Icon name="lock" className="size-4 shrink-0 min-[380px]:size-5" />
