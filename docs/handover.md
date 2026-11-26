@@ -783,3 +783,12 @@ bestellen“ ended in Google Play's „The item you were attempting to purchase 
   (the withdrawal only revoked the old QR code, a later purchase issued a new one).
 - ✅ API deployed 2026-11-25 (`7726a04`): `ended` is live (the two test accounts answer `moved` and
   `expired`). The app texts reach testers with the next EAS build (`play-internal` for Play).
+
+## 18. Test cases for an external QA company (2026-11-26)
+
+`docs/qa/ParkShield-Test-Cases.xlsx` (source `docs/qa/cases.mjs`, generator `build.mjs`, how-to in
+`docs/qa/README.md`): 213 cases in 23 modules for web, scanner, iOS, Android, e-mails, SMS and ops,
+with negative, edge, security, accessibility, performance and compatibility cases, a summary sheet,
+device matrix and defect log. No credentials inside; basic auth, TestFlight/APK links and staff
+invites go to the company separately. Open: send it to the company, agree the window for load and
+intrusive security tests, provide app builds (push and Stripe return need a real build).
