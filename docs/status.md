@@ -114,8 +114,9 @@ records. Old SendGrid and Brevo records stay but are unused.
 - **Lifetime plan 29,99 € once (2026-11-26).** Owner decision: besides the yearly 19,99 € the same plan
   can be paid once for 29,99 € (no renewal, nothing to cancel); kept at 29,99 € although only 10 € above
   one year. Shown as one yellow button under the yearly pay button (app and website), no second card.
-  Code done (API, app, website; `docs/handover.md` §25); deployed to the test server 2026-11-26 (`a97a688`, migration applied, `/v1/plans` reports 2999). Open: App Store / Play
-  products `lifetime` and the RevenueCat Lifetime package, new EAS build, lawyer `LEGAL_REVIEW.md` §15.
+  Code done (API, app, website; `docs/handover.md` §25); deployed to the test server 2026-11-26 (`a97a688`, migration applied, `/v1/plans` reports 2999). Store products
+  `parkshield_lifetime` (App Store, Google Play) and the RevenueCat Lifetime package set up 2026-11-27.
+  Open: new EAS build, App Store review screenshot, sandbox purchase test, lawyer `LEGAL_REVIEW.md` §15.
 
 - **„Bin gleich zurück“ (2026-11-26).** Owner spec built behind `VEHICLE_STATUS_ENABLED`
   (`docs/vehicle-status.md`). Owner decisions the same day: the „Ich warte“ push carries no vehicle label
