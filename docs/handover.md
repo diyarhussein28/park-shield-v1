@@ -894,9 +894,6 @@ Owner spec (temporary status message per vehicle, scanner „Ich warte“), behi
 | Scan page card (message, countdown in memory, „Ich warte“, live „Ich komme“), DE + EN | ✅ E2E `e2e/tests/vehicle-status.spec.ts` |
 | App: button + bottom sheet on Home and the vehicle screen (`components/be-right-back.tsx`), active banner with mm:ss, „+5 Min“ (off at the cap), „Beenden“, „Aktiv“ chip, „1 Person wartet“, `PS_BRB` notification actions, refetch on focus / foreground / push / silent data message, alert icon for `waiting` | ✅ Jest `be-right-back.test.tsx` (7), whole app suite 188 green; needs a new EAS build |
 
-Open questions for the owner (built with the safe default, easy to change):
-1. The „Ich warte“ push text has **no vehicle label** (FCM rule: no label, plate or name in a push);
-   the spec asked for „{Fahrzeugname}“.
-2. „Sie“ instead of the spec's „du“ (the app and the scan page say „Sie“ everywhere).
-3. Not deployed: the test server needs the migration, `VEHICLE_STATUS_ENABLED=true` in `server.env`
-   and a new EAS build for the app part.
+Owner decisions (2026-11-26): the „Ich warte“ push stays **without the vehicle label** (FCM rule: no
+label, plate or name in a push), and the texts stay with **„Sie“** (not the spec's „du“). Deploy to the
+test server: see the next line; the app part still needs a new EAS build.

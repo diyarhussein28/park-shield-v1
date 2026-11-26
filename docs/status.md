@@ -111,6 +111,10 @@ records. Old SendGrid and Brevo records stay but are unused.
 
 ## 3. Decisions
 
+- **„Bin gleich zurück“ (2026-11-26).** Owner spec built behind `VEHICLE_STATUS_ENABLED`
+  (`docs/vehicle-status.md`). Owner decisions the same day: the „Ich warte“ push carries no vehicle label
+  (FCM rule) and every text uses „Sie“.
+
 - **First „Sperren“ without the 10-day wait (2026-11-25).** Owner decision on the QA finding: while a
   vehicle has had only its first code and that code is locked, a new code (free once per subscription
   year, or 3 € with the printed sticker) is possible at once; every later new code waits 10 days as

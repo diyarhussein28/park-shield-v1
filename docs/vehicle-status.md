@@ -68,7 +68,7 @@ A handler whose version is no longer the row's does nothing. The worker also swe
 - „Ich warte“: „Jemand wartet an Ihrem Fahrzeug.“ — **without the vehicle label**: FCM pushes carry no
   label, plate or name (AGENTS.md §7, owner decision 2026-11-21). The app shows the label in the alert.
 
-## Differences from the spec text (to confirm with the owner)
+## Differences from the spec text (confirmed by the owner 2026-11-26)
 
 1. Push text without `{Fahrzeugname}` (see above). With one vehicle per plan it names no less.
 2. Texts use „Sie“ like the rest of the app and the scan page; the spec's „du“ texts were adapted.
