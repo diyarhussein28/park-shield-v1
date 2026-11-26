@@ -875,8 +875,10 @@ test only with written approval (PERF-03).
   longer listed as known.
 - Read me: the alert limits per scanner (one browser on one network). On the test server only
   `ratelimit.alert.scanner_vehicle` is relaxed (1 per minute); 3 per day per scanner and vehicle, 6 per
-  hour per scanner and 20 per day per vehicle still apply, so testers switch browser or network. If the
-  owner wants testers to send more, raise `ratelimit.alert.scanner_vehicle_day` and
-  `ratelimit.alert.scanner_global` on the test server too (and add them to `docs/status.md` §4 item 1).
+  hour per scanner and 20 per day per vehicle still applied. ✅ Owner decision the same day: raised on the
+  test server (SQL into `app_settings`): `ratelimit.alert.scanner_vehicle_day` 50/day,
+  `ratelimit.alert.scanner_global` 60/h, `ratelimit.alert.vehicle` 100/day, `ratelimit.alert.phone_vehicle`
+  1/min, `ratelimit.alert.phone_vehicle_day` 50/day; the Read me and the SCAN cases say so. Undo before
+  go-live: `docs/status.md` §4 item 1.
 - Note: the code default of `ratelimit.alert.scanner_vehicle` is 2 per hour, not „15 minutes“ as
   `docs/status.md` §4 item 1 says; restoring means deleting the override either way.

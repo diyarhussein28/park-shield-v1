@@ -218,7 +218,11 @@ Relaxed only for testing on the test server. Restore every item before step 5:
 1. **Scanner wait between alerts** is 1 minute for testing (`app_settings` key
    `ratelimit.alert.scanner_vehicle` = `{"max":1,"windowSeconds":60}`). Restore the 15-minute
    default: `DELETE FROM app_settings WHERE key = 'ratelimit.alert.scanner_vehicle';` and restart
-   `api` and `worker`.
+   `api` and `worker`. Since 2026-11-26 (external testers) also raised: `ratelimit.alert.scanner_vehicle_day`
+   (50/day), `ratelimit.alert.scanner_global` (60/h), `ratelimit.alert.vehicle` (100/day),
+   `ratelimit.alert.phone_vehicle` (1/min) and `ratelimit.alert.phone_vehicle_day` (50/day). Restore all with
+   `DELETE FROM app_settings WHERE key LIKE 'ratelimit.alert.%';` (code defaults: 2/h, 3/day, 6/h, 20/day,
+   2/h, 3/day).
 2. **Test stack mode:** `APP_ENV=ci`, `SITE_NOINDEX=1` and Caddy basic auth. Production needs
    `APP_ENV=production`, no basic auth, a real captcha and Stripe **live** keys.
 3. **Alert photos** are switched on for testing: `ALERT_PHOTOS_ENABLED=true` in `server.env` and
