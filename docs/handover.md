@@ -984,8 +984,12 @@ Design (owner: „no new card, one button under the yearly button, persuasive te
    `lifetime` (29,99 USD, test only), all attached to `parkshield_pro`; package **Lifetime**
    (`$rc_lifetime`) in the `default` offering, above Yearly.
 
-**Still to do:** a new EAS build for the app (the button appears once the build reads the Lifetime
-package), then a sandbox purchase on iOS and Android; lawyer (`LEGAL_REVIEW.md` §15).
+**EAS builds (2026-11-27, from `main`):** iOS `preview` (internal, build `e6527b74`) and Android
+`play-internal` (app bundle, versionCode 5, build `002a40e8`) both finished. The Android bundle still
+has to be uploaded to the Play internal test track.
+
+**Still to do:** upload the Android bundle to internal testing, App Store review screenshot, a sandbox
+purchase on iOS and Android; lawyer (`LEGAL_REVIEW.md` §15).
 
 Not done: upgrading a running yearly plan to lifetime (the paywall stays hidden while a contract is
 live); possible follow-up.
