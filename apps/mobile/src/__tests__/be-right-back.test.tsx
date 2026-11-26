@@ -198,3 +198,23 @@ describe('the pre-expiry notification', () => {
     expect(mmss(-5)).toBe('00:00');
   });
 });
+
+describe('Metro can bundle the shared package', () => {
+  it('imports @parkshield/shared only by subpath (Metro resolves no bare package name)', () => {
+    // Found on a real phone (2026-11-26): Jest resolved `@parkshield/shared`, Metro did not.
+    const { readdirSync, readFileSync, statSync } =
+      jest.requireActual<typeof import('node:fs')>('node:fs');
+    const { join } = jest.requireActual<typeof import('node:path')>('node:path');
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const f of readdirSync(dir)) {
+        const p = join(dir, f);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (/\.tsx?$/.test(f)) files.push(p);
+      }
+    };
+    walk(join(__dirname, '..'));
+    const bare = files.filter((f) => /from '@parkshield\/shared'/.test(readFileSync(f, 'utf8')));
+    expect(bare).toEqual([]);
+  });
+});

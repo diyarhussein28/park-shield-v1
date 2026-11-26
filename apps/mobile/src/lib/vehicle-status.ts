@@ -1,4 +1,4 @@
-import type { StatusDuration, StatusPreset } from '@parkshield/shared';
+import type { StatusDuration, StatusPreset } from '@parkshield/shared/vehicle-status';
 import { api } from './api';
 
 /** „Bin gleich zurück“ as the API returns it (GET/PUT/extend /v1/vehicles/:id/status). */

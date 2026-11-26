@@ -9,7 +9,7 @@ import {
   STATUS_TEXT_MAX,
   type StatusDuration,
   type StatusPreset,
-} from '@parkshield/shared';
+} from '@parkshield/shared/vehicle-status';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {

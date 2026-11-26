@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { TurboModuleRegistry } from 'react-native';
 
 /** API origin (the website; /v1 and /v1/socket.io are routed to the API there). */
 export const API_URL: string = String(
@@ -6,10 +7,24 @@ export const API_URL: string = String(
     'https://park-shield.de',
 ).replace(/\/$/, '');
 
-/** Whether this build includes Firebase (push). Without it the app works, but gets no push. */
-export const HAS_FIREBASE = Boolean(
-  (Constants.expoConfig?.extra as { firebase?: boolean } | undefined)?.firebase,
-);
+/**
+ * Whether this build includes Firebase (push). Without it the app works, but gets no push. Expo Go
+ * (`storeClient`) never has the native Firebase modules, even when the config files are present
+ * locally: loading them there throws „Native module NativeRNFBTurboApp is not registered“.
+ */
+export const HAS_FIREBASE =
+  Boolean((Constants.expoConfig?.extra as { firebase?: boolean } | undefined)?.firebase) &&
+  Constants.executionEnvironment !== 'storeClient' &&
+  nativeFirebase();
+
+/** The native React Native Firebase module is in this binary (it is not in Expo Go). */
+function nativeFirebase(): boolean {
+  try {
+    return TurboModuleRegistry.get('NativeRNFBTurboApp') != null;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * The public website (help centre, FAQ, privacy policy). Always the live domain, also in test builds:
