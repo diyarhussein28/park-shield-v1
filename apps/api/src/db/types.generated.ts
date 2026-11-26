@@ -973,6 +973,17 @@ export interface Vehicles {
   updated_at: Generated<Timestamp>;
 }
 
+export interface VehicleStatus {
+  custom_text: string | null;
+  duration_min: number;
+  expires_at: Timestamp;
+  preset_key: string | null;
+  started_at: Generated<Timestamp>;
+  vehicle_id: string;
+  version: Generated<number>;
+  waiting_signal_count: Generated<number>;
+}
+
 export interface VehicleTransfers {
   created_at: Generated<Timestamp>;
   decided_at: Timestamp | null;
@@ -1102,6 +1113,7 @@ export interface DB {
   vehicle_modes: VehicleModes;
   vehicle_photo_upload_blocks: VehiclePhotoUploadBlocks;
   vehicle_protection: VehicleProtection;
+  vehicle_status: VehicleStatus;
   vehicle_transfers: VehicleTransfers;
   vehicles: Vehicles;
   webauthn_credentials: WebauthnCredentials;

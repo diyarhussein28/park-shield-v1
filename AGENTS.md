@@ -363,6 +363,11 @@ Single API test file: `cd apps/api && npx vitest run src/scan`. Single E2E file:
   stored) in every channel, never an attachment. Deleted after 30 days by the retention job (key, file,
   row) or at once by „Missbrauch melden“. Part of the single plan (no plan setting any more). Open items: LEGAL_REVIEW.md §5
   and, for the multi-host Ansible topology, a storage the worker can reach.
+- **„Bin gleich zurück“** (2026-11-26, `VEHICLE_STATUS_ENABLED`, `docs/vehicle-status.md`): a temporary
+  status message per vehicle (`vehicle_status`, module `apps/api/src/vehicle-status/`), shown first on the
+  scan page with „Ich warte“ (alert type `waiting`, never escalated). Delayed outbox events
+  (`vehicle_status.prewarn` / `.expire`, deduped by `version`) plus a 5 s sweep; DB triggers delete the
+  status on a revoke and at the end of the subscription.
 - **Scanner page `/s/[code]`** is a Next.js **route handler returning plain HTML + inline vanilla
   JS** (`apps/web/lib/scanner/*`), not React, to meet the 1.5 s / 90 KB budget on bad mobile
   networks. Keep it that way.

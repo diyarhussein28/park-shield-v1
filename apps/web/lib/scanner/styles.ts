@@ -96,6 +96,10 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .chatin{display:flex;gap:8px;align-items:center;margin-top:8px}
 .chatin input{flex:1;min-width:0;border-radius:999px;padding:0 18px}
 .round{width:52px;height:52px;flex:none;border-radius:50%;background:var(--primary);color:var(--primary-fg);display:grid;place-items:center}
+.brb{background:var(--info-bg);color:var(--info-fg);border:2px solid var(--primary);border-radius:16px;padding:16px;margin:12px 0}
+.brb .h-ic{margin:0 0 8px;font-size:17px}.brb .h-ic svg{color:inherit}
+.brb-msg{font-size:21px;font-weight:700;line-height:1.35;white-space:pre-line;overflow-wrap:anywhere;margin:0 0 8px}
+.brb-left{font-weight:600;margin:0 0 4px}.brb .hint{color:inherit}.brb .note{margin:8px 0 0}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 `;

@@ -14,6 +14,16 @@ export interface ScanPageData {
   color: string | null;
   testMode: boolean;
   backAt: string | null;
+  /**
+   * „Bin gleich zurück“ (VEHICLE_STATUS_ENABLED): the owner's status message, checked by the API on
+   * every scan. A preset key (rendered in the page language) or the custom text exactly as written.
+   */
+  vehicleStatus?: {
+    presetKey: string | null;
+    customText: string | null;
+    secondsLeft: number;
+    minutesLeft: number;
+  } | null;
   alertTypes: { code: string; severity: string; de: string; en: string }[];
 }
 
@@ -85,6 +95,7 @@ const I = {
   info: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/>'),
   plus: svg('<path d="M12 5v14M5 12h14"/>'),
   out: svg('<path d="M7 17 17 7M8 7h9v9"/>'),
+  clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
 };
 const TYPE_ICON: Record<string, string> = {
   blocking: I.car,
@@ -192,6 +203,32 @@ function photoBox(label: (k: keyof Strings) => string): string {
 </section>`;
 }
 
+const PRESETS = new Set(['BACK_FEW_MIN', 'PLEASE_WAIT', 'QUICK_ERRAND', 'LOADING']);
+
+/**
+ * „Bin gleich zurück“: the owner's message first, the time left (computed by the API, counted down in
+ * page memory only) and „Ich warte“. Everything below stays as without a status.
+ */
+function statusCard(
+  s: Strings,
+  label: (k: keyof Strings) => string,
+  st: NonNullable<ScanPageData['vehicleStatus']>,
+): string {
+  const preset = st.presetKey && PRESETS.has(st.presetKey) ? st.presetKey : null;
+  const message = preset
+    ? `<p id="brb-msg" class="brb-msg" ${label(`brbPreset_${preset}` as keyof Strings)}</p>`
+    : `<p id="brb-msg" class="brb-msg">${esc(st.customText ?? '')}</p>`;
+  return `<section id="brb" class="brb" aria-labelledby="brb-h">
+<h2 id="brb-h" class="h-ic">${I.clock}<span ${label('brbTitle')}</span></h2>
+${message}
+<p id="brb-left" class="brb-left" aria-live="polite">${esc(s.brbBack.replace('{minutes}', String(st.minutesLeft)))}</p>
+<button type="button" id="brb-wait" class="primary" ${label('brbWait')}</button>
+<p class="hint" id="brb-hint" ${label('brbWaitHint')}</p>
+<p id="brb-done" class="note ok" role="status" tabindex="-1" hidden></p>
+<p id="brb-err" class="note err" role="alert" hidden></p>
+</section>`;
+}
+
 /**
  * Abuse protection §4: optional phone check while the vehicle is in Protected Mode. Never says that the
  * owner blocked anyone. The confirmation lives in page memory only (no cookie, no storage).
@@ -246,12 +283,14 @@ export function renderScanner(
     code,
     lang: locale,
     backAt: data.backAt,
+    brb: data.vehicleStatus ? { secondsLeft: data.vehicleStatus.secondsLeft } : null,
     strings: { de: messages.de.scanner, en: messages.en.scanner },
     captcha: captcha.mode === 'dev' ? captcha : { mode: 'frc' },
   };
   const body = `${header(`<div class="langs" role="group" aria-label="${esc(s.language)}">${langs}</div>`)}
 <main>
 ${data.testMode ? `<p class="note info inote" role="status">${I.flask}<span><b ${label('testLabel')}</b> <span ${label('testBanner')}</span></span></p>` : ''}
+${data.vehicleStatus ? statusCard(s, label, data.vehicleStatus) : ''}
 <section id="pick" aria-labelledby="h">
 <h1 id="h" ${label('choose')}</h1>
 <p class="muted" ${label('intro')}</p>

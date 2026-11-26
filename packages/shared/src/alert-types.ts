@@ -1,6 +1,7 @@
 // Mirrors the alert_types seed in db/migrations. Runtime values come from the DB (editable in ops, AD-14);
 // these are the defaults and the type source for the apps.
-export const ALERT_TYPE_CODES = [
+/** Types a scanner can pick from the problem list (POST /v1/scan/:code/alerts). */
+export const SCANNER_ALERT_TYPE_CODES = [
   'blocking',
   'lights_on',
   'window_open',
@@ -8,6 +9,12 @@ export const ALERT_TYPE_CODES = [
   'alarm',
   'towing_risk',
   'custom',
+] as const;
+export const ALERT_TYPE_CODES = [
+  ...SCANNER_ALERT_TYPE_CODES,
+  // „Ich warte“ on the scan page while „Bin gleich zurück“ is on (2026-11-26): no text, no photo, never
+  // escalated (no reminder push, no SMS). Never offered in the scanner's problem list.
+  'waiting',
 ] as const;
 export type AlertTypeCode = (typeof ALERT_TYPE_CODES)[number];
 
@@ -28,6 +35,7 @@ export const ALERT_TYPE_DEFAULTS: readonly AlertTypeDefault[] = [
   { code: 'alarm', severity: 'normal', escalates: false, sortOrder: 5 },
   { code: 'towing_risk', severity: 'urgent', escalates: true, sortOrder: 6 },
   { code: 'custom', severity: 'normal', escalates: false, sortOrder: 7 },
+  { code: 'waiting', severity: 'normal', escalates: false, sortOrder: 8 },
 ];
 
 export const ALERT_STATUSES = [

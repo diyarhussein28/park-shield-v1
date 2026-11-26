@@ -11,6 +11,31 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 /** FCM error codes that mean the token will never work again: the device is removed. */
 const GONE = new Set(['UNREGISTERED', 'INVALID_ARGUMENT', 'SENDER_ID_MISMATCH']);
 
+/** A data-only push (no notification block, nothing shown): the app reads `data` and refetches. */
+export function fcmSilentBody(msg: AppPushMessage) {
+  const expiry = Math.floor(Date.now() / 1000) + msg.ttlSeconds;
+  return {
+    message: {
+      token: msg.token,
+      data: msg.data,
+      android: { priority: 'NORMAL', ttl: `${msg.ttlSeconds}s` },
+      apns: {
+        headers: {
+          'apns-priority': '5',
+          'apns-push-type': 'background',
+          'apns-expiration': String(expiry),
+        },
+        payload: { aps: { 'content-available': 1 }, body: msg.data },
+      },
+    },
+  };
+}
+
+/** The request body of one message, silent or visible. */
+export function fcmRequest(msg: AppPushMessage) {
+  return msg.silent ? fcmSilentBody(msg) : fcmBody(msg);
+}
+
 /**
  * The FCM HTTP v1 request body. Exported for tests: the payload must never carry the scanner's message,
  * a photo, the licence plate or a name (only a generic text and ids), because FCM is a Google service.
@@ -118,7 +143,7 @@ export class FcmSender implements AppPushSender {
           authorization: `Bearer ${await this.token()}`,
           'content-type': 'application/json',
         },
-        body: JSON.stringify(fcmBody(msg)),
+        body: JSON.stringify(fcmRequest(msg)),
         signal: AbortSignal.timeout(15_000),
       },
     );
@@ -150,7 +175,7 @@ export class DevAppPushSender implements AppPushSender {
       .multi()
       .lpush(
         DEV_APP_PUSH_KEY,
-        JSON.stringify({ body: fcmBody(msg), messageId, sentAt: new Date().toISOString() }),
+        JSON.stringify({ body: fcmRequest(msg), messageId, sentAt: new Date().toISOString() }),
       )
       .ltrim(DEV_APP_PUSH_KEY, 0, 99)
       .exec();

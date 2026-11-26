@@ -92,6 +92,8 @@ export const RATE_LIMITS = {
   // the body is read, so large uploads cannot pile up in memory ahead of the captcha check. Alerts
   // without photos (JSON) do not count. A refused upload can still be sent without photos.
   'scan.upload_ip': { max: 30, windowSeconds: 600 },
+  // „Bin gleich zurück“: status changes (set, replace, +5 Min, Beenden) per vehicle (owner spec).
+  'vehicle_status.change': { max: 30, windowSeconds: 3600 },
 } as const;
 export type RateLimitName = keyof typeof RATE_LIMITS;
 

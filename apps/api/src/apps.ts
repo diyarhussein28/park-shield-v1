@@ -89,6 +89,8 @@ import { LegalRequestsService } from './ops/legal-requests.service';
 import { ClaimController, VehiclesController } from './vehicles/vehicles.controller';
 import { VehiclesService } from './vehicles/vehicles.service';
 import { CodeRulesService } from './vehicles/code-rules';
+import { VehicleStatusController } from './vehicle-status/vehicle-status.controller';
+import { VehicleStatusService } from './vehicle-status/vehicle-status.service';
 import { ChannelsController, TwilioWebhookController } from './channels/channels.controller';
 import { ChannelsService } from './channels/channels.service';
 import { AppAuthController, AppController } from './app/app.controller';
@@ -142,6 +144,7 @@ const domainProviders = [
   RenewalsService,
   VehiclesService,
   CodeRulesService,
+  VehicleStatusService,
   OrdersService,
   ScannerRefService,
   ProtectionService,
@@ -208,6 +211,7 @@ export class PublicAppModule {
         RevenueCatWebhookController,
         LegalController,
         VehiclesController,
+        VehicleStatusController,
         OrdersController,
         ScanController,
         ChannelsController,

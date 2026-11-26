@@ -536,6 +536,19 @@ const de = {
       'Die Fotos konnten nicht angehängt werden. Ihre Warnung wurde ohne Fotos gesendet.',
     photoPartly: 'Ein Foto konnte nicht angehängt werden. Ihre Warnung wurde gesendet.',
     photoError: 'Dieses Bild konnte nicht verwendet werden. Bitte versuchen Sie es noch einmal.',
+    // „Bin gleich zurück“ (owner spec 2026-11-26, VEHICLE_STATUS_ENABLED): the owner's short status
+    // message, shown first. Presets are stored as keys; a custom message is shown exactly as written.
+    brbTitle: 'Nachricht vom Fahrzeughalter',
+    brbPreset_BACK_FEW_MIN: 'Bin in wenigen Minuten zurück.',
+    brbPreset_PLEASE_WAIT: 'Bin gleich da – bitte kurz warten.',
+    brbPreset_QUICK_ERRAND: 'Nur kurz etwas erledigen – bin gleich zurück.',
+    brbPreset_LOADING: 'Lade gerade ein oder aus – bin sofort zurück.',
+    brbBack: 'Zurück in ca. {minutes} Min',
+    brbWait: 'Ich warte',
+    brbWaitHint: 'Ein Tipp genügt: Der Fahrzeughalter erfährt, dass jemand am Fahrzeug wartet.',
+    brbWaitDone:
+      'Der Fahrzeughalter wurde benachrichtigt. Falls es dringend ist, können Sie unten eine Warnung senden.',
+    brbEnded: 'Die Nachricht des Fahrzeughalters ist abgelaufen.',
   },
   channels: {
     title: 'Benachrichtigungen',

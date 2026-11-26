@@ -84,6 +84,11 @@ export interface AppPushMessage {
   collapseKey?: string;
   /** The app icon badge: alerts not opened yet (also right while the app is closed). */
   badge?: number;
+  /**
+   * A data-only push without a visible notification (title and body are ignored): the app refreshes a
+   * screen, e.g. when „Bin gleich zurück“ ended. iOS: background push (content-available).
+   */
+  silent?: boolean;
 }
 
 export type AppPushResult =

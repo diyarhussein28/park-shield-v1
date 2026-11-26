@@ -12,9 +12,10 @@ import {
   ParseUUIDPipe,
   Post,
   Req,
+  Res,
 } from '@nestjs/common';
-import { ALERT_TYPE_CODES, CUSTOM_MESSAGE_MAX } from '@parkshield/shared';
-import type { FastifyRequest } from 'fastify';
+import { CUSTOM_MESSAGE_MAX, SCANNER_ALERT_TYPE_CODES } from '@parkshield/shared';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { SkipCsrf } from '../auth/guards';
 import { ScannerVerificationService } from '../abuse/verification.service';
@@ -31,11 +32,16 @@ const ReportFake = z.object({
   captcha: captchaSolution,
 });
 const CreateAlert = z.object({
-  type: z.enum(ALERT_TYPE_CODES),
+  type: z.enum(SCANNER_ALERT_TYPE_CODES),
   message: z.string().max(CUSTOM_MESSAGE_MAX).optional(),
   lang: z.enum(['de', 'en']).default('de'),
   captcha: captchaSolution,
   /** Signed token from verify/check, kept in page memory only (abuse protection §4). */
+  verification: z.string().max(400).optional(),
+});
+const Waiting = z.object({
+  lang: z.enum(['de', 'en']).default('de'),
+  captcha: captchaSolution,
   verification: z.string().max(400).optional(),
 });
 const VerifyStart = z.object({
@@ -104,6 +110,33 @@ export class ScanController {
     if (!(await this.captcha.verify(body.captcha))) throw new BadRequestException(CAPTCHA_FAILED);
     const token = await this.resolve(code, req);
     return this.scan.createAlert(token, body, context(req), raw.photos);
+  }
+
+  /**
+   * „Ich warte“ while „Bin gleich zurück“ is on (owner spec 2026-11-26): captcha first, then the same
+   * blocks and alert limits as any alert. 201 with the status token (the scanner sees „Ich komme“
+   * live), 200 `already` for a repeat (nothing sent), 409 `no_status` when the status has ended.
+   */
+  @Post('scan/:code/waiting')
+  async waitingSignal(
+    @Param('code') code: string,
+    @Body(new ZodPipe(Waiting)) body: z.infer<typeof Waiting>,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) res: FastifyReply,
+  ) {
+    if (!(await this.captcha.verify(body.captcha))) throw new BadRequestException(CAPTCHA_FAILED);
+    const token = await this.resolve(code, req);
+    const r = await this.scan.waiting(
+      token,
+      { lang: body.lang, verification: body.verification },
+      context(req),
+    );
+    if (r.result === 'no_status') throw new ConflictException({ error: 'no_status' });
+    if (r.result === 'already') {
+      res.status(200);
+      return { already: true };
+    }
+    return { alertId: r.alertId, statusToken: r.statusToken };
   }
 
   /** Abuse protection §4: Lookup (mobile only) and an SMS code, only while Protected Mode is on. */

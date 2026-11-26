@@ -23,6 +23,7 @@ import { ProtectionService } from '../abuse/protection.service';
 import { NOT_DELIVERABLE, ScannerVerificationService } from '../abuse/verification.service';
 import { AlertMediaService, type PhotoOutcome } from '../alert-media/alert-media.service';
 import { ScannerRefService } from './scanner-ref.service';
+import { VehicleStatusService } from '../vehicle-status/vehicle-status.service';
 
 import { normalizeCode } from '../vehicles/tokens.service';
 
@@ -30,6 +31,9 @@ export { normalizeCode };
 export const DISPATCH_TOPIC = 'alert.dispatch';
 
 export const FOLLOWUP_TOPIC = 'alert.followup';
+
+/** A second „Ich warte“ of the same scanner during the same status: nothing is sent. */
+class AlreadyWaiting extends Error {}
 
 export interface ScanContext {
   /** /24 or /48, for limits on the network (report.fake_ip). */
@@ -57,6 +61,7 @@ export class ScanService {
     @Inject(AlertMediaService) private readonly media: AlertMediaService,
     @Inject(OwnerReminderService) private readonly reminders: OwnerReminderService,
     @Inject(ChatService) private readonly chat: ChatService,
+    @Inject(VehicleStatusService) private readonly vehicleStatus: VehicleStatusService,
   ) {}
 
   /** The pseudonymous references of this request (server side only, never stored on the device). */
@@ -143,11 +148,13 @@ export class ScanService {
 
   /** Scanner page data (02-architecture §3 step 1). Never contains the owner's name, plate or number. */
   async pageData(token: NonNullable<Awaited<ReturnType<ScanService['lookup']>>>) {
-    const [types, mode, , protection, photos] = await Promise.all([
+    const [types, mode, , protection, photos, status] = await Promise.all([
       this.db
         .selectFrom('alert_types')
         .select(['code', 'severity', 'label_de', 'label_en'])
         .where('is_active', '=', true)
+        // „Ich warte“ is its own button while „Bin gleich zurück“ is on, never a problem to pick.
+        .where('code', '<>', 'waiting')
         .orderBy('sort_order')
         .execute(),
       this.db
@@ -168,6 +175,8 @@ export class ScanService {
       this.protection.isActive(token.vehicleId),
       // Phase 2: the "Foto hinzufügen" button (feature flag and the owner's plan).
       this.media.available(token.ownerId),
+      // „Bin gleich zurück“ (behind VEHICLE_STATUS_ENABLED): checked here on every scan, never cached.
+      this.vehicleStatus.forScan(token.vehicleId),
     ]);
     return {
       photos,
@@ -177,6 +186,7 @@ export class ScanService {
       color: token.color,
       testMode: token.test_window_until !== null && token.test_window_until > new Date(),
       backAt: mode?.ends_at ?? null,
+      vehicleStatus: status,
       alertTypes: types.map((t) => ({
         code: t.code,
         severity: t.severity,
@@ -192,6 +202,8 @@ export class ScanService {
     input: { type: AlertTypeCode; message?: string; lang: 'de' | 'en'; verification?: string },
     ctx: ScanContext,
     photos: Buffer[] = [],
+    /** „Ich warte“: the start of the status session it belongs to (one per scanner and session). */
+    waiting?: { since: Date },
   ): Promise<{
     alertId: string;
     statusToken: string;
@@ -205,8 +217,11 @@ export class ScanService {
       .where('code', '=', input.type)
       .where('is_active', '=', true)
       .executeTakeFirst();
-    if (!type) throw new UnprocessableEntityException({ error: 'type_unavailable' });
-    const message = input.message?.trim() || undefined;
+    if (!type || (type.code === 'waiting') !== Boolean(waiting))
+      throw new UnprocessableEntityException({ error: 'type_unavailable' });
+    // „Ich warte“ carries no text and no photo.
+    const message = waiting ? undefined : input.message?.trim() || undefined;
+    if (waiting) photos = [];
     if (type.code === 'custom' && !message)
       throw new UnprocessableEntityException({ error: 'message_required' });
 
@@ -295,7 +310,10 @@ export class ScanService {
       !isTest && !verifiedHash && (await this.protection.isActive(token.vehicleId));
     const statusToken = randomToken();
     // Escalation (2026-11-21): reminder push after 10 min, one SMS after 30 min (never for tests).
-    const { remindAt, smsDueAt } = await this.reminders.initialTimes(isTest);
+    // „Ich warte“ never escalates: no reminder push, no SMS (owner spec 2026-11-26).
+    const { remindAt, smsDueAt } = waiting
+      ? { remindAt: null, smsDueAt: null }
+      : await this.reminders.initialTimes(isTest);
     // Phase 2: photos are checked, re-encoded, encrypted and written only now, after every check above.
     // A photo problem drops the photo, never the alert.
     const prepared = await this.media.prepare({
@@ -306,6 +324,19 @@ export class ScanService {
     });
     const create = () =>
       this.db.transaction().execute(async (trx) => {
+        if (waiting) {
+          // One „Ich warte“ per scanner and status session, also when two taps race.
+          await sql`SELECT pg_advisory_xact_lock(hashtext(${`waiting:${token.vehicleId}:${refs.scannerRef.toString('hex')}`}))`.execute(
+            trx,
+          );
+          if (await this.waitedAlready(trx, token.vehicleId, refs.scannerRef, waiting.since))
+            throw new AlreadyWaiting();
+          await trx
+            .updateTable('vehicle_status')
+            .set({ waiting_signal_count: sql`least(waiting_signal_count + 1, 32767)` })
+            .where('vehicle_id', '=', token.vehicleId)
+            .execute();
+        }
         const alert = await trx
           .insertInto('alerts')
           .values({
@@ -358,6 +389,53 @@ export class ScanService {
       chatToken,
       ...(photos.length ? { photos: prepared.outcome } : {}),
     };
+  }
+
+  /**
+   * „Ich warte“ (owner spec 2026-11-26) while „Bin gleich zurück“ is on: a WAITING alert through the
+   * usual pipeline (blocks, bans, the alert limits). At most one per scanner reference and status
+   * session; a repeat answers `already` and sends nothing.
+   */
+  async waiting(
+    token: NonNullable<Awaited<ReturnType<ScanService['lookup']>>>,
+    input: { lang: 'de' | 'en'; verification?: string },
+    ctx: ScanContext,
+  ): Promise<
+    | { result: 'sent'; alertId: string; statusToken: string }
+    | { result: 'already' }
+    | { result: 'no_status' }
+  > {
+    const status = await this.vehicleStatus.active(token.vehicleId);
+    if (!status) return { result: 'no_status' };
+    const refs = await this.scannerRefs(token, ctx);
+    if (await this.waitedAlready(this.db, token.vehicleId, refs.scannerRef, status.started_at))
+      return { result: 'already' };
+    try {
+      const r = await this.createAlert(token, { type: 'waiting', ...input }, ctx, [], {
+        since: status.started_at,
+      });
+      return { result: 'sent', alertId: r.alertId, statusToken: r.statusToken };
+    } catch (err) {
+      if (err instanceof AlreadyWaiting) return { result: 'already' };
+      throw err;
+    }
+  }
+
+  private async waitedAlready(
+    executor: Pick<Db, 'selectFrom'>,
+    vehicleId: string,
+    scannerRef: Buffer,
+    since: Date,
+  ): Promise<boolean> {
+    const hit = await executor
+      .selectFrom('alerts')
+      .select('id')
+      .where('vehicle_id', '=', vehicleId)
+      .where('alert_type', '=', 'waiting')
+      .where('scanner_ref', '=', scannerRef)
+      .where('created_at', '>=', since)
+      .executeTakeFirst();
+    return Boolean(hit);
   }
 
   private async isBlocked(

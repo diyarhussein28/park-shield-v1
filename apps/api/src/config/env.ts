@@ -118,6 +118,12 @@ export const envSchema = z.object({
     .enum(['true', 'false', '1', '0', ''])
     .default('false')
     .transform((v) => v === 'true' || v === '1'),
+  // „Bin gleich zurück“ (owner spec 2026-11-26): the temporary status message per vehicle and the
+  // scanner's „Ich warte“. Off by default; the owner endpoints answer 404 `feature_disabled` while off.
+  VEHICLE_STATUS_ENABLED: z
+    .enum(['true', 'false', '1', '0', ''])
+    .default('false')
+    .transform((v) => v === 'true' || v === '1'),
   // Encrypted alert photos, outside any web root and never served statically. Excluded from backups
   // (crypto-shredding: deleting the wrapped key in PostgreSQL makes every copy unreadable).
   // Empty: .local/alert-media in development, /var/lib/parkshield/alert-media in production.

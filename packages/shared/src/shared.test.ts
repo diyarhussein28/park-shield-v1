@@ -49,3 +49,41 @@ describe('vehicle label', () => {
     }
   });
 });
+
+describe('„Bin gleich zurück“ text rules', () => {
+  it('normalises whitespace and counts grapheme clusters', async () => {
+    const { normalizeStatusText, graphemeCount, checkStatusText } =
+      await import('./vehicle-status');
+    expect(normalizeStatusText('  Bin   gleich\t da \r\n\r\n\n zurück  ')).toBe(
+      'Bin gleich da\nzurück',
+    );
+    expect(graphemeCount('👨‍👩‍👧é')).toBe(2);
+    expect(checkStatusText('x'.repeat(150))).toBeNull();
+    expect(checkStatusText('x'.repeat(151))).toBe('too_long');
+    expect(checkStatusText('a\nb\nc')).toBeNull();
+    expect(checkStatusText('a\nb\nc\nd')).toBe('too_many_lines');
+  });
+
+  it('rejects phone numbers, e-mail addresses, links, domains and handles', async () => {
+    const { checkStatusText } = await import('./vehicle-status');
+    for (const bad of [
+      '0171 2345678',
+      '+49 171 2345678',
+      '(0221) 12-34-56',
+      '0221/123456',
+      'max.muster@web.de',
+      'http://x.y',
+      'www.beispiel.net',
+      'beispiel.com',
+      'Ruf an @muster',
+    ])
+      expect(checkStatusText(bad), bad).toBe('contact_data');
+    for (const ok of [
+      'Bin in 5 Min zurück',
+      'Lade 2 Kisten aus, Tor 3',
+      'Zurück um 14:30',
+      'Danke fürs Warten :)',
+    ])
+      expect(checkStatusText(ok), ok).toBeNull();
+  });
+});

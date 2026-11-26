@@ -26,6 +26,7 @@ function applyLang() {
   document.querySelectorAll('.lang').forEach((el) => el.setAttribute('aria-pressed', String(el.dataset.lang === lang)));
   if (d.backAt) $('backat').textContent = t('backAt', { time: time(d.backAt) });
   if ($('ph')) phRender();
+  if ($('brb')) { brbTick(); brbText(); }
   counter();
   ticks();
   if (last) render(last);
@@ -610,6 +611,79 @@ if ($('verify')) {
         $('v-form').hidden = true; $('v-open').hidden = true; $('v-done').hidden = false; $('v-done').focus();
       } else await fail(res);
     } catch (err) { vErr('errorGeneric'); } finally { $('v-check').disabled = false; }
+  });
+}
+
+// „Bin gleich zurück“: the time left is counted down in page memory only (no cookie, no storage); the
+// text changes once a minute, so the polite live region does not chatter. „Ich warte“ is sent once.
+let brbEnd = d.brb ? Date.now() + d.brb.secondsLeft * 1000 : 0, brbSent = null, brbReply = null;
+function brbTick() {
+  const box = $('brb');
+  if (!box || box.hidden) return;
+  const ms = brbEnd - Date.now();
+  if (ms <= 0) { box.hidden = true; return; }
+  const txt = t('brbBack', { minutes: Math.max(1, Math.ceil(ms / 60000)) });
+  if ($('brb-left').textContent !== txt) $('brb-left').textContent = txt;
+}
+function brbText() {
+  const n = $('brb-done');
+  if (!brbSent) return;
+  n.textContent = brbReply === 'not_nearby' ? t('replyNotNearby')
+    : brbReply === 'in_30_min' ? t('acknowledged') + ' ' + t('replyIn30')
+    : brbReply ? t('acknowledged') : t('brbWaitDone');
+  n.className = 'note ' + (brbReply === 'not_nearby' ? 'warn' : 'ok');
+  n.hidden = false;
+}
+// The owner's „Ich komme“ shows here live (the status of the WAITING alert, token in memory only).
+async function brbWatch() {
+  if (!brbSent || !brbSent.id) return;
+  try {
+    const res = await fetch('/v1/alerts/' + brbSent.id + '/status', { headers: { 'x-status-token': brbSent.token }, credentials: 'omit' });
+    if (res.status === 404) return;
+    if (res.ok) {
+      const st = await res.json();
+      if (st.status === 'acknowledged') { brbReply = st.ownerReply || 'coming'; brbText(); return; }
+      if (st.status === 'expired') return;
+    }
+  } catch (e) {}
+  setTimeout(brbWatch, 4000);
+}
+if ($('brb')) {
+  setInterval(brbTick, 15000);
+  $('brb-wait').addEventListener('click', async () => {
+    const err = $('brb-err');
+    err.hidden = true;
+    // A repeat tap shows the confirmation again and sends nothing (the server also allows one only).
+    if (brbSent) { brbText(); $('brb-done').focus(); return; }
+    $('brb-wait').disabled = true;
+    try {
+      const res = await fetch('/v1/scan/' + encodeURIComponent(d.code) + '/waiting', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'omit',
+        body: JSON.stringify({ lang, captcha: await captcha(), verification: verification || undefined }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 201 || res.status === 200) {
+        brbSent = res.status === 201 ? { id: body.alertId, token: body.statusToken } : { id: null };
+        brbText();
+        $('brb-done').focus();
+        brbWatch();
+      } else if (res.status === 409) {
+        // The status ended in the meantime: the page is the normal one again.
+        $('brb').hidden = true;
+      } else {
+        err.textContent = res.status === 429 ? t(RATE[body.limit] || 'errorRate', { minutes: minutes(body) })
+          : body.error === 'not_deliverable' ? t('notDeliverable')
+          : body.error === 'captcha_failed' ? t('errorCaptcha') : t('errorGeneric');
+        err.hidden = false;
+      }
+    } catch (e) {
+      err.textContent = t('errorGeneric');
+      err.hidden = false;
+    } finally {
+      $('brb-wait').disabled = false;
+    }
   });
 }
 

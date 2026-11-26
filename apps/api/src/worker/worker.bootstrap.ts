@@ -27,6 +27,11 @@ import { AlertMediaService } from '../alert-media/alert-media.service';
 import { WELCOME_LETTER_TOPIC } from '../letters/trigger';
 import { WelcomeLettersService } from '../letters/welcome-letters.service';
 import { CUSTOMER_EMAIL_TOPIC } from '../profile/email-change.service';
+import {
+  STATUS_EXPIRE_TOPIC,
+  STATUS_PREWARN_TOPIC,
+  VehicleStatusService,
+} from '../vehicle-status/vehicle-status.service';
 import { OutboxService } from './outbox.service';
 import { SchedulerService } from './scheduler.service';
 import {
@@ -62,6 +67,7 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
     @Inject(OwnerReminderService) private readonly ownerReminders: OwnerReminderService,
     @Inject(StoreSyncService) private readonly storeSync: StoreSyncService,
     @Inject(WelcomePrintReminderService) private readonly welcomePrint: WelcomePrintReminderService,
+    @Inject(VehicleStatusService) private readonly vehicleStatus: VehicleStatusService,
   ) {}
 
   onApplicationBootstrap() {
@@ -92,6 +98,13 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
     // Konto → „E-Mail ändern“: the Stripe customer follows the account's e-mail (idempotent).
     this.outbox.register(CUSTOMER_EMAIL_TOPIC, (p) =>
       this.billing.syncCustomerEmail(String(p.userId)),
+    );
+    // „Bin gleich zurück“: pre-expiry push and expiry per version (an older version is a no-op).
+    this.outbox.register(STATUS_PREWARN_TOPIC, (p) =>
+      this.vehicleStatus.prewarn(String(p.vehicleId), Number(p.version)),
+    );
+    this.outbox.register(STATUS_EXPIRE_TOPIC, (p) =>
+      this.vehicleStatus.expire(String(p.vehicleId), Number(p.version)),
     );
     this.outbox.start();
     // B1: push reminders for the welcome print after 1 and 3 days.
@@ -206,6 +219,13 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
       everyMs: 5_000,
       quiet: true,
       run: () => this.ownerReminders.sweepSms(),
+    });
+    // „Bin gleich zurück“: expired statuses are deleted even when their expiry job is late.
+    this.scheduler.every({
+      name: 'vehicle_status.sweep',
+      everyMs: 5_000,
+      quiet: true,
+      run: () => this.vehicleStatus.sweep(),
     });
   }
 }

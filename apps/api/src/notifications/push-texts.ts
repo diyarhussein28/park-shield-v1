@@ -50,6 +50,9 @@ const APP_TEXTS = {
     reminder: () => 'Erinnerung: Eine Warnung wartet auf Ihre Reaktion.',
     followup: () => 'Die Person am Fahrzeug wartet noch auf Sie.',
     chat: () => 'Neue Nachricht im Chat zu Ihrer Warnung.',
+    // „Ich warte“ (2026-11-26). Generic like every alert push: no vehicle label in FCM (AGENTS.md §7).
+    waiting: () => 'Jemand wartet an Ihrem Fahrzeug.',
+    brbExpiring: () => 'Bin gleich zurück läuft in 1 Min ab – verlängern?',
   },
   en: {
     alert: () => 'New alert for your vehicle. Tap for details.',
@@ -57,6 +60,8 @@ const APP_TEXTS = {
     reminder: () => 'Reminder: an alert is waiting for your reaction.',
     followup: () => 'The person at the vehicle is still waiting for you.',
     chat: () => 'New message in the chat about your alert.',
+    waiting: () => 'Someone is waiting at your vehicle.',
+    brbExpiring: () => 'Be right back ends in 1 min – extend?',
   },
 } as const;
 
@@ -72,6 +77,8 @@ export function appPushText(lang: 'de' | 'en', kind: AppPushKind, _type = '') {
 
 /** iOS notification category (Android click action) with the "Ich komme" action button. */
 export const APP_ALERT_CATEGORY = 'PS_ALERT';
+/** „Bin gleich zurück“ ends in 1 min: the actions „+5 Min“ and „Beenden“ (app: lib/push.ts). */
+export const APP_BRB_CATEGORY = 'PS_BRB';
 
 export type PushKind = keyof (typeof texts)['de'];
 

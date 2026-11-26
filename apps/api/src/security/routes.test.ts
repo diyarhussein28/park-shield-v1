@@ -63,6 +63,20 @@ const PUBLIC: Record<string, Control> = {
     ],
     captcha: true,
   },
+  // „Ich warte“ while „Bin gleich zurück“ is on: the same captcha and alert limits as an alert, plus
+  // one per scanner reference and status session.
+  'POST /v1/scan/:code/waiting': {
+    kind: 'rate',
+    limits: [
+      'alert.scanner_vehicle',
+      'alert.scanner_vehicle_day',
+      'alert.scanner_global',
+      'alert.vehicle',
+      'alert.phone_vehicle',
+      'alert.phone_vehicle_day',
+    ],
+    captcha: true,
+  },
   'POST /v1/scan/:code/verify/start': {
     kind: 'rate',
     limits: ['verify.otp_scanner', 'verify.otp_phone', 'verify.otp_country'],

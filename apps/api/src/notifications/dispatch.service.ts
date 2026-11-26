@@ -520,7 +520,15 @@ export class DispatchService {
         const lang = d.locale ?? alert.preferred_lang;
         const r = await this.appPush.send({
           token: d.fcm_token,
-          ...appPushText(lang, msg.kind === 'escalation' ? 'reminder' : msg.kind),
+          ...appPushText(
+            lang,
+            msg.kind === 'escalation'
+              ? 'reminder'
+              : // „Ich warte“ (2026-11-26): its own generic text, still without the vehicle label.
+                msg.kind === 'alert' && alert.alert_type === 'waiting'
+                ? 'waiting'
+                : msg.kind,
+          ),
           // Generic: the alert id and the kind of message only (no type, text, photo, plate, name).
           data: { alertId: alert.id, kind: msg.kind },
           category: APP_ALERT_CATEGORY,
