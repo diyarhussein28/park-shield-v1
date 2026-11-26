@@ -77,8 +77,10 @@
 	# /auth/open: the bridge page of the app's sign-in e-mail (never signs in on load);
 	# /k/*: a trusted contact's escalation link; /app/*: the app's sign-in link and alert deep links when
 	# the app is not installed; /.well-known/*: Universal Links / App Links verification;
-	# /email/*: the logo in our e-mails (public static file, no data).
-	@scanner_web path /auth/open /s/* /antwort /antwort/* /v/* /k/* /app/* /notfallkontakt /.well-known/* /_next/* /email/*
+	# /email/*: the logo in our e-mails (public static file, no data);
+	# /scanner-assets/*: the scan page's live chat client and captcha SDK (public static files, no data;
+	# without it the page asked for basic auth after „Senden“ and the chat could not load, 2026-11-26).
+	@scanner_web path /auth/open /s/* /antwort /antwort/* /v/* /k/* /app/* /notfallkontakt /.well-known/* /_next/* /email/* /scanner-assets/*
 	handle @scanner_web {
 		reverse_proxy 127.0.0.1:3000
 	}
