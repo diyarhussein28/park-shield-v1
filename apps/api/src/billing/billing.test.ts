@@ -43,6 +43,7 @@ describe('plans (US-04, single plan since 2026-11-21)', () => {
         name: 'ParkShield',
         availability: 'available',
         priceYearGrossCents: 1999,
+        priceLifetimeGrossCents: 2999,
         purchasable: true,
       },
     ]);

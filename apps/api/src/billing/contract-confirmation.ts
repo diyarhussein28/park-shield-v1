@@ -61,6 +61,8 @@ export interface ContractConfirmationInput {
   stickerValue?: string | null;
   /** Bought in the app through Apple/Google (they are the seller); null/undefined: Stripe. */
   store?: Store | null;
+  /** Lifetime plan (2026-11-26): paid once, no renewal, nothing to cancel. */
+  lifetime?: boolean;
 }
 
 const STORE_NAME = { app_store: 'Apple App Store', play_store: 'Google Play' } as const;
@@ -76,6 +78,22 @@ export function priceBreakdown(locale: Locale, price: string, stickerValue?: str
     locale === 'de'
       ? [`ParkShield Jahresabo: ${price} / Jahr, inkl. MwSt.`]
       : [`ParkShield yearly plan: ${price} / year, incl. VAT.`];
+  if (stickerValue) {
+    lines.push(
+      locale === 'de'
+        ? `Im Preis enthalten: personalisierter Aufkleber inkl. Versand im Wert von ${stickerValue}.`
+        : `Included in the price: personalised sticker incl. shipping worth ${stickerValue}.`,
+    );
+  }
+  return lines;
+}
+
+/** B2 price breakdown of the lifetime plan (paid once). TODO [LEGAL REVIEW] */
+export function lifetimeBreakdown(locale: Locale, price: string, stickerValue?: string | null) {
+  const lines =
+    locale === 'de'
+      ? [`ParkShield Lifetime: ${price} einmalig, inkl. MwSt., ohne Verlängerung.`]
+      : [`ParkShield Lifetime: ${price} once, incl. VAT, no renewal.`];
   if (stickerValue) {
     lines.push(
       locale === 'de'
@@ -202,17 +220,26 @@ export function contractConfirmationContent(i: ContractConfirmationInput): PdfCo
   const widerruf = legalDoc(l, 'widerruf', { renewalMode: i.renewalMode });
   const isForm = (h: string) => /Muster-Widerrufsformular|model withdrawal form/i.test(h);
   const policy = widerruf.sections.filter((s) => !isForm(s.heading));
-  const rule = renewalRule(l, { renewalMode: i.renewalMode });
+  const life = i.lifetime === true;
+  const rule = life
+    ? de
+      ? 'Einmalzahlung ohne feste Laufzeit und ohne Verlängerung: Der Vertrag gilt dauerhaft, solange ParkShield den Dienst anbietet. Es fallen keine weiteren Zahlungen an, eine Kündigung ist nicht nötig.'
+      : 'One-time payment without a fixed term and without renewal: the contract runs for good, as long as ParkShield offers the service. No further payments fall due; no cancellation is needed.'
+    : renewalRule(l, { renewalMode: i.renewalMode });
   const c = i.company;
   const s = i.store ?? null;
 
-  const cancel = s
+  const cancel = life
     ? de
-      ? `Ihr Abo verwaltet ${STORE_SELLER[s]}: Kündigen können Sie jederzeit in den Abo-Einstellungen von ${STORE_NAME[s]} (in der App unter „Vertrag hier kündigen“ verlinkt).`
-      : `${STORE_SELLER[s]} manages your subscription: you can cancel at any time in the subscription settings of ${STORE_NAME[s]} (linked in the app under “Cancel contract”).`
-    : de
-      ? `Kündigen können Sie jederzeit ohne Anmeldung über „Verträge hier kündigen“ unten auf jeder Seite unserer Website (${web}/kuendigen) oder in Ihrem Konto. Wir bestätigen den Eingang sofort per E-Mail mit dem Datum, zu dem der Vertrag endet.`
-      : `You can cancel at any time without signing in via “Cancel contract” at the bottom of every page of our website (${web}/kuendigen) or in your account. We confirm receipt at once by e-mail with the date the contract ends.`;
+      ? 'Es gibt kein Abo, das sich verlängert; Sie müssen nichts kündigen. Ihr Konto können Sie jederzeit in der App löschen.'
+      : 'There is no subscription that renews; you do not need to cancel anything. You can delete your account in the app at any time.'
+    : s
+      ? de
+        ? `Ihr Abo verwaltet ${STORE_SELLER[s]}: Kündigen können Sie jederzeit in den Abo-Einstellungen von ${STORE_NAME[s]} (in der App unter „Vertrag hier kündigen“ verlinkt).`
+        : `${STORE_SELLER[s]} manages your subscription: you can cancel at any time in the subscription settings of ${STORE_NAME[s]} (linked in the app under “Cancel contract”).`
+      : de
+        ? `Kündigen können Sie jederzeit ohne Anmeldung über „Verträge hier kündigen“ unten auf jeder Seite unserer Website (${web}/kuendigen) oder in Ihrem Konto. Wir bestätigen den Eingang sofort per E-Mail mit dem Datum, zu dem der Vertrag endet.`
+        : `You can cancel at any time without signing in via “Cancel contract” at the bottom of every page of our website (${web}/kuendigen) or in your account. We confirm receipt at once by e-mail with the date the contract ends.`;
   const withdraw = s
     ? de
       ? `Über Widerruf und Erstattung entscheidet ${STORE_SELLER[s]}: ${REFUND_ROUTE[s]}. Der Button „Vertrag widerrufen“ in der App (Konto › Abo) führt dorthin.`
@@ -229,19 +256,22 @@ export function contractConfirmationContent(i: ContractConfirmationInput): PdfCo
       : 'Paid through Stripe on park-shield.de; you find your invoices in your account under “Plan”. This document is a contract confirmation, not an invoice.';
 
   // Page 1 summaries; the full wording is in „Rechtliche Informationen“ and the appendices.
-  const shortTerm =
-    i.renewalMode === 'annual'
+  const shortTerm = life
+    ? rule
+    : i.renewalMode === 'annual'
       ? de
         ? 'Laufzeit 12 Monate; verlängert sich automatisch um jeweils 12 Monate. Eine Kündigung wirkt zum Ende des laufenden Zeitraums.'
         : 'Term 12 months; renews automatically by 12 months at a time. A cancellation takes effect at the end of the current period.'
       : rule;
-  const shortCancel = s
-    ? de
-      ? `Kündigen jederzeit in den Abo-Einstellungen von ${STORE_NAME[s]} (in der App: „Vertrag hier kündigen“).`
-      : `Cancel at any time in the ${STORE_NAME[s]} subscription settings (in the app: “Cancel contract”).`
-    : de
-      ? `Kündigen jederzeit ohne Anmeldung: ${web}/kuendigen oder in Ihrem Konto.`
-      : `Cancel at any time without signing in: ${web}/kuendigen or in your account.`;
+  const shortCancel = life
+    ? cancel
+    : s
+      ? de
+        ? `Kündigen jederzeit in den Abo-Einstellungen von ${STORE_NAME[s]} (in der App: „Vertrag hier kündigen“).`
+        : `Cancel at any time in the ${STORE_NAME[s]} subscription settings (in the app: “Cancel contract”).`
+      : de
+        ? `Kündigen jederzeit ohne Anmeldung: ${web}/kuendigen oder in Ihrem Konto.`
+        : `Cancel at any time without signing in: ${web}/kuendigen or in your account.`;
   const shortWithdraw = s
     ? de
       ? `Widerruf und Erstattung laufen über ${STORE_SELLER[s]} (${REFUND_ROUTE[s]}); „Vertrag widerrufen“ in der App führt dorthin.`
@@ -263,8 +293,14 @@ export function contractConfirmationContent(i: ContractConfirmationInput): PdfCo
     { icon: 'car', label: de ? 'Fahrzeuge' : 'Vehicles', value: de ? '1 Fahrzeug' : '1 vehicle' },
     {
       icon: 'tag',
-      label: de ? 'Jahrespreis' : 'Annual price',
-      value: de ? `${i.price} / Jahr (inkl. 19 % MwSt.)` : `${i.price} / year (incl. 19% VAT)`,
+      label: life ? (de ? 'Preis' : 'Price') : de ? 'Jahrespreis' : 'Annual price',
+      value: life
+        ? de
+          ? `${i.price} einmalig (inkl. 19 % MwSt.)`
+          : `${i.price} once (incl. 19% VAT)`
+        : de
+          ? `${i.price} / Jahr (inkl. 19 % MwSt.)`
+          : `${i.price} / year (incl. 19% VAT)`,
     },
     ...(i.stickerValue
       ? [
@@ -284,14 +320,24 @@ export function contractConfirmationContent(i: ContractConfirmationInput): PdfCo
     },
     {
       icon: 'refresh',
-      label: renews
+      label: life
         ? de
-          ? 'Nächste Verlängerung'
-          : 'Next renewal'
-        : de
-          ? 'Vertragsende'
-          : 'Contract end',
-      value: i.renewsAt ? contractDate(i.renewsAt, l, i.withTime) : '–',
+          ? 'Laufzeit'
+          : 'Term'
+        : renews
+          ? de
+            ? 'Nächste Verlängerung'
+            : 'Next renewal'
+          : de
+            ? 'Vertragsende'
+            : 'Contract end',
+      value: life
+        ? de
+          ? 'dauerhaft, ohne Verlängerung'
+          : 'lifetime, no renewal'
+        : i.renewsAt
+          ? contractDate(i.renewsAt, l, i.withTime)
+          : '–',
     },
     {
       icon: 'card',

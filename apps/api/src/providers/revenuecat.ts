@@ -17,10 +17,23 @@ interface RcSubscription {
   price?: { amount: number; currency: string } | null;
 }
 
+/** A one-time purchase (the lifetime plan, a non-consumable product). */
+interface RcNonSubscription {
+  id?: string;
+  purchase_date: string;
+  original_purchase_date?: string;
+  store: string;
+  is_sandbox: boolean;
+  store_transaction_id?: string | null;
+  refunded_at?: string | null;
+  price?: { amount: number; currency: string } | null;
+}
+
 interface RcSubscriberResponse {
   subscriber: {
     entitlements: Record<string, { product_identifier: string; expires_date: string | null }>;
     subscriptions: Record<string, RcSubscription>;
+    non_subscriptions?: Record<string, RcNonSubscription[]>;
     management_url: string | null;
   };
 }
@@ -50,6 +63,34 @@ export function parseSubscriber(
 ): StoreSubscriber | null {
   const ent = body.subscriber.entitlements[entitlementId];
   if (!ent) return null;
+  const eur = (p: { amount: number; currency: string } | null | undefined) =>
+    p && p.currency.toUpperCase() === 'EUR' && Number.isFinite(p.amount)
+      ? Math.round(p.amount * 100)
+      : null;
+  // Lifetime plan (2026-11-26): a non-consumable product; the entitlement never expires.
+  const once = body.subscriber.non_subscriptions?.[ent.product_identifier]?.at(-1);
+  if (once && !body.subscriber.subscriptions[ent.product_identifier]) {
+    const store = storeProvider(once.store, allowTestStore);
+    if (!store) return null;
+    const purchased = new Date(once.original_purchase_date ?? once.purchase_date);
+    return {
+      appUserId,
+      store,
+      productId: ent.product_identifier,
+      transactionId: once.store_transaction_id ?? once.id ?? null,
+      originalPurchaseAt: purchased,
+      periodStart: purchased,
+      periodEnd: purchased,
+      willRenew: false,
+      lifetime: true,
+      autoResumeAt: null,
+      billingIssueAt: null,
+      refundedAt: toDate(once.refunded_at),
+      managementUrl: null,
+      sandbox: once.is_sandbox,
+      priceCents: eur(once.price),
+    };
+  }
   const sub = body.subscriber.subscriptions[ent.product_identifier];
   if (!sub) return null;
   const store = storeProvider(sub.store, allowTestStore);

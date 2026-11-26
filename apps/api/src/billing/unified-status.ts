@@ -10,6 +10,8 @@ export function unifiedStatus(
     refunded_at: Date | null;
     withdrawn_at: Date | null;
     paused_until?: Date | null;
+    /** `lifetime`: paid once, never renews; it is ACTIVE, not CANCEL_SCHEDULED (2026-11-26). */
+    interval?: string;
   },
   now = new Date(),
 ): UnifiedStatus {
@@ -17,6 +19,7 @@ export function unifiedStatus(
   if (s.refunded_at) return 'REFUNDED';
   if (s.status === 'past_due') return 'BILLING_ISSUE';
   if (s.status === 'active') {
+    if (s.interval === 'lifetime') return 'ACTIVE';
     return s.cancel_at_period_end || !s.will_renew ? 'CANCEL_SCHEDULED' : 'ACTIVE';
   }
   if (s.paused_until && s.paused_until.getTime() > now.getTime()) return 'PAUSED';

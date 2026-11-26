@@ -41,6 +41,8 @@ export interface CustomerView {
     provider: 'stripe' | 'app_store' | 'play_store';
     unifiedStatus: string;
     willRenew: boolean;
+    /** Paid once (2026-11-26): no renewal, no period end. */
+    lifetime?: boolean;
     storePriceCents: number | null;
   }[];
   vehicles: {
@@ -171,8 +173,9 @@ export function Customer360({
                 {data.subscriptions.map((s) => (
                   <li key={s.id}>
                     <b>{label(t, 'plan', s.plan)}</b> · {label(t, 'unified', s.unifiedStatus)} ·{' '}
-                    {s.contractNo ?? '–'} · {d(s.periodEnd)}
-                    {s.cancelAtPeriodEnd || !s.willRenew
+                    {s.contractNo ?? '–'} ·{' '}
+                    {s.lifetime ? t('opsCustomers.subLifetime') : d(s.periodEnd)}
+                    {!s.lifetime && (s.cancelAtPeriodEnd || !s.willRenew)
                       ? ` · ${t('opsCustomers.subNoRenew')}`
                       : ''}
                     <br />

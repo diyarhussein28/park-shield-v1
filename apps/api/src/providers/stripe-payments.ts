@@ -257,8 +257,23 @@ export class StripePayments implements Payments {
               status: 'complete',
               limit: 5,
             })
-          ).data.find((x) => x.mode === 'subscription');
+          ).data.find(
+            (x) =>
+              x.mode === 'subscription' ||
+              (x.mode === 'payment' && x.metadata?.term === 'lifetime'),
+          );
     if (!s) return null;
+    // Lifetime plan (2026-11-26): a one-time payment, reported like the webhook does.
+    if (s.mode === 'payment' && s.metadata?.term === 'lifetime') {
+      if (s.status !== 'complete' || s.payment_status !== 'paid') return null;
+      return {
+        kind: 'payment_completed',
+        eventId: `confirm:${s.id}`,
+        paymentIntentId: refId(s.payment_intent),
+        metadata: (s.metadata as Record<string, string> | null) ?? {},
+        amountCents: Number(s.amount_total ?? 0),
+      };
+    }
     if (s.mode !== 'subscription' || s.status !== 'complete' || !s.subscription) return null;
     // SEPA and other delayed methods stay "unpaid" until they settle: access waits for the webhook.
     if (s.payment_status !== 'paid' && s.payment_status !== 'no_payment_required') return null;

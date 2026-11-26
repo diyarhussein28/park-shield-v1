@@ -1513,6 +1513,7 @@ const de = {
     subSource: 'Gekauft über',
     subStorePrice: 'Store-Preis {price}',
     subNoRenew: 'verlängert sich nicht',
+    subLifetime: 'Lifetime (einmal bezahlt)',
     vehicles: 'Fahrzeuge und Codes',
     plate: 'Kennzeichen',
     code: 'Code …{hint}',

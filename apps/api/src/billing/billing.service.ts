@@ -27,7 +27,9 @@ import { recordIssuance } from '../vehicles/code-rules';
 import {
   legalDoc,
   LEGAL_DOC_VERSION,
+  LIFETIME_PRICE_CENTS,
   PLAN_PRICE_CENTS,
+  type PlanTerm,
   renewalRule,
   STICKER_VALUE_CENTS,
   type LegalSlug,
@@ -50,6 +52,7 @@ import {
   contractConfirmationContent,
   contractDate,
   contractPdfName,
+  lifetimeBreakdown,
   priceBreakdown,
   renderContractConfirmationPdf,
 } from './contract-confirmation';
@@ -122,11 +125,14 @@ export class BillingService {
       .where('is_public', '=', true)
       .execute();
     const price = await this.yearPrice();
+    const lifetime = await this.lifetimePrice();
     return rows.map((p) => ({
       code: p.code,
       name: p.name,
       availability: p.availability,
       priceYearGrossCents: price,
+      // Lifetime (2026-11-26): the same plan, paid once.
+      priceLifetimeGrossCents: lifetime,
       purchasable: p.code === 'standard',
     }));
   }
@@ -138,6 +144,16 @@ export class BillingService {
    */
   async storeYearPrice(): Promise<number> {
     return Number(await this.settings.get('prices.store_year_cents', 1999));
+  }
+
+  /** Lifetime price, paid once (setting `prices.lifetime_cents`, default 29,99 €). */
+  async lifetimePrice(): Promise<number> {
+    return Number(await this.settings.get('prices.lifetime_cents', LIFETIME_PRICE_CENTS));
+  }
+
+  /** Store lifetime price when RevenueCat reports none (setting `prices.store_lifetime_cents`). */
+  async storeLifetimePrice(): Promise<number> {
+    return Number(await this.settings.get('prices.store_lifetime_cents', LIFETIME_PRICE_CENTS));
   }
 
   async yearPrice(): Promise<number> {
@@ -189,13 +205,16 @@ export class BillingService {
     const days = await this.legalTexts.withdrawalDays();
     const openUntil = withdrawalOpenUntil(s.created_at, days);
     const store = s.provider === 'stripe' ? null : s.provider;
+    const lifetime = s.interval === 'lifetime';
     return {
       plan: s.plan,
+      // Paid once (2026-11-26): no renewal, no period end, nothing to cancel.
+      lifetime,
       status: s.status,
       // A4: one record for every provider; the app and the website read only this.
       provider: s.provider,
       unifiedStatus: unifiedStatus(s),
-      willRenew: s.will_renew && !s.cancel_at_period_end,
+      willRenew: !lifetime && s.will_renew && !s.cancel_at_period_end,
       managementUrl: store ? (s.management_url ?? STORE_MANAGE_URL[store]) : null,
       stickerValueCents: s.sticker_value_cents,
       // A6: Apple/Google decide on withdrawal and refunds of store purchases.
@@ -299,7 +318,13 @@ export class BillingService {
   /** US-06: annual Stripe Checkout. Feature access starts only once the payment event arrives. */
   async checkout(
     user: AuthContext,
-    input: { plan: PaidPlan; promoCode?: string; appReturn?: string } & CheckoutConsents,
+    input: {
+      plan: PaidPlan;
+      /** `lifetime`: paid once (2026-11-26); default `year`. */
+      term?: PlanTerm;
+      promoCode?: string;
+      appReturn?: string;
+    } & CheckoutConsents,
     ipHash: Buffer | null = null,
   ): Promise<{ url: string }> {
     if (!this.isPurchasable(input.plan))
@@ -316,7 +341,10 @@ export class BillingService {
     if (!(await this.profiles.phoneVerified(user.userId)))
       throw new ConflictException({ error: 'phone_required' });
 
+    const lifetime = input.term === 'lifetime';
     let promo = null;
+    // Promo codes (Stripe coupons, extra months) belong to the yearly plan only.
+    if (lifetime && input.promoCode) throw new BadRequestException({ error: 'promo_invalid' });
     if (input.promoCode) {
       promo = await this.findPromo(input.promoCode, input.plan);
       if (!promo) throw new BadRequestException({ error: 'promo_invalid' });
@@ -381,6 +409,7 @@ export class BillingService {
     const metadata: Record<string, string> = {
       userId: user.userId,
       plan: input.plan,
+      ...(lifetime ? { term: 'lifetime' } : {}),
       waiverAt: consentAt.toISOString(),
       consentId,
     };
@@ -394,6 +423,24 @@ export class BillingService {
       success: `${this.env.WEB_BASE_URL}/konto?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel: `${this.env.WEB_BASE_URL}/konto?checkout=canceled`,
     });
+    if (lifetime) {
+      // One-time Stripe Checkout (no Stripe subscription): the amount is the setting itself, so the
+      // customer is always charged exactly what the app showed.
+      const amount = await this.lifetimePrice();
+      return this.payments.createPaymentCheckout({
+        customerId,
+        amountCents: amount,
+        description: lifetimeBreakdown(
+          user.preferredLang,
+          euro(amount, user.preferredLang),
+          euro(await this.stickerValue(), user.preferredLang),
+        ).join(' '),
+        locale: user.preferredLang,
+        successUrl: back.success,
+        cancelUrl: back.cancel,
+        metadata,
+      });
+    }
     const yearPrice = await this.yearPrice();
     try {
       return await this.payments.createCheckout({
@@ -448,9 +495,13 @@ export class BillingService {
       this.logger.warn({ err: String(err) }, 'checkout session could not be read');
       return null;
     });
-    if (!event || event.kind !== 'checkout_completed') return { status: 'pending' };
+    const done =
+      event?.kind === 'checkout_completed' ||
+      (event?.kind === 'payment_completed' && event.metadata.term === 'lifetime');
+    if (!event || !done) return { status: 'pending' };
     // Only the person who paid can confirm their own session.
-    if (event.metadata.userId !== user.userId) throw new NotFoundException();
+    if ((event as { metadata: Record<string, string> }).metadata.userId !== user.userId)
+      throw new NotFoundException();
     await this.handle(event);
     return { status: (await this.liveSubscription(user.userId)) ? 'active' : 'pending' };
   }
@@ -487,6 +538,9 @@ export class BillingService {
       if (event.kind === 'subscription_updated') await this.onSubscriptionUpdated(event);
       if (event.kind === 'payment_failed') await this.onPaymentFailed(event);
       if (event.kind === 'charge_refunded') await this.onChargeRefunded(event);
+      if (event.kind === 'payment_completed' && event.metadata.term === 'lifetime') {
+        await this.onLifetimePaid(event);
+      }
       if (event.kind === 'payment_completed' && event.metadata.orderId) {
         // checkout.session.completed and payment_intent.succeeded both report the same payment:
         // only the one that marks the order paid mails payment@.
@@ -646,6 +700,68 @@ export class BillingService {
     await this.sendContractConfirmation(inserted.id);
   }
 
+  /**
+   * Lifetime plan paid on Stripe (one-time Checkout, 2026-11-26): the same contract row as a yearly
+   * subscription, but interval `lifetime`, no period end and no renewal. The payment intent is the
+   * contract's Stripe reference (unique: webhook and return confirmation end in the same insert).
+   */
+  private async onLifetimePaid(e: Extract<BillingEvent, { kind: 'payment_completed' }>) {
+    const userId = e.metadata.userId;
+    if (!userId || e.metadata.plan !== 'standard' || !e.paymentIntentId) {
+      this.logger.error({ eventId: e.eventId }, 'lifetime payment without ParkShield metadata');
+      return;
+    }
+    // Never two live contracts: a race (paid twice) keeps the second as `incomplete` for ops to refund.
+    const other = await this.liveSubscription(userId);
+    if (other && other.stripe_payment_intent === e.paymentIntentId) return;
+    const now = new Date();
+    const renewalMode = await this.legalTexts.renewalMode('b2c');
+    const inserted = await this.db
+      .insertInto('subscriptions')
+      .values({
+        user_id: userId,
+        plan: 'standard',
+        status: other ? 'incomplete' : 'active',
+        interval: 'lifetime',
+        stripe_payment_intent: e.paymentIntentId,
+        withdrawal_waiver_at: e.metadata.waiverAt ? new Date(e.metadata.waiverAt) : null,
+        immediate_start_consent_id: e.metadata.consentId ?? null,
+        customer_type: 'b2c',
+        renewal_mode: renewalMode,
+        current_period_start: now,
+        current_period_end: null,
+        contract_no: `PS-${randomCrockford(8)}`,
+        provider: 'stripe',
+        will_renew: false,
+        original_purchase_at: now,
+        sticker_value_cents: await this.stickerValue(),
+        withdrawal_notice_version: LEGAL_DOC_VERSION,
+      })
+      .onConflict((oc) => oc.column('stripe_payment_intent').doNothing())
+      .returning('id')
+      .executeTakeFirst();
+    if (!inserted) return;
+    if (other) {
+      this.logger.error(
+        { userId, subscriptionId: inserted.id },
+        'double contract: lifetime paid while another contract is live',
+      );
+      return;
+    }
+    await queueWelcomeLetterCheck(this.db, userId);
+    await queuePaymentNotification(this.db, {
+      eventId: e.eventId,
+      kind: 'subscription',
+      userId,
+      subscriptionId: inserted.id,
+      amountCents: e.amountCents || (await this.lifetimePrice()),
+      paymentRef: e.paymentIntentId,
+      paidAt: now,
+    });
+    if (e.metadata.sticker === 'replace') await this.replaceStickers(userId);
+    await this.sendContractConfirmation(inserted.id);
+  }
+
   /** Sticker value included in the price (B2, setting `prices.sticker_value_cents`, 300). */
   async stickerValue(): Promise<number> {
     return Number(await this.settings.get('prices.sticker_value_cents', STICKER_VALUE_CENTS));
@@ -692,6 +808,7 @@ export class BillingService {
         's.original_purchase_at',
         's.sticker_value_cents',
         's.store_price_cents',
+        's.interval',
         's.user_id',
         'u.email',
         'u.preferred_lang',
@@ -708,8 +825,12 @@ export class BillingService {
     const consentText = consent
       ? await this.legalTexts.version(consent.text_key, consent.locale, consent.text_version)
       : null;
-    const price =
-      sub.provider === 'stripe'
+    const lifetime = sub.interval === 'lifetime';
+    const price = lifetime
+      ? sub.provider === 'stripe'
+        ? await this.lifetimePrice()
+        : (sub.store_price_cents ?? (await this.storeLifetimePrice()))
+      : sub.provider === 'stripe'
         ? await this.priceFor('standard', sub.promo_code_id ?? undefined)
         : (sub.store_price_cents ?? (await this.storeYearPrice()));
     const customerNo = sub.customer_no ?? '–';
@@ -717,8 +838,9 @@ export class BillingService {
     // Apple / Google report it (never computed here). Store sandbox periods last minutes or hours,
     // so dates then carry the time.
     const startedAt = sub.original_purchase_at ?? sub.current_period_start ?? sub.created_at;
-    const renewsAt = sub.current_period_end;
-    const renews = sub.will_renew && ['active', 'past_due', 'trialing'].includes(sub.status);
+    const renewsAt = lifetime ? null : sub.current_period_end;
+    const renews =
+      !lifetime && sub.will_renew && ['active', 'past_due', 'trialing'].includes(sub.status);
     const withTime = Boolean(renewsAt && renewsAt.getTime() - startedAt.getTime() < 2 * 86_400_000);
     const renewalMode = sub.renewal_mode as 'annual' | 'monthly_after_first_term';
     const sticker = sub.sticker_value_cents ? euro(sub.sticker_value_cents, locale) : null;
@@ -753,6 +875,7 @@ export class BillingService {
       webBaseUrl: this.env.WEB_BASE_URL,
       stickerValue: sticker,
       store,
+      lifetime,
     });
     const pdf = await renderContractConfirmationPdf(content, {
       created: new Date(),
@@ -771,6 +894,7 @@ export class BillingService {
         startedLabel: contractDate(startedAt, locale, withTime),
         renewalLabel: renewsAt ? contractDate(renewsAt, locale, withTime) : '–',
         renews: renews ? 'yes' : 'no',
+        lifetime: lifetime ? 'yes' : 'no',
         provider: sub.provider,
         renewalRule: renewalRule(locale, { renewalMode }),
         consent: consent && consentText ? 'yes' : 'no',

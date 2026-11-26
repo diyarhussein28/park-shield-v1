@@ -337,6 +337,7 @@ export class CustomersService {
           'canceled_at',
           'created_at',
           'provider',
+          'interval',
           'will_renew',
           'refunded_at',
           'withdrawn_at',
@@ -484,6 +485,8 @@ export class CustomersService {
         // App Store / Google Play through RevenueCat. Store purchases are refunded by Apple/Google.
         provider: s.provider,
         unifiedStatus: unifiedStatus(s),
+        // Paid once (2026-11-26): no renewal, no period end.
+        lifetime: s.interval === 'lifetime',
         willRenew: s.will_renew,
         refundedAt: s.refunded_at,
         storeProductId: s.store_product_id,

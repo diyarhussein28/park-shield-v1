@@ -83,7 +83,12 @@ const templates = {
           title: 'Ihr Abo',
           rows: [
             { icon: 'layers', label: 'Tarif', value: 'ParkShield – ein Fahrzeug, alles inklusive' },
-            { icon: 'tag', label: 'Preis', value: '{price} / Jahr (inkl. 19 % MwSt.)' },
+            {
+              icon: 'tag',
+              label: 'Preis',
+              value:
+                '{lifetime, select, yes {{price} einmalig (inkl. 19 % MwSt.)} other {{price} / Jahr (inkl. 19 % MwSt.)}}',
+            },
             {
               icon: 'gift',
               label: 'Im Preis enthalten',
@@ -94,8 +99,10 @@ const templates = {
             { icon: 'calendar', label: 'Vertragsbeginn', value: '{startedLabel}' },
             {
               icon: 'refresh',
-              label: '{renews, select, yes {Nächste Verlängerung} other {Vertragsende}}',
-              value: '{renewalLabel}',
+              label:
+                '{lifetime, select, yes {Laufzeit} other {{renews, select, yes {Nächste Verlängerung} other {Vertragsende}}}}',
+              value:
+                '{lifetime, select, yes {dauerhaft, ohne Verlängerung} other {{renewalLabel}}}',
             },
             { icon: 'hash', label: 'Vertragsnummer', value: '{contractNo}' },
             { icon: 'user', label: 'Kundennummer', value: '{customerNo}' },
@@ -125,7 +132,7 @@ const templates = {
           kind: 'card',
           icon: 'info',
           title: 'Laufzeit, Kündigung und Widerruf',
-          text: '{renewalRule}\n{provider, select, app_store {Kündigen können Sie jederzeit in den Abo-Einstellungen des App Store (in der App unter „Vertrag hier kündigen“). Über Widerruf und Erstattung entscheidet Apple; „Vertrag widerrufen“ in der App führt dorthin.} play_store {Kündigen können Sie jederzeit in den Abo-Einstellungen von Google Play (in der App unter „Vertrag hier kündigen“). Über Widerruf und Erstattung entscheidet Google; „Vertrag widerrufen“ in der App führt dorthin.} other {Kündigen können Sie jederzeit über „Verträge hier kündigen“ unten auf jeder Seite von park-shield.de oder in Ihrem Konto. Innerhalb der Widerrufsfrist widerrufen Sie über „Vertrag widerrufen“.}}',
+          text: '{lifetime, select, yes {Einmal bezahlt, dauerhaft geschützt: keine Verlängerung, nichts zu kündigen. {provider, select, app_store {Über Widerruf und Erstattung entscheidet Apple; „Vertrag widerrufen“ in der App führt dorthin.} play_store {Über Widerruf und Erstattung entscheidet Google; „Vertrag widerrufen“ in der App führt dorthin.} other {Innerhalb der Widerrufsfrist widerrufen Sie über „Vertrag widerrufen“.}}} other {{renewalRule}\n{provider, select, app_store {Kündigen können Sie jederzeit in den Abo-Einstellungen des App Store (in der App unter „Vertrag hier kündigen“). Über Widerruf und Erstattung entscheidet Apple; „Vertrag widerrufen“ in der App führt dorthin.} play_store {Kündigen können Sie jederzeit in den Abo-Einstellungen von Google Play (in der App unter „Vertrag hier kündigen“). Über Widerruf und Erstattung entscheidet Google; „Vertrag widerrufen“ in der App führt dorthin.} other {Kündigen können Sie jederzeit über „Verträge hier kündigen“ unten auf jeder Seite von park-shield.de oder in Ihrem Konto. Innerhalb der Widerrufsfrist widerrufen Sie über „Vertrag widerrufen“.}}}}',
         },
         {
           kind: 'card',
@@ -556,7 +563,12 @@ const templates = {
               label: 'Plan',
               value: 'ParkShield – one vehicle, everything included',
             },
-            { icon: 'tag', label: 'Price', value: '{price} / year (incl. 19% VAT)' },
+            {
+              icon: 'tag',
+              label: 'Price',
+              value:
+                '{lifetime, select, yes {{price} once (incl. 19% VAT)} other {{price} / year (incl. 19% VAT)}}',
+            },
             {
               icon: 'gift',
               label: 'Included in the price',
@@ -567,8 +579,9 @@ const templates = {
             { icon: 'calendar', label: 'Start date', value: '{startedLabel}' },
             {
               icon: 'refresh',
-              label: '{renews, select, yes {Next renewal} other {Contract end}}',
-              value: '{renewalLabel}',
+              label:
+                '{lifetime, select, yes {Term} other {{renews, select, yes {Next renewal} other {Contract end}}}}',
+              value: '{lifetime, select, yes {lifetime, no renewal} other {{renewalLabel}}}',
             },
             { icon: 'hash', label: 'Contract number', value: '{contractNo}' },
             { icon: 'user', label: 'Customer number', value: '{customerNo}' },
@@ -598,7 +611,7 @@ const templates = {
           kind: 'card',
           icon: 'info',
           title: 'Term, cancellation and withdrawal',
-          text: '{renewalRule}\n{provider, select, app_store {You can cancel at any time in the App Store subscription settings (in the app under “Cancel contract”). Apple decides on withdrawal and refunds; “Withdraw from contract” in the app leads there.} play_store {You can cancel at any time in the Google Play subscription settings (in the app under “Cancel contract”). Google decides on withdrawal and refunds; “Withdraw from contract” in the app leads there.} other {You can cancel at any time via “Cancel contract” at the bottom of every page of park-shield.de or in your account. Within the withdrawal period you withdraw via “Withdraw from contract”.}}',
+          text: '{lifetime, select, yes {Paid once, protected for good: no renewal, nothing to cancel. {provider, select, app_store {Apple decides on withdrawal and refunds; “Withdraw from contract” in the app leads there.} play_store {Google decides on withdrawal and refunds; “Withdraw from contract” in the app leads there.} other {Within the withdrawal period you withdraw via “Withdraw from contract”.}}} other {{renewalRule}\n{provider, select, app_store {You can cancel at any time in the App Store subscription settings (in the app under “Cancel contract”). Apple decides on withdrawal and refunds; “Withdraw from contract” in the app leads there.} play_store {You can cancel at any time in the Google Play subscription settings (in the app under “Cancel contract”). Google decides on withdrawal and refunds; “Withdraw from contract” in the app leads there.} other {You can cancel at any time via “Cancel contract” at the bottom of every page of park-shield.de or in your account. Within the withdrawal period you withdraw via “Withdraw from contract”.}}}}',
         },
         {
           kind: 'card',

@@ -35,6 +35,30 @@ export const STORE_PLAN_PRICE_CENTS = 1999;
 export const VAT_RATE_DE = 0.19;
 
 /**
+ * How the plan is paid (owner decision 2026-11-26): `year` = 19,99 € every year (renews, cancellable),
+ * `lifetime` = 29,99 € once (no renewal, nothing to cancel). Same plan, same features, one vehicle.
+ */
+export type PlanTerm = 'year' | 'lifetime';
+/** Lifetime price in euro cents, VAT included, paid once (setting `prices.lifetime_cents`). */
+export const LIFETIME_PRICE_CENTS = 2999;
+/** The same lifetime plan bought in the App Store / Google Play (setting `prices.store_lifetime_cents`). */
+export const STORE_LIFETIME_PRICE_CENTS = 2999;
+/**
+ * From which year on the lifetime plan costs less than the yearly one: the first n with
+ * n × yearly > lifetime (19,99 € / 29,99 € → the 2nd year). Pure, used by every price comparison text.
+ */
+export function lifetimeCheaperFromYear(
+  yearCents: number = PLAN_PRICE_CENTS,
+  lifetimeCents: number = LIFETIME_PRICE_CENTS,
+): number {
+  if (yearCents <= 0) return 1;
+  return Math.floor(lifetimeCents / yearCents) + 1;
+}
+/** What `years` of the yearly plan cost in total (the honest comparison on the paywall). */
+export const yearlyTotalCents = (years: number, yearCents: number = PLAN_PRICE_CENTS) =>
+  years * yearCents;
+
+/**
  * Value of the personalised decal incl. shipping that is included in the yearly price, euro cents incl.
  * VAT (Part B, 2026-11-22; runtime setting `prices.sticker_value_cents`). Shown in the price breakdown;
  * kept on withdrawal once the decal was personalised (§ 312g Abs. 2 Nr. 1 BGB). TODO [LEGAL REVIEW]

@@ -61,6 +61,7 @@ const Renew = z.object({
     .enum(['standard', 'plus', 'premium'])
     .default('standard')
     .transform((): 'standard' => 'standard'),
+  term: z.enum(['year', 'lifetime']).optional(),
   promoCode: z.string().trim().min(1).max(40).optional(),
   immediateStart: z.literal(true),
   immediateStartVersion: z.number().int().positive(),

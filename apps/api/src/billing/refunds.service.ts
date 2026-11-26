@@ -110,6 +110,8 @@ export class RefundsService {
         's.status',
         's.contract_no',
         's.stripe_subscription_id',
+        's.stripe_payment_intent',
+        's.interval',
         's.created_at',
         's.current_period_start',
         's.current_period_end',
@@ -159,6 +161,20 @@ export class RefundsService {
     return row?.personalized_at ?? null;
   }
 
+  /** The charge of a Stripe contract: the subscription's latest, or the lifetime payment (2026-11-26). */
+  private async chargeOf(s: {
+    stripe_subscription_id: string | null;
+    stripe_payment_intent: string | null;
+  }): Promise<Charge> {
+    const charge = s.stripe_subscription_id
+      ? await this.payments.findCharge({ subscriptionId: s.stripe_subscription_id })
+      : s.stripe_payment_intent
+        ? await this.payments.findCharge({ paymentIntentId: s.stripe_payment_intent })
+        : null;
+    if (!charge) throw new ConflictException({ error: 'no_charge' });
+    return charge;
+  }
+
   /** Our own records and the provider's: the larger "already refunded" wins. */
   private async refunded(charge: Charge, target: { subscriptionId?: string; orderId?: string }) {
     let q = this.db
@@ -202,8 +218,7 @@ export class RefundsService {
     const s = await this.subscription(input.subscriptionId);
     // A6: Apple/Google are the seller of store subscriptions and decide on refunds; nothing here.
     if (s.provider !== 'stripe') throw new ConflictException({ error: 'store_subscription' });
-    if (!s.stripe_subscription_id) throw new ConflictException({ error: 'no_charge' });
-    const charge = await this.payments.findCharge({ subscriptionId: s.stripe_subscription_id });
+    const charge = await this.chargeOf(s);
     if (!charge) throw new ConflictException({ error: 'no_charge' });
     const already = await this.refunded(charge, { subscriptionId: s.id });
     const left = charge.amountCents - already;
@@ -231,6 +246,8 @@ export class RefundsService {
           stickerValueCents: s.sticker_value_cents,
           personalizedAt: personalized,
           serviceStart: start,
+          // TODO [LEGAL REVIEW] Lifetime (paid once, 2026-11-26): the used days are valued against
+          // one contract year, as for the yearly plan (the customer never pays less Wertersatz).
           contractYearDays: contractYearDays(start),
           immediateStartConsented: s.withdrawal_waiver_at !== null,
         },
@@ -330,9 +347,7 @@ export class RefundsService {
       const charge =
         q.target.type === 'order'
           ? (await this.order(q.target.id)).stripe_payment_intent!
-          : (await this.payments.findCharge({
-              subscriptionId: (await this.subscription(q.target.id)).stripe_subscription_id!,
-            }))!.paymentIntentId;
+          : (await this.chargeOf(await this.subscription(q.target.id))).paymentIntentId;
       // Inside the transaction: if the provider refuses, nothing is recorded.
       const { refundId } = await this.payments.refund({
         paymentIntentId: charge,
@@ -372,14 +387,16 @@ export class RefundsService {
     if (result.quote.endsSubscriptionNow) {
       const s = await this.subscription(result.quote.target.id);
       // The local contract already ended; a provider hiccup here is retried by hand, not lost.
-      await this.payments
-        .cancelNow(s.stripe_subscription_id!)
-        .catch((err: unknown) =>
-          this.logger.error(
-            { err: String(err), subscriptionId: s.id },
-            'cancelNow after withdrawal failed',
-          ),
-        );
+      // A lifetime plan has no Stripe subscription: nothing to cancel there.
+      if (s.stripe_subscription_id)
+        await this.payments
+          .cancelNow(s.stripe_subscription_id)
+          .catch((err: unknown) =>
+            this.logger.error(
+              { err: String(err), subscriptionId: s.id },
+              'cancelNow after withdrawal failed',
+            ),
+          );
     }
     const who =
       result.quote.target.type === 'order'

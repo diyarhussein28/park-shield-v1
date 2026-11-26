@@ -73,6 +73,8 @@ export class CancellationsService {
         .select('id')
         .where('user_id', '=', input.userId)
         .where('status', 'in', LIVE)
+        // A lifetime plan never renews: there is nothing to cancel (2026-11-26).
+        .where('interval', '<>', 'lifetime')
         .orderBy('created_at', 'desc')
         .executeTakeFirst();
       return s?.id ?? null;
@@ -84,7 +86,8 @@ export class CancellationsService {
       .innerJoin('users as u', 'u.id', 's.user_id')
       .select('s.id')
       .where('u.email', '=', email)
-      .where('s.status', 'in', LIVE);
+      .where('s.status', 'in', LIVE)
+      .where('s.interval', '<>', 'lifetime');
     if (input.contractNo) {
       q = q.where('s.contract_no', '=', input.contractNo.trim().toUpperCase());
     } else if (input.plate) {
@@ -175,7 +178,7 @@ export class CancellationsService {
         startedAt: sub.created_at,
         currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd,
-        interval: sub.interval,
+        interval: sub.interval === 'month' ? 'month' : 'year',
       },
       receivedAt,
       sub.renewal_mode as RenewalMode,

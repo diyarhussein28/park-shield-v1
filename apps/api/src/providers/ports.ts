@@ -349,6 +349,8 @@ export interface StoreSubscriber {
   periodEnd: Date;
   /** Auto-renew still on (no unsubscribe detected). */
   willRenew: boolean;
+  /** Lifetime plan (non-consumable, 2026-11-26): never expires; `periodEnd` is not used. */
+  lifetime?: boolean;
   /** Google Play „Pause“: the subscription resumes on this date (no entitlement until then). */
   autoResumeAt?: Date | null;
   billingIssueAt: Date | null;

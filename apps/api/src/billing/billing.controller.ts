@@ -35,6 +35,8 @@ const Checkout = z.object({
     .enum(['standard', 'plus', 'premium'])
     .default('standard')
     .transform((): 'standard' => 'standard'),
+  /** `lifetime`: paid once instead of yearly (owner decision 2026-11-26). */
+  term: z.enum(['year', 'lifetime']).optional(),
   promoCode: z.string().trim().min(1).max(40).optional(),
   // §356(4)/§357a BGB: the customer must expressly request the immediate start (US-06), and the
   // order carries the versions of the texts that were shown (consent_records).

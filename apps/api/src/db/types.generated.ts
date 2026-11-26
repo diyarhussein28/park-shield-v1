@@ -19,7 +19,7 @@ export type ArrayTypeImpl<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S[], I[], U[]>
   : T[];
 
-export type BillingInterval = "month" | "year";
+export type BillingInterval = "lifetime" | "month" | "year";
 
 export type BillingProvider = "app_store" | "play_store" | "stripe";
 
@@ -837,6 +837,7 @@ export interface Subscriptions {
   store_original_transaction_id: string | null;
   store_price_cents: number | null;
   store_product_id: string | null;
+  stripe_payment_intent: string | null;
   stripe_subscription_id: string | null;
   updated_at: Generated<Timestamp>;
   user_id: string | null;

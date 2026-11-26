@@ -91,6 +91,10 @@ export const SETTINGS: Record<string, Def> = {
   // App Store / Google Play yearly price for contract confirmations when RevenueCat reports none.
   'prices.store_year_cents': { group: 'limits', schema: int(100, 100_000), default: 1999 },
   'prices.sticker_value_cents': { group: 'limits', schema: int(0, 2000), default: 300 },
+  // Lifetime plan (owner decision 2026-11-26): paid once, no renewal. Stripe charges exactly this
+  // (one-time Checkout); the store price string wins in the app, this is the fallback for confirmations.
+  'prices.lifetime_cents': { group: 'limits', schema: int(100, 100_000), default: 2999 },
+  'prices.store_lifetime_cents': { group: 'limits', schema: int(100, 100_000), default: 2999 },
   // New decal code (owner decision 2026-11-24): at most one per vehicle in this many days, counted
   // from the newest code of the vehicle; and this many free new codes after a „Sperren“ per
   // subscription year (more cost the 3 € print, `prices.print_shipped_cents`).

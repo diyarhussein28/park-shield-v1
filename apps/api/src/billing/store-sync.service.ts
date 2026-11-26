@@ -70,6 +70,7 @@ export function storeStatus(
     s.refundedAt !== null ||
     (hint?.type === 'CANCELLATION' && hint.cancelReason === 'CUSTOMER_SUPPORT');
   if (refunded) return { status: 'expired', refunded: true, pausedUntil: null };
+  if (s.lifetime) return { status: 'active', refunded: false, pausedUntil: null };
   if (s.periodEnd.getTime() > now.getTime()) {
     return {
       status: s.billingIssueAt ? 'past_due' : 'active',
@@ -254,6 +255,11 @@ export class StoreSyncService {
    * Worker (and „Käufe wiederherstellen“): read the subscriber from RevenueCat and bring our record
    * up to date. Idempotent: the same state twice changes nothing and mails nothing.
    */
+  /** The store price when RevenueCat reports none: the lifetime or the yearly fallback setting. */
+  private storePrice(sub: StoreSubscriber): Promise<number> {
+    return sub.lifetime ? this.billing.storeLifetimePrice() : this.billing.storeYearPrice();
+  }
+
   async sync(userId: string, hint?: SyncHint): Promise<'active' | 'pending'> {
     const sub = await this.store.getSubscriber(userId);
     const result = await this.db.transaction().execute(async (trx) => {
@@ -313,12 +319,13 @@ export class StoreSyncService {
             .set({
               status,
               will_renew: sub.willRenew && live,
-              cancel_at_period_end: !sub.willRenew,
+              cancel_at_period_end: !sub.willRenew && !sub.lifetime,
               current_period_start: sub.periodStart,
-              current_period_end: sub.periodEnd,
+              current_period_end: sub.lifetime ? null : sub.periodEnd,
+              ...(sub.lifetime ? { interval: 'lifetime' as const } : {}),
               store_product_id: sub.productId,
               store_last_transaction_id: hint?.transactionId ?? sub.transactionId,
-              store_price_cents: sub.priceCents ?? (await this.billing.storeYearPrice()),
+              store_price_cents: sub.priceCents ?? (await this.storePrice(sub)),
               management_url: sub.managementUrl,
               ...(hint?.originalTransactionId &&
               same.store_original_transaction_id?.startsWith('rc:')
@@ -407,12 +414,13 @@ export class StoreSyncService {
           store_original_transaction_id: originalId,
           store_product_id: sub.productId,
           store_last_transaction_id: hint?.transactionId ?? sub.transactionId,
-          store_price_cents: sub.priceCents ?? (await this.billing.storeYearPrice()),
+          store_price_cents: sub.priceCents ?? (await this.storePrice(sub)),
           will_renew: sub.willRenew,
-          cancel_at_period_end: !sub.willRenew,
+          cancel_at_period_end: !sub.willRenew && !sub.lifetime,
           original_purchase_at: sub.originalPurchaseAt,
           current_period_start: sub.periodStart,
-          current_period_end: sub.periodEnd,
+          current_period_end: sub.lifetime ? null : sub.periodEnd,
+          interval: sub.lifetime ? 'lifetime' : 'year',
           management_url: sub.managementUrl,
           customer_type: 'b2c',
           renewal_mode: renewalMode,
@@ -459,7 +467,7 @@ export class StoreSyncService {
         kind: 'subscription',
         userId,
         subscriptionId: fresh,
-        amountCents: sub?.priceCents ?? (await this.billing.storeYearPrice()),
+        amountCents: sub?.priceCents ?? (sub ? await this.storePrice(sub) : 0),
         paymentRef: hint?.transactionId ?? sub?.transactionId ?? null,
         paidAt: new Date(),
       });

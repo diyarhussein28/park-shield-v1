@@ -1444,6 +1444,7 @@ const en: typeof de = {
     subSource: 'Bought through',
     subStorePrice: 'Store price {price}',
     subNoRenew: 'does not renew',
+    subLifetime: 'Lifetime (paid once)',
     vehicles: 'Vehicles and codes',
     plate: 'Licence plate',
     code: 'Code …{hint}',
