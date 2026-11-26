@@ -972,13 +972,20 @@ Design (owner: „no new card, one button under the yearly button, persuasive te
   `parkshield_pro`. The app shows the lifetime button in store builds only when the current offering
   has a lifetime package.
 
-**Still to do (owner, outside the code):**
-1. App Store Connect: in-app purchase **Non-Consumable** `lifetime` (29,99 €), and Google Play Console:
-   **one-time product** `lifetime` (29,99 €).
-2. RevenueCat: add both products, attach them to the entitlement `parkshield_pro`, add a package of
-   type **Lifetime** to the current offering.
-3. ~~Deploy to the test server~~ done 2026-11-26 (`a97a688`, migration applied); still: a new EAS build for the app.
-4. Lawyer: AGB/Widerruf wording for the lifetime plan (`LEGAL_REVIEW.md` §15).
+**Store set-up (done 2026-11-27):**
+1. App Store Connect: in-app purchase **Non-Consumable** `parkshield_lifetime` (Apple ID 6839814481),
+   „ParkShield Lifetime“, base country Germany 29,99 €, all countries, German name and description.
+   Status „Prepare for Submission“: it goes to review with the next app version, and Apple still needs
+   a **review screenshot** of the paywall (upload it on the product page before submitting).
+2. Google Play Console (account Dodobasha): one-time product `parkshield_lifetime`, purchase option
+   `lifetime` (Buy, backwards compatible), **active**, 174 countries; set as 25,20 € net so Germany is
+   29,99 € incl. 19 % VAT.
+3. RevenueCat: products `parkshield_lifetime` (iOS and Android, non-consumable) and Test Store
+   `lifetime` (29,99 USD, test only), all attached to `parkshield_pro`; package **Lifetime**
+   (`$rc_lifetime`) in the `default` offering, above Yearly.
+
+**Still to do:** a new EAS build for the app (the button appears once the build reads the Lifetime
+package), then a sandbox purchase on iOS and Android; lawyer (`LEGAL_REVIEW.md` §15).
 
 Not done: upgrading a running yearly plan to lifetime (the paywall stays hidden while a contract is
 live); possible follow-up.
