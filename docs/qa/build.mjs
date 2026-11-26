@@ -19,6 +19,7 @@ rm.columns = [{ width: 30 }, { width: 110 }];
 const lines = [
   ['ParkShield — Test cases for external QA', ''],
   ['Version / date', '1.0 — 2026-11-26'],
+  ['WHERE ARE THE CASES?', 'All 213 test cases are in the sheet „Test cases“ (tabs at the bottom of the window). Overview per module: sheet „Summary“. Defect log: sheet „Defects“.'],
   ['Product', 'QR decal for cars. A stranger scans the decal, picks a problem on a web page (no app, no account) and the owner gets an app push, a reminder push after 10 min and one SMS after 30 min. Owner phone number, name and plate are never shown to the scanner. One plan „ParkShield“, 19,99 € / year incl. 19 % VAT, one vehicle.'],
   ['In scope', '1) Public website  2) Scanner page /s/<code> and view page /v/<token>  3) Mobile app iOS + Android (sign-up, payment, vehicles, decals, alerts, chat, account)  4) E-mails and SMS  5) Back office (ops app, staff only)  6) Security, accessibility, performance, compatibility.'],
   ['Out of scope', 'Real money (Stripe is in TEST mode). Load / stress tests and intrusive security tests (scanning, fuzzing, brute force) ONLY in a time window agreed in writing with the owner. No social engineering. No tests against Stripe, Twilio, Mailjet, Google or Apple infrastructure itself.'],
@@ -61,7 +62,8 @@ lines.forEach(([a, b], i) => {
   const r = rm.addRow([a, b]);
   r.getCell(2).alignment = { wrapText: true, vertical: 'top' };
   r.getCell(1).alignment = { vertical: 'top', wrapText: true };
-  if (i === 0) { r.getCell(1).font = { bold: true, size: 16, color: { argb: BLUE } }; }
+  if (i === 0) { r.getCell(1).font = { bold: true, size: 16, color: { argb: BLUE } }; rm.mergeCells(r.number, 1, r.number, 2); r.height = 26; }
+  else if (a === 'WHERE ARE THE CASES?') { r.eachCell((c) => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDE68A' } }; }); }
   else if (a && !b) { r.getCell(1).font = { bold: true, color: { argb: 'FFFFFFFF' } }; r.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLUE } }; rm.mergeCells(r.number, 1, r.number, 2); }
   else if (a) { r.getCell(1).font = { bold: true }; }
 });
@@ -163,6 +165,6 @@ for (let r = 2; r <= 301; r++) {
 }
 
 wb.calcProperties = { fullCalcOnLoad: true };
-wb.views = [{ activeTab: 0 }];
+wb.views = [{ activeTab: 1, firstSheet: 0 }];
 await wb.xlsx.writeFile(out);
 console.log(`cases: ${n}, modules: ${modules.length}`);
