@@ -370,6 +370,112 @@ describe('tag lifecycle and FROM_STOCK fulfilment', () => {
   });
 });
 
+describe('in-house NFC stock (2026-11-27, docs/nfc-sticker-plan.md)', () => {
+  it('batch with serial numbers, generic print file, CSV and ZIP export, never claimable', async () => {
+    const lager = await staffAs(['fulfillment']);
+    const admin = await staffAs(['admin']);
+    expect((await post(lager, '/ops/v1/batches/inhouse', { quantity: 5001 })).statusCode).toBe(400);
+    const batch = await post(lager, '/ops/v1/batches/inhouse', { quantity: 3, note: 'Testlauf' });
+    expect(batch.statusCode).toBe(201);
+    const batchId = batch.json().id as string;
+    const codes = (
+      await h.app.inject({ method: 'GET', url: `/v1/dev/batches/${batchId}/codes` })
+    ).json().codes as string[];
+    expect(codes).toHaveLength(3);
+
+    const rows = await h.db
+      .selectFrom('qr_tokens')
+      .select(['serial_no', 'status', 'vehicle_id'])
+      .where('batch_id', '=', batchId)
+      .orderBy('serial_no')
+      .execute();
+    const first = rows[0]!.serial_no!;
+    expect(rows.map((r) => r.serial_no)).toEqual([first, first + 1, first + 2]);
+    expect(rows.every((r) => r.status === 'in_stock' && r.vehicle_id === null)).toBe(true);
+    const label = (n: number) => `PS-${String(n).padStart(6, '0')}`;
+    const listed = (await get(lager, '/ops/v1/batches')).json().batches as Record<
+      string,
+      unknown
+    >[];
+    expect(listed.find((b) => b.id === batchId)).toMatchObject({
+      kind: 'inhouse_nfc',
+      chip: 'NTAG215',
+      quantity: 3,
+      partner: null,
+      serialFrom: label(first),
+      serialTo: label(first + 2),
+    });
+
+    const pdf = await get(lager, `/ops/v1/batches/${batchId}/print.pdf`);
+    expect(pdf.statusCode).toBe(200);
+    expect(pdf.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');
+
+    // The production export holds every code: admin only (tokens.export), an audited read.
+    expect((await get(lager, `/ops/v1/batches/${batchId}/export.csv`)).statusCode).toBe(403);
+    const csv = await get(admin, `/ops/v1/batches/${batchId}/export.csv`);
+    expect(csv.statusCode).toBe(200);
+    expect(csv.headers['content-type']).toContain('text/csv');
+    expect(csv.headers['cache-control']).toBe('no-store');
+    const lines = csv.body.replace(/^\uFEFF/, '').trim().split('\r\n');
+    expect(lines[0]).toBe('serial;url;qr_content;ndef_uri;ndef_prefix;ndef_payload_hex;batch');
+    expect(lines).toHaveLength(4);
+    const [serial, url, qrContent, ndef, prefix, hex, b] = lines[1]!.split(';');
+    expect(serial).toBe(label(first));
+    expect(url).toMatch(new RegExp(`^https?://.+/s/${codes[0]}$`));
+    expect(qrContent).toBe(url);
+    expect(ndef).toBe(url);
+    // The scheme is one prefix byte: 0x04 "https://" (production), 0x03 "http://" (local test stack).
+    const scheme = url!.startsWith('https://') ? ['0x04', 'https://'] : ['0x03', 'http://'];
+    expect(prefix).toBe(scheme[0]);
+    expect(hex!.slice(0, 2)).toBe(scheme[0]!.slice(2));
+    expect(`${scheme[1]}${Buffer.from(hex!.slice(2), 'hex').toString('utf8')}`).toBe(url);
+    expect(b).toBe(batchId);
+    const zipped = await get(admin, `/ops/v1/batches/${batchId}/qr.zip`);
+    expect(zipped.statusCode).toBe(200);
+    expect(zipped.rawPayload.subarray(0, 2).toString()).toBe('PK');
+    for (const ext of ['svg', 'png'])
+      expect(zipped.rawPayload.includes(Buffer.from(`${label(first + 2)}.${ext}`))).toBe(true);
+    const reads = await h.db
+      .selectFrom('audit_logs')
+      .select(['action', 'is_read'])
+      .where('actor_id', '=', admin.userId)
+      .where('action', 'in', ['batch.export_csv', 'batch.export_zip'])
+      .orderBy('action')
+      .execute();
+    expect(reads).toEqual([
+      { action: 'batch.export_csv', is_read: true },
+      { action: 'batch.export_zip', is_read: true },
+    ]);
+
+    // Partner batches have no production export.
+    const partner = await post(admin, '/ops/v1/partners', { name: 'Lager2', kind: 'other' });
+    const pb = await post(lager, '/ops/v1/batches', { partnerId: partner.json().id, quantity: 1 });
+    expect((await get(admin, `/ops/v1/batches/${pb.json().id}/export.csv`)).json()).toMatchObject({
+      error: 'not_inhouse_batch',
+    });
+
+    // Not packed yet: the scanner shows no set-up offer, and no customer can claim it.
+    expect((await h.app.inject({ method: 'GET', url: `/v1/scan/${codes[0]}` })).statusCode).toBe(
+      404,
+    );
+    expect((await h.app.inject({ method: 'GET', url: `/v1/claim/${codes[0]}` })).statusCode).toBe(
+      404,
+    );
+    const c = await customer('nfc@example.de');
+    expect(
+      (await pub(c.s, 'POST', `/v1/vehicles/${c.v.id}/claim`, { code: codes[0] })).statusCode,
+    ).toBe(404);
+    expect(
+      await h.db
+        .selectFrom('qr_tokens')
+        .select('status')
+        .where('batch_id', '=', batchId)
+        .where('vehicle_id', 'is not', null)
+        .execute(),
+    ).toEqual([]);
+  });
+});
+
 describe('legal review queue (§ 356a, § 312k BGB)', () => {
   it('lists unmatched requests masked, assigns a withdrawal, needs billing.refund', async () => {
     const c = await customer('queue@example.de');

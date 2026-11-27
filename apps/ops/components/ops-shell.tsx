@@ -117,6 +117,13 @@ export const NAV: NavGroup[] = [
         show: (can) => can('partners.manage') || can('tokens.manage'),
       },
       {
+        href: '/lager',
+        label: 'ops.navStock',
+        about: 'ops.areaStock',
+        icon: 'layers',
+        show: (can) => can('tokens.manage'),
+      },
+      {
         href: '/gutscheine',
         label: 'ops.navPromos',
         about: 'ops.areaPromos',

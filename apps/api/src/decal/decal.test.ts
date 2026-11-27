@@ -56,6 +56,34 @@ describe('decal layout (US-10)', () => {
     }
   }
 
+  it('in-house NFC sticker: generic, the serial under the QR code and the tap line (2026-11-27)', () => {
+    const spec = layoutDecal({
+      ...base,
+      template: 'classic',
+      product: 'uv_vinyl_sticker',
+      serial: 'PS-000042',
+      nfc: true,
+    });
+    const texts = spec.primitives.filter((p) => p.kind === 'text').map((p) => p.text);
+    expect(texts).toContain('PS-000042');
+    expect(texts).toContain('Scannen oder Handy anhalten – ohne App');
+    const qr = spec.primitives.find((p) => p.kind === 'qr')!;
+    expect(decode(qr as Extract<Primitive, { kind: 'qr' }>)).toBe('https://pkshd.de/s/K7QX4M2R9T');
+    for (const p of spec.primitives)
+      if (p.kind === 'text') expect(p.x + p.width).toBeLessThanOrEqual(spec.width - 3);
+    // A vehicle label (personalised decal) wins over the serial.
+    const named = layoutDecal({
+      ...base,
+      template: 'classic',
+      product: 'uv_vinyl_sticker',
+      label: 'Dodo',
+      serial: 'PS-000042',
+    });
+    const namedTexts = named.primitives.filter((p) => p.kind === 'text').map((p) => p.text);
+    expect(namedTexts).toContain('Dodo');
+    expect(namedTexts).not.toContain('PS-000042');
+  });
+
   it('sizes the vinyl sticker at 8 × 8 cm and the dashboard card at A6', () => {
     expect(
       layoutDecal({ ...base, template: 'classic', product: 'uv_vinyl_sticker' }),

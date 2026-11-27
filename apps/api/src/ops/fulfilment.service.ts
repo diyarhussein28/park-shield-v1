@@ -15,6 +15,8 @@ import { CRYPTO, DB, ENV } from '../core/tokens';
 import type { OrderStatus, PartnerKind } from '../db/types.generated';
 import { layoutDecal } from '../decal/layout';
 import { renderPrintBatchPdf } from '../decal/pdf';
+import { qrPng, qrSvg } from '../letters/qr';
+import { zip } from '../letters/zip';
 import { MailService } from '../mail/mail.service';
 import { OrdersService, PRINT_TOPIC } from '../orders/orders.service';
 import type { ShippingAddress } from '../providers/ports';
@@ -26,6 +28,15 @@ import { StaffService, type StaffContext } from './staff.service';
 export const ORDER_FILTERS = ['open', 'attention', 'shipped', 'returned', 'all'] as const;
 export type OrderFilter = (typeof ORDER_FILTERS)[number];
 export const MAX_BATCH = 1000;
+/** In-house NFC stock: up to 5,000 stickers per batch (owner, 2026-11-27). */
+export const MAX_INHOUSE_BATCH = 5000;
+/** One ZIP holds at most this many stickers (an SVG and a PNG each), so it stays a sane download. */
+export const MAX_ZIP_STICKERS = 2000;
+/** PNG edge in pixels: about 680 dpi for the 37 mm QR code of the 80 mm sticker. */
+const STOCK_PNG_SIZE = 1000;
+
+/** The serial number printed on an in-house sticker, e.g. 1 → `PS-000001`. */
+export const serialLabel = (n: number) => `PS-${String(n).padStart(6, '0')}`;
 
 /**
  * US-39 / AD-07: order pipeline (Generated → Printed → Shipped → Activated), returned shipments,
@@ -392,6 +403,8 @@ export class FulfilmentService {
       .leftJoin('promo_codes as c', 'c.id', 'b.promo_code_id')
       .select((eb) => [
         'b.id',
+        'b.kind',
+        'b.chip',
         'b.quantity',
         'b.status',
         'b.note',
@@ -413,6 +426,16 @@ export class FulfilmentService {
           .where('t.status', '=', 'assigned')
           .where('t.last_test_at', 'is not', null)
           .as('active'),
+        eb
+          .selectFrom('qr_tokens as t')
+          .select((e) => e.fn.min('t.serial_no').as('n'))
+          .whereRef('t.batch_id', '=', 'b.id')
+          .as('serialFrom'),
+        eb
+          .selectFrom('qr_tokens as t')
+          .select((e) => e.fn.max('t.serial_no').as('n'))
+          .whereRef('t.batch_id', '=', 'b.id')
+          .as('serialTo'),
       ])
       .orderBy('b.created_at', 'desc')
       .execute();
@@ -421,6 +444,8 @@ export class FulfilmentService {
         ...r,
         claimed: Number(r.claimed ?? 0),
         active: Number(r.active ?? 0),
+        serialFrom: r.serialFrom == null ? null : serialLabel(Number(r.serialFrom)),
+        serialTo: r.serialTo == null ? null : serialLabel(Number(r.serialTo)),
       })),
     };
   }
@@ -465,17 +490,111 @@ export class FulfilmentService {
     return { id };
   }
 
+  /**
+   * In-house NFC stock (2026-11-27, docs/nfc-sticker-plan.md): generic QR + NFC stickers with a
+   * printed serial number, produced by us. Customers can never claim them; staff assign one to an
+   * order when packing.
+   */
+  async createInhouseBatch(by: StaffContext, input: { quantity: number; note?: string }) {
+    const id = await this.db.transaction().execute(async (trx) => {
+      const b = await trx
+        .insertInto('token_batches')
+        .values({
+          kind: 'inhouse_nfc',
+          chip: 'NTAG215',
+          quantity: input.quantity,
+          note: input.note || null,
+          created_by: by.userId,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+      await this.tokens.issueStock(trx, b.id, input.quantity);
+      return b.id;
+    });
+    await this.staff.audit(by.userId, 'batch.create', 'token_batches', id, {
+      quantity: input.quantity,
+      kind: 'inhouse_nfc',
+    });
+    return { id };
+  }
+
+  /** The in-house stickers of a batch that are still in stock, in serial order, with their URL. */
+  private async stockOfBatch(batchId: string) {
+    const b = await this.db
+      .selectFrom('token_batches')
+      .select(['kind'])
+      .where('id', '=', batchId)
+      .executeTakeFirst();
+    if (!b) throw new NotFoundException({ error: 'batch_not_found' });
+    if (b.kind !== 'inhouse_nfc') throw new ConflictException({ error: 'not_inhouse_batch' });
+    const rows = await this.db
+      .selectFrom('qr_tokens')
+      .select(['code_enc', 'serial_no'])
+      .where('batch_id', '=', batchId)
+      .where('status', '=', 'in_stock')
+      .orderBy('serial_no')
+      .execute();
+    if (!rows.length) throw new NotFoundException({ error: 'batch_empty' });
+    const base = this.env.SCANNER_BASE_URL.replace(/\/$/, '');
+    return rows.map((r) => ({
+      serial: serialLabel(r.serial_no!),
+      url: `${base}/s/${this.tokens.decrypt(r.code_enc)}`,
+    }));
+  }
+
+  /**
+   * Production list of an in-house batch: serial, URL, QR content, NDEF URI record and batch, one row
+   * per sticker still in stock. Semicolons, so German Excel opens it as columns. It holds every code,
+   * so each download is an audited read; nothing is stored.
+   */
+  async batchExportCsv(by: StaffContext, batchId: string): Promise<Buffer> {
+    const stock = await this.stockOfBatch(batchId);
+    const head = 'serial;url;qr_content;ndef_uri;ndef_prefix;ndef_payload_hex;batch';
+    const lines = stock.map((s) => {
+      // NDEF URI record: one prefix byte for the scheme (0x04 "https://"; 0x03 "http://" only on a
+      // local test stack), then the rest of the URL.
+      const https = s.url.startsWith('https://');
+      const prefix = https ? '04' : '03';
+      const rest = s.url.replace(/^https?:\/\//, '');
+      const payload = `${prefix}${Buffer.from(rest, 'utf8').toString('hex')}`;
+      return [s.serial, s.url, s.url, s.url, `0x${prefix}`, payload, batchId].join(';');
+    });
+    await this.staff.auditRead(by.userId, 'batch.export_csv', 'token_batches', batchId, {
+      codes: stock.length,
+    });
+    return Buffer.from(`\uFEFF${[head, ...lines].join('\r\n')}\r\n`, 'utf8');
+  }
+
+  /** One SVG and one PNG QR code per sticker still in stock, named by serial (`PS-000001.svg`). */
+  async batchExportZip(by: StaffContext, batchId: string): Promise<Buffer> {
+    const stock = await this.stockOfBatch(batchId);
+    if (stock.length > MAX_ZIP_STICKERS)
+      throw new ConflictException({ error: 'zip_too_large', max: MAX_ZIP_STICKERS });
+    const files: { name: string; data: Buffer }[] = [];
+    for (const s of stock) {
+      const input = { url: s.url, caption: null };
+      files.push({ name: `${s.serial}.svg`, data: Buffer.from(qrSvg(input)) });
+      files.push({ name: `${s.serial}.png`, data: await qrPng(input, STOCK_PNG_SIZE) });
+    }
+    await this.staff.auditRead(by.userId, 'batch.export_zip', 'token_batches', batchId, {
+      codes: stock.length,
+    });
+    return zip(files);
+  }
+
   /** The print file holds every code of the batch, so producing it is logged like a decryption. */
   async batchPrintFile(by: StaffContext, batchId: string): Promise<Buffer> {
     const tokens = await this.db
       .selectFrom('qr_tokens')
-      .select(['code_enc', 'cta_header', 'design_template_id'])
+      .select(['code_enc', 'cta_header', 'design_template_id', 'serial_no'])
       .where('batch_id', '=', batchId)
       .where('vehicle_id', 'is', null)
       .where('status', '<>', 'revoked')
+      .orderBy('serial_no')
       .orderBy('created_at')
       .execute();
     if (!tokens.length) throw new NotFoundException({ error: 'batch_empty' });
+    // In-house stickers get the generic design (owner, 2026-11-27) with the serial and the NFC line.
     const specs = tokens.map((t) =>
       layoutDecal({
         code: this.tokens.decrypt(t.code_enc),
@@ -483,6 +602,8 @@ export class FulfilmentService {
         template: t.design_template_id as DecalTemplate,
         cta: t.cta_header,
         product: 'uv_vinyl_sticker',
+        serial: t.serial_no === null ? null : serialLabel(t.serial_no),
+        nfc: t.serial_no !== null,
       }),
     );
     await this.staff.auditRead(by.userId, 'batch.print_file', 'token_batches', batchId, {

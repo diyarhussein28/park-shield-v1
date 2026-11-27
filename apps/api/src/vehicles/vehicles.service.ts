@@ -394,6 +394,8 @@ export class VehiclesService {
         .where('t.code_hash', '=', sha256(code))
         .where('t.vehicle_id', 'is', null)
         .where('t.status', '=', 'in_stock')
+        // In-house NFC stock is assigned by staff when packing, never claimed by a customer.
+        .where('b.kind', '=', 'partner')
         .executeTakeFirst()) ?? null
     );
   }

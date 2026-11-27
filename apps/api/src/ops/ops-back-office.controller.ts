@@ -24,6 +24,7 @@ import { CustomersService } from './customers.service';
 import {
   FulfilmentService,
   MAX_BATCH,
+  MAX_INHOUSE_BATCH,
   ORDER_FILTERS,
   type OrderFilter,
 } from './fulfilment.service';
@@ -142,6 +143,17 @@ const Batch = z.object({
   quantity: z.number().int().min(1).max(MAX_BATCH),
   note: z.string().trim().max(200).optional(),
 });
+const InhouseBatch = z.object({
+  quantity: z.number().int().min(1).max(MAX_INHOUSE_BATCH),
+  note: z.string().trim().max(200).optional(),
+});
+
+const download = (reply: FastifyReply, file: Buffer, type: string, name: string) =>
+  reply
+    .header('content-type', type)
+    .header('content-disposition', `attachment; filename="${name}"`)
+    .header('cache-control', 'no-store')
+    .send(file);
 
 /** US-39: partners and pre-printed batches (AD-07). */
 @Controller('ops/v1')
@@ -192,6 +204,49 @@ export class OpsPartnersController {
     @Body(new ZodPipe(Batch)) body: z.infer<typeof Batch>,
   ) {
     return this.f.createBatch(me, body);
+  }
+
+  /** In-house NFC stock (2026-11-27): generic stickers with serial numbers, no partner. */
+  @Post('batches/inhouse')
+  @HttpCode(201)
+  @RequirePermission('tokens.manage')
+  createInhouseBatch(
+    @CurrentStaff() me: StaffContext,
+    @Body(new ZodPipe(InhouseBatch)) body: z.infer<typeof InhouseBatch>,
+  ) {
+    return this.f.createInhouseBatch(me, body);
+  }
+
+  /** Production list (CSV) of an in-house batch: every code, so its own permission. */
+  @Get('batches/:id/export.csv')
+  @RequirePermission('tokens.export')
+  async exportCsv(
+    @CurrentStaff() me: StaffContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() reply: FastifyReply,
+  ) {
+    return download(
+      reply,
+      await this.f.batchExportCsv(me, id),
+      'text/csv; charset=utf-8',
+      `parkshield-batch-${id.slice(0, 8)}.csv`,
+    );
+  }
+
+  /** QR images (SVG + PNG per sticker, named by serial) of an in-house batch as a ZIP. */
+  @Get('batches/:id/qr.zip')
+  @RequirePermission('tokens.export')
+  async exportZip(
+    @CurrentStaff() me: StaffContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() reply: FastifyReply,
+  ) {
+    return download(
+      reply,
+      await this.f.batchExportZip(me, id),
+      'application/zip',
+      `parkshield-batch-${id.slice(0, 8)}-qr.zip`,
+    );
   }
 
   @Get('batches/:id/print.pdf')

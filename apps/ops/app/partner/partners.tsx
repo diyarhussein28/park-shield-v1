@@ -36,6 +36,13 @@ export interface Partners {
 export interface Batches {
   batches: {
     id: string;
+    /** `partner`: pre-printed partner decals; `inhouse_nfc`: our own stock („Aufkleber-Lager“). */
+    kind: 'partner' | 'inhouse_nfc';
+    chip: string | null;
+    serialFrom: string | null;
+    serialTo: string | null;
+    /** In-house stickers whose chip is written, checked and locked (ready to pack). */
+    ready?: number;
     quantity: number;
     status: 'generated' | 'printed' | 'shipped';
     note: string | null;
@@ -66,7 +73,9 @@ export function PartnersView({
 }) {
   const { t, locale } = useI18n();
   const [partners, setPartners] = useState(p0?.partners ?? []);
-  const [batches, setBatches] = useState(b0?.batches ?? []);
+  // In-house NFC stock has its own page (/lager).
+  const partnerBatches = (list: Batches['batches']) => list.filter((b) => b.kind === 'partner');
+  const [batches, setBatches] = useState(partnerBatches(b0?.batches ?? []));
   const [msg, setMsg] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
   const [np, setNp] = useState({
     name: '',
@@ -80,7 +89,7 @@ export function PartnersView({
 
   const reload = async () => {
     setPartners((await opsApi<Partners>('/ops/v1/partners')).partners);
-    if (canBatches) setBatches((await opsApi<Batches>('/ops/v1/batches')).batches);
+    if (canBatches) setBatches(partnerBatches((await opsApi<Batches>('/ops/v1/batches')).batches));
   };
   async function run(fn: () => Promise<unknown>, ok: string) {
     setMsg(null);

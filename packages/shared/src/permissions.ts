@@ -11,6 +11,8 @@ export const PERMISSIONS = [
   'promo.manage',
   'orders.manage',
   'tokens.manage',
+  // Production export of in-house sticker batches (every code of a batch), 2026-11-27. Admin only.
+  'tokens.export',
   'partners.manage',
   'dsr.process',
   'settings.edit',

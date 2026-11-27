@@ -732,6 +732,7 @@ export interface QrTokens {
   last_test_at: Timestamp | null;
   revoke_reason: string | null;
   revoked_at: Timestamp | null;
+  serial_no: number | null;
   status: Generated<TagStatus>;
   test_window_until: Timestamp | null;
   vehicle_id: string | null;
@@ -858,9 +859,11 @@ export interface TagEvents {
 }
 
 export interface TokenBatches {
+  chip: string | null;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   id: Generated<string>;
+  kind: Generated<string>;
   note: string | null;
   partner_id: string | null;
   print_partner_ref: string | null;

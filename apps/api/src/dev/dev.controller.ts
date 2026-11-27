@@ -83,6 +83,7 @@ export class DevController {
       .select('code_enc')
       .where('batch_id', '=', id)
       .where('vehicle_id', 'is', null)
+      .orderBy('serial_no')
       .orderBy('created_at')
       .execute();
     return { codes: rows.map((r) => this.tokens.decrypt(r.code_enc)) };

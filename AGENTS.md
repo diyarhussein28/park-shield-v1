@@ -111,7 +111,8 @@ Dev only: `/dev/postfach` (local inbox), `/dev/checkout` (fake Stripe), `/design
 `/` dashboard, `/kunden` (Customer 360, refunds), `/warnungen/[id]` (alert trace), `/break-glass`
 (four-eyes access to encrypted data), `/datenschutz` (GDPR queue), `/missbrauch` (abuse centre,
 review queue, word lists), `/bestellungen` (decal orders, reprints, returns), `/partner`,
-`/gutscheine` (promo codes), `/einstellungen` (+ `/anbieter` provider health, `/unternehmen`
+`/gutscheine` (promo codes), `/lager` (in-house QR + NFC sticker stock: batches with serial numbers, print
+file, production CSV/ZIP; `docs/nfc-sticker-plan.md`), `/einstellungen` (+ `/anbieter` provider health, `/unternehmen`
 company data and texts on letters), `/audit`, `/mitarbeitende` (+ `/pruefung` quarterly access
 review), `/zammad`, `/willkommensbriefe` (welcome letters: filter, batch PDF, mark sent).
 

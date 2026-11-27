@@ -135,13 +135,16 @@ export class ScanService {
   async isUnclaimed(rawCode: string): Promise<boolean> {
     const code = normalizeCode(rawCode);
     if (!code) return false;
+    // Only partner decals offer the set-up page; an in-house NFC sticker that is not packed yet is
+    // simply not active (staff assign it, 2026-11-27).
     const t = await this.db
-      .selectFrom('qr_tokens')
-      .select('id')
-      .where('code_hash', '=', sha256(code))
-      .where('vehicle_id', 'is', null)
-      .where('batch_id', 'is not', null)
-      .where('status', '=', 'in_stock')
+      .selectFrom('qr_tokens as t')
+      .innerJoin('token_batches as b', 'b.id', 't.batch_id')
+      .select('t.id')
+      .where('t.code_hash', '=', sha256(code))
+      .where('t.vehicle_id', 'is', null)
+      .where('t.status', '=', 'in_stock')
+      .where('b.kind', '=', 'partner')
       .executeTakeFirst();
     return Boolean(t);
   }

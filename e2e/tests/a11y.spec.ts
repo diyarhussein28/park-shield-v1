@@ -48,6 +48,7 @@ const OPS = [
   '/mitarbeitende/pruefung',
   '/bestellungen',
   '/partner',
+  '/lager',
   '/gutscheine',
   '/einstellungen',
   '/einstellungen/anbieter',
