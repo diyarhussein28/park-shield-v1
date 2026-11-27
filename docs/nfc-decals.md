@@ -1,6 +1,6 @@
 # NFC decals — specification
 
-_Status: draft for the owner's decision, 2026-11-26. Requirement `SC-11` (`docs/01-requirements.md`),
+_Status: owner decisions taken 2026-11-27 (§11); first draft 2026-11-26. Requirement `SC-11` (`docs/01-requirements.md`),
 Phase 2 („NFC decals“, `docs/03-user-stories.md`). Nothing here is built yet._
 
 ## 1. What it is
@@ -185,7 +185,21 @@ The chip appends two values to the URL on every tap: `…/s/<code>?d=<picc>&m=<c
 - Manual: write and lock a real NTAG213; read it with an iPhone and an Android phone through a
   windscreen and a side window; try to rewrite it (must fail).
 
-## 11. Open decisions for the owner
+## 11. Owner decisions (2026-11-27)
+
+The questions below were answered on 2026-11-27; the task that builds them is
+[`docs/nfc-sticker-prompt.md`](nfc-sticker-prompt.md). Where this spec says otherwise, the decisions win:
+
+- The NFC sticker **replaces** the printed decal and is **generic** (no vehicle name, no chosen design;
+  the free PDF keeps both). The lawyer accepted it.
+- **One code per vehicle** for QR, NFC, app and PDF (`park-shield.de/s/<code>`).
+- Stickers come **from our own stock** (`fulfillment.mode = from_stock`), produced in batches; the code
+  is **active at once**, no manual activation. The vehicle's old code keeps working until the owner tests
+  the new sticker in the app, or a set number of days after shipping (default 14).
+- **Inside the glass only.** Chip **NTAG215**, static URL (stage 1 only, no NTAG 424 DNA).
+- **We print and program ourselves** for now; the chip is locked permanently after the check.
+
+## 11a. The original open questions (2026-11-26)
 
 1. Placement: inside the glass only, or also a body version (on-metal chip)?
 2. Stage 1 first, or straight to NTAG 424 DNA?
