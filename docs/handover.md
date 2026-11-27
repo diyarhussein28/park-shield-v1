@@ -1121,7 +1121,7 @@ cannot be cancelled from here; RevenueCat events for the deleted users find no a
 files of orders deleted on 2026-11-21 (`PRINT-2G7BYV`, `PRINT-QNTMK0`) were deleted too (owner, same day);
 `/data/print-outbox` is empty.
 
-**Owner sticker design in the print file (2026-11-27, not deployed).** The owner's design (picture sent in
+**Owner sticker design in the print file (2026-11-27, deployed `7ab12cd` the same day).** The owner's design (picture sent in
 chat) is built in code as `apps/api/src/decal/stock-sticker.ts` (`layoutStockSticker`) and used by
 `batchPrintFile` for every in-house sticker (`serial_no` set); partner batches keep `layoutDecal`. 80 × 80 mm,
 blue frame into the 3 mm bleed, white panel (radius 5.5 mm), the mark + „ParkShield“, „FAHRER
