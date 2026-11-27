@@ -1972,7 +1972,7 @@ const de = {
     quantity: 'Anzahl Aufkleber (höchstens {max})',
     batchNote: 'Notiz',
     createBatch: 'Charge erzeugen',
-    batchCreated: 'Charge mit {quantity} Aufklebern erzeugt.',
+    batchCreated: 'Charge mit {quantity, plural, one {# Aufkleber} other {# Aufklebern}} erzeugt.',
     findTitle: 'Aufkleber finden',
     findLabel: 'Seriennummer oder Inhalt des QR-Codes',
     find: 'Suchen',

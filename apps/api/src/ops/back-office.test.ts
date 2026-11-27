@@ -317,19 +317,51 @@ describe('US-39 orders, reprints, partners and batches (AD-07)', () => {
   });
 });
 
+/** The sticker of a stock code, found by its scanned QR content, as the ops page does. */
+async function stickerOf(s: Staff, code: string) {
+  const r = await get(s, `/ops/v1/stickers?q=${encodeURIComponent(`https://x.test/s/${code}`)}`);
+  expect(r.statusCode).toBe(200);
+  return r.json().stickers[0] as { id: string; serial: string; ready: boolean };
+}
+
+/** Write, check and lock the chip of a stock sticker (phase 2). */
+async function readySticker(s: Staff, code: string, uid?: string) {
+  const { id } = await stickerOf(s, code);
+  const { url } = (await get(s, `/ops/v1/stickers/${id}/nfc`)).json();
+  expect(
+    (await post(s, `/ops/v1/stickers/${id}/nfc/written`, { method: 'web_nfc' })).statusCode,
+  ).toBe(200);
+  expect(
+    (await post(s, `/ops/v1/stickers/${id}/nfc/verify`, { readUrl: url, ...(uid ? { uid } : {}) }))
+      .statusCode,
+  ).toBe(200);
+  const locked = await post(s, `/ops/v1/stickers/${id}/nfc/locked`, { confirmIrreversible: true });
+  expect(locked.json().sticker).toMatchObject({ ready: true });
+  return id;
+}
+
 describe('tag lifecycle and FROM_STOCK fulfilment', () => {
   it('the packer scan links a stock sticker to the vehicle; the registration code is revoked', async () => {
     await setSetting(h, 'fulfillment.mode', 'from_stock');
     const admin = await staffAs(['admin']);
     const partner = await post(admin, '/ops/v1/partners', { name: 'Lager', kind: 'other' });
     const lager = await staffAs(['fulfillment']);
-    const batch = await post(lager, '/ops/v1/batches', {
+    const partnerBatch = await post(lager, '/ops/v1/batches', {
       partnerId: partner.json().id,
-      quantity: 2,
+      quantity: 1,
     });
+    const partnerCodes = (
+      await h.app.inject({
+        method: 'GET',
+        url: `/v1/dev/batches/${partnerBatch.json().id}/codes`,
+      })
+    ).json().codes as string[];
+    const batch = await post(lager, '/ops/v1/batches/inhouse', { quantity: 2 });
     const codes = (
       await h.app.inject({ method: 'GET', url: `/v1/dev/batches/${batch.json().id}/codes` })
     ).json().codes as string[];
+    // Phase 2 (2026-11-27): only a sticker whose chip is written, checked and locked can be packed.
+    await readySticker(lager, codes[0]!);
 
     const c = await customer('lager@example.de');
     // The code works at once after registration: no activation step.
@@ -338,6 +370,13 @@ describe('tag lifecycle and FROM_STOCK fulfilment', () => {
     expect(
       (await post(lager, `/ops/v1/orders/${orderId}/scan`, { scanned: 'nonsense!!' })).json(),
     ).toMatchObject({ error: 'code_unreadable' });
+    // A partner decal never goes into a customer's order; an unlocked stock sticker not yet.
+    expect(
+      (await post(lager, `/ops/v1/orders/${orderId}/scan`, { scanned: partnerCodes[0]! })).json(),
+    ).toMatchObject({ error: 'not_in_stock' });
+    expect(
+      (await post(lager, `/ops/v1/orders/${orderId}/scan`, { scanned: codes[1]! })).json(),
+    ).toMatchObject({ error: 'nfc_not_ready' });
     const ok = await post(lager, `/ops/v1/orders/${orderId}/scan`, {
       scanned: `https://s.park-shield.de/s/${codes[0]}`,
     });
@@ -416,7 +455,10 @@ describe('in-house NFC stock (2026-11-27, docs/nfc-sticker-plan.md)', () => {
     expect(csv.statusCode).toBe(200);
     expect(csv.headers['content-type']).toContain('text/csv');
     expect(csv.headers['cache-control']).toBe('no-store');
-    const lines = csv.body.replace(/^\uFEFF/, '').trim().split('\r\n');
+    const lines = csv.body
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .split('\r\n');
     expect(lines[0]).toBe('serial;url;qr_content;ndef_uri;ndef_prefix;ndef_payload_hex;batch');
     expect(lines).toHaveLength(4);
     const [serial, url, qrContent, ndef, prefix, hex, b] = lines[1]!.split(';');
@@ -473,6 +515,149 @@ describe('in-house NFC stock (2026-11-27, docs/nfc-sticker-plan.md)', () => {
         .where('vehicle_id', 'is not', null)
         .execute(),
     ).toEqual([]);
+  });
+});
+
+describe('NFC chip of an in-house sticker (phase 2, 2026-11-27)', () => {
+  it('write, check against the URL, lock only after the check, take out a damaged sticker', async () => {
+    const lager = await staffAs(['fulfillment']);
+    const support = await staffAs(['support']);
+    const batch = await post(lager, '/ops/v1/batches/inhouse', { quantity: 3 });
+    const codes = (
+      await h.app.inject({ method: 'GET', url: `/v1/dev/batches/${batch.json().id}/codes` })
+    ).json().codes as string[];
+
+    // Found by serial number and by the scanned QR content; never by staff without the permission.
+    const a = await stickerOf(lager, codes[0]!);
+    expect(a.serial).toMatch(/^PS-\d{6}$/);
+    const bySerial = (await get(lager, `/ops/v1/stickers?q=${a.serial.toLowerCase()}`)).json();
+    expect(bySerial.stickers.map((x: { id: string }) => x.id)).toEqual([a.id]);
+    expect((await get(support, `/ops/v1/stickers?q=${a.serial}`)).statusCode).toBe(403);
+    expect((await get(lager, `/ops/v1/stickers/${a.id}`)).json().sticker).toMatchObject({
+      status: 'in_stock',
+      chip: 'NTAG215',
+      writtenAt: null,
+      ready: false,
+    });
+
+    // The URL to write is the QR URL; showing it is an audited read.
+    const target = (await get(lager, `/ops/v1/stickers/${a.id}/nfc`)).json();
+    expect(target.url).toMatch(new RegExp(`/s/${codes[0]}$`));
+    expect(target.qrSvg).toContain('<svg');
+    expect(
+      await h.db
+        .selectFrom('audit_logs')
+        .select('is_read')
+        .where('actor_id', '=', lager.userId)
+        .where('action', '=', 'sticker.nfc_url')
+        .execute(),
+    ).toEqual([{ is_read: true }]);
+
+    // Order is enforced: check after writing, lock after checking, and only with the confirmation.
+    expect(
+      (await post(lager, `/ops/v1/stickers/${a.id}/nfc/verify`, { readUrl: target.url })).json(),
+    ).toMatchObject({ error: 'nfc_not_written' });
+    await post(lager, `/ops/v1/stickers/${a.id}/nfc/written`, { method: 'nfc_tools' });
+    expect(
+      (
+        await post(lager, `/ops/v1/stickers/${a.id}/nfc/locked`, { confirmIrreversible: true })
+      ).json(),
+    ).toMatchObject({ error: 'nfc_not_verified' });
+    // A chip with another sticker's URL is caught and logged.
+    const other = `${target.url.slice(0, -codes[0]!.length)}${codes[1]}`;
+    expect(
+      (await post(lager, `/ops/v1/stickers/${a.id}/nfc/verify`, { readUrl: other })).json(),
+    ).toMatchObject({ error: 'nfc_mismatch' });
+    expect(
+      await h.db
+        .selectFrom('audit_logs')
+        .select('entity_id')
+        .where('actor_id', '=', lager.userId)
+        .where('action', '=', 'sticker.nfc_mismatch')
+        .execute(),
+    ).toEqual([{ entity_id: a.id }]);
+    const checked = await post(lager, `/ops/v1/stickers/${a.id}/nfc/verify`, {
+      readUrl: ` ${target.url} `,
+      uid: '04:A1:B2:C3:D4:E5:F6',
+    });
+    expect(checked.json().sticker.verifiedAt).not.toBeNull();
+    // The same chip, as Web NFC writes the UID, is fine; a different chip is not.
+    expect(
+      (
+        await post(lager, `/ops/v1/stickers/${a.id}/nfc/verify`, {
+          readUrl: target.url,
+          uid: '04:a1:b2:c3:d4:e5:f6',
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (
+        await post(lager, `/ops/v1/stickers/${a.id}/nfc/verify`, {
+          readUrl: target.url,
+          uid: '04:00:00:00:00:00:01',
+        })
+      ).json(),
+    ).toMatchObject({ error: 'nfc_other_chip' });
+    expect(
+      (await post(lager, `/ops/v1/stickers/${a.id}/nfc/locked`, { confirmIrreversible: false }))
+        .statusCode,
+    ).toBe(400);
+    const locked = await post(lager, `/ops/v1/stickers/${a.id}/nfc/locked`, {
+      confirmIrreversible: true,
+    });
+    expect(locked.json().sticker).toMatchObject({ ready: true, method: 'nfc_tools' });
+    // A locked chip is final.
+    expect(
+      (await post(lager, `/ops/v1/stickers/${a.id}/nfc/written`, { method: 'web_nfc' })).json(),
+    ).toMatchObject({ error: 'nfc_locked' });
+    const tag = await h.db
+      .selectFrom('nfc_tags')
+      .select(['uid_bidx', 'written_by', 'verified_by', 'locked_by'])
+      .where('qr_token_id', '=', a.id)
+      .executeTakeFirstOrThrow();
+    expect(tag.uid_bidx?.toString('hex')).not.toContain('04a1b2');
+    expect([tag.written_by, tag.verified_by, tag.locked_by]).toEqual([
+      lager.userId,
+      lager.userId,
+      lager.userId,
+    ]);
+
+    // One chip belongs to one sticker.
+    const b = await stickerOf(lager, codes[1]!);
+    const bUrl = (await get(lager, `/ops/v1/stickers/${b.id}/nfc`)).json().url;
+    await post(lager, `/ops/v1/stickers/${b.id}/nfc/written`, { method: 'web_nfc' });
+    expect(
+      (
+        await post(lager, `/ops/v1/stickers/${b.id}/nfc/verify`, {
+          readUrl: bUrl,
+          uid: '04a1b2c3d4e5f6',
+        })
+      ).json(),
+    ).toMatchObject({ error: 'nfc_uid_in_use' });
+
+    // Damaged: out of stock for good, the code never works, no more NFC steps.
+    const cSticker = await stickerOf(lager, codes[2]!);
+    expect(
+      (await post(lager, `/ops/v1/stickers/${cSticker.id}/damaged`, { note: 'x' })).statusCode,
+    ).toBe(400);
+    const out = await post(lager, `/ops/v1/stickers/${cSticker.id}/damaged`, { note: 'Fehldruck' });
+    expect(out.json().sticker).toMatchObject({
+      status: 'revoked',
+      revokeReason: 'damaged',
+      ready: false,
+    });
+    expect((await get(lager, `/ops/v1/stickers/${cSticker.id}/nfc`)).json()).toMatchObject({
+      error: 'not_in_stock',
+    });
+    expect((await h.app.inject({ method: 'GET', url: `/v1/scan/${codes[2]}` })).statusCode).toBe(
+      404,
+    );
+
+    const listed = (await get(lager, '/ops/v1/batches')).json().batches as Record<
+      string,
+      unknown
+    >[];
+    expect(listed.find((x) => x.id === batch.json().id)).toMatchObject({ ready: 1 });
   });
 });
 

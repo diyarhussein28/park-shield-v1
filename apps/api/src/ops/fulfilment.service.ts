@@ -78,13 +78,19 @@ export class FulfilmentService {
       if (o.status !== 'paid' && o.status !== 'in_production')
         throw new ConflictException({ error: 'wrong_status' });
       if (!o.vehicleId) throw new ConflictException({ error: 'no_vehicle' });
+      // Only our own NFC stock is packed, and only once its chip is written, checked and locked
+      // (phase 2, 2026-11-27). Partner decals go to partners, never into a customer's order.
       const stock = await trx
-        .selectFrom('qr_tokens')
-        .select('id')
-        .where('code_hash', '=', sha256(code))
-        .where('status', '=', 'in_stock')
+        .selectFrom('qr_tokens as t')
+        .innerJoin('token_batches as b', 'b.id', 't.batch_id')
+        .leftJoin('nfc_tags as n', 'n.qr_token_id', 't.id')
+        .select(['t.id', 'n.locked_at as lockedAt'])
+        .where('t.code_hash', '=', sha256(code))
+        .where('t.status', '=', 'in_stock')
+        .where('b.kind', '=', 'inhouse_nfc')
         .executeTakeFirst();
       if (!stock) throw new ConflictException({ error: 'not_in_stock' });
+      if (!stock.lockedAt) throw new ConflictException({ error: 'nfc_not_ready' });
       await this.tags.transition(trx, stock.id, 'assigned', 'admin', 'stock_scan', o.vehicleId);
       if (o.tokenId !== stock.id) {
         await this.tags.transition(trx, o.tokenId, 'revoked', 'admin', 'replaced_by_stock');
@@ -428,6 +434,14 @@ export class FulfilmentService {
           .as('active'),
         eb
           .selectFrom('qr_tokens as t')
+          .innerJoin('nfc_tags as n', 'n.qr_token_id', 't.id')
+          .select((e) => e.fn.countAll<string>().as('n'))
+          .whereRef('t.batch_id', '=', 'b.id')
+          .where('t.status', '=', 'in_stock')
+          .where('n.locked_at', 'is not', null)
+          .as('ready'),
+        eb
+          .selectFrom('qr_tokens as t')
           .select((e) => e.fn.min('t.serial_no').as('n'))
           .whereRef('t.batch_id', '=', 'b.id')
           .as('serialFrom'),
@@ -444,6 +458,7 @@ export class FulfilmentService {
         ...r,
         claimed: Number(r.claimed ?? 0),
         active: Number(r.active ?? 0),
+        ready: Number(r.ready ?? 0),
         serialFrom: r.serialFrom == null ? null : serialLabel(Number(r.serialFrom)),
         serialTo: r.serialTo == null ? null : serialLabel(Number(r.serialTo)),
       })),

@@ -554,6 +554,20 @@ export interface ModerationReviews {
   rule_hit: string;
 }
 
+export interface NfcTags {
+  chip: string;
+  locked_at: Timestamp | null;
+  locked_by: string | null;
+  method: string | null;
+  qr_token_id: string;
+  uid_bidx: Buffer | null;
+  updated_at: Generated<Timestamp>;
+  verified_at: Timestamp | null;
+  verified_by: string | null;
+  written_at: Timestamp | null;
+  written_by: string | null;
+}
+
 export interface NotificationRules {
   created_at: Generated<Timestamp>;
   days_mask: Generated<number>;
@@ -1081,6 +1095,7 @@ export interface DB {
   "metrics.refunds_monthly": MetricsRefundsMonthly;
   "metrics.revenue_by_plan": MetricsRevenueByPlan;
   moderation_reviews: ModerationReviews;
+  nfc_tags: NfcTags;
   notification_rules: NotificationRules;
   organization_members: OrganizationMembers;
   organizations: Organizations;

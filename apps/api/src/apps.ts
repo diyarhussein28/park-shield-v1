@@ -30,7 +30,9 @@ import {
   OpsPromoController,
   OpsRefundsController,
   OpsSettingsController,
+  OpsStickersController,
 } from './ops/ops-back-office.controller';
+import { StickersService } from './ops/stickers.service';
 import { AuditStreamService, AuditViewService } from './ops/audit.service';
 import { AccessReviewService } from './ops/access-review.service';
 import { FulfilmentService } from './ops/fulfilment.service';
@@ -183,6 +185,7 @@ const opsProviders = [
   DsrService,
   AbuseService,
   FulfilmentService,
+  StickersService,
   PromoService,
   SettingsAdminService,
   ProviderHealthService,
@@ -267,6 +270,7 @@ export class OpsAppModule {
         OpsCustomerSummaryController,
         OpsOrdersController,
         OpsPartnersController,
+        OpsStickersController,
         OpsRefundsController,
         OpsPromoController,
         OpsSettingsController,

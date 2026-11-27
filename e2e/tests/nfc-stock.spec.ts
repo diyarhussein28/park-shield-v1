@@ -66,4 +66,102 @@ test.describe('Aufkleber-Lager', () => {
     await expect(lager.getByRole('link', { name: /^Produktionsliste/ })).toHaveCount(0);
     await expect(lager.getByRole('link', { name: /^QR-Bilder/ })).toHaveCount(0);
   });
+
+  // Phase 2: write, check and lock the chip with Web NFC. The test browser has no NFC, so a stand-in
+  // NDEFReader keeps what was "written" and hands it back on the next "tap".
+  test('Web NFC: write, check, lock only after the confirmation; the sticker is ready', async ({
+    browser,
+  }) => {
+    test.setTimeout(120_000);
+    const lager = await staffBrowser(browser, 'nfc', ['fulfillment']);
+    await lager.addInitScript(() => {
+      const w = window as unknown as Record<string, unknown>;
+      // A new chip every run: a UID belongs to one sticker for good.
+      w.__nfc = { url: '', locked: false, uid: `04:${Math.random().toString(16).slice(2, 14)}` };
+      const state = w.__nfc as { url: string; locked: boolean; uid: string };
+      class FakeReader extends EventTarget {
+        async write(msg: { records: { data: string }[] }) {
+          if (state.locked) throw new Error('read-only');
+          state.url = msg.records[0]!.data;
+        }
+        async scan() {
+          setTimeout(() => {
+            const ev = new Event('reading') as Event & Record<string, unknown>;
+            ev.serialNumber = state.uid;
+            ev.message = {
+              records: [
+                {
+                  recordType: 'url',
+                  data: new DataView(new TextEncoder().encode(state.url).buffer),
+                },
+              ],
+            };
+            this.dispatchEvent(ev);
+          }, 50);
+        }
+        async makeReadOnly() {
+          state.locked = true;
+        }
+      }
+      w.NDEFReader = FakeReader;
+    });
+    await lager.goto('/lager');
+    await lager.waitForLoadState('networkidle');
+    const form = lager.getByRole('form', { name: 'Neue Charge' });
+    const note = `NFC ${Date.now()}`;
+    await form.getByLabel('Anzahl Aufkleber (höchstens 5000)').fill('1');
+    await form.getByLabel('Notiz').fill(note);
+    await form.getByRole('button', { name: 'Charge erzeugen' }).click();
+    await expect(lager.getByText('Charge mit 1 Aufkleber erzeugt.')).toBeVisible();
+    const [row] = await sql(
+      `SELECT t.serial_no FROM qr_tokens t JOIN token_batches b ON b.id = t.batch_id WHERE b.note = $1`,
+      [note],
+    );
+    const serial = `PS-${String(row.serial_no).padStart(6, '0')}`;
+
+    const find = lager.getByRole('form', { name: 'Aufkleber finden' });
+    await find.getByLabel('Seriennummer oder Inhalt des QR-Codes').fill(serial);
+    await find.getByRole('button', { name: 'Suchen' }).click();
+    await lager.getByRole('link', { name: serial, exact: true }).click();
+    await expect(
+      lager.getByRole('heading', { level: 1, name: `Aufkleber ${serial}` }),
+    ).toBeVisible();
+    await lager.waitForLoadState('networkidle');
+
+    await lager.getByRole('button', { name: 'Adresse und QR-Code anzeigen' }).click();
+    await expect(
+      lager.getByRole('img', { name: `QR-Code des Aufklebers ${serial}` }),
+    ).toBeVisible();
+    await lager.getByRole('button', { name: 'Chip beschreiben' }).click();
+    await expect(lager.getByText('Chip beschrieben. Jetzt prüfen.')).toBeVisible();
+    await lager.getByRole('button', { name: 'Chip prüfen' }).click();
+    await expect(
+      lager.getByText('Geprüft: Der Chip trägt die Adresse dieses Aufklebers.'),
+    ).toBeVisible();
+
+    // Locking is irreversible: the button stays off until the confirmation is ticked.
+    const lock = lager.getByRole('button', { name: 'Chip endgültig sperren' });
+    await expect(lock).toBeDisabled();
+    await expectAccessible(lager);
+    await lager
+      .getByLabel('Ich habe verstanden, dass das Sperren nicht rückgängig zu machen ist.')
+      .check();
+    await lock.click();
+    await expect(
+      lager.getByText('Chip endgültig gesperrt. Der Aufkleber ist bereit zum Verpacken.'),
+    ).toBeVisible();
+    await expect(lager.getByText('Bereit zum Verpacken', { exact: true })).toBeVisible();
+    expect(
+      await lager.evaluate(
+        () => (window as unknown as { __nfc: { locked: boolean } }).__nfc.locked,
+      ),
+    ).toBe(true);
+    await expect(lager.getByRole('button', { name: 'Chip beschreiben' })).toHaveCount(0);
+    const [tag] = await sql(
+      `SELECT n.method, n.locked_at IS NOT NULL AS locked FROM nfc_tags n
+         JOIN qr_tokens t ON t.id = n.qr_token_id WHERE t.serial_no = $1`,
+      [row.serial_no],
+    );
+    expect(tag).toEqual({ method: 'web_nfc', locked: true });
+  });
 });

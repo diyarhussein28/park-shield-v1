@@ -189,6 +189,7 @@ export const TAG_REVOKE_REASONS = [
   'car_sold',
   'leaked',
   'admin',
+  'damaged', // an in-house stock sticker taken out before packing (2026-11-27)
 ] as const;
 
 export class InvalidTagTransition extends Error {

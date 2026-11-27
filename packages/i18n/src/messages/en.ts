@@ -1894,7 +1894,7 @@ const en: typeof de = {
     quantity: 'Number of stickers (at most {max})',
     batchNote: 'Note',
     createBatch: 'Create batch',
-    batchCreated: 'Batch with {quantity} stickers created.',
+    batchCreated: 'Batch with {quantity, plural, one {# sticker} other {# stickers}} created.',
     findTitle: 'Find a sticker',
     findLabel: 'Serial number or content of the QR code',
     find: 'Search',

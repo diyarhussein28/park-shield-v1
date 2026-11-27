@@ -32,6 +32,7 @@ import { LEGAL_FILTERS, LegalRequestsService, type LegalFilter } from './legal-r
 import { PromoService } from './promo.service';
 import { ProviderHealthService } from './provider-health.service';
 import { SettingsAdminService } from './settings-admin.service';
+import { StickersService } from './stickers.service';
 import { CurrentStaff } from './staff.guard';
 import type { StaffContext } from './staff.service';
 
@@ -154,6 +155,87 @@ const download = (reply: FastifyReply, file: Buffer, type: string, name: string)
     .header('content-disposition', `attachment; filename="${name}"`)
     .header('cache-control', 'no-store')
     .send(file);
+
+const StickerQuery = z.object({ q: z.string().trim().min(1).max(200) });
+const NfcWritten = z.object({ method: z.enum(['web_nfc', 'nfc_tools']) });
+const NfcVerify = z.object({
+  readUrl: z.string().trim().min(1).max(300),
+  uid: z.string().trim().max(64).optional(),
+});
+// Locking a chip is irreversible: the page sends this only after the explicit confirmation.
+const NfcLock = z.object({ confirmIrreversible: z.literal(true) });
+const Damaged = z.object({ note: z.string().trim().min(3).max(200) });
+
+/**
+ * In-house NFC stickers, phase 2 (2026-11-27): find a sticker, write, check and lock its chip, take a
+ * damaged one out of stock. The URL (it contains the code) is an audited read.
+ */
+@Controller('ops/v1/stickers')
+export class OpsStickersController {
+  constructor(@Inject(StickersService) private readonly s: StickersService) {}
+
+  @Get()
+  @RequirePermission('tokens.manage')
+  search(@Query(new ZodPipe(StickerQuery)) query: z.infer<typeof StickerQuery>) {
+    return this.s.search(query.q);
+  }
+
+  @Get(':id')
+  @RequirePermission('tokens.manage')
+  get(@Param('id', ParseUUIDPipe) id: string) {
+    return this.s.get(id);
+  }
+
+  @Get(':id/nfc')
+  @RequirePermission('tokens.manage')
+  target(@CurrentStaff() me: StaffContext, @Param('id', ParseUUIDPipe) id: string) {
+    return this.s.target(me, id);
+  }
+
+  @Post(':id/nfc/written')
+  @HttpCode(200)
+  @RequirePermission('tokens.manage')
+  written(
+    @CurrentStaff() me: StaffContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(NfcWritten)) body: z.infer<typeof NfcWritten>,
+  ) {
+    return this.s.written(me, id, body.method);
+  }
+
+  @Post(':id/nfc/verify')
+  @HttpCode(200)
+  @RequirePermission('tokens.manage')
+  verify(
+    @CurrentStaff() me: StaffContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(NfcVerify)) body: z.infer<typeof NfcVerify>,
+  ) {
+    return this.s.verify(me, id, body);
+  }
+
+  @Post(':id/nfc/locked')
+  @HttpCode(200)
+  @RequirePermission('tokens.manage')
+  locked(
+    @CurrentStaff() me: StaffContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(NfcLock)) _body: z.infer<typeof NfcLock>,
+  ) {
+    return this.s.locked(me, id);
+  }
+
+  @Post(':id/damaged')
+  @HttpCode(200)
+  @RequirePermission('tokens.manage')
+  damaged(
+    @CurrentStaff() me: StaffContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(Damaged)) body: z.infer<typeof Damaged>,
+  ) {
+    return this.s.damaged(me, id, body.note);
+  }
+}
 
 /** US-39: partners and pre-printed batches (AD-07). */
 @Controller('ops/v1')

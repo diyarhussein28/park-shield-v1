@@ -1,7 +1,7 @@
 # NFC stickers from our own stock — Phase 0 review and plan
 
 _2026-11-27. Task: [`docs/nfc-sticker-prompt.md`](nfc-sticker-prompt.md). Spec: [`docs/nfc-decals.md`](nfc-decals.md).
-Status: **approved 2026-11-27. Phase 1 done** (`docs/handover.md` §27); phases 2–5 open._
+Status: **approved 2026-11-27. Phases 1 and 2 done** (`docs/handover.md` §27); phases 3–5 open._
 
 ## 1. The owner's answers to the open questions (2026-11-27)
 
