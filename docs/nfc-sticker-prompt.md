@@ -146,7 +146,14 @@ Write the **manual hardware test list** into `docs/nfc-decals.md`: write and loc
 rewrite it (must fail), read it with an iPhone and an Android phone through a windscreen and a side window
 (also a heat-reflective windscreen if you can get one), QR and NFC open the same page.
 
-## 6. Questions for the plan (ask the owner, in Arabic)
+## 6. Questions for the plan (answered 2026-11-27)
+
+Answers: serial like `PS-000001`, printed on the sticker; we design the sticker, 80 × 80 mm; change-over
+14 days after shipping; all current test customers and their orders on the test server are deleted
+(staff stay) at the deploy; the 3 € kept on a withdrawal stays. The plan:
+[`docs/nfc-sticker-plan.md`](nfc-sticker-plan.md).
+
+The original questions:
 
 1. Serial number format and whether it is printed on the sticker.
 2. Who makes the generic sticker design, and does its size stay 80 × 80 mm?
