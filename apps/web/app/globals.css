@@ -83,6 +83,43 @@
   outline-color: #fde68a;
 }
 
+/* The dark navy design (owner mockups 2026-11-27): the same tokens, dark values, on the home page and
+   the title bands of the other pages. Every pair stays WCAG AA (checked by the E2E axe sweep). */
+.ps-dark {
+  --ps-bg: #0a1430;
+  --ps-fg: #f1f5f9;
+  --ps-muted: #b4c0d8;
+  --ps-surface: #111f42;
+  --ps-border: #24365f;
+  --ps-border-strong: #7385ac;
+  --ps-primary: #60a5fa;
+  --ps-primary-hover: #93c5fd;
+  --ps-primary-fg: #0a1430;
+  --ps-secondary: #1c2c55;
+  --ps-secondary-fg: #f1f5f9;
+  --ps-danger: #f87171;
+  --ps-danger-fg: #0a1430;
+  --ps-focus: #fde68a;
+  --ps-info-bg: #1b2d5c;
+  --ps-info-fg: #dbeafe;
+  --ps-success-bg: #052e16;
+  --ps-success-fg: #dcfce7;
+  --ps-warning-bg: #451a03;
+  --ps-warning-fg: #fef3c7;
+  --ps-danger-bg: #450a0a;
+  --ps-danger-text: #fee2e2;
+  --ps-accent: #facc15;
+  --ps-accent-fg: #422006;
+  --ps-accent-subtle: #2b2410;
+  --ps-accent-subtle-fg: #fde68a;
+  color-scheme: dark;
+  background-color: var(--ps-bg);
+  color: var(--ps-fg);
+}
+.ps-dark :focus-visible {
+  outline-color: #fde68a;
+}
+
 @layer base {
   html {
     font-family: var(--font-sans);

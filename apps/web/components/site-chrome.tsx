@@ -113,7 +113,7 @@ export function SiteHeader({ sticky = false }: { sticky?: boolean }) {
  * VAT ID from `COMPANY` (packages/shared, the same data as the Impressum). „Verträge hier kündigen“ (§ 312k BGB) and „Vertrag widerrufen“ (§ 356a BGB)
  * are always visible, also without login. No tracking scripts.
  */
-export function SiteFooter() {
+export function SiteFooter({ flush = false }: { flush?: boolean }) {
   const { t } = useI18n();
   const columns: [string, [string, string][]][] = [
     [
@@ -149,7 +149,7 @@ export function SiteFooter() {
     ],
   ];
   return (
-    <footer className="on-dark mt-16 bg-[#050b1a] text-slate-300">
+    <footer className={cx('on-dark bg-[#050b1a] text-slate-300', !flush && 'mt-16')}>
       <div className={`${WIDE} py-12 sm:py-14 md:py-16`}>
         <Brand variant="onDark" />
         <p className="mt-3 max-w-2xl text-lg leading-relaxed">{t('common.siteFooter.tagline')}</p>
@@ -211,14 +211,23 @@ export function SiteFooter() {
   );
 }
 
-export function PageShell({ children, sticky }: { children: ReactNode; sticky?: boolean }) {
+/** `dark`: the page is dark to its end (home page), so the footer follows without a gap. */
+export function PageShell({
+  children,
+  sticky,
+  dark,
+}: {
+  children: ReactNode;
+  sticky?: boolean;
+  dark?: boolean;
+}) {
   return (
     <>
       <SiteHeader sticky={sticky} />
-      <main id="main" className="min-h-[60vh]">
+      <main id="main" className={cx('min-h-[60vh]', dark && 'bg-[#0a1430]')}>
         {children}
       </main>
-      <SiteFooter />
+      <SiteFooter flush={dark} />
     </>
   );
 }

@@ -16,6 +16,8 @@ const paths = {
   zap: 'M13 2 3 14h9l-1 8 10-12h-9l1-8Z',
   qr: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h3v3h-3z M20 14v.01 M14 20v.01 M17 20h4v-3 M6 6v.01 M17 6v.01 M6 17v.01',
   check: 'M5 12.5 10 17 19 7',
+  nfc: 'M2.5 9a14 14 0 0 1 19 0 M6 12.5a9 9 0 0 1 12 0 M9.5 16a4 4 0 0 1 5 0 M12 19.5h.01',
+  sticker: 'M4 4h16v10l-6 6H4z M14 20v-6h6',
   arrowRight: 'M5 12h14 M13 6l6 6-6 6',
   play: 'M7 4v16l13-8L7 4Z',
   pause: 'M7 4h3v16H7z M14 4h3v16h-3z',

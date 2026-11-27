@@ -71,28 +71,35 @@ const en: typeof de = {
     menu: 'Menu',
   },
   landing: {
-    heroTitle: 'Your phone number does not belong behind the windscreen.',
+    heroTitle: 'Stay reachable. Stay private.',
     heroText:
-      'With the ParkShield decal, people can reach you in seconds when your car blocks an exit, the lights are on or something has happened. No app, no account, and nobody sees your number.',
-    heroCta: 'ParkShield for €19.99 a year',
-    heroSecondary: 'How it works',
+      'Contact the driver – without a phone number. Anyone who sees a problem with your car scans the decal or holds a phone to it, and you hear about it at once in the ParkShield app.',
+    heroCta: 'Get ParkShield now',
+    heroBadge: 'QR + NFC',
+    heroPrice: '{price} / year',
+    heroPriceNote: 'incl. 19% VAT',
+    demoBadge: 'Live demo',
+    nfcReplyTitle: 'Reply directly',
+    nfcReplyText:
+      'The alert arrives in the ParkShield app. You reply with one tap, for example “I’m coming”, or through the anonymous chat.',
+    heroSecondary: 'Watch the live demo',
     trust: 'Servers in Germany · No ads · No tracking',
-    howTitle: 'Protected in three steps',
-    step1Title: 'Apply the decal',
+    howTitle: 'How ParkShield works',
+    step1Title: 'Apply it',
     step1Text:
-      'Your decal with QR code and NFC chip arrives by post, and you get a print-at-home PDF straight away.',
-    step2Title: 'Someone scans it',
+      'Stick ParkShield to the inside of the windscreen. We send you the decal with an NFC chip; a print-at-home PDF is ready at once.',
+    step2Title: 'Scan it or hold a phone to it',
     step2Text:
-      'Whoever sees your car scans the code or holds a phone to the decal and picks the problem with one tap. No app.',
+      'Whoever sees your car scans the QR code or touches the NFC chip with their phone and picks the problem. No app.',
     // NFC section next to „How it works“ (2026-11-27): the printed sticker has a chip too.
     nfcEyebrow: 'QR code and NFC',
-    nfcTitle: 'Scan it or simply hold a phone to it',
+    nfcTitle: 'Your contact – simple & safe',
     nfcText:
       'Besides the QR code, the printed decal has an NFC chip. Both open the same page on park-shield.de, without an app or an account.',
     nfcQrTitle: 'Scan the QR code',
     nfcQrText:
       'Open the phone camera, point it at the code on the left and tap the link. This works with every smartphone.',
-    nfcTapTitle: 'Hold your phone to it',
+    nfcTapTitle: 'Use NFC',
     nfcTapText:
       'Hold the unlocked phone with its top edge to the NFC area on the right. The page opens by itself, on most iPhones from the iPhone XS and on Android phones with NFC switched on.',
     nfcSafeTitle: 'An address, nothing else',
@@ -102,10 +109,10 @@ const en: typeof de = {
       'Some heat-reflective windscreens block NFC. The QR code always works. The free decal you print yourself has only the QR code, with your design and vehicle name instead.',
     nfcAlt:
       'Example of the printed ParkShield decal: QR code on the left, NFC area on the right, serial number below the QR code',
-    step3Title: 'You reply',
+    step3Title: 'Get notified',
     step3Text:
-      "You get a notification in the ParkShield app and tap “I'm coming”. The person on site sees it immediately.",
-    featuresTitle: 'Why ParkShield',
+      'You get a notification in the ParkShield app at once and reply with one tap. The person at the car sees it live.',
+    featuresTitle: 'Privacy & security',
     feature1Title: "“I'm coming” with live status",
     feature1Text: 'The person on site sees that your alert arrived and that you are on your way.',
     feature2Title: 'Reminder and SMS',
@@ -150,19 +157,19 @@ const en: typeof de = {
     faq6Q: 'How does holding a phone to it (NFC) work?',
     faq6A:
       'The printed decal has an NFC chip. Anyone who holds an unlocked phone to the NFC area gets the same page as when scanning the QR code. The chip holds only this address and is locked against overwriting. The decal you print yourself has no chip, only the QR code.',
-    heroEyebrow: 'The QR and NFC decal for your car',
-    heroTitleHighlight: 'windscreen',
-    heroPoint1: 'No app',
-    heroPoint2: 'No account to scan',
-    heroPoint3: 'Your number stays private',
+    heroEyebrow: 'The smart decal for your car',
+    heroTitleHighlight: 'Stay private.',
+    heroPoint1: 'No app for the scanner',
+    heroPoint2: 'Anonymous',
+    heroPoint3: 'Reachable at once',
     heroNotifApp: 'ParkShield · now',
     heroNotifTitle: 'Your estate car is blocking an exit',
     heroNotifAction: "I'm coming",
     heroNotifLater: 'In 5 minutes',
     heroStatus: 'Driver is on the way',
-    situationsTitle: 'Sound familiar?',
+    situationsTitle: 'Typical situations',
     situationsText:
-      'A note under the wiper often comes too late, and anyone can read a number behind the glass. With ParkShield, the person at your car simply picks the problem.',
+      'Get in touch quickly and discreetly, in many everyday situations. A note under the wiper often comes too late, and anyone can read a number behind the windscreen.',
     situation1Title: 'Exit blocked',
     situation1Text:
       'Your neighbour needs to leave and your car is in the way. One scan, and you move it.',
@@ -172,9 +179,9 @@ const en: typeof de = {
     situation3Text: 'Someone spots the open sunroof and lets you know straight away.',
     situation4Title: 'About to be towed',
     situation4Text: 'No parking because of a move? You know before the tow truck arrives.',
-    demoTitle: 'From scan to reply in seconds',
+    demoTitle: 'Try the live demo',
     demoIntro:
-      'This is what the person at your car sees, and what you see. Pick a step or just watch.',
+      'See how a contact request works, without anyone seeing your number. Pick a step or simply watch.',
     demoStep1: 'Scan or hold',
     demoStep1Text:
       'Camera on the QR code or phone to the decal: a web page opens. No app, no account.',
@@ -214,8 +221,9 @@ const en: typeof de = {
     channelReminderText: 'No response yet? The app notifies you a second time.',
     channelSms: 'SMS after 30 minutes',
     channelSmsText: 'One single SMS to your verified mobile number, even without internet.',
-    ctaTitle: 'Ready for your decal?',
-    ctaText: 'Includes a UV-resistant decal and shipping. Cancel any time to the end of the year.',
+    ctaTitle: 'Stay reachable. Stay private.',
+    ctaText:
+      'The smart QR and NFC decal for your car. Decal and shipping included, cancel any time to the end of the paid year.',
     channelApp: 'ParkShield app',
     channelAppText: 'A notification on your phone, with “I’m coming” right in it.',
     situationsMore: 'Also on the list:',

@@ -15,7 +15,7 @@ test.describe('landing and legal pages (US-04)', () => {
   }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      'Ihre Handynummer gehört nicht hinter die Windschutzscheibe.',
+      'Erreichbar bleiben. Privat bleiben.',
     );
     const pricing = page.locator('#preise');
     await expect(pricing.getByRole('heading', { name: 'ParkShield', exact: true })).toBeVisible();
@@ -137,7 +137,7 @@ test.describe('app first (2026-11-24)', () => {
     await page.waitForLoadState('networkidle');
     await page
       .locator('#main')
-      .getByRole('link', { name: /ParkShield für 19,99 € im Jahr/ })
+      .getByRole('link', { name: /Jetzt ParkShield sichern/ })
       .first()
       .click();
     await expect(page).toHaveURL(/\/app$/);

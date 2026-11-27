@@ -71,28 +71,35 @@ const de = {
     menu: 'Menü',
   },
   landing: {
-    heroTitle: 'Ihre Handynummer gehört nicht hinter die Windschutzscheibe.',
+    heroTitle: 'Erreichbar bleiben. Privat bleiben.',
     heroText:
-      'Mit dem ParkShield-Aufkleber erreicht man Sie in Sekunden, wenn Ihr Auto eine Ausfahrt blockiert, das Licht brennt oder etwas passiert ist. Ohne App, ohne Konto und ohne dass jemand Ihre Nummer sieht.',
-    heroCta: 'ParkShield für 19,99 € im Jahr',
-    heroSecondary: "So funktioniert's",
+      'Kontakt zum Fahrer – ohne Handynummer. Wer ein Problem an Ihrem Auto sieht, scannt den Aufkleber oder hält das Handy daran, und Sie erfahren es sofort in der ParkShield-App.',
+    heroCta: 'Jetzt ParkShield sichern',
+    heroBadge: 'QR + NFC',
+    heroPrice: '{price} / Jahr',
+    heroPriceNote: 'inkl. 19 % MwSt.',
+    demoBadge: 'Live-Demo',
+    nfcReplyTitle: 'Direkt antworten',
+    nfcReplyText:
+      'Die Warnung kommt in der ParkShield-App an. Sie antworten mit einem Tipp, zum Beispiel „Ich komme“, oder über den anonymen Chat.',
+    heroSecondary: 'Live-Demo ansehen',
     trust: 'Server in Deutschland · Keine Werbung · Kein Tracking',
-    howTitle: 'In drei Schritten geschützt',
-    step1Title: 'Aufkleber anbringen',
+    howTitle: 'So funktioniert ParkShield',
+    step1Title: 'Aufkleben',
     step1Text:
-      'Sie erhalten Ihren Aufkleber mit QR-Code und NFC-Chip per Post und sofort ein PDF zum Ausdrucken.',
-    step2Title: 'Jemand scannt',
+      'ParkShield innen an die Windschutzscheibe kleben. Den Aufkleber mit NFC-Chip schicken wir Ihnen, ein PDF zum Selbstdrucken gibt es sofort.',
+    step2Title: 'Scannen oder Handy anhalten',
     step2Text:
-      'Wer Ihr Auto sieht, scannt den Code oder hält das Handy an den Aufkleber und wählt mit einem Tipp das Problem. Ohne App.',
+      'Wer Ihr Auto sieht, scannt den QR-Code oder berührt den NFC-Chip mit dem Handy und wählt das Problem. Ohne App.',
     // NFC section next to „So funktioniert's“ (2026-11-27): the printed sticker has a chip too.
     nfcEyebrow: 'QR-Code und NFC',
-    nfcTitle: 'Scannen oder einfach das Handy anhalten',
+    nfcTitle: 'Ihr Kontakt – einfach & sicher',
     nfcText:
       'Der gedruckte Aufkleber hat neben dem QR-Code einen NFC-Chip. Beides öffnet dieselbe Seite auf park-shield.de, ohne App und ohne Konto.',
     nfcQrTitle: 'QR-Code scannen',
     nfcQrText:
       'Handykamera öffnen, auf den Code links richten und den Link antippen. Das klappt mit jedem Smartphone.',
-    nfcTapTitle: 'Handy anhalten',
+    nfcTapTitle: 'NFC nutzen',
     nfcTapText:
       'Das entsperrte Handy mit der Oberkante an das NFC-Feld rechts halten. Die Seite öffnet sich von selbst, bei den meisten iPhones ab dem iPhone XS und bei Android-Handys mit eingeschaltetem NFC.',
     nfcSafeTitle: 'Nur eine Adresse, sonst nichts',
@@ -102,10 +109,10 @@ const de = {
       'Manche Wärmeschutzscheiben schirmen NFC ab. Der QR-Code funktioniert immer. Der kostenlose Aufkleber zum Selbstdrucken hat nur den QR-Code, dafür mit Ihrem Design und Fahrzeugnamen.',
     nfcAlt:
       'Beispiel des gedruckten ParkShield-Aufklebers: QR-Code links, NFC-Feld rechts, Seriennummer unter dem QR-Code',
-    step3Title: 'Sie antworten',
+    step3Title: 'Benachrichtigung erhalten',
     step3Text:
-      'Sie bekommen eine Mitteilung in der ParkShield-App und tippen „Ich komme“. Die Person vor Ort sieht das sofort.',
-    featuresTitle: 'Warum ParkShield',
+      'Sie bekommen sofort eine Mitteilung in der ParkShield-App und antworten mit einem Tipp. Die Person vor Ort sieht das live.',
+    featuresTitle: 'Privatsphäre & Sicherheit',
     feature1Title: '„Ich komme“ mit Live-Status',
     feature1Text:
       'Die Person vor Ort sieht, dass Ihre Warnung angekommen ist und dass Sie unterwegs sind.',
@@ -154,19 +161,19 @@ const de = {
     faq6Q: 'Wie funktioniert das Handy-Anhalten (NFC)?',
     faq6A:
       'Im gedruckten Aufkleber steckt ein NFC-Chip. Wer ein entsperrtes Handy an das NFC-Feld hält, landet auf derselben Seite wie beim Scannen des QR-Codes. Der Chip enthält nur diese Adresse und ist gegen Überschreiben gesperrt. Der selbst gedruckte Aufkleber hat keinen Chip, nur den QR-Code.',
-    heroEyebrow: 'Der QR- und NFC-Aufkleber für Ihr Auto',
-    heroTitleHighlight: 'Windschutzscheibe',
-    heroPoint1: 'Ohne App',
-    heroPoint2: 'Ohne Konto zum Scannen',
-    heroPoint3: 'Nummer bleibt privat',
+    heroEyebrow: 'Der smarte Aufkleber für Ihr Auto',
+    heroTitleHighlight: 'Privat bleiben.',
+    heroPoint1: 'Ohne App für Scanner',
+    heroPoint2: 'Anonym',
+    heroPoint3: 'Sofort erreichbar',
     heroNotifApp: 'ParkShield · jetzt',
     heroNotifTitle: 'Ihr Kombi versperrt eine Ausfahrt',
     heroNotifAction: 'Ich komme',
     heroNotifLater: 'In 5 Minuten',
     heroStatus: 'Fahrerin ist unterwegs',
-    situationsTitle: 'Kennen Sie das?',
+    situationsTitle: 'Typische Situationen',
     situationsText:
-      'Ein Zettel unter dem Scheibenwischer kommt oft zu spät, und eine Nummer hinter der Scheibe liest jeder. Mit ParkShield wählt die Person vor Ort einfach das Problem.',
+      'Schnell und diskret Kontakt aufnehmen, für viele Situationen im Alltag. Ein Zettel unter dem Scheibenwischer kommt oft zu spät, und eine Nummer hinter der Scheibe liest jeder.',
     situation1Title: 'Ausfahrt versperrt',
     situation1Text:
       'Der Nachbar muss los, Ihr Auto steht im Weg. Ein Scan, und Sie fahren kurz um.',
@@ -176,9 +183,9 @@ const de = {
     situation3Text: 'Jemand sieht das offene Schiebedach und sagt Ihnen sofort Bescheid.',
     situation4Title: 'Abschleppen droht',
     situation4Text: 'Halteverbot wegen Umzug? Sie wissen es, bevor der Abschleppwagen kommt.',
-    demoTitle: 'Vom Scan zur Antwort in Sekunden',
+    demoTitle: 'Live-Demo ausprobieren',
     demoIntro:
-      'So erlebt es die Person an Ihrem Auto und so erleben Sie es. Wählen Sie einen Schritt oder schauen Sie einfach zu.',
+      'Erleben Sie, wie eine Kontaktanfrage funktioniert, ohne dass jemand Ihre Nummer sieht. Wählen Sie einen Schritt oder schauen Sie einfach zu.',
     demoStep1: 'Scannen oder anhalten',
     demoStep1Text:
       'Kamera auf den QR-Code oder Handy an den Aufkleber: Eine Webseite öffnet sich. Keine App, kein Konto.',
@@ -218,9 +225,9 @@ const de = {
     channelReminderText: 'Noch keine Reaktion? Die App meldet sich ein zweites Mal.',
     channelSms: 'SMS nach 30 Minuten',
     channelSmsText: 'Eine einzige SMS an Ihre bestätigte Handynummer, auch ohne Internet.',
-    ctaTitle: 'Bereit für Ihren Aufkleber?',
+    ctaTitle: 'Erreichbar bleiben. Privat bleiben.',
     ctaText:
-      'Inklusive UV-beständigem Aufkleber und Versand. Jederzeit zum Ende des Jahres kündbar.',
+      'Der smarte QR- und NFC-Aufkleber für Ihr Auto. Inklusive Aufkleber und Versand, jederzeit zum Ende des bezahlten Jahres kündbar.',
     channelApp: 'ParkShield-App',
     channelAppText: 'Mitteilung aufs Handy, mit „Ich komme“ direkt in der Mitteilung.',
     // Rest of the problem list below the four situation cards (2026-11-26).
