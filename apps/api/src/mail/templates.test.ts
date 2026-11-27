@@ -82,6 +82,7 @@ const values = {
   startedLabel: '3. August 2027',
   renewalLabel: '3. August 2028',
   renews: 'yes',
+  lifetime: 'no',
   consent: 'yes',
   consentLabel: '3. August 2027, 11:14 Uhr',
   breakdown:

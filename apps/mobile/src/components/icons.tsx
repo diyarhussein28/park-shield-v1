@@ -23,6 +23,7 @@ export const ICON_PATHS = {
   play: 'M7 4v16l13-8L7 4Z',
   pause: 'M7 4h3v16H7z M14 4h3v16h-3z',
   menu: 'M4 7h16 M4 12h16 M4 17h16',
+  moon: 'M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z',
   close: 'M6 6l12 12 M18 6 6 18',
   plus: 'M12 5v14 M5 12h14',
   car: 'M5 17h14v-5l-2-5H7l-2 5v5Z M5 12h14 M7.5 17v2 M16.5 17v2 M8 14.5h.01 M16 14.5h.01',
