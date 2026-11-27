@@ -1117,5 +1117,6 @@ the 3 active Stripe test-mode subscriptions were cancelled first. Kept: the 2 st
 audit log. One transaction, in this order (FK traps): `consent_records` (append-only against UPDATE, its
 `user_id` would be set to NULL), `decal_order_items` + `decal_orders` (orders only lose their user),
 `refunds` (must keep a subscription or an order), then `users`. App Store / Google Play sandbox subscriptions
-cannot be cancelled from here; RevenueCat events for the deleted users find no account. Two older print files
-of orders deleted on 2026-11-21 (`PRINT-2G7BYV`, `PRINT-QNTMK0`) are still in `/data/print-outbox`.
+cannot be cancelled from here; RevenueCat events for the deleted users find no account. The two older print
+files of orders deleted on 2026-11-21 (`PRINT-2G7BYV`, `PRINT-QNTMK0`) were deleted too (owner, same day);
+`/data/print-outbox` is empty.
