@@ -20,6 +20,8 @@ import { zip } from '../letters/zip';
 import { MailService } from '../mail/mail.service';
 import { OrdersService, PRINT_TOPIC } from '../orders/orders.service';
 import type { ShippingAddress } from '../providers/ports';
+import { ChangeOverService } from '../vehicles/change-over.service';
+import { recordIssuance } from '../vehicles/code-rules';
 import { TagsService } from '../vehicles/tags.service';
 import { normalizeCode, TokensService } from '../vehicles/tokens.service';
 import { maskAddress, maskEmail } from './mask';
@@ -53,6 +55,7 @@ export class FulfilmentService {
     @Inject(OrdersService) private readonly orders: OrdersService,
     @Inject(TokensService) private readonly tokens: TokensService,
     @Inject(MailService) private readonly mail: MailService,
+    @Inject(ChangeOverService) private readonly changeOver: ChangeOverService,
     @Inject(TagsService) private readonly tags: TagsService,
   ) {}
 
@@ -91,15 +94,37 @@ export class FulfilmentService {
         .executeTakeFirst();
       if (!stock) throw new ConflictException({ error: 'not_in_stock' });
       if (!stock.lockedAt) throw new ConflictException({ error: 'nfc_not_ready' });
+      // The printed sticker is generic; the app and the free PDF keep the vehicle's own design.
+      const own = await trx
+        .selectFrom('qr_tokens')
+        .select(['design_template_id', 'cta_header'])
+        .where('id', '=', o.tokenId)
+        .executeTakeFirstOrThrow();
       await this.tags.transition(trx, stock.id, 'assigned', 'admin', 'stock_scan', o.vehicleId);
-      if (o.tokenId !== stock.id) {
-        await this.tags.transition(trx, o.tokenId, 'revoked', 'admin', 'replaced_by_stock');
-        await trx
-          .updateTable('decal_order_items')
-          .set({ qr_token_id: stock.id })
-          .where('id', '=', o.itemId)
-          .execute();
-      }
+      await trx
+        .updateTable('qr_tokens')
+        .set({ design_template_id: own.design_template_id, cta_header: own.cta_header })
+        .where('id', '=', stock.id)
+        .execute();
+      // Phase 3 (2026-11-27): the old code is not revoked here. It keeps working until the owner
+      // tests the new sticker, or until the deadline set when the sticker ships (ChangeOverService).
+      await trx
+        .updateTable('decal_order_items')
+        .set({ qr_token_id: stock.id })
+        .where('id', '=', o.itemId)
+        .execute();
+      const owner = await trx
+        .selectFrom('vehicles')
+        .select('owner_user_id')
+        .where('id', '=', o.vehicleId)
+        .executeTakeFirst();
+      if (owner?.owner_user_id)
+        await recordIssuance(trx, {
+          vehicleId: o.vehicleId,
+          userId: owner.owner_user_id,
+          tokenId: stock.id,
+          kind: 'stock_sticker',
+        });
       await trx
         .updateTable('decal_orders')
         .set({ status: 'packed' })
@@ -220,6 +245,8 @@ export class FulfilmentService {
       .executeTakeFirst();
     if (!r) throw new ConflictException({ error: 'wrong_status' });
     await this.staff.audit(by.userId, 'order.returned', 'decal_orders', orderId, { note });
+    // The new sticker never reached the car: the old code keeps working until the next shipment.
+    await this.changeOver.pauseOnReturn(orderId);
     if (!r.user_id) return;
     const owner = await this.db
       .selectFrom('decal_order_items as i')

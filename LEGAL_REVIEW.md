@@ -591,3 +591,24 @@ The plan can also be bought once for 29,99 € (no renewal). Please check:
    5 Jahren 69,96 € gespart“ (compared with five yearly payments at today's price). Acceptable?
 4. **Vehicle change:** the lifetime plan is for one vehicle; our assumption is that the owner may move
    it to a new car (new code / sticker as usual). Needs a sentence in the AGB.
+
+## 16. Generic NFC sticker instead of the personalised one (2026-11-27)
+
+Owner decision (`docs/nfc-sticker-plan.md`): the printed sticker is now a generic QR + NFC sticker from
+our own stock, without vehicle name or chosen design; the free PDF to print at home keeps both. The owner
+reports that the lawyer accepted the generic sticker, and decided that the sticker's value (3 €,
+`prices.sticker_value_cents`) is still kept on a withdrawal (`computeWithdrawalRefund` unchanged).
+
+Questions for the lawyer:
+
+1. The old wording said the sticker is „nach Ihren Angaben gefertigt“, with no withdrawal right under
+   § 312g Abs. 2 Nr. 1 BGB. That is no longer true for a generic sticker, so it was replaced by a neutral
+   line: „Bei einem Widerruf des Abos behalten wir den Wert des bereits versandten Aufklebers ein.“ (app
+   paywall `stickerNotice`, print screen `printPersonalNotice`, portal `order.personalizedNotice`,
+   `checkout.stickerNotice`). Is keeping the value lawful on another basis (Wertersatz for goods used or
+   kept, § 357a BGB, or a separately priced accessory), and what exact wording is needed?
+2. The price line now says „Im Preis enthalten: Aufkleber mit QR-Code und NFC-Chip inkl. Versand im Wert
+   von 3,00 €.“ Does the AGB / contract confirmation text about the personalised sticker need the same
+   change (AGB and the contract PDF were not changed)?
+3. The sticker comes with a new code; the old code keeps working until the owner tests the new sticker or
+   14 days after shipping. Anything to add to the AGB or privacy policy?

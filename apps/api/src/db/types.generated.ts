@@ -33,7 +33,7 @@ export type ChatSender = "owner" | "scanner" | "system";
 
 export type ChatStatus = "active" | "closed" | "locked";
 
-export type CodeIssueKind = "free" | "initial" | "legacy" | "ops_override" | "ops_reissue" | "paid" | "partner_claim" | "resubscribe";
+export type CodeIssueKind = "free" | "initial" | "legacy" | "ops_override" | "ops_reissue" | "paid" | "partner_claim" | "resubscribe" | "stock_sticker";
 
 export type ConsentState = "confirmed" | "declined" | "pending" | "revoked";
 
@@ -744,6 +744,7 @@ export interface QrTokens {
   key_version: Generated<number>;
   last_scanned_at: Timestamp | null;
   last_test_at: Timestamp | null;
+  retire_after: Timestamp | null;
   revoke_reason: string | null;
   revoked_at: Timestamp | null;
   serial_no: number | null;

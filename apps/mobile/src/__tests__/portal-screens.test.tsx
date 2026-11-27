@@ -1036,12 +1036,12 @@ describe('store subscriptions (App Store / Google Play)', () => {
     await render(<Plans />);
     expect(
       await screen.findByText(
-        'Im Preis enthalten: personalisierter Aufkleber inkl. Versand im Wert von 3,00 €.',
+        'Im Preis enthalten: Aufkleber mit QR-Code und NFC-Chip inkl. Versand im Wert von 3,00 €.',
       ),
     ).toBeTruthy();
     expect(
       screen.getByText(
-        'Hinweis: Der personalisierte Aufkleber wird nach Ihren Angaben gefertigt. Für ihn besteht kein Widerrufsrecht (§ 312g Abs. 2 Nr. 1 BGB). Ihr Widerrufsrecht für das Abo bleibt bestehen.',
+        'Hinweis: Bei einem Widerruf des Abos behalten wir den Wert des bereits versandten Aufklebers ein. Ihr Widerrufsrecht für das Abo bleibt bestehen.',
       ),
     ).toBeTruthy();
     expect(screen.queryByTestId('restore')).toBeNull(); // no store in tests (no key)
@@ -1097,7 +1097,7 @@ describe('print options', () => {
     expect(screen.getByText(t('printConfirmLabel', { label: 'Der Blaue' }))).toBeTruthy();
     expect(screen.getByText(t('printPersonalNotice'))).toBeTruthy();
     expect(t('printPersonalNotice')).toBe(
-      'Ihr Aufkleber wird nach Ihren Angaben individuell gedruckt. Für individuell angefertigte Waren besteht kein Widerrufsrecht.',
+      'Bei einem Widerruf des Abos behalten wir den Wert des versandten Aufklebers ein.',
     );
     expect(screen.getByTestId('ship-design')).toBeTruthy();
   });

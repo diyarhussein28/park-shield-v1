@@ -1,3 +1,4 @@
+import { sql } from 'kysely';
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { Env } from '../config/env';
 import type { Db } from '../core/core.module';
@@ -126,6 +127,8 @@ export class QrExportService {
       .where('v.owner_user_id', '=', userId)
       .orderBy('v.created_at')
       .orderBy('v.id')
+      // During a change-over a vehicle has two live codes: the newest assigned one is printed.
+      .orderBy(sql`coalesce(t.assigned_at, t.created_at)`, 'desc')
       .execute();
     const seen = new Map<string, VehicleCode>();
     for (const r of rows) {

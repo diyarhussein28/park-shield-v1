@@ -449,7 +449,8 @@ const de = {
   printShipWelcome: 'kostenlos (Willkommensdruck)',
   printShipFree: 'kostenlos',
   printShipPrice: '{price} einmalig inkl. MwSt.',
-  printShipText: 'Wetterfester UV-Aufkleber, per Post an eine Adresse in Deutschland.',
+  printShipText:
+    'Wetterfester Aufkleber mit QR-Code und NFC-Chip, neutral gestaltet, per Post an eine Adresse in Deutschland.',
   printShipSubmitFree: 'Kostenlos bestellen',
   printShipSubmitPaid: 'Zahlungspflichtig bestellen – {price}',
   printShipDone: 'Bestellt. Wir drucken Ihren Aufkleber und schicken ihn los.',
@@ -505,12 +506,12 @@ const de = {
   carPhotoFailed: 'Das Foto konnte nicht übernommen werden. Bitte versuchen Sie es noch einmal.',
   // unified billing (App Store / Google Play / website) and the personalised sticker (2026-11-22)
   paywallYearly: 'jährlich, verlängert sich automatisch',
-  // TODO [LEGAL REVIEW] price breakdown (B2)
+  // TODO [LEGAL REVIEW] price breakdown (B2); LEGAL_REVIEW.md §16 (generic sticker since 2026-11-27)
   stickerValueLine:
-    'Im Preis enthalten: personalisierter Aufkleber inkl. Versand im Wert von {price}.',
-  // TODO [LEGAL REVIEW] § 312g Abs. 2 Nr. 1 BGB notice (B3)
+    'Im Preis enthalten: Aufkleber mit QR-Code und NFC-Chip inkl. Versand im Wert von {price}.',
+  // TODO [LEGAL REVIEW] LEGAL_REVIEW.md §16: the sticker is no longer made to the customer's specification
   stickerNotice:
-    'Hinweis: Der personalisierte Aufkleber wird nach Ihren Angaben gefertigt. Für ihn besteht kein Widerrufsrecht (§ 312g Abs. 2 Nr. 1 BGB). Ihr Widerrufsrecht für das Abo bleibt bestehen.',
+    'Hinweis: Bei einem Widerruf des Abos behalten wir den Wert des bereits versandten Aufklebers ein. Ihr Widerrufsrecht für das Abo bleibt bestehen.',
   payStoreSecureIos:
     'Bezahlt über Ihren Apple-Account. Das Abo verwalten Sie in den Abo-Einstellungen Ihres Apple-Accounts.',
   payStoreSecureAndroid:
@@ -559,13 +560,16 @@ const de = {
   // print: confirmation step before „Drucken und zusenden lassen“ (B1)
   printShipStart: 'Weiter zur Bestätigung',
   printConfirmTitle: 'Aufkleber bestätigen',
-  printConfirmIntro: 'So wird Ihr Aufkleber gedruckt:',
+  printConfirmIntro:
+    'Sie bekommen unseren neutralen Aufkleber mit QR-Code und NFC-Chip: 8 × 8 cm, ohne Name und ohne Kennzeichen.',
+  printConfirmNewCode:
+    'Er hat einen neuen Code. Ihr bisheriger Code funktioniert weiter, bis Sie den neuen Aufkleber mit „Aufkleber testen“ geprüft haben (spätestens 14 Tage nach dem Versand).',
   printConfirmLabel: 'Aufschrift: „{label}“',
   printConfirmDesign: 'Design: {design}',
   printChangeDesign: 'Design ändern',
-  // TODO [LEGAL REVIEW] § 312g Abs. 2 Nr. 1 BGB notice for the printed sticker
+  // TODO [LEGAL REVIEW] LEGAL_REVIEW.md §16: generic sticker since 2026-11-27, wording to confirm.
   printPersonalNotice:
-    'Ihr Aufkleber wird nach Ihren Angaben individuell gedruckt. Für individuell angefertigte Waren besteht kein Widerrufsrecht.',
+    'Bei einem Widerruf des Abos behalten wir den Wert des versandten Aufklebers ein.',
   printConfirmFree: 'Jetzt drucken und zusenden',
   printConfirmPaid: '{price} bezahlen und zusenden',
   printAddressTitle: 'Lieferadresse',
@@ -577,9 +581,20 @@ const de = {
   labelErrRequired: 'Bitte geben Sie einen Namen für Ihr Fahrzeug ein.',
   labelErrLength: 'Der Name muss 2 bis 20 Zeichen lang sein. Er wird auf den Aufkleber gedruckt.',
   labelErrChars: 'Bitte nur Buchstaben, Zahlen, Leerzeichen und einfache Satzzeichen verwenden.',
-  welcomeCta: 'Aufkleber gestalten und zusenden lassen – kostenlos',
-  welcomeCtaText: 'Ihr erster gedruckter Aufkleber inklusive Versand ist im Abo enthalten.',
-  welcomeCtaButton: 'Jetzt gestalten',
+  welcomeCta: 'Aufkleber mit NFC-Chip zusenden lassen – kostenlos',
+  welcomeCtaText:
+    'Ihr erster Aufkleber mit QR-Code und NFC-Chip inklusive Versand ist im Abo enthalten.',
+  welcomeCtaButton: 'Jetzt bestellen',
+  // NFC sticker from stock (2026-11-27): the card on the vehicle screen and the change-over.
+  stickerCardTitle: 'Ihr Aufkleber',
+  stickerSerial: 'Seriennummer {serial}',
+  stickerNfc: 'QR-Code und NFC-Chip: scannen oder Handy anhalten.',
+  changeOverTitle: 'Neuer Aufkleber unterwegs',
+  changeOverText:
+    'Bringen Sie ihn innen an der Scheibe an und prüfen Sie ihn mit „Aufkleber testen“. Bis dahin funktioniert auch Ihr bisheriger Code.',
+  changeOverUntil: 'Der bisherige Code funktioniert noch bis {date}.',
+  changeOverPending:
+    'Ihr bisheriger Code funktioniert weiter, bis der neue Aufkleber versendet und getestet ist.',
   // New code (owner decision 2026-11-24): free once per contract year after „Sperren“, else 3 € with
   // the printed sticker (Stripe), at most one new code every {days} days per vehicle.
   newCodeTitle: 'Neuer Code',
@@ -1031,7 +1046,8 @@ const en: Record<Key, string> = {
   printShipWelcome: 'free (welcome print)',
   printShipFree: 'free',
   printShipPrice: '{price} one-time incl. VAT',
-  printShipText: 'Weatherproof UV decal, by post to an address in Germany.',
+  printShipText:
+    'Weatherproof decal with a QR code and an NFC chip, neutral design, by post to an address in Germany.',
   printShipSubmitFree: 'Order free of charge',
   printShipSubmitPaid: 'Order with obligation to pay – {price}',
   printShipDone: 'Ordered. We print your decal and send it off.',
@@ -1084,9 +1100,10 @@ const en: Record<Key, string> = {
   carPhotoFailed: 'The photo could not be used. Please try again.',
   // unified billing (App Store / Google Play / website) and the personalised sticker (2026-11-22)
   paywallYearly: 'yearly, renews automatically',
-  stickerValueLine: 'Included in the price: personalised decal incl. shipping worth {price}.',
+  stickerValueLine:
+    'Included in the price: decal with a QR code and an NFC chip incl. shipping worth {price}.',
   stickerNotice:
-    'Note: the personalised decal is made to your specification. There is no right of withdrawal for it (§ 312g (2) no. 1 BGB). Your right to withdraw from the subscription remains.',
+    'Note: if you withdraw from the subscription, we keep the value of the decal already sent. Your right to withdraw from the subscription remains.',
   payStoreSecureIos:
     'Paid through your Apple Account. You manage the subscription in your Apple Account subscription settings.',
   payStoreSecureAndroid:
@@ -1130,12 +1147,15 @@ const en: Record<Key, string> = {
     'You receive the receipts for your subscription from {store}. We send you the contract confirmation by e-mail.',
   printShipStart: 'Continue to confirmation',
   printConfirmTitle: 'Confirm your decal',
-  printConfirmIntro: 'This is how your decal will be printed:',
+  printConfirmIntro:
+    'You get our neutral decal with a QR code and an NFC chip: 8 × 8 cm, no name and no licence plate.',
+  printConfirmNewCode:
+    'It has a new code. Your current code keeps working until you have checked the new decal with “Test decal” (at the latest 14 days after shipping).',
   printConfirmLabel: 'Text: “{label}”',
   printConfirmDesign: 'Design: {design}',
   printChangeDesign: 'Change design',
   printPersonalNotice:
-    'Your decal is printed individually to your specification. There is no right of withdrawal for goods made to the customer’s specification.',
+    'If you withdraw from the subscription, we keep the value of the decal already sent.',
   printConfirmFree: 'Print and send now',
   printConfirmPaid: 'Pay {price} and send',
   printAddressTitle: 'Delivery address',
@@ -1147,9 +1167,19 @@ const en: Record<Key, string> = {
   labelErrRequired: 'Please enter a name for your vehicle.',
   labelErrLength: 'The name must be 2 to 20 characters long. It is printed on the decal.',
   labelErrChars: 'Please use only letters, numbers, spaces and basic punctuation.',
-  welcomeCta: 'Design your decal and have it sent – free',
-  welcomeCtaText: 'Your first printed decal including shipping is included in your plan.',
-  welcomeCtaButton: 'Design it now',
+  welcomeCta: 'Have your NFC decal sent – free',
+  welcomeCtaText:
+    'Your first decal with a QR code and an NFC chip including shipping is included in your plan.',
+  welcomeCtaButton: 'Order now',
+  stickerCardTitle: 'Your decal',
+  stickerSerial: 'Serial number {serial}',
+  stickerNfc: 'QR code and NFC chip: scan it or hold a phone to it.',
+  changeOverTitle: 'New decal on its way',
+  changeOverText:
+    'Stick it on the inside of the window and check it with “Test decal”. Until then your current code keeps working too.',
+  changeOverUntil: 'Your current code keeps working until {date}.',
+  changeOverPending:
+    'Your current code keeps working until the new decal has been shipped and tested.',
   newCodeTitle: 'New code',
   newCodeLimit: 'A new code is possible at most every {days} days.',
   newCodeFree: 'Create a new code (free)',

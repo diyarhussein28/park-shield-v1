@@ -70,7 +70,8 @@ export class VehiclesService {
             ])
             .where('status', '<>', 'revoked')
             .orderBy('vehicle_id')
-            .orderBy('created_at', 'desc')
+            // Newest by assignment: a packed stock code (created long before) is the current one.
+            .orderBy(sql`coalesce(assigned_at, created_at)`, 'desc')
             .as('t'),
         (join) => join.onRef('t.vehicle_id', '=', 'v.id'),
       )
@@ -230,7 +231,14 @@ export class VehiclesService {
     const v = await this.get(userId, vehicleId);
     if (!v.decal) throw new ConflictException({ error: 'no_active_code' });
     await this.db.transaction().execute(async (trx) => {
-      await this.tags.transition(trx, v.decal!.tokenId, 'revoked', 'owner', reason);
+      // Every live code of the vehicle: during a change-over the old one works too (2026-11-27).
+      const live = await trx
+        .selectFrom('qr_tokens')
+        .select('id')
+        .where('vehicle_id', '=', vehicleId)
+        .where('status', '<>', 'revoked')
+        .execute();
+      for (const t of live) await this.tags.transition(trx, t.id, 'revoked', 'owner', reason);
     });
     return this.get(userId, vehicleId);
   }
@@ -358,7 +366,13 @@ export class VehiclesService {
     const { token } = await this.currentToken(userId, vehicleId);
     await this.db.transaction().execute(async (trx) => {
       await lockCodes(trx, userId);
-      await this.tags.transition(trx, token.id, 'revoked', 'owner', reason);
+      const live = await trx
+        .selectFrom('qr_tokens')
+        .select('id')
+        .where('vehicle_id', '=', vehicleId)
+        .where('status', '<>', 'revoked')
+        .execute();
+      for (const t of live) await this.tags.transition(trx, t.id, 'revoked', 'owner', reason);
       const fresh = await this.tokens.issue(trx, vehicleId);
       await trx
         .updateTable('qr_tokens')

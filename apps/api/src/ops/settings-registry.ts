@@ -157,6 +157,8 @@ export const SETTINGS: Record<string, Def> = {
     schema: z.enum(['on_demand', 'from_stock']),
     default: 'on_demand',
   },
+  // Days the old code keeps working after a stock sticker was shipped (2026-11-27).
+  'fulfillment.old_code_grace_days': { group: 'contracts', schema: int(1, 60), default: 14 },
 
   'health.sms_failure_pct': { group: 'health', schema: int(1, 100), default: 5 },
   'health.email_failure_pct': { group: 'health', schema: int(1, 100), default: 5 },

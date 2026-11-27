@@ -232,11 +232,13 @@ const de = {
     ownerFollowUp: 'Wenn Sie nicht reagieren',
     // „Der Aufkleber“ next to the price (2026-11-26).
     stickerTitle: 'Der Aufkleber',
-    stickerText: 'Ihr persönlicher QR-Aufkleber, gestaltet in der App.',
-    stickerF1: '8 × 8 cm, wetterfeste und UV-beständige Folie',
+    stickerText:
+      'QR-Code und NFC-Chip in einem Aufkleber: scannen oder einfach das Handy anhalten.',
+    stickerF1: '8 × 8 cm, wetterfeste und UV-beständige Folie mit NFC-Chip',
     stickerF2: 'Für die Innenseite der Windschutzscheibe',
-    stickerF3: 'Sechs Designs, mit dem Namen Ihres Fahrzeugs',
-    stickerF4: 'Sofort als PDF zum Selbstdrucken, immer kostenlos',
+    stickerF3: 'Neutral gestaltet, ohne Name und ohne Kennzeichen',
+    stickerF4:
+      'Sofort als PDF zum Selbstdrucken, mit Ihrem Design und Fahrzeugnamen, immer kostenlos',
     stickerF5: 'Ein gedruckter Aufkleber inklusive Versand',
     stickerF6: 'Jeder weitere gedruckte Aufkleber 3 €',
     stickerAlt: 'Beispiel eines ParkShield-Aufklebers mit QR-Code',
@@ -947,9 +949,9 @@ const de = {
     add: 'Fahrzeug hinzufügen',
     nickname: 'Spitzname',
     nicknameHint:
-      'Steht auf Ihrem Aufkleber und hilft der Person, die scannt, das richtige Auto zu erkennen. 2 bis 20 Zeichen, zum Beispiel „Der Blaue“.',
+      'Hilft der Person, die scannt, das richtige Auto zu erkennen, und steht auf Ihrem Aufkleber zum Selbstdrucken. 2 bis 20 Zeichen, zum Beispiel „Der Blaue“.',
     labelRule:
-      'Der Fahrzeugname wird auf den Aufkleber gedruckt: 2 bis 20 Zeichen, nur Buchstaben, Zahlen, Leerzeichen und einfache Satzzeichen, keine beleidigenden Wörter.',
+      'Der Fahrzeugname steht auf dem Aufkleber zum Selbstdrucken: 2 bis 20 Zeichen, nur Buchstaben, Zahlen, Leerzeichen und einfache Satzzeichen, keine beleidigenden Wörter.',
     plate: 'Kennzeichen',
     plateHint: 'Wird verschlüsselt gespeichert und nie angezeigt.',
     color: 'Farbe',
@@ -1077,7 +1079,7 @@ const de = {
       'Normales Papier hält Sonne, Regen und Waschanlage nicht lange stand. Wir empfehlen wetterfeste Polyester-Etiketten für Laserdrucker.',
     shippedTitle: 'Drucken und zusenden lassen',
     shippedText:
-      'UV-beständiger Aufkleber mit Ihrem aktuellen Code und Ihrer Gestaltung, Versand innerhalb Deutschlands.',
+      'UV-beständiger Aufkleber mit QR-Code und NFC-Chip, neutral gestaltet, Versand innerhalb Deutschlands. Er bekommt einen neuen Code; Ihr bisheriger Code funktioniert, bis Sie den neuen Aufkleber getestet haben.',
     priceWelcome: 'kostenlos (Willkommensdruck)',
     priceFree: 'kostenlos',
     // TODO [LEGAL REVIEW] the 3 € print is personalised at order time: no withdrawal right for the
@@ -1092,20 +1094,20 @@ const de = {
     confirmNext: 'Weiter: Aufkleber prüfen',
     confirmTitle: 'Ihr Aufkleber vor dem Druck',
     confirmIntro:
-      'So drucken wir Ihren Aufkleber. Bitte prüfen Sie Design, Fahrzeugnamen und Adresse.',
+      'Sie bekommen unseren neutralen Aufkleber mit QR-Code und NFC-Chip (8 × 8 cm, ohne Name und ohne Kennzeichen). Bitte prüfen Sie die Adresse.',
     confirmLabel: 'Fahrzeugname auf dem Aufkleber: „{label}“',
     confirmDesign: 'Design ändern',
     confirmBack: 'Zurück',
-    // TODO [LEGAL REVIEW] § 312g Abs. 2 Nr. 1 BGB
+    // TODO [LEGAL REVIEW] LEGAL_REVIEW.md §16: the sticker is generic since 2026-11-27, wording to confirm.
     personalizedNotice:
-      'Ihr Aufkleber wird nach Ihren Angaben individuell gedruckt. Für individuell angefertigte Waren besteht kein Widerrufsrecht.',
+      'Bei einem Widerruf des Abos behalten wir den Wert des versandten Aufklebers ein.',
     confirmFree: 'Jetzt drucken und zusenden',
     confirmPaid: '{price} bezahlen und zusenden',
     labelInvalid:
       'Dieser Fahrzeugname kann nicht gedruckt werden. Erlaubt sind 2 bis 20 Zeichen (Buchstaben, Zahlen, Leerzeichen, einfache Satzzeichen) ohne beleidigende Wörter. Bitte ändern Sie ihn unter „Fahrzeugdaten“.',
-    welcomeCta: 'Aufkleber gestalten und zusenden lassen – kostenlos',
+    welcomeCta: 'Aufkleber mit NFC-Chip zusenden lassen – kostenlos',
     welcomeCtaText:
-      'Ihr Willkommensdruck ist inklusive. Wählen Sie Design und Adresse, wir drucken und versenden ihn.',
+      'Ihr erster Aufkleber mit QR-Code und NFC-Chip ist inklusive. Sie geben nur die Adresse an, wir senden ihn zu.',
   },
   checkout: {
     title: 'ParkShield abschließen',
@@ -1139,10 +1141,11 @@ const de = {
     stickerRequired: 'Bitte beantworten Sie die Frage zum Aufkleber.',
     // Price breakdown and notice (B2, B3, 2026-11-22). TODO [LEGAL REVIEW]
     yearlyBreakdown: 'ParkShield Jahresabo: {price} / Jahr, inkl. MwSt.',
+    // TODO [LEGAL REVIEW] LEGAL_REVIEW.md §16 (generic sticker since 2026-11-27).
     stickerIncluded:
-      'Im Preis enthalten: personalisierter Aufkleber inkl. Versand im Wert von {value}.',
+      'Im Preis enthalten: Aufkleber mit QR-Code und NFC-Chip inkl. Versand im Wert von {value}.',
     stickerNotice:
-      'Hinweis: Der personalisierte Aufkleber wird nach Ihren Angaben gefertigt. Für ihn besteht kein Widerrufsrecht (§ 312g Abs. 2 Nr. 1 BGB). Ihr Widerrufsrecht für das Abo bleibt bestehen.',
+      'Hinweis: Bei einem Widerruf des Abos behalten wir den Wert des bereits versandten Aufklebers ein. Ihr Widerrufsrecht für das Abo bleibt bestehen.',
   },
   cancel: {
     title: 'Verträge hier kündigen',
@@ -2204,6 +2207,8 @@ const de = {
     k_renewal_reminder_days: 'Verlängerungs-Erinnerung (Tage vorher)',
     k_scanner_past_due_grace_days: 'Aufkleber aktiv trotz offener Zahlung (Tage)',
     k_fulfillment_mode: 'Versand (on_demand / from_stock)',
+    k_fulfillment_old_code_grace_days:
+      'Alter Code gilt nach Versand des Lager-Aufklebers noch (Tage)',
     k_health_email_failure_pct: 'E-Mail: kritisch ab Fehlerquote (%)',
     k_health_push_failure_pct: 'Push: kritisch ab Fehlerquote (%)',
     k_health_stripe_webhook_failures: 'Stripe: kritisch ab Webhook-Fehlern pro Tag',

@@ -27,6 +27,7 @@ import { WithdrawalsService } from '../legal/withdrawals.service';
 import { AuditStreamService } from './audit.service';
 import { ProviderHealthService } from './provider-health.service';
 import { StaffService } from './staff.service';
+import { ChangeOverService } from '../vehicles/change-over.service';
 
 let h: Harness;
 let ops: NestFastifyApplication;
@@ -341,7 +342,7 @@ async function readySticker(s: Staff, code: string, uid?: string) {
 }
 
 describe('tag lifecycle and FROM_STOCK fulfilment', () => {
-  it('the packer scan links a stock sticker to the vehicle; the registration code is revoked', async () => {
+  it('the packer scan links a stock sticker to the vehicle; the old code works until the change-over ends', async () => {
     await setSetting(h, 'fulfillment.mode', 'from_stock');
     const admin = await staffAs(['admin']);
     const partner = await post(admin, '/ops/v1/partners', { name: 'Lager', kind: 'other' });
@@ -388,7 +389,11 @@ describe('tag lifecycle and FROM_STOCK fulfilment', () => {
     expect(
       (await h.app.inject({ method: 'GET', url: `/v1/scan/${codes[0]}` })).json().nickname,
     ).toBe('Der Blaue');
-    expect((await h.app.inject({ method: 'GET', url: `/v1/scan/${c.code}` })).statusCode).toBe(404);
+    // Phase 3 (2026-11-27): the old code keeps working while the sticker travels.
+    expect((await h.app.inject({ method: 'GET', url: `/v1/scan/${c.code}` })).statusCode).toBe(200);
+    // The app shows the new code (newest by assignment) with the vehicle's own design.
+    const vehicle = (await pub(c.s, 'GET', `/v1/vehicles/${c.v.id}`)).json();
+    expect(vehicle.decal.codeHint).toBe(codes[0]!.slice(-4));
     // A stock code is linked once only.
     expect(
       (await post(lager, `/ops/v1/orders/${orderId}/scan`, { scanned: codes[0]! })).statusCode,
@@ -400,12 +405,124 @@ describe('tag lifecycle and FROM_STOCK fulfilment', () => {
       .orderBy('reason')
       .execute();
     expect(events).toEqual([
-      { from_status: 'assigned', to_status: 'revoked', reason: 'replaced_by_stock' },
       { from_status: 'in_stock', to_status: 'assigned', reason: 'stock_scan' },
     ]);
+    expect(
+      await h.db
+        .selectFrom('code_issuances')
+        .select('kind')
+        .where('vehicle_id', '=', c.v.id)
+        .orderBy('issued_at')
+        .execute(),
+    ).toEqual([{ kind: 'initial' }, { kind: 'stock_sticker' }]);
     await expect(h.db.updateTable('tag_events').set({ reason: 'x' }).execute()).rejects.toThrow(
       /append-only/,
     );
+
+    // Shipping starts the deadline: 14 days for the old code.
+    expect(
+      (
+        await post(lager, `/ops/v1/orders/${orderId}/shipped`, {
+          trackingNumber: '00340434161094042557',
+        })
+      ).statusCode,
+    ).toBe(200);
+    const old = await h.db
+      .selectFrom('qr_tokens')
+      .select(['status', 'retire_after'])
+      .where('vehicle_id', '=', c.v.id)
+      .where('serial_no', 'is', null)
+      .executeTakeFirstOrThrow();
+    expect(old.status).toBe('assigned');
+    const days = (+new Date(old.retire_after!) - Date.now()) / 86_400_000;
+    expect(days).toBeGreaterThan(13.9);
+    expect(days).toBeLessThan(14.01);
+
+    // The owner tests the new sticker: the old code stops at once.
+    await pub(c.s, 'POST', `/v1/vehicles/${c.v.id}/test-window`);
+    const test = await h.app.inject({
+      method: 'POST',
+      url: `/v1/scan/${codes[0]}/alerts`,
+      remoteAddress: '198.51.100.7',
+      payload: { type: 'lights_on', captcha: DEV_CAPTCHA_SOLUTION, lang: 'de' },
+    });
+    expect(test.statusCode).toBe(201);
+    expect((await h.app.inject({ method: 'GET', url: `/v1/scan/${c.code}` })).statusCode).toBe(404);
+    expect(
+      await h.db
+        .selectFrom('qr_tokens')
+        .select('revoke_reason')
+        .where('vehicle_id', '=', c.v.id)
+        .where('serial_no', 'is', null)
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ revoke_reason: 'retired_change_over' });
+    expect((await h.app.inject({ method: 'GET', url: `/v1/scan/${codes[0]}` })).statusCode).toBe(
+      200,
+    );
+  });
+
+  it('change-over: deadline sweep, a returned parcel pauses it, „Sperren“ stops both codes', async () => {
+    await setSetting(h, 'fulfillment.mode', 'from_stock');
+    const lager = await staffAs(['fulfillment']);
+    const batch = await post(lager, '/ops/v1/batches/inhouse', { quantity: 2 });
+    const codes = (
+      await h.app.inject({ method: 'GET', url: `/v1/dev/batches/${batch.json().id}/codes` })
+    ).json().codes as string[];
+    await readySticker(lager, codes[0]!);
+    await readySticker(lager, codes[1]!);
+    const scan = (code: string) =>
+      h.app.inject({ method: 'GET', url: `/v1/scan/${code}` }).then((r) => r.statusCode);
+    const sweep = () => ops.get(ChangeOverService).sweep();
+
+    // A: shipped, never tested → the worker retires the old code at the deadline.
+    const a = await customer('frist@example.de');
+    const orderA = await includedOrder(a);
+    await post(lager, `/ops/v1/orders/${orderA}/scan`, { scanned: codes[0]! });
+    await post(lager, `/ops/v1/orders/${orderA}/shipped`, {
+      trackingNumber: '00340434161094042558',
+    });
+    expect(await sweep()).toBe(0);
+    expect(await scan(a.code)).toBe(200);
+    await h.db
+      .updateTable('qr_tokens')
+      .set({ retire_after: sql<Date>`now() - interval '1 minute'` })
+      .where('vehicle_id', '=', a.v.id)
+      .where('serial_no', 'is', null)
+      .execute();
+    expect(await sweep()).toBe(1);
+    expect(await scan(a.code)).toBe(404);
+    expect(await scan(codes[0]!)).toBe(200);
+
+    // B: the parcel comes back → no deadline; „Sperren“ then stops both codes, and the next new
+    // code is not held by the 10-day wait (a stock sticker is not a code the owner asked for).
+    const b = await customer('zurueck@example.de');
+    const orderB = await includedOrder(b);
+    await post(lager, `/ops/v1/orders/${orderB}/scan`, { scanned: codes[1]! });
+    await post(lager, `/ops/v1/orders/${orderB}/shipped`, {
+      trackingNumber: '00340434161094042559',
+    });
+    expect(
+      (await post(lager, `/ops/v1/orders/${orderB}/returned`, { note: 'Empfänger unbekannt' }))
+        .statusCode,
+    ).toBe(200);
+    expect(
+      await h.db
+        .selectFrom('qr_tokens')
+        .select('retire_after')
+        .where('vehicle_id', '=', b.v.id)
+        .where('serial_no', 'is', null)
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ retire_after: null });
+    expect([await scan(b.code), await scan(codes[1]!)]).toEqual([200, 200]);
+    const locked = await pub(b.s, 'POST', `/v1/vehicles/${b.v.id}/tokens/revoke`, {
+      reason: 'damaged',
+      confirm: true,
+    });
+    expect(locked.statusCode).toBe(200);
+    expect([await scan(b.code), await scan(codes[1]!)]).toEqual([404, 404]);
+    expect((await pub(b.s, 'GET', `/v1/vehicles/${b.v.id}/new-code`)).json()).toMatchObject({
+      freeAvailable: true,
+    });
   });
 });
 

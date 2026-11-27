@@ -36,6 +36,7 @@ import { VehiclesService } from '../vehicles/vehicles.service';
 import { vehicleLabelOk } from '../vehicles/vehicle-label';
 import { ProfileService } from '../profile/profile.service';
 import { returnUrls } from '../billing/app-return';
+import { ChangeOverService } from '../vehicles/change-over.service';
 
 export const PRINT_TOPIC = 'print.submit';
 
@@ -56,6 +57,7 @@ export class OrdersService {
     @Inject(ProfileService) private readonly profiles: ProfileService,
     @Inject(TagsService) private readonly tags: TagsService,
     @Inject(CodeRulesService) private readonly rules: CodeRulesService,
+    @Inject(ChangeOverService) private readonly changeOver: ChangeOverService,
   ) {}
 
   /**
@@ -365,12 +367,13 @@ export class OrdersService {
             }
           : { error: e.reason ?? 'not_available' },
       );
-    // The newest code (active, or the one „Sperren“ stopped) carries the design to keep.
+    // The newest code (active, or the one „Sperren“ stopped) carries the design to keep. Stock codes
+    // are created long before they are packed, so „newest“ means newest assigned.
     const last = await this.db
       .selectFrom('qr_tokens')
       .select(['id', 'design_template_id', 'cta_header'])
       .where('vehicle_id', '=', vehicleId)
-      .orderBy('created_at', 'desc')
+      .orderBy(sql`coalesce(assigned_at, created_at)`, 'desc')
       .executeTakeFirst();
     if (!last) throw new NotFoundException({ error: 'no_code' });
     const design = this.snapshot(last, vehicle.nickname);
@@ -603,6 +606,8 @@ export class OrdersService {
       .returning('user_id')
       .executeTakeFirst();
     if (!updated?.user_id) return false;
+    // A stock sticker is on its way: the old code gets its deadline (phase 3, 2026-11-27).
+    await this.changeOver.startOnShipping(orderId);
     const item = await this.db
       .selectFrom('decal_order_items as i')
       .innerJoin('qr_tokens as t', 't.id', 'i.qr_token_id')

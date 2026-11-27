@@ -20,6 +20,7 @@ import {
 } from '../notifications/owner-reminder.service';
 import { OrdersService, PRINT_TOPIC } from '../orders/orders.service';
 import { WelcomePrintReminderService } from '../orders/welcome-print-reminder.service';
+import { ChangeOverService } from '../vehicles/change-over.service';
 import { STORE_SYNC_TOPIC, StoreSyncService, type SyncHint } from '../billing/store-sync.service';
 import { RemindersService } from '../preferences/reminders.service';
 import { DISPATCH_TOPIC, FOLLOWUP_TOPIC } from '../scan/scan.service';
@@ -67,6 +68,7 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
     @Inject(OwnerReminderService) private readonly ownerReminders: OwnerReminderService,
     @Inject(StoreSyncService) private readonly storeSync: StoreSyncService,
     @Inject(WelcomePrintReminderService) private readonly welcomePrint: WelcomePrintReminderService,
+    @Inject(ChangeOverService) private readonly changeOver: ChangeOverService,
     @Inject(VehicleStatusService) private readonly vehicleStatus: VehicleStatusService,
   ) {}
 
@@ -113,6 +115,13 @@ export class WorkerBootstrap implements OnApplicationBootstrap {
       everyMs: HOUR,
       quiet: true,
       run: () => this.welcomePrint.sweep(),
+    });
+    // NFC stickers (2026-11-27): an old code whose change-over deadline passed stops working.
+    this.scheduler.every({
+      name: 'stickers.change_over',
+      everyMs: 10 * 60_000,
+      quiet: true,
+      run: () => this.changeOver.sweep(),
     });
     this.scheduler.every({
       name: 'subscriptions.expire',

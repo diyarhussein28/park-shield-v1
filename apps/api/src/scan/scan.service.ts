@@ -26,6 +26,7 @@ import { ScannerRefService } from './scanner-ref.service';
 import { VehicleStatusService } from '../vehicle-status/vehicle-status.service';
 
 import { normalizeCode } from '../vehicles/tokens.service';
+import { ChangeOverService } from '../vehicles/change-over.service';
 
 export { normalizeCode };
 export const DISPATCH_TOPIC = 'alert.dispatch';
@@ -62,6 +63,7 @@ export class ScanService {
     @Inject(OwnerReminderService) private readonly reminders: OwnerReminderService,
     @Inject(ChatService) private readonly chat: ChatService,
     @Inject(VehicleStatusService) private readonly vehicleStatus: VehicleStatusService,
+    @Inject(ChangeOverService) private readonly changeOver: ChangeOverService,
   ) {}
 
   /** The pseudonymous references of this request (server side only, never stored on the device). */
@@ -366,6 +368,8 @@ export class ScanService {
             })
             .where('id', '=', token.tokenId)
             .execute();
+          // The tested sticker is on the car: an older code of a change-over stops now.
+          await this.changeOver.retireOlder(trx, token.tokenId);
         }
         await this.media.attach(trx, alert.id, prepared.items);
         // The one view link of the alert (e-mail and SMS carry it, with or without photos).

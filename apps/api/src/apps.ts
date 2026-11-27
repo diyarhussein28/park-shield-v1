@@ -33,6 +33,7 @@ import {
   OpsStickersController,
 } from './ops/ops-back-office.controller';
 import { StickersService } from './ops/stickers.service';
+import { ChangeOverService } from './vehicles/change-over.service';
 import { AuditStreamService, AuditViewService } from './ops/audit.service';
 import { AccessReviewService } from './ops/access-review.service';
 import { FulfilmentService } from './ops/fulfilment.service';
@@ -139,6 +140,7 @@ const domainProviders = [
   EntitlementService,
   TokensService,
   TagsService,
+  ChangeOverService,
   LegalTextsService,
   ConsentsService,
   CancellationsService,

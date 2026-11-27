@@ -49,7 +49,8 @@ export class TokensService {
           key_version: this.crypto.keyVersion,
           code_hint: code.slice(-4),
           status,
-          ...(vehicleId ? { assigned_at: new Date() } : {}),
+          // The database clock, like the ledger's issued_at (the 10-day wait compares both).
+          ...(vehicleId ? { assigned_at: sql<Date>`now()` } : {}),
         })
         .onConflict((oc) => oc.column('code_hash').doNothing())
         .returning('id')

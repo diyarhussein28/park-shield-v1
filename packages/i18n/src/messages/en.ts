@@ -223,11 +223,12 @@ const en: typeof de = {
     ownerPhoneChat: 'I’m right behind it, thanks!',
     ownerFollowUp: 'If you do not respond',
     stickerTitle: 'The decal',
-    stickerText: 'Your personal QR decal, designed in the app.',
-    stickerF1: '8 × 8 cm, weatherproof and UV-resistant film',
+    stickerText: 'QR code and NFC chip in one decal: scan it or simply hold a phone to it.',
+    stickerF1: '8 × 8 cm, weatherproof and UV-resistant film with an NFC chip',
     stickerF2: 'For the inside of the windscreen',
-    stickerF3: 'Six designs, with your vehicle’s name',
-    stickerF4: 'Instantly as a PDF to print yourself, always free',
+    stickerF3: 'Neutral design, no name and no licence plate',
+    stickerF4:
+      'Instantly as a PDF to print yourself, with your design and vehicle name, always free',
     stickerF5: 'One printed decal including shipping',
     stickerF6: 'Every further printed decal €3',
     stickerAlt: 'Example of a ParkShield decal with a QR code',
@@ -900,9 +901,9 @@ const en: typeof de = {
     add: 'Add vehicle',
     nickname: 'Nickname',
     nicknameHint:
-      'Printed on your decal and helps the person who scans recognise the right car. 2 to 20 characters, for example “The blue one”.',
+      'Helps the person who scans recognise the right car and appears on the decal you print yourself. 2 to 20 characters, for example “The blue one”.',
     labelRule:
-      'The vehicle name is printed on the decal: 2 to 20 characters, only letters, numbers, spaces and basic punctuation, no offensive words.',
+      'The vehicle name appears on the decal you print yourself: 2 to 20 characters, only letters, numbers, spaces and basic punctuation, no offensive words.',
     plate: 'Licence plate',
     plateHint: 'Stored encrypted and never shown.',
     color: 'Colour',
@@ -1025,7 +1026,8 @@ const en: typeof de = {
     paperNotice:
       'Ordinary paper does not stand up to sun, rain and car washes for long. We recommend weatherproof polyester labels for laser printers.',
     shippedTitle: 'Have it printed and sent',
-    shippedText: 'UV-resistant decal with your current code and design, shipped within Germany.',
+    shippedText:
+      'UV-resistant decal with a QR code and an NFC chip, neutral design, shipped within Germany. It comes with a new code; your current code keeps working until you have tested the new decal.',
     priceWelcome: 'free (welcome print)',
     priceFree: 'free',
     pricePaid: '{price} one-time incl. VAT',
@@ -1037,19 +1039,20 @@ const en: typeof de = {
     confirmNext: 'Next: check your decal',
     confirmTitle: 'Your decal before printing',
     confirmIntro:
-      'This is how we print your decal. Please check the design, vehicle name and address.',
+      'You get our neutral decal with a QR code and an NFC chip (8 × 8 cm, no name and no licence plate). Please check the address.',
     confirmLabel: 'Vehicle name on the decal: “{label}”',
     confirmDesign: 'Change design',
     confirmBack: 'Back',
+    // TODO [LEGAL REVIEW] LEGAL_REVIEW.md §16: the sticker is generic since 2026-11-27, wording to confirm.
     personalizedNotice:
-      'Your decal is printed individually to your specifications. There is no right of withdrawal for goods made to the customer’s specifications.',
+      'If you withdraw from the subscription, we keep the value of the decal already sent.',
     confirmFree: 'Print and send now',
     confirmPaid: 'Pay {price} and send',
     labelInvalid:
       'This vehicle name cannot be printed. Allowed are 2 to 20 characters (letters, numbers, spaces, basic punctuation) without offensive words. Please change it under “Vehicle details”.',
-    welcomeCta: 'Design your decal and have it sent – free',
+    welcomeCta: 'Have your NFC decal sent – free',
     welcomeCtaText:
-      'Your welcome print is included. Choose the design and address, we print and send it.',
+      'Your first decal with a QR code and an NFC chip is included. You only enter the address, we send it.',
   },
   checkout: {
     title: 'Get ParkShield',
@@ -1080,9 +1083,11 @@ const en: typeof de = {
       'The old code is switched off, your vehicle gets a new one, and the replacement sticker is free.',
     stickerRequired: 'Please answer the question about the sticker.',
     yearlyBreakdown: 'ParkShield yearly subscription: {price} / year, incl. VAT',
-    stickerIncluded: 'Included in the price: personalised decal incl. shipping worth {value}.',
+    // TODO [LEGAL REVIEW] LEGAL_REVIEW.md §16 (generic sticker since 2026-11-27).
+    stickerIncluded:
+      'Included in the price: decal with a QR code and an NFC chip incl. shipping worth {value}.',
     stickerNotice:
-      'Note: the personalised decal is made to your specifications. There is no right of withdrawal for it (§ 312g (2) no. 1 BGB). Your right to withdraw from the subscription remains.',
+      'Note: if you withdraw from the subscription, we keep the value of the decal already sent. Your right to withdraw from the subscription remains.',
   },
   cancel: {
     title: 'Cancel contract here',
@@ -2122,6 +2127,8 @@ const en: typeof de = {
     k_renewal_reminder_days: 'Renewal reminder (days before)',
     k_scanner_past_due_grace_days: 'Decal stays active while a payment is open (days)',
     k_fulfillment_mode: 'Fulfilment (on_demand / from_stock)',
+    k_fulfillment_old_code_grace_days:
+      'Old code still works after the stock sticker shipped (days)',
     k_health_email_failure_pct: 'E-mail: critical from failure rate (%)',
     k_health_push_failure_pct: 'Push: critical from failure rate (%)',
     k_health_stripe_webhook_failures: 'Stripe: critical from webhook failures per day',

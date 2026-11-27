@@ -622,7 +622,8 @@ export class CustomersService {
           eb
             .selectFrom('qr_tokens as t')
             .innerJoin('vehicles as v', 'v.id', 't.vehicle_id')
-            .select((e) => e.fn.countAll<string>().as('n'))
+            // Vehicles with a working decal (two codes during a change-over count once).
+            .select((e) => e.fn.count<string>('t.vehicle_id').distinct().as('n'))
             .where('v.owner_user_id', '=', u.id)
             .where('t.status', '=', 'assigned')
             .as('activeDecals'),

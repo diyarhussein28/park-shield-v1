@@ -165,16 +165,20 @@ export class CodeRulesService {
           .where('status', '<>', 'revoked')
           .executeTakeFirst(),
         // The newest code: the ledger, and the codes themselves (assigned_at) as a safety net.
+        // Stock stickers (serial number, ledger kind `stock_sticker`) are the physical form of the
+        // vehicle's code, not a new code the owner asked for: they never start the wait (2026-11-27).
         exec
           .selectFrom('qr_tokens')
           .select(sql<Date | null>`max(coalesce(assigned_at, created_at))`.as('at'))
           .where('vehicle_id', '=', vehicleId)
+          .where('serial_no', 'is', null)
           .executeTakeFirst()
           .then(async (t) => {
             const l = await exec
               .selectFrom('code_issuances')
               .select(sql<Date | null>`max(issued_at)`.as('at'))
               .where('vehicle_id', '=', vehicleId)
+              .where('kind', '<>', 'stock_sticker')
               .executeTakeFirst();
             const times = [t?.at, l?.at]
               .filter((d): d is Date => d != null)
@@ -186,12 +190,14 @@ export class CodeRulesService {
           .selectFrom('qr_tokens')
           .select((eb) => eb.fn.countAll<string>().as('n'))
           .where('vehicle_id', '=', vehicleId)
+          .where('serial_no', 'is', null)
           .executeTakeFirstOrThrow()
           .then(async (t) => {
             const l = await exec
               .selectFrom('code_issuances')
               .select((eb) => eb.fn.countAll<string>().as('n'))
               .where('vehicle_id', '=', vehicleId)
+              .where('kind', '<>', 'stock_sticker')
               .executeTakeFirstOrThrow();
             return Math.max(Number(t.n), Number(l.n));
           }),

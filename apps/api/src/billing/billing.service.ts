@@ -933,9 +933,15 @@ export class BillingService {
         .select(['t.id as tokenId', 'v.id as vehicleId', 't.cta_header', 't.design_template_id'])
         .where('v.owner_user_id', '=', userId)
         .where('t.status', '=', 'assigned')
+        .orderBy(sql`coalesce(t.assigned_at, t.created_at)`, 'desc')
         .execute();
+      // During a change-over a vehicle has two live codes: revoke both, issue one (newest design).
+      const seen = new Set<string>();
+      for (const t of vehicles)
+        await this.tags.transition(trx, t.tokenId, 'revoked', 'system', 'replaced');
       for (const v of vehicles) {
-        await this.tags.transition(trx, v.tokenId, 'revoked', 'system', 'replaced');
+        if (seen.has(v.vehicleId)) continue;
+        seen.add(v.vehicleId);
         const fresh = await this.tokens.issue(trx, v.vehicleId, null, 'system');
         await trx
           .updateTable('qr_tokens')
