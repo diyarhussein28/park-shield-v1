@@ -4,7 +4,7 @@
 // The logo is the official mark from apps/web/lib/brand-mark.ts (shield with the QR finder squares),
 // the one definition the website's header and footer use too; the icons are the paths in
 // apps/api/src/mail/icons.ts. 2× size for sharp edges on high-density screens.
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { MAIL_ICONS } from '../apps/api/src/mail/icons.ts';
@@ -53,6 +53,26 @@ await sharp(
 // shows it on transparent; home screens get it on a white tile (iOS fills transparency with black);
 // the maskable icon keeps the mark inside the central safe zone (80 %).
 await sharp(svg(mark(), 32)).png().toFile(join(ICONS, 'favicon-32.png'));
+// /favicon.ico (16, 32, 48 px as PNG entries): browsers ask for it on their own (history, bookmarks,
+// the address bar's suggestions) and kept showing the old shield from their cache while it was a 404.
+const icoSizes = [16, 32, 48];
+const icoPngs = await Promise.all(icoSizes.map((s) => sharp(svg(mark(), s)).png().toBuffer()));
+const icoHeader = Buffer.alloc(6 + 16 * icoSizes.length);
+icoHeader.writeUInt16LE(0, 0); // reserved
+icoHeader.writeUInt16LE(1, 2); // type: icon
+icoHeader.writeUInt16LE(icoSizes.length, 4);
+let icoOffset = icoHeader.length;
+icoSizes.forEach((s, i) => {
+  const e = 6 + 16 * i;
+  icoHeader.writeUInt8(s, e); // width
+  icoHeader.writeUInt8(s, e + 1); // height
+  icoHeader.writeUInt16LE(1, e + 4); // colour planes
+  icoHeader.writeUInt16LE(32, e + 6); // bits per pixel
+  icoHeader.writeUInt32LE(icoPngs[i].length, e + 8);
+  icoHeader.writeUInt32LE(icoOffset, e + 12);
+  icoOffset += icoPngs[i].length;
+});
+writeFileSync(join(ROOT, 'apps/web/public/favicon.ico'), Buffer.concat([icoHeader, ...icoPngs]));
 const tile = `<rect width="32" height="32" fill="#fff"/>${mark(3.5, 3.5, 0.78)}`;
 await sharp(svg(tile, 180)).png().toFile(join(ICONS, 'apple-touch-icon.png'));
 for (const size of [192, 512]) {
