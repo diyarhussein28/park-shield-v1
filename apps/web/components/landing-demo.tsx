@@ -142,7 +142,7 @@ function Phone({ step, running }: { step: number; running: boolean }) {
             <div className="relative flex flex-1 items-center justify-center overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900" />
               <div className="relative w-36 rotate-[-4deg] rounded-md bg-white p-0 shadow-xl">
-                <img src="/images/decal-bold.svg" alt="" className="block w-full rounded-md" />
+                <img src="/images/sticker-nfc.svg" alt="" className="block w-full rounded-md" />
               </div>
               <div className="absolute inset-10 rounded-3xl border-[3px] border-white/0">
                 {[

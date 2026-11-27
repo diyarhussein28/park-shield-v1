@@ -31,6 +31,7 @@ const WEB_PUBLIC = [
   '/hilfe',
   '/hilfe/push-auf-dem-iphone',
   '/hilfe/erinnerung-und-sms',
+  '/hilfe/nfc-handy-anhalten',
   '/hilfe/kontakt',
   '/app/aktivieren',
   '/konto-loeschen-abbrechen',

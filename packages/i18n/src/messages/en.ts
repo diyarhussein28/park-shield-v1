@@ -80,9 +80,28 @@ const en: typeof de = {
     howTitle: 'Protected in three steps',
     step1Title: 'Apply the decal',
     step1Text:
-      'Your personal QR decal arrives by post, and you get a print-at-home PDF straight away.',
+      'Your decal with QR code and NFC chip arrives by post, and you get a print-at-home PDF straight away.',
     step2Title: 'Someone scans it',
-    step2Text: 'Whoever sees your car scans the code and picks the problem with one tap. No app.',
+    step2Text:
+      'Whoever sees your car scans the code or holds a phone to the decal and picks the problem with one tap. No app.',
+    // NFC section next to „How it works“ (2026-11-27): the printed sticker has a chip too.
+    nfcEyebrow: 'QR code and NFC',
+    nfcTitle: 'Scan it or simply hold a phone to it',
+    nfcText:
+      'Besides the QR code, the printed decal has an NFC chip. Both open the same page on park-shield.de, without an app or an account.',
+    nfcQrTitle: 'Scan the QR code',
+    nfcQrText:
+      'Open the phone camera, point it at the code on the left and tap the link. This works with every smartphone.',
+    nfcTapTitle: 'Hold your phone to it',
+    nfcTapText:
+      'Hold the unlocked phone with its top edge to the NFC area on the right. The page opens by itself, on most iPhones from the iPhone XS and on Android phones with NFC switched on.',
+    nfcSafeTitle: 'An address, nothing else',
+    nfcSafeText:
+      'The chip holds only the address of the scan page. It is sealed, cannot be overwritten and sends nothing by itself, no location either.',
+    nfcNote:
+      'Some heat-reflective windscreens block NFC. The QR code always works. The free decal you print yourself has only the QR code, with your design and vehicle name instead.',
+    nfcAlt:
+      'Example of the printed ParkShield decal: QR code on the left, NFC area on the right, serial number below the QR code',
     step3Title: 'You reply',
     step3Text:
       "You get a notification in the ParkShield app and tap “I'm coming”. The person on site sees it immediately.",
@@ -128,7 +147,10 @@ const en: typeof de = {
       'Yes, via “Cancel contract here”, even without signing in. Your subscription then runs until the end of the paid year. With Lifetime there is nothing to cancel: paid once, no renewal.',
     faq5Q: 'Does ParkShield ever ask for payment through the decal?',
     faq5A: 'Never. A page that asks for money after scanning is a fake. Please report it to us.',
-    heroEyebrow: 'The QR decal for your car',
+    faq6Q: 'How does holding a phone to it (NFC) work?',
+    faq6A:
+      'The printed decal has an NFC chip. Anyone who holds an unlocked phone to the NFC area gets the same page as when scanning the QR code. The chip holds only this address and is locked against overwriting. The decal you print yourself has no chip, only the QR code.',
+    heroEyebrow: 'The QR and NFC decal for your car',
     heroTitleHighlight: 'windscreen',
     heroPoint1: 'No app',
     heroPoint2: 'No account to scan',
@@ -153,8 +175,9 @@ const en: typeof de = {
     demoTitle: 'From scan to reply in seconds',
     demoIntro:
       'This is what the person at your car sees, and what you see. Pick a step or just watch.',
-    demoStep1: 'Scan the code',
-    demoStep1Text: 'The camera opens a web page. No app, no account.',
+    demoStep1: 'Scan or hold',
+    demoStep1Text:
+      'Camera on the QR code or phone to the decal: a web page opens. No app, no account.',
     demoStep2: 'Pick the problem',
     demoStep2Text: 'One tap on the problem, optionally with a short message.',
     demoStep3: 'You are notified',
@@ -168,7 +191,7 @@ const en: typeof de = {
     demoAlert2: 'Lights are still on',
     demoAlert3: 'Window or sunroof open',
     demoSend: 'Send alert',
-    demoScanHint: 'Point your camera at the code',
+    demoScanHint: 'Point your camera at the code or hold your phone to it',
     demoDelivered: 'Delivered',
     demoComing: 'The driver is on the way',
     demoComingText: 'Arriving in about 5 minutes. Thank you!',
@@ -231,7 +254,7 @@ const en: typeof de = {
       'Instantly as a PDF to print yourself, with your design and vehicle name, always free',
     stickerF5: 'One printed decal including shipping',
     stickerF6: 'Every further printed decal €3',
-    stickerAlt: 'Example of a ParkShield decal with a QR code',
+    stickerAlt: 'Example of the ParkShield decal with QR code and NFC area',
     factsTitle: 'Privacy in numbers',
     facts1: 'No cookies and no storage on the scan page',
     facts2: 'No ads, no analytics tools, no tracking',

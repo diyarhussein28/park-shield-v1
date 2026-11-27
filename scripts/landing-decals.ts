@@ -4,6 +4,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { layoutDecal } from '../apps/api/src/decal/layout.ts';
+import { layoutStockSticker } from '../apps/api/src/decal/stock-sticker.ts';
 import { renderSvg } from '../apps/api/src/decal/svg.ts';
 import { ROOT } from './lib/paths.ts';
 
@@ -21,4 +22,17 @@ for (const template of ['bold', 'classic', 'night'] as const) {
     .replace('<svg ', '<svg aria-hidden="true" ');
   writeFileSync(join(ROOT, 'apps', 'web', 'public', 'images', `decal-${template}.svg`), svg);
 }
-console.log('wrote apps/web/public/images/decal-*.svg');
+
+// The printed sticker with QR code and NFC chip (owner design 2026-11-27): the example on the website.
+const sticker = renderSvg(
+  layoutStockSticker({
+    code: 'BEISPIEL',
+    scannerBaseUrl: 'https://park-shield.de',
+    serial: 'PS-000123',
+  }),
+  'ParkShield',
+)
+  .replace(/ width="[\d.]+mm" height="[\d.]+mm" role="img" aria-label="[^"]*"/, '')
+  .replace('<svg ', '<svg aria-hidden="true" ');
+writeFileSync(join(ROOT, 'apps', 'web', 'public', 'images', 'sticker-nfc.svg'), sticker);
+console.log('wrote apps/web/public/images/decal-*.svg and sticker-nfc.svg');

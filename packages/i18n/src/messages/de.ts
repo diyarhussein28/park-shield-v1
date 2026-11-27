@@ -80,10 +80,28 @@ const de = {
     howTitle: 'In drei Schritten geschützt',
     step1Title: 'Aufkleber anbringen',
     step1Text:
-      'Sie erhalten Ihren persönlichen QR-Aufkleber per Post und sofort ein PDF zum Ausdrucken.',
+      'Sie erhalten Ihren Aufkleber mit QR-Code und NFC-Chip per Post und sofort ein PDF zum Ausdrucken.',
     step2Title: 'Jemand scannt',
     step2Text:
-      'Wer Ihr Auto sieht, scannt den Code und wählt mit einem Tipp das Problem. Ohne App.',
+      'Wer Ihr Auto sieht, scannt den Code oder hält das Handy an den Aufkleber und wählt mit einem Tipp das Problem. Ohne App.',
+    // NFC section next to „So funktioniert's“ (2026-11-27): the printed sticker has a chip too.
+    nfcEyebrow: 'QR-Code und NFC',
+    nfcTitle: 'Scannen oder einfach das Handy anhalten',
+    nfcText:
+      'Der gedruckte Aufkleber hat neben dem QR-Code einen NFC-Chip. Beides öffnet dieselbe Seite auf park-shield.de, ohne App und ohne Konto.',
+    nfcQrTitle: 'QR-Code scannen',
+    nfcQrText:
+      'Handykamera öffnen, auf den Code links richten und den Link antippen. Das klappt mit jedem Smartphone.',
+    nfcTapTitle: 'Handy anhalten',
+    nfcTapText:
+      'Das entsperrte Handy mit der Oberkante an das NFC-Feld rechts halten. Die Seite öffnet sich von selbst, bei den meisten iPhones ab dem iPhone XS und bei Android-Handys mit eingeschaltetem NFC.',
+    nfcSafeTitle: 'Nur eine Adresse, sonst nichts',
+    nfcSafeText:
+      'Der Chip enthält nur die Adresse der Scan-Seite. Er ist versiegelt, kann nicht überschrieben werden und sendet nichts von selbst, auch keinen Standort.',
+    nfcNote:
+      'Manche Wärmeschutzscheiben schirmen NFC ab. Der QR-Code funktioniert immer. Der kostenlose Aufkleber zum Selbstdrucken hat nur den QR-Code, dafür mit Ihrem Design und Fahrzeugnamen.',
+    nfcAlt:
+      'Beispiel des gedruckten ParkShield-Aufklebers: QR-Code links, NFC-Feld rechts, Seriennummer unter dem QR-Code',
     step3Title: 'Sie antworten',
     step3Text:
       'Sie bekommen eine Mitteilung in der ParkShield-App und tippen „Ich komme“. Die Person vor Ort sieht das sofort.',
@@ -133,7 +151,10 @@ const de = {
     faq5Q: 'Verlangt ParkShield jemals eine Zahlung über den Aufkleber?',
     faq5A:
       'Nie. Eine Seite, die beim Scannen Geld verlangt, ist eine Fälschung. Bitte melden Sie sie uns.',
-    heroEyebrow: 'Der QR-Aufkleber für Ihr Auto',
+    faq6Q: 'Wie funktioniert das Handy-Anhalten (NFC)?',
+    faq6A:
+      'Im gedruckten Aufkleber steckt ein NFC-Chip. Wer ein entsperrtes Handy an das NFC-Feld hält, landet auf derselben Seite wie beim Scannen des QR-Codes. Der Chip enthält nur diese Adresse und ist gegen Überschreiben gesperrt. Der selbst gedruckte Aufkleber hat keinen Chip, nur den QR-Code.',
+    heroEyebrow: 'Der QR- und NFC-Aufkleber für Ihr Auto',
     heroTitleHighlight: 'Windschutzscheibe',
     heroPoint1: 'Ohne App',
     heroPoint2: 'Ohne Konto zum Scannen',
@@ -158,8 +179,9 @@ const de = {
     demoTitle: 'Vom Scan zur Antwort in Sekunden',
     demoIntro:
       'So erlebt es die Person an Ihrem Auto und so erleben Sie es. Wählen Sie einen Schritt oder schauen Sie einfach zu.',
-    demoStep1: 'Code scannen',
-    demoStep1Text: 'Die Kamera öffnet eine Webseite. Keine App, kein Konto.',
+    demoStep1: 'Scannen oder anhalten',
+    demoStep1Text:
+      'Kamera auf den QR-Code oder Handy an den Aufkleber: Eine Webseite öffnet sich. Keine App, kein Konto.',
     demoStep2: 'Problem wählen',
     demoStep2Text: 'Ein Tipp auf das Problem, optional mit kurzer Nachricht.',
     demoStep3: 'Sie werden benachrichtigt',
@@ -173,7 +195,7 @@ const de = {
     demoAlert2: 'Licht brennt noch',
     demoAlert3: 'Fenster / Schiebedach offen',
     demoSend: 'Warnung senden',
-    demoScanHint: 'Kamera auf den Code richten',
+    demoScanHint: 'Kamera auf den Code richten oder Handy anhalten',
     demoDelivered: 'Zugestellt',
     demoComing: 'Die Fahrerin ist unterwegs',
     demoComingText: 'Ankunft in etwa 5 Minuten. Danke!',
@@ -241,7 +263,7 @@ const de = {
       'Sofort als PDF zum Selbstdrucken, mit Ihrem Design und Fahrzeugnamen, immer kostenlos',
     stickerF5: 'Ein gedruckter Aufkleber inklusive Versand',
     stickerF6: 'Jeder weitere gedruckte Aufkleber 3 €',
-    stickerAlt: 'Beispiel eines ParkShield-Aufklebers mit QR-Code',
+    stickerAlt: 'Beispiel des ParkShield-Aufklebers mit QR-Code und NFC-Feld',
     // Concrete privacy facts below the feature cards (2026-11-26).
     factsTitle: 'Datenschutz in Zahlen',
     facts1: 'Keine Cookies und kein Speicher auf der Scan-Seite',

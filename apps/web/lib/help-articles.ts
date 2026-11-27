@@ -25,18 +25,19 @@ export const HELP_ARTICLES: HelpArticle[] = [
     de: {
       title: 'So funktioniert ParkShield',
       summary:
-        'Ein Aufkleber mit QR-Code, eine Warnung an Sie – ohne dass jemand Ihre Nummer sieht.',
+        'Ein Aufkleber mit QR-Code und NFC-Chip, eine Warnung an Sie – ohne dass jemand Ihre Nummer sieht.',
       body: [
-        'Sie kleben den ParkShield-Aufkleber gut sichtbar hinter die Windschutzscheibe. Wer ein Problem an Ihrem Auto bemerkt, scannt den QR-Code mit dem Handy und wählt aus, was los ist, zum Beispiel „Licht brennt noch“ oder „Fahrzeug versperrt Ausfahrt“.',
+        'Sie kleben den ParkShield-Aufkleber gut sichtbar hinter die Windschutzscheibe. Wer ein Problem an Ihrem Auto bemerkt, scannt den QR-Code mit dem Handy oder hält das Handy an das NFC-Feld des gedruckten Aufklebers und wählt aus, was los ist, zum Beispiel „Licht brennt noch“ oder „Fahrzeug versperrt Ausfahrt“.',
         'Wir benachrichtigen Sie sofort in der ParkShield-App; reagieren Sie nicht, folgen eine Erinnerung und nach 30 Minuten eine SMS. Die Person, die scannt, sieht weder Ihren Namen noch Ihre Telefonnummer noch Ihr Kennzeichen. Sie sieht nur den Spitznamen, den Sie Ihrem Auto gegeben haben.',
         'Mit einer Schnellantwort sagen Sie Bescheid, dass Sie kommen. Die Person sieht das auf ihrer Seite.',
       ],
     },
     en: {
       title: 'How ParkShield works',
-      summary: 'A decal with a QR code and an alert to you – without anyone seeing your number.',
+      summary:
+        'A decal with a QR code and NFC chip, an alert to you – without anyone seeing your number.',
       body: [
-        'You put the ParkShield decal clearly visible behind the windscreen. Anyone who notices a problem with your car scans the QR code with their phone and picks what is wrong, for example “Lights are still on” or “Vehicle is blocking an exit”.',
+        'You put the ParkShield decal clearly visible behind the windscreen. Anyone who notices a problem with your car scans the QR code with their phone, or holds the phone to the NFC area of the printed decal, and picks what is wrong, for example “Lights are still on” or “Vehicle is blocking an exit”.',
         'We notify you at once in the ParkShield app; if you do not respond, a reminder and after 30 minutes an SMS follow. The person who scans sees neither your name nor your phone number nor your licence plate. They only see the nickname you gave your car.',
         'With a quick reply you let them know you are on your way. They see it on their page.',
       ],
@@ -51,8 +52,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
       summary: 'Einmal selbst scannen: So wissen Sie sicher, dass Warnungen ankommen.',
       body: [
         'Öffnen Sie im Konto Ihr Fahrzeug und tippen Sie auf „Aufkleber testen“. Für die nächsten Minuten ist der nächste Scan Ihres Aufklebers ein Test.',
-        'Scannen Sie den Aufkleber mit dem Handy und wählen Sie eine beliebige Warnung. Sie bekommen eine Test-Benachrichtigung, niemand sonst.',
-        'Erst nach dem ersten Test ist Ihr Aufkleber aktiv. Wir erinnern Sie, falls Sie den Test vergessen.',
+        'Scannen Sie den Aufkleber mit dem Handy oder halten Sie das Handy an das NFC-Feld und wählen Sie eine beliebige Warnung. Sie bekommen eine Test-Benachrichtigung, niemand sonst. Beim gedruckten Aufkleber lohnt es sich, beides einmal auszuprobieren.',
+        'Erst nach dem ersten Test ist Ihr Aufkleber aktiv. Wir erinnern Sie, falls Sie den Test vergessen. Kommt ein neuer gedruckter Aufkleber, gilt Ihr bisheriger Code noch, bis Sie den neuen getestet haben, längstens 14 Tage nach dem Versand.',
       ],
     },
     en: {
@@ -60,8 +61,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
       summary: 'Scan it once yourself, so you know for sure that alerts reach you.',
       body: [
         'Open your vehicle in your account and tap “Test decal”. For the next few minutes, the next scan of your decal is a test.',
-        'Scan the decal with your phone and pick any alert. You get a test notification, nobody else does.',
-        'Your decal is active after the first test. We remind you if you forget it.',
+        'Scan the decal with your phone or hold the phone to the NFC area and pick any alert. You get a test notification, nobody else does. With the printed decal, it is worth trying both once.',
+        'Your decal is active after the first test. We remind you if you forget it. When a new printed decal arrives, your previous code keeps working until you have tested the new one, at most 14 days after shipping.',
       ],
     },
   },
@@ -74,7 +75,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
       body: [
         'Der UV-beständige Aufkleber haftet innen an der Scheibe und ist von außen lesbar. Gut geeignet ist die untere Ecke auf der Beifahrerseite. Halten Sie Abstand zum Sichtfeld und zu Sensoren hinter der Scheibe.',
         'Reinigen Sie die Stelle vorher mit etwas Glasreiniger und lassen Sie sie trocknen. Streichen Sie den Aufkleber von der Mitte nach außen glatt.',
-        'Die Dashboard-Karte legen Sie einfach auf das Armaturenbrett. Testen Sie danach einmal mit „Aufkleber testen“.',
+        'Das NFC-Feld rechts auf dem gedruckten Aufkleber muss von außen gut erreichbar sein: nicht hinter dem schwarzen Rand der Scheibe und nicht hinter Sensoren. Manche Wärmeschutzscheiben schirmen NFC ab; der QR-Code funktioniert trotzdem.',
+        'Die Dashboard-Karte legen Sie einfach auf das Armaturenbrett. Testen Sie danach einmal mit „Aufkleber testen“, mit der Kamera und durch Handy-Anhalten.',
       ],
     },
     en: {
@@ -84,7 +86,34 @@ export const HELP_ARTICLES: HelpArticle[] = [
       body: [
         'The UV-resistant decal sticks to the inside of the glass and can be read from outside. The lower corner on the passenger side works well. Keep it away from your line of sight and from sensors behind the windscreen.',
         'Clean the spot with a little glass cleaner first and let it dry. Smooth the decal from the centre outwards.',
-        'Simply put the dashboard card on the dashboard. Then test it once with “Test decal”.',
+        'The NFC area on the right of the printed decal must be easy to reach from outside: not behind the black edge of the windscreen and not behind sensors. Some heat-reflective windscreens block NFC; the QR code still works.',
+        'Simply put the dashboard card on the dashboard. Then test it once with “Test decal”, with the camera and by holding a phone to it.',
+      ],
+    },
+  },
+  {
+    slug: 'nfc-handy-anhalten',
+    category: 'decal',
+    de: {
+      title: 'QR-Code und NFC: scannen oder Handy anhalten',
+      summary:
+        'Der gedruckte Aufkleber öffnet die Scan-Seite auch, wenn man das Handy daran hält. So funktioniert es.',
+      body: [
+        'Der gedruckte ParkShield-Aufkleber hat links den QR-Code und rechts ein NFC-Feld mit einem Chip dahinter. Beides öffnet dieselbe Seite auf park-shield.de. Die Seriennummer unter dem QR-Code (zum Beispiel PS-000123) nennen Sie uns, wenn Sie Fragen zu Ihrem Aufkleber haben.',
+        'Zum Anhalten: Handy entsperren und mit der Oberkante an das NFC-Feld halten, bis sich die Seite öffnet. Das klappt bei den meisten iPhones ab dem iPhone XS ohne Einstellung; bei Android-Handys muss NFC eingeschaltet sein (Einstellungen → Verbindungen → NFC). Ältere Handys ohne NFC nutzen einfach die Kamera.',
+        'Der Chip enthält nur die Adresse der Scan-Seite. Er ist versiegelt, kann nicht überschrieben werden und sendet nichts von selbst, auch keinen Standort. Sperren Sie den Code, funktioniert auch der Chip nicht mehr.',
+        'Der kostenlose Aufkleber zum Selbstdrucken hat keinen Chip, nur den QR-Code, dafür mit Ihrem Design und Fahrzeugnamen.',
+      ],
+    },
+    en: {
+      title: 'QR code and NFC: scan it or hold a phone to it',
+      summary:
+        'The printed decal also opens the scan page when someone holds a phone to it. Here is how it works.',
+      body: [
+        'The printed ParkShield decal has the QR code on the left and an NFC area with a chip behind it on the right. Both open the same page on park-shield.de. Tell us the serial number below the QR code (for example PS-000123) if you have questions about your decal.',
+        'To hold a phone to it: unlock the phone and hold its top edge to the NFC area until the page opens. This works on most iPhones from the iPhone XS without any setting; on Android phones NFC must be switched on (Settings → Connections → NFC). Older phones without NFC simply use the camera.',
+        'The chip holds only the address of the scan page. It is sealed, cannot be overwritten and sends nothing by itself, no location either. When you block the code, the chip stops working too.',
+        'The free decal you print yourself has no chip, only the QR code, with your design and vehicle name instead.',
       ],
     },
   },
@@ -238,7 +267,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
       summary:
         'Der erste gedruckte Aufkleber mit Versand ist im Abo enthalten; selbst drucken ist immer kostenlos.',
       body: [
-        'Im Fahrzeug finden Sie unter „Aufkleber drucken“ zwei Wege: „Selbst drucken – kostenlos“ (PDF 80 × 80 mm mit Schnittmarken, PNG oder SVG) und „Drucken und zusenden lassen“.',
+        'Im Fahrzeug finden Sie unter „Aufkleber drucken“ zwei Wege: „Selbst drucken – kostenlos“ (PDF 80 × 80 mm mit Schnittmarken, PNG oder SVG, mit Ihrem Design und Fahrzeugnamen, nur QR-Code) und „Drucken und zusenden lassen“.',
+        'Zugesandt bekommen Sie unseren neutralen Aufkleber mit QR-Code und NFC-Chip (8 × 8 cm, ohne Name und ohne Kennzeichen, mit Seriennummer). Er hat einen eigenen Code; Ihr bisheriger Code funktioniert weiter, bis Sie den neuen Aufkleber getestet haben, längstens 14 Tage nach dem Versand.',
         'Der erste zugesandte Aufkleber ist kostenlos (Willkommensdruck). Jeder weitere kostet 3 € einmalig inklusive Mehrwertsteuer und Versand. Er kommt in der Regel innerhalb weniger Werktage; die Sendungsnummer schicken wir Ihnen per E-Mail.',
         'Normales Papier hält Sonne, Regen und Waschanlage nicht lange stand. Wir empfehlen wetterfeste Polyester-Etiketten für Laserdrucker.',
       ],
@@ -248,7 +278,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
       summary:
         'The first printed decal with shipping is included; printing it yourself is always free.',
       body: [
-        'In your vehicle, “Print your decal” offers two ways: “Print it yourself – free” (PDF 80 × 80 mm with cut marks, PNG or SVG) and “Have it printed and sent”.',
+        'In your vehicle, “Print your decal” offers two ways: “Print it yourself – free” (PDF 80 × 80 mm with cut marks, PNG or SVG, with your design and vehicle name, QR code only) and “Have it printed and sent”.',
+        'We send you our neutral decal with QR code and NFC chip (8 × 8 cm, no name and no licence plate, with a serial number). It has a code of its own; your previous code keeps working until you have tested the new decal, at most 14 days after shipping.',
         'The first decal we send is free (welcome print). Each further one costs €3 once, VAT and shipping included. It usually arrives within a few working days; we e-mail you the tracking number.',
         'Ordinary paper does not stand up to sun, rain and car washes for long. We recommend weatherproof polyester labels for laser printers.',
       ],
@@ -262,7 +293,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       summary: 'Aufkleber verloren, Auto verkauft oder zu viele Fehlalarme? Sperren Sie den Code.',
       body: [
         'Im Fahrzeug tippen Sie auf „Sperren“ und bestätigen. Der alte Aufkleber funktioniert sofort nicht mehr. Ein neuer Code wird dabei nicht automatisch erstellt; Ihr Fahrzeug zeigt dann „Kein aktiver Code“.',
-        'Mit „Neuen Code erstellen“ bekommen Sie kostenlos einen neuen Code mit Ihrer bisherigen Gestaltung. Selbst drucken ist kostenlos, drucken und zusenden lassen kostet 3 € einmalig.',
+        'Mit „Neuen Code erstellen“ bekommen Sie einen neuen Code mit Ihrer bisherigen Gestaltung. Selbst drucken ist kostenlos; den gedruckten Aufkleber mit QR-Code und NFC-Chip zusenden lassen kostet 3 € einmalig.',
         'Haben wir einen Ersatz für Sie freigeschaltet, ist auch das Zusenden kostenlos.',
       ],
     },
@@ -271,7 +302,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       summary: 'Lost the decal, sold the car, too many false alarms? Block the code.',
       body: [
         'In your vehicle, tap “Block” and confirm. The old decal stops working at once. No new code is created automatically; your vehicle then shows “No active code”.',
-        '“Create a new code” gives you a new code with your previous design, free of charge. Printing it yourself is free; having it printed and sent costs €3 once.',
+        '“Create a new code” gives you a new code with your previous design. Printing it yourself is free; having the printed decal with QR code and NFC chip sent costs €3 once.',
         'If we have granted you a replacement, sending it is free too.',
       ],
     },
@@ -375,7 +406,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       title: 'Abo und Preis',
       summary: 'ParkShield kostet 19,99 € im Jahr inklusive Mehrwertsteuer, alles inklusive.',
       body: [
-        'ParkShield kostet 19,99 € pro Jahr und gilt für 1 Fahrzeug. Enthalten sind die Mitteilungen der App, die Erinnerung nach 10 Minuten, eine SMS nach 30 Minuten ohne Reaktion, Fotos bei Warnungen, der anonyme Chat und ein gedruckter Aufkleber mit Versand.',
+        'ParkShield kostet 19,99 € pro Jahr und gilt für 1 Fahrzeug. Enthalten sind die Mitteilungen der App, die Erinnerung nach 10 Minuten, eine SMS nach 30 Minuten ohne Reaktion, Fotos bei Warnungen, der anonyme Chat und ein gedruckter Aufkleber mit QR-Code und NFC-Chip inklusive Versand.',
         'Bezahlen können Sie mit Karte, SEPA-Lastschrift, PayPal oder Apple Pay. Die Rechnung finden Sie im Konto.',
         'Das Abo verlängert sich jeweils um ein Jahr, wenn Sie nicht vor Ende der Laufzeit kündigen.',
       ],
@@ -384,7 +415,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       title: 'Subscription and price',
       summary: 'ParkShield costs €19.99 a year including VAT, everything included.',
       body: [
-        'ParkShield costs €19.99 a year and covers 1 vehicle. It includes app notifications, a reminder after 10 minutes, one SMS after 30 minutes without a response, photos with alerts, the anonymous chat and one printed decal with shipping.',
+        'ParkShield costs €19.99 a year and covers 1 vehicle. It includes app notifications, a reminder after 10 minutes, one SMS after 30 minutes without a response, photos with alerts, the anonymous chat and one printed decal with QR code and NFC chip, shipping included.',
         'You can pay by card, SEPA direct debit, PayPal or Apple Pay. The invoice is in your account.',
         'The subscription renews for one year at a time unless you cancel before the end of the term.',
       ],

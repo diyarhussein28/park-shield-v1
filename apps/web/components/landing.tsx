@@ -210,11 +210,11 @@ function HeroVisual() {
         <div className="absolute left-1/2 top-[22%] w-[58%] -translate-x-1/2">
           <span className="absolute inset-0 animate-ping-ring rounded-xl bg-amber-300/40 [animation-delay:1.4s]" />
           <img
-            src="/images/decal-bold.svg"
+            src="/images/sticker-nfc.svg"
             alt=""
             width={320}
             height={320}
-            className="relative block w-full rotate-[-5deg] rounded-xl shadow-2xl shadow-black/50"
+            className="relative block w-full rotate-[-5deg] rounded-2xl shadow-2xl shadow-black/50"
           />
         </div>
       </div>
@@ -365,6 +365,64 @@ function HowItWorks() {
           <SectionHead id="demo" title={t('landing.demoTitle')} text={t('landing.demoIntro')} />
           <Reveal>
             <LandingDemo />
+          </Reveal>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const NFC_POINTS: { key: 'Qr' | 'Tap' | 'Safe'; icon: IconName }[] = [
+  { key: 'Qr', icon: 'qr' },
+  { key: 'Tap', icon: 'phone' },
+  { key: 'Safe', icon: 'shieldCheck' },
+];
+
+/** QR code and NFC chip on the printed sticker (2026-11-27), with the real sticker as the example. */
+function NfcSticker() {
+  const { t } = useI18n();
+  return (
+    <section id="nfc" aria-labelledby="nfc-title" className={`${WIDE} scroll-mt-20 py-20 sm:py-28`}>
+      <div className="grid items-center gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
+        <Reveal className="relative mx-auto w-full max-w-[22rem]">
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 -z-10 rounded-full bg-primary/20 blur-3xl"
+          />
+          <img
+            src="/images/sticker-nfc.svg"
+            alt={t('landing.nfcAlt')}
+            width={352}
+            height={352}
+            className="block w-full rotate-[-3deg] rounded-[1.75rem] shadow-2xl shadow-slate-900/30"
+          />
+        </Reveal>
+        <div>
+          <SectionHead
+            id="nfc-title"
+            eyebrow={t('landing.nfcEyebrow')}
+            title={t('landing.nfcTitle')}
+            text={t('landing.nfcText')}
+          />
+          <ul className="flex flex-col gap-4">
+            {NFC_POINTS.map(({ key, icon }, i) => (
+              <Reveal as="li" key={key} delay={i * 100}>
+                <div className="flex gap-4 rounded-2xl bg-surface p-5 ring-1 ring-border">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 text-white">
+                    <Icon name={icon} className="size-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-bold">
+                      {t(`landing.nfc${key}Title` as MessageKey)}
+                    </h3>
+                    <p className="text-muted">{t(`landing.nfc${key}Text` as MessageKey)}</p>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </ul>
+          <Reveal>
+            <p className="mt-5 text-sm text-muted">{t('landing.nfcNote')}</p>
           </Reveal>
         </div>
       </div>
@@ -719,7 +777,7 @@ function StickerCard() {
       <div className="flex h-full flex-col gap-5 rounded-3xl border border-border bg-surface p-7 sm:p-9">
         <div className="flex items-center gap-5">
           <img
-            src="/images/decal-classic.svg"
+            src="/images/sticker-nfc.svg"
             alt={t('landing.stickerAlt')}
             width={112}
             height={112}
@@ -756,7 +814,7 @@ function Faq() {
           </Link>
         </div>
         <div className="flex flex-col gap-3">
-          {[1, 2, 3, 4, 5].map((n) => (
+          {[1, 2, 3, 4, 5, 6].map((n) => (
             <Reveal key={n} delay={(n - 1) * 60}>
               <details className="group rounded-2xl border border-border bg-bg px-5 transition open:shadow-md">
                 <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 text-lg font-semibold">
@@ -818,6 +876,7 @@ export function Landing({ beRightBack = false }: { beRightBack?: boolean }) {
         <Hero />
         <Situations />
         <HowItWorks />
+        <NfcSticker />
         <Privacy />
         <OwnerApp beRightBack={beRightBack} />
         <Pricing />
