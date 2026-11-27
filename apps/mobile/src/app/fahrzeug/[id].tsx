@@ -277,6 +277,28 @@ function QrHero({ vehicle, headers }: { vehicle: PortalVehicle; headers: Record<
         </View>
       </View>
       <P muted>{pt('decal.homePdfHint')}</P>
+      {decal.changeOver && (
+        <View testID="change-over">
+          <Banner tone="info">
+            {[
+              `${t('changeOverTitle')}.`,
+              t('changeOverText'),
+              decal.changeOver.oldCodeUntil
+                ? t('changeOverUntil', {
+                    date: new Date(decal.changeOver.oldCodeUntil).toLocaleDateString(lang()),
+                  })
+                : t('changeOverPending'),
+            ].join(' ')}
+          </Banner>
+        </View>
+      )}
+      {decal.serial && (
+        <View testID="sticker-card">
+          <H3>{t('stickerCardTitle')}</H3>
+          <P>{t('stickerSerial', { serial: decal.serial })}</P>
+          <P muted>{t('stickerNfc')}</P>
+        </View>
+      )}
       <Collapsible title={t('decalGuideTitle')} testID="decal-guide">
         <WindscreenArt width={220} />
         {(['decalGuideStep1', 'decalGuideStep2', 'decalGuideStep3'] as const).map((k, i) => (

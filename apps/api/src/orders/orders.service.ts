@@ -36,7 +36,7 @@ import { VehiclesService } from '../vehicles/vehicles.service';
 import { vehicleLabelOk } from '../vehicles/vehicle-label';
 import { ProfileService } from '../profile/profile.service';
 import { returnUrls } from '../billing/app-return';
-import { ChangeOverService } from '../vehicles/change-over.service';
+import { ChangeOverService, OLD_CODE_GRACE_DAYS_DEFAULT } from '../vehicles/change-over.service';
 
 export const PRINT_TOPIC = 'print.submit';
 
@@ -95,6 +95,11 @@ export class OrdersService {
    * The print options screen: self-printing is always free; printing and shipping is free once (the
    * welcome print or an ops-granted replacement), then it costs `prices.print_shipped_cents`.
    */
+  /** Printed stickers come from our generic NFC stock (owner, 2026-11-27) instead of on demand. */
+  private async fromStock(): Promise<boolean> {
+    return (await this.settings.get('fulfillment.mode', 'on_demand')) === 'from_stock';
+  }
+
   async printOptions(userId: string, vehicleId: string) {
     // Only for the owner's own vehicle (404 otherwise, like every other vehicle route).
     const vehicle = await this.vehicles.get(userId, vehicleId);
@@ -112,13 +117,15 @@ export class OrdersService {
       this.profiles.postalAddress(userId),
     ]);
     const free = welcome || granted > 0;
+    const stock = await this.fromStock();
     return {
       selfPrint: { priceCents: 0 },
-      shipped: { priceCents: free ? 0 : price, free, welcomePrint: welcome },
+      // `stock`: the generic QR + NFC sticker from our stock (2026-11-27), no name or design printed.
+      shipped: { priceCents: free ? 0 : price, free, welcomePrint: welcome, stock },
       // B1: what will be printed (the confirmation step shows it before the order is placed).
       personalization: {
         label: vehicle.nickname,
-        labelValid: vehicleLabelOk(vehicle.nickname),
+        labelValid: stock || vehicleLabelOk(vehicle.nickname),
         template: design?.design_template_id ?? null,
         cta: design?.cta_header ?? null,
       },
@@ -189,7 +196,8 @@ export class OrdersService {
     await this.entitlements.require(userId);
     const { token, vehicle } = await this.vehicles.currentToken(userId, vehicleId);
     // B1: the vehicle label is printed on the sticker; it must be valid before anything is ordered.
-    if (!vehicleLabelOk(vehicle.nickname))
+    // The generic stock sticker prints no vehicle name: only an on-demand print checks it.
+    if (!(await this.fromStock()) && !vehicleLabelOk(vehicle.nickname))
       throw new UnprocessableEntityException({ error: 'label_invalid' });
     const design = this.snapshot(token, vehicle.nickname);
     const page = `${this.env.WEB_BASE_URL}/konto/fahrzeuge/${vehicleId}`;
@@ -354,7 +362,8 @@ export class OrdersService {
   ): Promise<{ id: string; url: string; priceCents: number }> {
     await this.entitlements.require(userId);
     const vehicle = await this.vehicles.get(userId, vehicleId);
-    if (!vehicleLabelOk(vehicle.nickname))
+    // The generic stock sticker prints no vehicle name: only an on-demand print checks it.
+    if (!(await this.fromStock()) && !vehicleLabelOk(vehicle.nickname))
       throw new UnprocessableEntityException({ error: 'label_invalid' });
     const e = await this.rules.eligibility(this.db, userId, vehicleId);
     if (!e.paidAvailable)
@@ -624,7 +633,13 @@ export class OrdersService {
       to: user.email,
       template: 'decal_shipped',
       locale: user.preferred_lang,
-      values: { nickname: item.nickname, trackingNumber },
+      values: {
+        nickname: item.nickname,
+        trackingNumber,
+        days: Number(
+          await this.settings.get('fulfillment.old_code_grace_days', OLD_CODE_GRACE_DAYS_DEFAULT),
+        ),
+      },
       actionUrl: `${this.env.WEB_BASE_URL}/app`,
     });
     return true;

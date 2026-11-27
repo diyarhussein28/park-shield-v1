@@ -163,7 +163,8 @@ export function newCodeDate(iso: string, locale: string): string {
 
 export interface PrintOptions {
   selfPrint: { priceCents: number };
-  shipped: { priceCents: number; free: boolean; welcomePrint: boolean };
+  /** `stock`: the generic QR + NFC sticker from our stock, no name or design printed (2026-11-27). */
+  shipped: { priceCents: number; free: boolean; welcomePrint: boolean; stock?: boolean };
   /** B1: what is printed on the decal (the vehicle label and the chosen design). */
   personalization?: { label: string; labelValid: boolean; template: DecalTemplate; cta: string };
   /** A7: the sign-up address, to prefill the shipping address. */
@@ -252,6 +253,10 @@ export interface PortalVehicle {
     activatedAt: string | null;
     lastTestAt: string | null;
     testWindowUntil: string | null;
+    /** In-house NFC stock sticker: its printed serial number, e.g. `PS-000001` (2026-11-27). */
+    serial?: string | null;
+    /** The old code still works until the new sticker is tested (deadline once it shipped). */
+    changeOver?: { oldCodeUntil: string | null } | null;
   } | null;
 }
 

@@ -67,6 +67,7 @@ export class VehiclesService {
               'activated_at',
               'last_test_at',
               'test_window_until',
+              'serial_no',
             ])
             .where('status', '<>', 'revoked')
             .orderBy('vehicle_id')
@@ -90,6 +91,24 @@ export class VehiclesService {
         't.activated_at',
         't.last_test_at',
         't.test_window_until',
+        't.serial_no',
+        // NFC stickers (2026-11-27): an older code that still works during a change-over.
+        (eb) =>
+          eb
+            .selectFrom('qr_tokens as o')
+            .select((e) => e.fn.countAll<string>().as('n'))
+            .whereRef('o.vehicle_id', '=', 'v.id')
+            .where('o.status', '=', 'assigned')
+            .whereRef('o.id', '<>', 't.id')
+            .as('oldCodes'),
+        (eb) =>
+          eb
+            .selectFrom('qr_tokens as o')
+            .select((e) => e.fn.min('o.retire_after').as('at'))
+            .whereRef('o.vehicle_id', '=', 'v.id')
+            .where('o.status', '=', 'assigned')
+            .whereRef('o.id', '<>', 't.id')
+            .as('oldCodeUntil'),
       ])
       .where('v.owner_user_id', '=', userId);
   }
@@ -116,6 +135,14 @@ export class VehiclesService {
             testWindowUntil:
               row.test_window_until && row.test_window_until > new Date()
                 ? row.test_window_until
+                : null,
+            // An in-house stock sticker: its printed serial number (`PS-000001`).
+            serial: row.serial_no === null ? null : `PS-${String(row.serial_no).padStart(6, '0')}`,
+            // Change-over: the old code still works until the new sticker is tested, at the latest
+            // until `oldCodeUntil` (null while the sticker is not shipped yet).
+            changeOver:
+              Number(row.oldCodes ?? 0) > 0
+                ? { oldCodeUntil: (row.oldCodeUntil as Date | null) ?? null }
                 : null,
           }
         : null,

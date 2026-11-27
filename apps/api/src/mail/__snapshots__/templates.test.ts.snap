@@ -903,7 +903,9 @@ exports[`mail templates > decal_shipped: snapshot in the shared layout (DE and E
 
 Ihr ParkShield-Aufkleber für „Der Blaue“ wurde versandt. Sendungsnummer: 00340434161234567890.
 
-Bringen Sie ihn nach der Ankunft an und testen Sie ihn einmal: erst dann ist Ihr Schutz vollständig.
+Bringen Sie ihn nach der Ankunft innen an der Scheibe an und testen Sie ihn einmal mit „Aufkleber testen“: erst dann ist Ihr Schutz vollständig.
+
+Hat der Aufkleber einen neuen Code, funktioniert Ihr bisheriger Code bis zu diesem Test weiter, höchstens 90 Tage nach dem Versand.
 
 Zum Fahrzeug: https://park-shield.de/x
 
@@ -931,7 +933,9 @@ exports[`mail templates > decal_shipped: snapshot in the shared layout (DE and E
 
 Your ParkShield decal for “Der Blaue” has been shipped. Tracking number: 00340434161234567890.
 
-Once it arrives, apply it and test it once: only then is your protection complete.
+Once it arrives, stick it on the inside of the window and test it once with “Test decal”: only then is your protection complete.
+
+If the decal has a new code, your current code keeps working until that test, at the latest 90 days after shipping.
 
 Open vehicle: https://park-shield.de/x
 

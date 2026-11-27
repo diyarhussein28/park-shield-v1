@@ -215,6 +215,8 @@ function Shipped({
   const label = p?.label ?? vehicle.nickname;
   const labelValid = p?.labelValid ?? true;
   const template = p?.template ?? vehicle.decal?.template;
+  // The generic QR + NFC sticker from our stock: no name, no design, a new code (2026-11-27).
+  const stock = options.shipped.stock === true;
   const preview = decalPreviewUrl(vehicle, p ? { template: p.template, cta: p.cta } : {});
 
   useEffect(() => {
@@ -249,8 +251,13 @@ function Shipped({
           <Text accessibilityRole="header" style={[typeScale.heading, { color: c.fg }]}>
             {t('printConfirmTitle')}
           </Text>
-          <P muted>{t('printConfirmIntro')}</P>
-          {preview && headers && (
+          <P muted>{stock ? t('printConfirmIntro') : t('printConfirmIntroOwn')}</P>
+          {stock && (
+            <View testID="ship-new-code">
+              <Banner tone="info">{t('printConfirmNewCode')}</Banner>
+            </View>
+          )}
+          {!stock && preview && headers && (
             <View style={[s.preview, { borderColor: c.border }]}>
               <Image
                 testID="ship-preview"
@@ -261,22 +268,24 @@ function Shipped({
               />
             </View>
           )}
-          <P>{t('printConfirmLabel', { label })}</P>
-          {template && (
+          {!stock && <P>{t('printConfirmLabel', { label })}</P>}
+          {!stock && template && (
             <P>
               {t('printConfirmDesign', {
                 design: pt(`decal.template_${template}` as MessageKey),
               })}
             </P>
           )}
-          <Button
-            variant="secondary"
-            label={t('printChangeDesign')}
-            onPress={() =>
-              router.push({ pathname: '/fahrzeug/design/[id]', params: { id: vehicle.id } })
-            }
-            testID="ship-design"
-          />
+          {!stock && (
+            <Button
+              variant="secondary"
+              label={t('printChangeDesign')}
+              onPress={() =>
+                router.push({ pathname: '/fahrzeug/design/[id]', params: { id: vehicle.id } })
+              }
+              testID="ship-design"
+            />
+          )}
           {!labelValid && (
             <>
               <Banner tone="err">{t('printLabelInvalid', { label })}</Banner>
@@ -293,7 +302,7 @@ function Shipped({
           <Text accessibilityRole="header" style={[typeScale.heading, { color: c.fg }]}>
             {t('printAddressTitle')}
           </Text>
-          {/* TODO [LEGAL REVIEW] § 312g Abs. 2 Nr. 1 BGB: no withdrawal right for the printed sticker. */}
+          {/* TODO [LEGAL REVIEW] LEGAL_REVIEW.md §16: the sticker's value on a withdrawal. */}
           <View testID="ship-notice">
             <Banner tone="info">{t('printPersonalNotice')}</Banner>
           </View>

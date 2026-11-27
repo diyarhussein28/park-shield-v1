@@ -256,7 +256,8 @@ const templates = {
       subject: 'Ihr Aufkleber ist unterwegs',
       lines: [
         'Ihr ParkShield-Aufkleber für „{nickname}“ wurde versandt. Sendungsnummer: {trackingNumber}.',
-        'Bringen Sie ihn nach der Ankunft an und testen Sie ihn einmal: erst dann ist Ihr Schutz vollständig.',
+        'Bringen Sie ihn nach der Ankunft innen an der Scheibe an und testen Sie ihn einmal mit „Aufkleber testen“: erst dann ist Ihr Schutz vollständig.',
+        'Hat der Aufkleber einen neuen Code, funktioniert Ihr bisheriger Code bis zu diesem Test weiter, höchstens {days} Tage nach dem Versand.',
       ],
       action: 'Zum Fahrzeug',
     },
@@ -731,7 +732,8 @@ const templates = {
       subject: 'Your decal is on its way',
       lines: [
         'Your ParkShield decal for “{nickname}” has been shipped. Tracking number: {trackingNumber}.',
-        'Once it arrives, apply it and test it once: only then is your protection complete.',
+        'Once it arrives, stick it on the inside of the window and test it once with “Test decal”: only then is your protection complete.',
+        'If the decal has a new code, your current code keeps working until that test, at the latest {days} days after shipping.',
       ],
       action: 'Open vehicle',
     },

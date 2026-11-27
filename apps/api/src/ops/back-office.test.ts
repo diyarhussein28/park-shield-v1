@@ -394,6 +394,10 @@ describe('tag lifecycle and FROM_STOCK fulfilment', () => {
     // The app shows the new code (newest by assignment) with the vehicle's own design.
     const vehicle = (await pub(c.s, 'GET', `/v1/vehicles/${c.v.id}`)).json();
     expect(vehicle.decal.codeHint).toBe(codes[0]!.slice(-4));
+    // Phase 4: the app shows the sticker's serial and that the old code still works (no deadline yet).
+    expect(vehicle.decal.serial).toMatch(/^PS-[0-9]{6}$/);
+    expect(vehicle.decal.changeOver).toEqual({ oldCodeUntil: null });
+    expect(vehicle.decal.template).toBe(c.v.decal.template);
     // A stock code is linked once only.
     expect(
       (await post(lager, `/ops/v1/orders/${orderId}/scan`, { scanned: codes[0]! })).statusCode,
@@ -437,6 +441,11 @@ describe('tag lifecycle and FROM_STOCK fulfilment', () => {
     const days = (+new Date(old.retire_after!) - Date.now()) / 86_400_000;
     expect(days).toBeGreaterThan(13.9);
     expect(days).toBeLessThan(14.01);
+    expect(
+      (await pub(c.s, 'GET', `/v1/vehicles/${c.v.id}`)).json().decal.changeOver.oldCodeUntil,
+    ).not.toBeNull();
+    // The shipping mail says how long the old code keeps working.
+    expect((await lastMail(h, 'decal_shipped'))?.text).toContain('höchstens 14 Tage');
 
     // The owner tests the new sticker: the old code stops at once.
     await pub(c.s, 'POST', `/v1/vehicles/${c.v.id}/test-window`);
@@ -459,6 +468,11 @@ describe('tag lifecycle and FROM_STOCK fulfilment', () => {
     expect((await h.app.inject({ method: 'GET', url: `/v1/scan/${codes[0]}` })).statusCode).toBe(
       200,
     );
+    expect((await pub(c.s, 'GET', `/v1/vehicles/${c.v.id}`)).json().decal.changeOver).toBeNull();
+    // From stock, the print options say so; the generic sticker prints no name, so none is checked.
+    const options = (await pub(c.s, 'GET', `/v1/vehicles/${c.v.id}/print-options`)).json();
+    expect(options.shipped.stock).toBe(true);
+    expect(options.personalization.labelValid).toBe(true);
   });
 
   it('change-over: deadline sweep, a returned parcel pauses it, „Sperren“ stops both codes', async () => {

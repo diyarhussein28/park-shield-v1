@@ -341,6 +341,33 @@ describe('vehicle detail', () => {
     expect(screen.getByText(pt('decalTest.never'))).toBeTruthy();
   });
 
+  it('NFC stock sticker: serial number and the change-over notice (2026-11-27)', async () => {
+    routes({
+      [`GET /v1/vehicles/${VEHICLE}`]: () =>
+        json(
+          vehicle({
+            decal: {
+              ...vehicle().decal!,
+              serial: 'PS-000042',
+              changeOver: { oldCodeUntil: '2026-12-11T12:00:00Z' },
+            },
+          }),
+        ),
+    });
+    await render(<VehicleDetail />);
+    expect(await screen.findByText(t('stickerSerial', { serial: 'PS-000042' }))).toBeTruthy();
+    expect(screen.getByTestId('change-over')).toBeTruthy();
+    expect(screen.getByText(t('changeOverTitle'), { exact: false })).toBeTruthy();
+  });
+
+  it('without a stock sticker there is no sticker card and no change-over notice', async () => {
+    routes();
+    await render(<VehicleDetail />);
+    await screen.findAllByTestId('decal-image');
+    expect(screen.queryByTestId('sticker-card')).toBeNull();
+    expect(screen.queryByTestId('change-over')).toBeNull();
+  });
+
   it('QR first with print and share; the guide is folded; the design is its own screen (P10)', async () => {
     routes();
     await render(<VehicleDetail />);
@@ -1100,6 +1127,17 @@ describe('print options', () => {
       'Bei einem Widerruf des Abos behalten wir den Wert des versandten Aufklebers ein.',
     );
     expect(screen.getByTestId('ship-design')).toBeTruthy();
+  });
+
+  it('stock sticker: the confirmation shows the generic sticker and the new code, no name or design', async () => {
+    routes({ priceCents: 0, free: true, welcomePrint: true, stock: true });
+    await render(<PrintScreen />);
+    await fireEvent.press(await screen.findByTestId('ship-start'));
+    expect(await screen.findByText(t('printConfirmIntro'))).toBeTruthy();
+    expect(screen.getByTestId('ship-new-code')).toBeTruthy();
+    expect(screen.queryByText(t('printConfirmLabel', { label: 'Der Blaue' }))).toBeNull();
+    expect(screen.queryByTestId('ship-design')).toBeNull();
+    expect(screen.queryByTestId('ship-preview')).toBeNull();
   });
 
   it('prefills the address and blocks the order while the vehicle label cannot be printed', async () => {

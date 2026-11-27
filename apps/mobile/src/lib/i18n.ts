@@ -562,6 +562,8 @@ const de = {
   printConfirmTitle: 'Aufkleber bestätigen',
   printConfirmIntro:
     'Sie bekommen unseren neutralen Aufkleber mit QR-Code und NFC-Chip: 8 × 8 cm, ohne Name und ohne Kennzeichen.',
+  // On-demand print (before stock exists): the customer's design and vehicle name.
+  printConfirmIntroOwn: 'So wird Ihr Aufkleber gedruckt:',
   printConfirmNewCode:
     'Er hat einen neuen Code. Ihr bisheriger Code funktioniert weiter, bis Sie den neuen Aufkleber mit „Aufkleber testen“ geprüft haben (spätestens 14 Tage nach dem Versand).',
   printConfirmLabel: 'Aufschrift: „{label}“',
@@ -1149,6 +1151,7 @@ const en: Record<Key, string> = {
   printConfirmTitle: 'Confirm your decal',
   printConfirmIntro:
     'You get our neutral decal with a QR code and an NFC chip: 8 × 8 cm, no name and no licence plate.',
+  printConfirmIntroOwn: 'This is how your decal will be printed:',
   printConfirmNewCode:
     'It has a new code. Your current code keeps working until you have checked the new decal with “Test decal” (at the latest 14 days after shipping).',
   printConfirmLabel: 'Text: “{label}”',
