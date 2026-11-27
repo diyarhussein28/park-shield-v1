@@ -72,8 +72,9 @@ const en: typeof de = {
   },
   landing: {
     heroTitle: 'Stay reachable. Stay private.',
-    heroText:
-      'Contact the driver – without a phone number. Anyone who sees a problem with your car scans the decal or holds a phone to it, and you hear about it at once in the ParkShield app.',
+    heroText: 'Contact the driver – without a phone number.',
+    heroDetail:
+      'Anyone who sees a problem with your car scans the decal or holds a phone to it, and you hear about it at once in the ParkShield app.',
     heroCta: 'Get ParkShield now',
     heroBadge: 'QR + NFC',
     heroPrice: '{price} / year',

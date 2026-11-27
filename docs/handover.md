@@ -1170,5 +1170,10 @@ the scanner does not), no vehicle label or serial in the notification, no logo i
 Ende des bezahlten Jahres kündbar“. Tests: E2E heading and button text updated (`sprint2.spec.ts`); a11y sweep
 (axe incl. contrast, 320 px, text spacing, keyboard) green.
 
+**Hero on phones (2026-11-28, owner screenshot):** badge, heading and the short line „Kontakt zum Fahrer – ohne
+Handynummer.“, then the windscreen photo with the sticker full width (notification inside the photo), then
+price, full-width yellow button and the checks. From 1024 px: text and button left, photo right; the longer
+`landing.heroDetail` shows there only.
+
 **Step 2 open:** the other pages (help centre, legal pages, `/app`, `/kuendigen`, `/widerrufen`, …): dark title
 band, light text area.

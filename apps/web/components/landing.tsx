@@ -190,10 +190,12 @@ function Hero() {
         className="-z-20 object-cover opacity-30"
       />
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[#050b1a] via-[#0a1430]/90 to-[#0a1430]" />
+      {/* Phones: heading, the photo, then price and button (owner mockup 2026-11-28). From 1024 px:
+          text and button on the left, the photo on the right. */}
       <div
-        className={`${WIDE} grid items-center gap-14 pb-16 pt-12 sm:pt-16 lg:grid-cols-[1.1fr_1fr] lg:pb-24 lg:pt-20`}
+        className={`${WIDE} grid gap-8 pb-12 pt-10 sm:pt-14 lg:grid-cols-[1.1fr_1fr] lg:grid-rows-[auto_auto] lg:gap-x-14 lg:gap-y-8 lg:pb-24 lg:pt-20`}
       >
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-5 lg:col-start-1 lg:row-start-1 lg:self-end">
           <p className="animate-fade-up flex flex-wrap items-center gap-3 text-base font-semibold text-slate-100">
             <span className="inline-flex items-center gap-2 rounded-full bg-amber-400 px-3.5 py-1.5 text-sm font-extrabold text-slate-950">
               <Icon name="qr" className="size-4" />
@@ -214,21 +216,29 @@ function Hero() {
               </>
             )}
           </h1>
-          <p className="animate-fade-up max-w-xl text-lg text-slate-200 [animation-delay:160ms] sm:text-xl">
+          <p className="animate-fade-up text-xl text-slate-100 [animation-delay:160ms] sm:text-2xl">
             {t('landing.heroText')}
           </p>
-          <PriceTag className="animate-fade-up [animation-delay:220ms]" />
-          <div className="animate-fade-up flex flex-wrap gap-3 [animation-delay:260ms]">
-            <Link href="/app" className={cx(btnYellow, 'min-h-14 px-8 text-lg')}>
+          <p className="animate-fade-up hidden max-w-xl text-lg text-slate-300 [animation-delay:180ms] lg:block">
+            {t('landing.heroDetail')}
+          </p>
+        </div>
+        <div className="-mx-4 sm:mx-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-center">
+          <HeroVisual />
+        </div>
+        <div className="flex flex-col items-center gap-5 text-center lg:col-start-1 lg:row-start-2 lg:items-start lg:self-start lg:text-left">
+          <PriceTag className="animate-fade-up justify-center [animation-delay:220ms] lg:justify-start" />
+          <div className="animate-fade-up flex w-full flex-col gap-3 [animation-delay:260ms] sm:w-auto sm:flex-row sm:flex-wrap">
+            <Link href="/app" className={cx(btnYellow, 'min-h-14 w-full px-8 text-lg sm:w-auto')}>
               {t('landing.heroCta')}
               <Icon name="arrowRight" className="size-5 transition group-hover:translate-x-1" />
             </Link>
-            <Link href="#demo" className={btnGhost}>
+            <Link href="#demo" className={cx(btnGhost, 'w-full sm:w-auto')}>
               <Icon name="play" className="size-4" />
               {t('landing.heroSecondary')}
             </Link>
           </div>
-          <ul className="animate-fade-up flex flex-wrap gap-x-6 gap-y-2 text-slate-100 [animation-delay:320ms]">
+          <ul className="animate-fade-up flex flex-wrap justify-center gap-x-5 gap-y-2 text-slate-100 [animation-delay:320ms] lg:justify-start">
             {keys('landing.heroPoint', 3).map((k) => (
               <li key={k} className="flex items-center gap-2">
                 <Icon name="check" className="size-5 text-emerald-400" strokeWidth={3} />
@@ -240,7 +250,6 @@ function Hero() {
             {t('landing.trust')}
           </p>
         </div>
-        <HeroVisual />
       </div>
       <Wave />
     </section>
@@ -251,13 +260,13 @@ function Hero() {
 function HeroVisual() {
   const { t } = useI18n();
   return (
-    <div aria-hidden="true" className="relative mx-auto w-full max-w-[28rem] select-none">
-      <div className="animate-fade-up relative aspect-[4/5] overflow-hidden rounded-[2rem] border border-white/15 shadow-2xl shadow-black/40 [animation-delay:200ms]">
+    <div aria-hidden="true" className="relative mx-auto w-full select-none sm:max-w-[28rem]">
+      <div className="animate-fade-up relative aspect-[4/5] overflow-hidden border-white/15 shadow-2xl shadow-black/40 [animation-delay:200ms] sm:rounded-[2rem] sm:border">
         <Image
           src={windscreenWeather}
           alt=""
           fill
-          sizes="(min-width: 1024px) 28rem, 90vw"
+          sizes="(min-width: 1024px) 28rem, (min-width: 640px) 28rem, 100vw"
           className="object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/10 via-slate-950/20 to-slate-950/70" />
@@ -275,7 +284,7 @@ function HeroVisual() {
         </div>
       </div>
 
-      <div className="animate-pop-in absolute -left-3 top-6 flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-emerald-900 shadow-xl [animation-delay:1.1s] sm:-left-8">
+      <div className="animate-pop-in absolute left-4 top-4 flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-emerald-900 shadow-xl [animation-delay:1.1s] sm:-left-8 sm:top-6">
         <span className="relative flex size-2.5">
           <span className="absolute inset-0 animate-ping-ring rounded-full bg-emerald-500 [animation-delay:1.7s]" />
           <span className="relative size-2.5 rounded-full bg-emerald-600" />
@@ -283,7 +292,7 @@ function HeroVisual() {
         {t('landing.heroStatus')}
       </div>
 
-      <div className="animate-pop-in absolute -bottom-6 -right-2 w-[88%] max-w-[20rem] [animation-delay:700ms] sm:-right-8">
+      <div className="animate-pop-in absolute inset-x-4 bottom-4 [animation-delay:700ms] sm:inset-x-auto sm:-bottom-6 sm:-right-8 sm:w-[88%] sm:max-w-[20rem]">
         <div className="animate-float rounded-2xl bg-white/95 p-4 text-slate-900 shadow-2xl ring-1 ring-black/5 backdrop-blur [animation-delay:1.4s]">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
             <LogoMark className="size-5" />

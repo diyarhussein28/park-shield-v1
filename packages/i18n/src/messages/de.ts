@@ -72,8 +72,9 @@ const de = {
   },
   landing: {
     heroTitle: 'Erreichbar bleiben. Privat bleiben.',
-    heroText:
-      'Kontakt zum Fahrer – ohne Handynummer. Wer ein Problem an Ihrem Auto sieht, scannt den Aufkleber oder hält das Handy daran, und Sie erfahren es sofort in der ParkShield-App.',
+    heroText: 'Kontakt zum Fahrer – ohne Handynummer.',
+    heroDetail:
+      'Wer ein Problem an Ihrem Auto sieht, scannt den Aufkleber oder hält das Handy daran, und Sie erfahren es sofort in der ParkShield-App.',
     heroCta: 'Jetzt ParkShield sichern',
     heroBadge: 'QR + NFC',
     heroPrice: '{price} / Jahr',
