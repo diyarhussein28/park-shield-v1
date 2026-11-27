@@ -4,6 +4,7 @@ import type { Env } from '../config/env';
 import type { Db } from '../core/core.module';
 import type { FieldCrypto } from '../core/crypto';
 import { sha256 } from '../core/crypto';
+import { SettingsService } from '../core/settings.service';
 import { CRYPTO, DB, ENV } from '../core/tokens';
 import { qrSvg } from '../letters/qr';
 import { TagsService } from '../vehicles/tags.service';
@@ -12,6 +13,9 @@ import { serialLabel } from './fulfilment.service';
 import { StaffService, type StaffContext } from './staff.service';
 
 export type NfcMethod = 'web_nfc' | 'nfc_tools';
+
+/** Warn when fewer stickers than this are ready to pack (owner default, 2026-11-27). */
+export const LOW_STOCK_DEFAULT = 50;
 
 /** Chip UIDs come as `04:A1:…` (NFC Tools) or `04:a1:…` (Web NFC): compared as plain lower-case hex. */
 export const normalizeUid = (uid: string) => uid.replace(/[^0-9a-f]/gi, '').toLowerCase();
@@ -38,7 +42,77 @@ export class StickersService {
     @Inject(StaffService) private readonly staff: StaffService,
     @Inject(TokensService) private readonly tokens: TokensService,
     @Inject(TagsService) private readonly tags: TagsService,
+    @Inject(SettingsService) private readonly settings: SettingsService,
   ) {}
+
+  /**
+   * Phase 5 (2026-11-27): the in-house stock at a glance. `ready` = in stock with a locked chip;
+   * `low` when it is below `stock.low_threshold`. Counts only, no codes.
+   */
+  async stats() {
+    const r = await sql<Record<string, string>>`
+      SELECT count(*) FILTER (WHERE t.status = 'in_stock') AS in_stock,
+             count(*) FILTER (WHERE t.status = 'in_stock' AND n.written_at IS NULL) AS not_written,
+             count(*) FILTER (WHERE t.status = 'in_stock' AND n.written_at IS NOT NULL
+                                AND n.locked_at IS NULL) AS not_locked,
+             count(*) FILTER (WHERE t.status = 'in_stock' AND n.locked_at IS NOT NULL) AS ready,
+             count(*) FILTER (WHERE t.status = 'assigned') AS assigned,
+             count(*) FILTER (WHERE t.status = 'assigned' AND EXISTS (
+                 SELECT 1 FROM qr_tokens o WHERE o.vehicle_id = t.vehicle_id AND o.id <> t.id
+                    AND o.status = 'assigned')) AS change_over,
+             count(*) FILTER (WHERE t.status = 'revoked' AND t.revoke_reason = 'damaged') AS damaged,
+             count(*) FILTER (WHERE t.status = 'revoked' AND t.revoke_reason = 'batch_lost') AS lost,
+             count(*) FILTER (WHERE t.status = 'revoked') AS revoked
+        FROM qr_tokens t
+        JOIN token_batches b ON b.id = t.batch_id AND b.kind = 'inhouse_nfc'
+        LEFT JOIN nfc_tags n ON n.qr_token_id = t.id`.execute(this.db);
+    const row = r.rows[0] ?? {};
+    const num = (k: string) => Number(row[k] ?? 0);
+    const threshold = Number(await this.settings.get('stock.low_threshold', LOW_STOCK_DEFAULT));
+    return {
+      inStock: num('in_stock'),
+      notWritten: num('not_written'),
+      notLocked: num('not_locked'),
+      ready: num('ready'),
+      assigned: num('assigned'),
+      inChangeOver: num('change_over'),
+      damaged: num('damaged'),
+      lost: num('lost'),
+      revoked: num('revoked'),
+      lowThreshold: threshold,
+      low: num('ready') < threshold,
+    };
+  }
+
+  /**
+   * A batch was lost or stolen before packing: every sticker of it still in stock stops working for
+   * good (its codes are printed and could be misused). Packed stickers are not touched.
+   */
+  async revokeBatch(by: StaffContext, batchId: string, note: string) {
+    const b = await this.db
+      .selectFrom('token_batches')
+      .select('kind')
+      .where('id', '=', batchId)
+      .executeTakeFirst();
+    if (!b) throw new NotFoundException({ error: 'batch_not_found' });
+    if (b.kind !== 'inhouse_nfc') throw new ConflictException({ error: 'not_inhouse_batch' });
+    const revoked = await this.db.transaction().execute(async (trx) => {
+      const stock = await trx
+        .selectFrom('qr_tokens')
+        .select('id')
+        .where('batch_id', '=', batchId)
+        .where('status', '=', 'in_stock')
+        .execute();
+      for (const t of stock)
+        await this.tags.transition(trx, t.id, 'revoked', 'admin', 'batch_lost');
+      return stock.length;
+    });
+    await this.staff.audit(by.userId, 'batch.revoke_stock', 'token_batches', batchId, {
+      revoked,
+      note,
+    });
+    return { revoked };
+  }
 
   private base() {
     return this.db

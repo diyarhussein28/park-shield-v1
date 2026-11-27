@@ -262,13 +262,28 @@ describe('dashboard overview', () => {
     });
     expect(o.alerts).toMatchObject({ today: expect.any(Number), last7Days: expect.any(Number) });
     // support has neither dsr.process, orders.manage, settings.edit nor pii.decrypt_approve
-    expect(o).toMatchObject({ dsr: null, orders: null, providers: null, breakGlass: null });
+    expect(o).toMatchObject({
+      dsr: null,
+      orders: null,
+      providers: null,
+      breakGlass: null,
+      stock: null,
+    });
 
     const admin = await staffSession('admin-overview@parkshield.de', ['admin', 'abuse_moderator']);
     const all = (
       await ops.inject({ method: 'GET', url: '/ops/v1/overview', headers: admin.headers })
     ).json();
-    for (const area of ['customers', 'alerts', 'dsr', 'abuse', 'review', 'orders', 'breakGlass']) {
+    for (const area of [
+      'customers',
+      'alerts',
+      'dsr',
+      'abuse',
+      'review',
+      'orders',
+      'breakGlass',
+      'stock',
+    ]) {
       expect(all[area], area).not.toBeNull();
     }
 

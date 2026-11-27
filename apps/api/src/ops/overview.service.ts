@@ -5,6 +5,7 @@ import { DB } from '../core/tokens';
 import { StaffOnly } from './access';
 import { CurrentStaff } from './staff.guard';
 import { StaffService, type StaffContext } from './staff.service';
+import { StickersService } from './stickers.service';
 
 /** One count per area; null where the staff member lacks the permission for that area. */
 export interface Overview {
@@ -21,6 +22,7 @@ export interface Overview {
   orders: { toProduce: number; inProduction: number } | null;
   breakGlass: { waitingForApproval: number } | null;
   providers: { warnings: number; critical: number } | null;
+  stock: { ready: number; low: boolean } | null;
 }
 
 const n = (v: unknown) => Number(v ?? 0);
@@ -34,6 +36,7 @@ export class OverviewService {
   constructor(
     @Inject(DB) private readonly db: Db,
     @Inject(StaffService) private readonly staff: StaffService,
+    @Inject(StickersService) private readonly stickers: StickersService,
   ) {}
 
   async overview(by: StaffContext): Promise<Overview> {
@@ -94,6 +97,7 @@ export class OverviewService {
           : null,
       ]);
 
+    const stock = can('tokens.manage') ? await this.stickers.stats() : null;
     await this.staff.auditRead(by.userId, 'ops.overview_view', 'overview', null);
     return {
       customers: customers
@@ -116,6 +120,7 @@ export class OverviewService {
       review: review ? { pending: n(review.pending) } : null,
       orders: orders ? { toProduce: n(orders.paid), inProduction: n(orders.production) } : null,
       breakGlass: breakGlass ? { waitingForApproval: n(breakGlass.waiting) } : null,
+      stock: stock ? { ready: stock.ready, low: stock.low } : null,
       providers: providers
         ? { warnings: n(providers.warning), critical: n(providers.critical) }
         : null,

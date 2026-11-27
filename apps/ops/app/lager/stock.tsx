@@ -5,6 +5,7 @@ import {
   Badge,
   Button,
   Card,
+  Checkbox,
   Field,
   Heading,
   Input,
@@ -20,6 +21,30 @@ import { opsApi } from '@/lib/api';
 import { fmt } from '@/lib/format';
 import type { StaffMe } from '@/lib/server';
 import type { Batches } from '../partner/partners';
+
+export interface Stats {
+  inStock: number;
+  notWritten: number;
+  notLocked: number;
+  ready: number;
+  assigned: number;
+  inChangeOver: number;
+  damaged: number;
+  lost: number;
+  revoked: number;
+  lowThreshold: number;
+  low: boolean;
+}
+
+const STAT_KEYS = [
+  'ready',
+  'notWritten',
+  'notLocked',
+  'assigned',
+  'inChangeOver',
+  'damaged',
+  'lost',
+] as const;
 
 interface Found {
   stickers: {
@@ -39,7 +64,15 @@ const MAX_ZIP = 2000;
  * ourselves. Each sticker has a printed serial number; the production export (CSV, QR images) holds
  * every code of the batch, so it needs its own permission and is audited.
  */
-export function StockView({ me, batches: b0 }: { me: StaffMe; batches: Batches | null }) {
+export function StockView({
+  me,
+  batches: b0,
+  stats: s0,
+}: {
+  me: StaffMe;
+  batches: Batches | null;
+  stats: Stats | null;
+}) {
   const { t, locale } = useI18n();
   const inhouse = (list: Batches['batches']) => list.filter((b) => b.kind === 'inhouse_nfc');
   const [batches, setBatches] = useState(inhouse(b0?.batches ?? []));
@@ -47,6 +80,8 @@ export function StockView({ me, batches: b0 }: { me: StaffMe; batches: Batches |
   const [nb, setNb] = useState({ quantity: '100', note: '' });
   const [q, setQ] = useState('');
   const [found, setFound] = useState<Found['stickers'] | null>(null);
+  const [stats, setStats] = useState(s0);
+  const [lost, setLost] = useState<{ id: string; sure: boolean; note: string } | null>(null);
   const canExport = me.permissions.includes('tokens.export');
 
   async function run(fn: () => Promise<unknown>, ok: string) {
@@ -54,6 +89,7 @@ export function StockView({ me, batches: b0 }: { me: StaffMe; batches: Batches |
     try {
       await fn();
       setBatches(inhouse((await opsApi<Batches>('/ops/v1/batches')).batches));
+      setStats(await opsApi<Stats>('/ops/v1/stickers/stats'));
       setMsg({ tone: 'success', text: ok });
       return true;
     } catch {
@@ -75,6 +111,28 @@ export function StockView({ me, batches: b0 }: { me: StaffMe; batches: Batches |
     <OpsShell me={me} title={t('opsStock.title')} intro={t('opsStock.intro')}>
       <Stack gap={6}>
         {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
+        {stats && (
+          <Card>
+            <Stack gap={3}>
+              <Heading level={2} className="text-xl">
+                {t('opsStock.statsTitle')}
+              </Heading>
+              {stats.low && (
+                <Notice tone="warning">
+                  {t('opsStock.lowStock', { ready: stats.ready, threshold: stats.lowThreshold })}
+                </Notice>
+              )}
+              <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {STAT_KEYS.map((k) => (
+                  <div key={k} className="rounded-xl border border-border p-3">
+                    <dt className="text-sm text-muted">{t(`opsStock.stat_${k}` as MessageKey)}</dt>
+                    <dd className="text-2xl font-bold">{stats[k]}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Stack>
+          </Card>
+        )}
         <Card>
           <Stack gap={3}>
             <Heading level={2} className="text-xl">
@@ -202,7 +260,60 @@ export function StockView({ me, batches: b0 }: { me: StaffMe; batches: Batches |
                           <span className="sr-only"> ({range})</span>
                         </Button>
                       )}
+                      {canExport && lost?.id !== b.id && (
+                        <Button
+                          variant="ghost"
+                          onClick={() => setLost({ id: b.id, sure: false, note: '' })}
+                        >
+                          {t('opsStock.lostOpen')}
+                          <span className="sr-only"> ({range})</span>
+                        </Button>
+                      )}
                     </div>
+                    {lost?.id === b.id && (
+                      <form
+                        className="flex flex-col gap-3 rounded-xl border border-border p-3"
+                        aria-label={t('opsStock.lostTitle', { range })}
+                        onSubmit={async (e: FormEvent) => {
+                          e.preventDefault();
+                          const ok = await run(
+                            () =>
+                              opsApi<{ revoked: number }>(`/ops/v1/batches/${b.id}/revoke-stock`, {
+                                body: { confirm: true, note: lost.note },
+                              }),
+                            t('opsStock.lostDone'),
+                          );
+                          if (ok) setLost(null);
+                        }}
+                      >
+                        <Notice tone="warning">{t('opsStock.lostWarning')}</Notice>
+                        <Field label={t('opsStock.lostNote')}>
+                          {({ id }) => (
+                            <Input
+                              id={id}
+                              required
+                              minLength={3}
+                              maxLength={200}
+                              value={lost.note}
+                              onChange={(e) => setLost({ ...lost, note: e.target.value })}
+                            />
+                          )}
+                        </Field>
+                        <Checkbox
+                          label={t('opsStock.lostConfirm')}
+                          checked={lost.sure}
+                          onChange={(e) => setLost({ ...lost, sure: e.target.checked })}
+                        />
+                        <div className="flex flex-wrap gap-3">
+                          <Button type="submit" disabled={!lost.sure}>
+                            {t('opsStock.lostSubmit')}
+                          </Button>
+                          <Button variant="ghost" onClick={() => setLost(null)}>
+                            {t('opsStock.lostCancel')}
+                          </Button>
+                        </div>
+                      </form>
+                    )}
                   </li>
                 );
               })}

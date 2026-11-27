@@ -27,6 +27,7 @@ import { WithdrawalsService } from '../legal/withdrawals.service';
 import { AuditStreamService } from './audit.service';
 import { ProviderHealthService } from './provider-health.service';
 import { StaffService } from './staff.service';
+import { SettingsService } from '../core/settings.service';
 import { ChangeOverService } from '../vehicles/change-over.service';
 
 let h: Harness;
@@ -789,6 +790,84 @@ describe('NFC chip of an in-house sticker (phase 2, 2026-11-27)', () => {
       unknown
     >[];
     expect(listed.find((x) => x.id === batch.json().id)).toMatchObject({ ready: 1 });
+  });
+});
+
+describe('stock overview and a lost batch (phase 5, 2026-11-27)', () => {
+  it('counts the stock, warns below the threshold, revokes a lost batch but not packed stickers', async () => {
+    await setSetting(h, 'fulfillment.mode', 'from_stock');
+    const lager = await staffAs(['fulfillment']);
+    const admin = await staffAs(['admin']);
+    const stats = async () => (await get(lager, '/ops/v1/stickers/stats')).json();
+    // The ops process has its own settings cache.
+    const opsSetting = async (key: string, value: unknown) => {
+      await setSetting(h, key, value);
+      ops.get(SettingsService).invalidate();
+    };
+    const before = await stats();
+    const batch = await post(lager, '/ops/v1/batches/inhouse', { quantity: 4 });
+    const batchId = batch.json().id as string;
+    const codes = (
+      await h.app.inject({ method: 'GET', url: `/v1/dev/batches/${batchId}/codes` })
+    ).json().codes as string[];
+    await readySticker(lager, codes[0]!);
+    await readySticker(lager, codes[1]!);
+    const third = await stickerOf(lager, codes[2]!);
+    await post(lager, `/ops/v1/stickers/${third.id}/nfc/written`, { method: 'nfc_tools' });
+
+    const after = await stats();
+    expect(after.ready - before.ready).toBe(2);
+    expect(after.notLocked - before.notLocked).toBe(1);
+    expect(after.notWritten - before.notWritten).toBe(1);
+    expect(after.lowThreshold).toBe(50);
+
+    // The warning follows the setting; the dashboard shows it to staff with tokens.manage.
+    await opsSetting('stock.low_threshold', after.ready + 1);
+    expect((await stats()).low).toBe(true);
+    expect((await get(lager, '/ops/v1/overview')).json().stock).toEqual({
+      ready: after.ready,
+      low: true,
+    });
+    await opsSetting('stock.low_threshold', 0);
+    expect((await stats()).low).toBe(false);
+
+    // One sticker is packed; then the batch is lost: the rest stops working, the packed one not.
+    const c = await customer('verloren@example.de');
+    const orderId = await includedOrder(c);
+    expect(
+      (await post(lager, `/ops/v1/orders/${orderId}/scan`, { scanned: codes[0]! })).statusCode,
+    ).toBe(200);
+    // Admin only, with the explicit confirmation.
+    expect(
+      (await post(lager, `/ops/v1/batches/${batchId}/revoke-stock`, { confirm: true, note: 'weg' }))
+        .statusCode,
+    ).toBe(403);
+    expect(
+      (await post(admin, `/ops/v1/batches/${batchId}/revoke-stock`, { note: 'Paket verloren' }))
+        .statusCode,
+    ).toBe(400);
+    const lost = await post(admin, `/ops/v1/batches/${batchId}/revoke-stock`, {
+      confirm: true,
+      note: 'Paket verloren',
+    });
+    expect(lost.json()).toEqual({ revoked: 3 });
+    const scan = (code: string) =>
+      h.app.inject({ method: 'GET', url: `/v1/scan/${code}` }).then((r) => r.statusCode);
+    expect(await scan(codes[0]!)).toBe(200);
+    expect([await scan(codes[1]!), await scan(codes[2]!), await scan(codes[3]!)]).toEqual([
+      404, 404, 404,
+    ]);
+    const final = await stats();
+    expect(final.lost - after.lost).toBe(3);
+    expect(final.assigned - after.assigned).toBe(1);
+    expect(
+      await h.db
+        .selectFrom('audit_logs')
+        .select('action')
+        .where('actor_id', '=', admin.userId)
+        .where('entity_id', '=', batchId)
+        .execute(),
+    ).toEqual([{ action: 'batch.revoke_stock' }]);
   });
 });
 

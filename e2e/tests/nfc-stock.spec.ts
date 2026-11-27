@@ -54,6 +54,35 @@ test.describe('Aufkleber-Lager', () => {
     ).json()) as { codes: string[] };
     expect((await request.get(`${API_URL}/v1/scan/${codes[0]}`)).status()).toBe(404);
     expect((await request.get(`${API_URL}/v1/claim/${codes[0]}`)).status()).toBe(404);
+
+    // Phase 5: the stock card, and a lost batch revoked only after the explicit confirmation.
+    await admin.goto('/lager');
+    await admin.waitForLoadState('networkidle');
+    await expect(admin.getByRole('heading', { level: 2, name: 'Bestand' })).toBeVisible();
+    const again = admin
+      .getByRole('list', { name: 'Chargen' })
+      .getByRole('listitem')
+      .filter({ hasText: note });
+    await again.getByRole('button', { name: /^Charge verloren\?/ }).click();
+    const lostForm = admin.getByRole('form', { name: /^Charge .+ als verloren sperren$/ });
+    await lostForm.getByLabel('Was ist passiert?').fill('Paket beim Versand verloren');
+    const submit = lostForm.getByRole('button', { name: 'Charge sperren' });
+    await expect(submit).toBeDisabled();
+    await expectAccessible(admin);
+    await lostForm
+      .getByLabel(
+        'Ich habe verstanden, dass das Sperren der Charge nicht rückgängig zu machen ist.',
+      )
+      .check();
+    await submit.click();
+    await expect(
+      admin.getByText('Die Aufkleber dieser Charge im Lager sind gesperrt.'),
+    ).toBeVisible();
+    const revoked = await sql(
+      `SELECT count(*)::int AS n FROM qr_tokens WHERE batch_id = $1 AND revoke_reason = 'batch_lost'`,
+      [b.id],
+    );
+    expect(revoked[0].n).toBe(2);
   });
 
   test('fulfilment staff create and print batches but cannot download the production files', async ({

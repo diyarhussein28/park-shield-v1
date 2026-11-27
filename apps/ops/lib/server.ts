@@ -39,4 +39,6 @@ export interface Overview {
   orders: { toProduce: number; inProduction: number } | null;
   breakGlass: { waitingForApproval: number } | null;
   providers: { warnings: number; critical: number } | null;
+  /** In-house NFC stickers ready to pack, and whether that is below `stock.low_threshold`. */
+  stock?: { ready: number; low: boolean } | null;
 }

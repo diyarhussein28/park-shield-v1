@@ -159,6 +159,8 @@ export const SETTINGS: Record<string, Def> = {
   },
   // Days the old code keeps working after a stock sticker was shipped (2026-11-27).
   'fulfillment.old_code_grace_days': { group: 'contracts', schema: int(1, 60), default: 14 },
+  // Warn in ops when fewer in-house stickers than this are ready to pack (2026-11-27).
+  'stock.low_threshold': { group: 'contracts', schema: int(0, 100000), default: 50 },
 
   'health.sms_failure_pct': { group: 'health', schema: int(1, 100), default: 5 },
   'health.email_failure_pct': { group: 'health', schema: int(1, 100), default: 5 },

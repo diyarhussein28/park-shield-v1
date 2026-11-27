@@ -144,6 +144,11 @@ const Batch = z.object({
   quantity: z.number().int().min(1).max(MAX_BATCH),
   note: z.string().trim().max(200).optional(),
 });
+// Revoking a whole batch is irreversible: the page sends it only after an explicit confirmation.
+const RevokeStock = z.object({
+  confirm: z.literal(true),
+  note: z.string().trim().min(3).max(200),
+});
 const InhouseBatch = z.object({
   quantity: z.number().int().min(1).max(MAX_INHOUSE_BATCH),
   note: z.string().trim().max(200).optional(),
@@ -178,6 +183,13 @@ export class OpsStickersController {
   @RequirePermission('tokens.manage')
   search(@Query(new ZodPipe(StickerQuery)) query: z.infer<typeof StickerQuery>) {
     return this.s.search(query.q);
+  }
+
+  /** Phase 5: the stock at a glance (counts only). Declared before `:id`. */
+  @Get('stats')
+  @RequirePermission('tokens.manage')
+  stats() {
+    return this.s.stats();
   }
 
   @Get(':id')
@@ -240,7 +252,10 @@ export class OpsStickersController {
 /** US-39: partners and pre-printed batches (AD-07). */
 @Controller('ops/v1')
 export class OpsPartnersController {
-  constructor(@Inject(FulfilmentService) private readonly f: FulfilmentService) {}
+  constructor(
+    @Inject(FulfilmentService) private readonly f: FulfilmentService,
+    @Inject(StickersService) private readonly stickers: StickersService,
+  ) {}
 
   /** Fulfilment picks a partner for a batch without being allowed to edit partners. */
   @Get('partners')
@@ -343,6 +358,18 @@ export class OpsPartnersController {
       await this.f.batchPrintFile(me, id),
       `parkshield-batch-${id.slice(0, 8)}.pdf`,
     );
+  }
+
+  /** A lost or stolen in-house batch: every sticker still in stock stops working (admin). */
+  @Post('batches/:id/revoke-stock')
+  @HttpCode(200)
+  @RequirePermission('tokens.export')
+  revokeStock(
+    @CurrentStaff() me: StaffContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(RevokeStock)) body: z.infer<typeof RevokeStock>,
+  ) {
+    return this.stickers.revokeBatch(me, id, body.note);
   }
 
   @Post('batches/:id/printed')

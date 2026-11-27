@@ -59,6 +59,13 @@ export function Dashboard({ me, overview: o }: { me: StaffMe; overview: Overview
       text: t('ops.todoReview', { count: o.review.pending }),
       tone: 'info',
     });
+  if (o?.stock?.low)
+    todos.push({
+      href: '/lager',
+      icon: 'layers',
+      text: t('ops.todoStockLow', { count: o.stock.ready }),
+      tone: 'warning',
+    });
   if (o?.orders?.toProduce)
     todos.push({
       href: '/bestellungen',
@@ -99,6 +106,14 @@ export function Dashboard({ me, overview: o }: { me: StaffMe; overview: Overview
       label: t('ops.kpiInProduction'),
       value: o.orders.inProduction,
       href: '/bestellungen',
+    });
+  }
+  if (o?.stock) {
+    kpis.push({
+      label: t('ops.kpiStockReady'),
+      value: o.stock.ready,
+      href: '/lager',
+      emphasis: o.stock.low,
     });
   }
 
