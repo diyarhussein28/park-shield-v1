@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { FIXED_SENTENCE, headline, layoutDecal, type Primitive } from './layout';
 import { BLEED_MM, renderHomePdf, renderPrintPdf } from './pdf';
 import { renderSvg } from './svg';
+import { layoutStockSticker } from './stock-sticker';
 
 const base = {
   code: 'K7QX4M2R9T',
@@ -56,32 +57,68 @@ describe('decal layout (US-10)', () => {
     }
   }
 
-  it('in-house NFC sticker: generic, the serial under the QR code and the tap line (2026-11-27)', () => {
-    const spec = layoutDecal({
-      ...base,
-      template: 'classic',
-      product: 'uv_vinyl_sticker',
-      serial: 'PS-000042',
-      nfc: true,
-    });
-    const texts = spec.primitives.filter((p) => p.kind === 'text').map((p) => p.text);
-    expect(texts).toContain('PS-000042');
-    expect(texts).toContain('Scannen oder Handy anhalten – ohne App');
-    const qr = spec.primitives.find((p) => p.kind === 'qr')!;
-    expect(decode(qr as Extract<Primitive, { kind: 'qr' }>)).toBe('https://pkshd.de/s/K7QX4M2R9T');
-    for (const p of spec.primitives)
-      if (p.kind === 'text') expect(p.x + p.width).toBeLessThanOrEqual(spec.width - 3);
-    // A vehicle label (personalised decal) wins over the serial.
+  it('a vehicle label is printed under the QR code', () => {
     const named = layoutDecal({
       ...base,
       template: 'classic',
       product: 'uv_vinyl_sticker',
       label: 'Dodo',
-      serial: 'PS-000042',
     });
     const namedTexts = named.primitives.filter((p) => p.kind === 'text').map((p) => p.text);
     expect(namedTexts).toContain('Dodo');
-    expect(namedTexts).not.toContain('PS-000042');
+  });
+
+  it('in-house NFC stock sticker: owner design, serial, QR decodes, everything inside the safe area', async () => {
+    for (const host of ['https://park-shield.de', 'https://test.park-shield.de']) {
+      const spec = layoutStockSticker({
+        code: 'K7QX4M2R9T',
+        scannerBaseUrl: host,
+        serial: 'PS-000042',
+      });
+      expect(spec).toMatchObject({ width: 80, height: 80 });
+      const qr = spec.primitives.find((p) => p.kind === 'qr')!;
+      expect(decode(qr as Extract<Primitive, { kind: 'qr' }>)).toBe(`${host}/s/K7QX4M2R9T`);
+      const texts = spec.primitives.filter((p) => p.kind === 'text').map((p) => p.text);
+      for (const t of [
+        'PS-000042',
+        'FAHRER KONTAKTIEREN',
+        'NFC',
+        'Handy anhalten',
+        'Ohne App · anonym',
+      ])
+        expect(texts).toContain(t);
+      expect(texts).toContain(new URL(host).host); // SC-15: the domain on the decal
+      expect(texts).toContain(FIXED_SENTENCE);
+      for (const p of spec.primitives)
+        if (p.kind === 'text') {
+          expect(p.x).toBeGreaterThanOrEqual(3);
+          expect(p.x + p.width).toBeLessThanOrEqual(77);
+          expect(p.y).toBeLessThanOrEqual(77);
+        }
+      // No logo or anything else drawn over the QR code.
+      const q = qr as Extract<Primitive, { kind: 'qr' }>;
+      const overlaps = spec.primitives.filter(
+        (p) =>
+          p !== qr &&
+          'x' in p &&
+          p.kind !== 'rect' &&
+          p.kind !== 'path' &&
+          p.x < q.x + q.size &&
+          p.x + ('width' in p ? p.width : 0) > q.x &&
+          p.y > q.y &&
+          p.y < q.y + q.size,
+      );
+      expect(overlaps).toEqual([]);
+    }
+    const pdf = await renderPrintPdf(
+      layoutStockSticker({
+        code: 'K7QX4M2R9T',
+        scannerBaseUrl: 'https://park-shield.de',
+        serial: 'PS-000042',
+      }),
+      'test',
+    );
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
   });
 
   it('sizes the vinyl sticker at 8 × 8 cm and the dashboard card at A6', () => {

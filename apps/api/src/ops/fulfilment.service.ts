@@ -15,6 +15,7 @@ import { CRYPTO, DB, ENV } from '../core/tokens';
 import type { OrderStatus, PartnerKind } from '../db/types.generated';
 import { layoutDecal } from '../decal/layout';
 import { renderPrintBatchPdf } from '../decal/pdf';
+import { layoutStockSticker } from '../decal/stock-sticker';
 import { qrPng, qrSvg } from '../letters/qr';
 import { zip } from '../letters/zip';
 import { MailService } from '../mail/mail.service';
@@ -636,17 +637,22 @@ export class FulfilmentService {
       .orderBy('created_at')
       .execute();
     if (!tokens.length) throw new NotFoundException({ error: 'batch_empty' });
-    // In-house stickers get the generic design (owner, 2026-11-27) with the serial and the NFC line.
+    // In-house NFC stickers get the owner's generic design with their serial (2026-11-27);
+    // partner batches keep the decal templates.
     const specs = tokens.map((t) =>
-      layoutDecal({
-        code: this.tokens.decrypt(t.code_enc),
-        scannerBaseUrl: this.env.SCANNER_BASE_URL,
-        template: t.design_template_id as DecalTemplate,
-        cta: t.cta_header,
-        product: 'uv_vinyl_sticker',
-        serial: t.serial_no === null ? null : serialLabel(t.serial_no),
-        nfc: t.serial_no !== null,
-      }),
+      t.serial_no !== null
+        ? layoutStockSticker({
+            code: this.tokens.decrypt(t.code_enc),
+            scannerBaseUrl: this.env.SCANNER_BASE_URL,
+            serial: serialLabel(t.serial_no),
+          })
+        : layoutDecal({
+            code: this.tokens.decrypt(t.code_enc),
+            scannerBaseUrl: this.env.SCANNER_BASE_URL,
+            template: t.design_template_id as DecalTemplate,
+            cta: t.cta_header,
+            product: 'uv_vinyl_sticker',
+          }),
     );
     await this.staff.auditRead(by.userId, 'batch.print_file', 'token_batches', batchId, {
       codes: tokens.length,

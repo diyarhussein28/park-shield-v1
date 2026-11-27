@@ -193,13 +193,6 @@ export interface DecalInput {
    * plate is never printed.
    */
   label?: string | null;
-  /**
-   * In-house stock sticker (2026-11-27, docs/nfc-sticker-plan.md): its serial number (`PS-000001`),
-   * printed small under the QR code where a personalised decal has the vehicle label.
-   */
-  serial?: string | null;
-  /** The sticker carries an NFC chip with the same URL: the how-to line mentions tapping. */
-  nfc?: boolean;
 }
 
 export const FIXED_SENTENCE = 'ParkShield verlangt nie eine Zahlung';
@@ -243,7 +236,13 @@ const ICONS = {
 };
 
 /** The ParkShield shield mark (same artwork as the website logo), on a 32-unit grid. */
-function logo(x: number, y: number, size: number, shield: Ink, mark: Ink): Primitive[] {
+export function logoPrimitives(
+  x: number,
+  y: number,
+  size: number,
+  shield: Ink,
+  mark: Ink,
+): Primitive[] {
   const u = size / 32;
   const sq = (sx: number, sy: number, s: number, fill: Ink, r = 1): Primitive => ({
     kind: 'rect',
@@ -300,10 +299,9 @@ export function layoutDecal(input: DecalInput): DecalSpec {
   const inner = W - 2 * safe;
   const headerH = card ? 27 : 16;
   const label = input.label?.trim() || null;
-  const serial = label ? null : input.serial?.trim() || null;
   const bandH = p.band.kind === 'stripes' ? (card ? 3 : 2.2) : p.band.kind === 'line' ? 1 : 0;
   // With a label the QR card is a little smaller, so the label line fits above the footer.
-  const panel = card ? (label || serial ? 74 : 78) : label || serial ? 40 : 44;
+  const panel = card ? (label ? 74 : 78) : label ? 40 : 44;
   const quiet = card ? 5 : 3.6;
   const panelY = headerH + bandH + (card ? 5 : 2.3);
   const footerH = card ? 13 : 11.5;
@@ -391,19 +389,6 @@ export function layoutDecal(input: DecalInput): DecalSpec {
       width: inner,
     });
     labelEnd = below + (card ? 1.6 : 1.2) + size * 1.05;
-  } else if (serial) {
-    const size = card ? 3 : 2.2;
-    prims.push({
-      kind: 'text',
-      x: safe,
-      y: below + (card ? 1.6 : 1.2) + size * 0.8,
-      size,
-      text: serial,
-      fill: p.text,
-      bold: false,
-      width: inner,
-    });
-    labelEnd = below + (card ? 1.6 : 1.2) + size * 1.05;
   }
 
   // 3. How it works.
@@ -452,9 +437,7 @@ export function layoutDecal(input: DecalInput): DecalSpec {
     });
   } else {
     // One line with a camera icon in front, centred as a group.
-    const how = input.nfc
-      ? 'Scannen oder Handy anhalten – ohne App'
-      : 'Mit der Handykamera scannen – ohne App';
+    const how = 'Mit der Handykamera scannen – ohne App';
     const size = 2.5;
     const icon = 3.4;
     const gap = 1;
@@ -491,7 +474,7 @@ export function layoutDecal(input: DecalInput): DecalSpec {
   const mark = card ? 6.5 : 5.2;
   const row = footerY + (card ? 2 : 1.6);
   const isDark = p.footer === ink || p.footer.rgb === '#111a2e';
-  prims.push(...logo(safe + 0.5, row, mark, isDark ? yellow : blue, white));
+  prims.push(...logoPrimitives(safe + 0.5, row, mark, isDark ? yellow : blue, white));
   const nameX = safe + 0.5 + mark + 1.2;
   const nameSize = card ? 3.6 : 2.9;
   const nameW = textWidth('ParkShield', nameSize, true) + 0.5;

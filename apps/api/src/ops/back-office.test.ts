@@ -580,6 +580,8 @@ describe('in-house NFC stock (2026-11-27, docs/nfc-sticker-plan.md)', () => {
     const pdf = await get(lager, `/ops/v1/batches/${batchId}/print.pdf`);
     expect(pdf.statusCode).toBe(200);
     expect(pdf.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');
+    // One page per sticker, in the owner's design (layoutStockSticker, decal.test.ts).
+    expect(pdf.rawPayload.toString('latin1').match(/\/Type \/Page\b/g)).toHaveLength(3);
 
     // The production export holds every code: admin only (tokens.export), an audited read.
     expect((await get(lager, `/ops/v1/batches/${batchId}/export.csv`)).statusCode).toBe(403);
