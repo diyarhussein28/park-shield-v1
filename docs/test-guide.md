@@ -197,7 +197,7 @@ first and set it back to `on_demand` afterwards if no programmed stock is left).
 - [ ] As admin: „Produktionsliste (CSV)“ (opens as columns in Excel: serial, URL, NDEF data) and
       „QR-Bilder (ZIP)“ (one SVG and one PNG per serial). As fulfillment: both links are missing.
 - [ ] Scan a sticker of the batch with a phone camera → the page says the sticker is not active and
-      offers no set-up. In the app, „Aufkleber aktivieren“ with that code is refused.
+      offers no set-up. In the app, „Aufkleber einrichten“ with that code is refused.
 - [ ] „Aufkleber finden“: by serial (`PS-000001`, `ps1`, `1`) and by the QR content → the sticker page
       opens.
 - [ ] „Bestand“ card: counts per state. Set „Warnung, wenn weniger Aufkleber bereit …“ above the ready
@@ -223,10 +223,10 @@ first and set it back to `on_demand` afterwards if no programmed stock is left).
 - [ ] App, vehicle → print → „Drucken und zusenden lassen“: the confirmation shows the neutral sticker and
       the new-code note, no vehicle name, no design, no preview.
 - [ ] Back office, the order → scan a sticker that is not locked → refused; a partner decal → refused; a
-      locked sticker → „verpackt“.
+      locked sticker → status „Verpackt“.
 - [ ] App: the vehicle shows the new code with your own design, „Ihr Aufkleber“ with the serial and the
       notice „Neuer Aufkleber unterwegs“. Your old PDF/decal still opens the scanner page.
-- [ ] Back office: „versendet“ with a tracking number → the e-mail says to stick it inside the window,
+- [ ] Back office: „Als versendet markieren“ with a tracking number → the e-mail says to stick it inside the window,
       test it, and that the old code works at most 14 days; the app shows that date.
 - [ ] The new sticker: QR scan and NFC tap open the same page (iPhone with the screen unlocked,
       Android with NFC on). Also through a windscreen and a side window.
@@ -234,7 +234,7 @@ first and set it back to `on_demand` afterwards if no programmed stock is left).
       notice disappears.
 - [ ] Without the test: set `fulfillment.old_code_grace_days` to 1 → about a day after shipping the old
       code stops by itself (worker every 10 minutes). Set it back to 14.
-- [ ] Parcel back („Retoure“) after shipping → the old code keeps working without a deadline.
+- [ ] „Als zurückgekommen markieren“ after shipping → the old code keeps working without a deadline.
 - [ ] „Sperren“ during the change-over → both codes stop; a new code is free at once (no 10-day wait).
 
 ## 13. Reporting a problem
