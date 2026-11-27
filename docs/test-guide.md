@@ -180,6 +180,63 @@ settings and kill switches apply to the whole test server.
 - [ ] **Audit:** find your own actions from this run.
 - [ ] **Mitarbeitende:** list of staff and roles; „Prüfung“ (quarterly access review) opens.
 
+## 12a. NFC stickers from our own stock (since 2026-11-27)
+
+Background: `docs/nfc-sticker-plan.md`. The printed sticker is a generic QR + NFC sticker (NTAG215) from
+our own stock; the vehicle's old code keeps working until the new sticker is tested, at the latest 14 days
+after shipping. Parts B and C need NTAG215 stickers; part C also needs the app build with the NFC screens
+(EAS build after `dc0dfd2`) and „Einstellungen“ → `fulfillment.mode` = `from_stock` (agree with the owner
+first and set it back to `on_demand` afterwards if no programmed stock is left).
+
+**A. Back office only (works now): „Aufkleber-Lager“ (`/lager`)**
+
+- [ ] „Neue Charge“ with 2–3 stickers → the batch shows its serial range (`PS-000001 – …`), „NTAG215“ and
+      „0 zugeordnet“.
+- [ ] „Druckdatei (PDF)“: generic design, serial number under the QR code, line „Scannen oder Handy
+      anhalten – ohne App“, no vehicle name.
+- [ ] As admin: „Produktionsliste (CSV)“ (opens as columns in Excel: serial, URL, NDEF data) and
+      „QR-Bilder (ZIP)“ (one SVG and one PNG per serial). As fulfillment: both links are missing.
+- [ ] Scan a sticker of the batch with a phone camera → the page says the sticker is not active and
+      offers no set-up. In the app, „Aufkleber aktivieren“ with that code is refused.
+- [ ] „Aufkleber finden“: by serial (`PS-000001`, `ps1`, `1`) and by the QR content → the sticker page
+      opens.
+- [ ] „Bestand“ card: counts per state. Set „Warnung, wenn weniger Aufkleber bereit …“ above the ready
+      count → warning on `/lager` and a to-do on the start page; set it back.
+- [ ] „Charge verloren?“ (admin): the button stays off until the confirmation is ticked; afterwards the
+      batch's stickers in stock scan as not active.
+
+**B. Programming the chip (needs NTAG215 stickers)**
+
+- [ ] Android, Chrome, sticker page: „Adresse und QR-Code anzeigen“ → „Chip beschreiben“ (allow NFC,
+      hold the sticker) → „Chip prüfen“ (take it away, hold again) → steps „Erledigt“.
+- [ ] „Chip endgültig sperren“ only after ticking the confirmation → „Bereit zum Verpacken“. Only lock
+      chips that carry the test server's URL.
+- [ ] iPhone (no Web NFC): the page explains NFC Tools; write the URL with NFC Tools, „Mit NFC Tools
+      beschrieben“, read it with NFC Tools, paste the URL → „Chip prüfen“ passes.
+- [ ] Wrong chip: write another URL onto the chip → „Chip prüfen“ refuses („andere Adresse“). The same
+      chip on a second sticker → „bereits einem anderen Aufkleber zugeordnet“.
+- [ ] A locked chip cannot be rewritten (NFC Tools write fails).
+- [ ] „Aufkleber aussondern“ with a reason → status „Ausgesondert“, the code never works.
+
+**C. Ordering, packing, change-over (needs B, the new app build and `from_stock`)**
+
+- [ ] App, vehicle → print → „Drucken und zusenden lassen“: the confirmation shows the neutral sticker and
+      the new-code note, no vehicle name, no design, no preview.
+- [ ] Back office, the order → scan a sticker that is not locked → refused; a partner decal → refused; a
+      locked sticker → „verpackt“.
+- [ ] App: the vehicle shows the new code with your own design, „Ihr Aufkleber“ with the serial and the
+      notice „Neuer Aufkleber unterwegs“. Your old PDF/decal still opens the scanner page.
+- [ ] Back office: „versendet“ with a tracking number → the e-mail says to stick it inside the window,
+      test it, and that the old code works at most 14 days; the app shows that date.
+- [ ] The new sticker: QR scan and NFC tap open the same page (iPhone with the screen unlocked,
+      Android with NFC on). Also through a windscreen and a side window.
+- [ ] „Aufkleber testen“ with the new sticker → the old code stops at once (old PDF: not active), the
+      notice disappears.
+- [ ] Without the test: set `fulfillment.old_code_grace_days` to 1 → about a day after shipping the old
+      code stops by itself (worker every 10 minutes). Set it back to 14.
+- [ ] Parcel back („Retoure“) after shipping → the old code keeps working without a deadline.
+- [ ] „Sperren“ during the change-over → both codes stop; a new code is free at once (no 10-day wait).
+
 ## 13. Reporting a problem
 
 For each problem note: page (URL **without** codes or `#t=` links), what you did, what you
