@@ -1232,3 +1232,6 @@ The owner still saw the old shield next to `test.park-shield.de` in Chrome's add
 suggestions without those credentials, so it kept its cached old icon. `park-shield.de` was fine (200). The
 Caddyfile's `@scanner_web` matcher now lets these three public static paths through without basic auth.
 Chrome may need one visit (or clearing the site's browsing data) to replace its cached icon.
+
+**Deployed 2026-11-28 (`734f602`)**: on test.park-shield.de `/favicon.ico`, `/icons/*` and `/manifest.webmanifest`
+answer 200 (the ICO byte-identical to the repo file); `/` and `/dev/postfach` still answer 401.
