@@ -79,6 +79,8 @@ const de = {
     heroBadge: 'QR + NFC',
     heroPrice: '{price} / Jahr',
     heroPriceNote: 'inkl. 19 % MwSt.',
+    // Under the hero price (2026-11-28): the Lifetime price too, links to the pricing section.
+    heroLifetime: 'oder Lifetime: {price} einmalig · kein Abo',
     demoBadge: 'Live-Demo',
     nfcReplyTitle: 'Direkt antworten',
     nfcReplyText:

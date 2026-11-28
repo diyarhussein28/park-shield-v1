@@ -1206,3 +1206,11 @@ under it „Ab dem 2. Jahr günstiger · kein Abo, nichts zu kündigen“, new k
 „Käufe wiederherstellen“ and the folded „Vertrag, Verlängerung und Widerruf“ (withdrawal notice, voucher).
 Tests: `portal-screens.test.tsx` checks that facts, declaration and both buttons are inside the card and in
 that order; app 194/194, typecheck green. **Needs a new EAS build** to reach testers.
+
+## 30. Website hero: the Lifetime price under the yearly price (2026-11-28)
+
+Owner request: the hero showed only „19,99 € / Jahr inkl. 19 % MwSt.“, the Lifetime price only in the pricing
+card further down. Now a second line sits directly under the hero price: „oder Lifetime: **29,99 €** einmalig ·
+kein Abo“ (en „or Lifetime: €29.99 once · no subscription“), new key `landing.heroLifetime`, component
+`HeroLifetime` in `apps/web/components/landing.tsx`, price from `LIFETIME_PRICE_CENTS`. It links to `#preise`
+(the pricing card with both buttons). Checked at 375 px and 1280 px, no horizontal scroll. Not deployed yet.

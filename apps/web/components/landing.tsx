@@ -146,6 +146,40 @@ function PriceTag({ className }: { className?: string }) {
   );
 }
 
+/** „oder Lifetime: 29,99 € einmalig“ under the hero price, a link to the pricing card. */
+function HeroLifetime({ className }: { className?: string }) {
+  const { t } = useI18n();
+  const price = useEuro()(LIFETIME_PRICE_CENTS);
+  const text = t('landing.heroLifetime', { price });
+  const at = text.indexOf(price);
+  return (
+    <Link
+      href="#preise"
+      data-testid="hero-lifetime"
+      className={cx(
+        'group -mt-3 inline-flex min-h-6 items-center gap-1.5 text-base text-slate-200 underline-offset-4 hover:text-white hover:underline',
+        className,
+      )}
+    >
+      <span>
+        {at < 0 ? (
+          text
+        ) : (
+          <>
+            {text.slice(0, at)}
+            <span className="font-extrabold text-amber-300">{price}</span>
+            {text.slice(at + price.length)}
+          </>
+        )}
+      </span>
+      <Icon
+        name="arrowRight"
+        className="size-4 text-amber-300 transition group-hover:translate-x-1"
+      />
+    </Link>
+  );
+}
+
 function Hero() {
   const { t } = useI18n();
   const title = t('landing.heroTitle');
@@ -202,6 +236,7 @@ function Hero() {
         </div>
         <div className="flex flex-col items-center gap-5 text-center lg:col-start-1 lg:row-start-2 lg:items-start lg:self-start lg:text-left">
           <PriceTag className="animate-fade-up justify-center [animation-delay:220ms] lg:justify-start" />
+          <HeroLifetime className="animate-fade-up [animation-delay:240ms]" />
           <div className="animate-fade-up flex w-full flex-col gap-3 [animation-delay:260ms] sm:w-auto sm:flex-row sm:flex-wrap">
             <Link href="/app" className={cx(btnYellow, 'min-h-14 w-full px-8 text-lg sm:w-auto')}>
               {t('landing.heroCta')}

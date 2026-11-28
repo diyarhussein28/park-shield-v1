@@ -79,6 +79,7 @@ const en: typeof de = {
     heroBadge: 'QR + NFC',
     heroPrice: '{price} / year',
     heroPriceNote: 'incl. 19% VAT',
+    heroLifetime: 'or Lifetime: {price} once · no subscription',
     demoBadge: 'Live demo',
     nfcReplyTitle: 'Reply directly',
     nfcReplyText:
