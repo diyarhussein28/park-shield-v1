@@ -5,7 +5,7 @@ import { finderOrigins, inFinder, stripeQuads } from './svg';
 const PT = 72 / 25.4; // points per millimetre
 export const BLEED_MM = 3;
 
-type Mode = 'cmyk' | 'rgb';
+export type Mode = 'cmyk' | 'rgb';
 const color = (ink: Ink, mode: Mode) => (mode === 'cmyk' ? ink.cmyk : ink.rgb);
 
 function toBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
@@ -19,7 +19,13 @@ function toBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
 }
 
 /** Draws the decal with its trim box's top-left at (ox, oy) millimetres. */
-function draw(doc: PDFKit.PDFDocument, spec: DecalSpec, ox: number, oy: number, mode: Mode) {
+export function drawDecal(
+  doc: PDFKit.PDFDocument,
+  spec: DecalSpec,
+  ox: number,
+  oy: number,
+  mode: Mode,
+) {
   for (const p of spec.primitives) {
     if (p.kind === 'rect') {
       const args = [(ox + p.x) * PT, (oy + p.y) * PT, p.w * PT, p.h * PT] as const;
@@ -102,7 +108,7 @@ function printPage(doc: PDFKit.PDFDocument, spec: DecalSpec) {
   ];
   page.dictionary.data.BleedBox = [0, 0, w * PT, h * PT];
   doc.rect(0, 0, w * PT, h * PT).fill(spec.background.cmyk); // background runs into the bleed
-  draw(doc, spec, BLEED_MM, BLEED_MM, 'cmyk');
+  drawDecal(doc, spec, BLEED_MM, BLEED_MM, 'cmyk');
 }
 
 const printSize = (spec: DecalSpec): [number, number] => [
@@ -180,7 +186,7 @@ export function renderHomePdf(
   const ox = (210 - spec.width) / 2;
   const oy = 30;
   doc.rect(ox * PT, oy * PT, spec.width * PT, spec.height * PT).fill(spec.background.rgb);
-  draw(doc, spec, ox, oy, 'rgb');
+  drawDecal(doc, spec, ox, oy, 'rgb');
   doc
     .lineWidth(0.5)
     .dash(4, { space: 3 })

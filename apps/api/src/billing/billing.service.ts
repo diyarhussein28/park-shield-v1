@@ -300,6 +300,27 @@ export class BillingService {
     return promo;
   }
 
+  /**
+   * The gross price a contract was sold at, in cents: Lifetime or yearly, Stripe (our setting, after a
+   * promo) or the store (the price RevenueCat reported, else the store setting). The contract
+   * confirmation and the welcome letter print it, so both always say the same.
+   */
+  async contractPriceCents(sub: {
+    interval: string;
+    provider: string;
+    store_price_cents: number | null;
+    promo_code_id: string | null;
+  }): Promise<number> {
+    const stripe = sub.provider === 'stripe';
+    if (sub.interval === 'lifetime')
+      return stripe
+        ? this.lifetimePrice()
+        : (sub.store_price_cents ?? (await this.storeLifetimePrice()));
+    return stripe
+      ? this.priceFor('standard', sub.promo_code_id ?? undefined)
+      : (sub.store_price_cents ?? (await this.storeYearPrice()));
+  }
+
   /** Gross price after an optional promo, in cents (used by the local fake checkout). */
   async priceFor(plan: PaidPlan, promoCodeId?: string): Promise<number> {
     if (!this.isPurchasable(plan)) throw new BadRequestException({ error: 'plan_unavailable' });
@@ -826,13 +847,7 @@ export class BillingService {
       ? await this.legalTexts.version(consent.text_key, consent.locale, consent.text_version)
       : null;
     const lifetime = sub.interval === 'lifetime';
-    const price = lifetime
-      ? sub.provider === 'stripe'
-        ? await this.lifetimePrice()
-        : (sub.store_price_cents ?? (await this.storeLifetimePrice()))
-      : sub.provider === 'stripe'
-        ? await this.priceFor('standard', sub.promo_code_id ?? undefined)
-        : (sub.store_price_cents ?? (await this.storeYearPrice()));
+    const price = await this.contractPriceCents(sub);
     const customerNo = sub.customer_no ?? '–';
     // Contract start = the first purchase; the renewal = the end of the current period as Stripe /
     // Apple / Google report it (never computed here). Store sandbox periods last minutes or hours,

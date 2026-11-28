@@ -1235,3 +1235,34 @@ Chrome may need one visit (or clearing the site's browsing data) to replace its 
 
 **Deployed 2026-11-28 (`734f602`)**: on test.park-shield.de `/favicon.ico`, `/icons/*` and `/manifest.webmanifest`
 answer 200 (the ICO byte-identical to the repo file); `/` and `/dev/postfach` still answer 401.
+
+## 32. Welcome letter: one page in the new design, the real price (2026-11-28)
+
+Owner report: the welcome letter in ops (Willkommensbriefe) looked plain next to the contract confirmation
+PDF, ran over two pages, and a **Lifetime** customer's letter said „19,99 € pro Jahr“. Cause of the price:
+`letter.ts` printed „… kostet {price} pro Jahr“ as fixed text and `WelcomeLettersService.build` took the
+price from `BillingService.priceFor` (the yearly Stripe price) for every contract, Lifetime and store
+purchases included. Also outdated texts: „Kundenportal“, „Premium: Vertrauenspersonen“, „App, E-Mail, SMS“.
+
+- **Price, term, provider:** new `BillingService.contractPriceCents(sub)` (Lifetime or yearly, Stripe or the
+  store price RevenueCat reported) is used by the contract confirmation and the letter, so both print the same.
+  The snapshot gets `contract.interval` (`year` / `lifetime`), `contract.provider` and `vehicle.makeModel` /
+  `vehicle.color`; the start date is the first purchase, as in the contract confirmation. Lifetime prints
+  „ParkShield – Lifetime“, „29,99 € einmalig (inkl. 19 % USt.)“, „Unbefristet (kein Abo, keine Verlängerung)“
+  and the Lifetime term (`lifetimeRule()`, shared with the contract confirmation).
+- **Letters made before this change keep their frozen snapshot** (a Lifetime customer's old letter still says
+  yearly): use „Neu erstellen“ on the customer page in ops.
+- **Design** (`letter-pdf.ts`, owner mockup): one A4 page — header with the vector logo mark (or the uploaded
+  company logo), company and USt-IdNr. on the right; the address stays in the DIN 5008 window field (DL
+  envelope) with the printed sticker beside it (the example sticker PS-000123, drawn as vectors with
+  `drawDecal`, never a customer's real code); title with the date; cards „Ihre Vertragsdaten“, „Ihr Fahrzeug“,
+  „Kontakt“; „Ihre Leistungen im Tarif ParkShield“ (plan catalog); „So starten Sie“ with four fixed steps
+  (App öffnen, Push erlauben, Aufkleber anbringen, QR & NFC testen); the term in short and the closing with
+  signature; the footer with the company data. Tests check one page for a five-line foreign address, all six
+  services and a signature image. The account e-mail is no longer printed (still in the snapshot).
+- **Company texts:** `texts.nextSteps` is no longer printed (the steps describe the app and are fixed) and
+  left the ops form; stored versions keep it (optional in the schema). The default welcome text now names the
+  sticker „QR-Code oder NFC“; a company-data version saved earlier keeps its own text (edit it in ops →
+  Einstellungen → Unternehmen if wanted).
+- Shared PDF helpers moved to `apps/api/src/core/pdf-brand.ts` (logo mark, heading fonts, `winAnsi`), so
+  letters and billing no longer import each other.

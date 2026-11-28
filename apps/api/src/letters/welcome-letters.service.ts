@@ -337,7 +337,18 @@ export class WelcomeLettersService {
     if (!user) return null;
     const sub = await this.db
       .selectFrom('subscriptions')
-      .select(['plan', 'contract_no', 'created_at', 'renewal_mode', 'promo_code_id'])
+      .select([
+        'plan',
+        'contract_no',
+        'created_at',
+        'renewal_mode',
+        'promo_code_id',
+        'interval',
+        'provider',
+        'store_price_cents',
+        'original_purchase_at',
+        'current_period_start',
+      ])
       .where('user_id', '=', userId)
       .orderBy(sql`status IN ('active', 'past_due')`, 'desc')
       .orderBy('created_at', 'desc')
@@ -355,7 +366,8 @@ export class WelcomeLettersService {
     const plan = sub.plan as Plan;
     const address = await this.address(userId, user.stripe_customer_id);
     const company = await this.company.current();
-    const price = await this.billing.priceFor(plan, sub.promo_code_id ?? undefined);
+    // Lifetime or yearly, Stripe or store: the same price the contract confirmation printed.
+    const price = await this.billing.contractPriceCents(sub);
     const portal = new URL('/app', this.env.WEB_BASE_URL);
     const snapshot: LetterSnapshot = {
       v: 1,
@@ -370,14 +382,23 @@ export class WelcomeLettersService {
         contractNo: sub.contract_no ?? '–',
         plan,
         planName: planName(plan),
-        startedAt: sub.created_at.toISOString(),
+        // The contract start as in the contract confirmation (first purchase).
+        startedAt: (
+          sub.original_purchase_at ??
+          sub.current_period_start ??
+          sub.created_at
+        ).toISOString(),
         priceCents: price,
         renewalMode:
           sub.renewal_mode === 'annual' ? 'annual' : ('monthly_after_first_term' as const),
+        interval: sub.interval === 'lifetime' ? 'lifetime' : 'year',
+        provider: sub.provider,
       },
       vehicle: {
         plate: vehicle.plate_enc?.length ? this.crypto.decrypt(vehicle.plate_enc) : '–',
         description: [vehicle.make_model, vehicle.color].filter(Boolean).join(', ') || null,
+        makeModel: vehicle.make_model || null,
+        color: vehicle.color || null,
       },
       benefits: planBenefits(plan),
       company: company.data,

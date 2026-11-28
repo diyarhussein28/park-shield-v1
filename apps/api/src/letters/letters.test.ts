@@ -193,7 +193,12 @@ describe('snapshot and content', () => {
     expect((await letters.pdf(v1!.id, { download: false })).file.equals(pdfBefore)).toBe(true);
     const after = await letters.snapshot(v2.id);
     expect(after.customer.address).toMatchObject({ name: 'Erika Neu', city: 'Berlin' });
-    expect(after.vehicle).toEqual({ plate: 'K-AB 1234', description: 'VW Golf, Rot' });
+    expect(after.vehicle).toEqual({
+      plate: 'K-AB 1234',
+      description: 'VW Golf, Rot',
+      makeModel: 'VW Golf',
+      color: 'Rot',
+    });
   });
 
   it('always uses the sign-up address, even when the decal goes elsewhere', async () => {
@@ -266,7 +271,7 @@ describe('snapshot and content', () => {
     expect(JSON.parse(crypto.decrypt(row.snapshot_enc)).vehicle.plate).toBe('K-AB 1234');
   });
 
-  it('shows Kundennummer, Vertragsnummer, the account e-mail and the plan catalog lines', async () => {
+  it('shows Kundennummer, Vertragsnummer, price, term, provider and the plan catalog lines', async () => {
     const s = await subscribe(h, 'kunde@example.de');
     const id = await userId('kunde@example.de');
     await addVehicle(s);
@@ -288,11 +293,43 @@ describe('snapshot and content', () => {
     expect(user.customer_no).toMatch(/^PS-\d{4}-\d{6}$/);
     expect(info.Kundennummer).toBe(user.customer_no);
     expect(info.Vertragsnummer).toBe(sub.contract_no);
-    expect(info['E-Mail']).toBe('kunde@example.de');
+    // The account e-mail stays in the snapshot; the one-page letter no longer prints it (2026-11-28).
+    expect(snap.customer.email).toBe('kunde@example.de');
     expect(info.Tarif).toBe('ParkShield');
+    expect(info.Preis).toBe('19,99 € / Jahr (inkl. 19 % USt.)');
+    expect(info.Laufzeit).toBe('12 Monate, verlängert sich jährlich');
+    expect(info['Zahlung über']).toBe('Stripe (park-shield.de)');
     expect(snap.benefits).toEqual(planBenefits('standard'));
-    expect(c.blocks).toContainEqual({ kind: 'bullets', items: planBenefits('standard') });
+    expect(c.benefits).toEqual(planBenefits('standard'));
     expect(c.greeting).toBe('Guten Tag Erika Mustermann,');
+  });
+
+  it('a Lifetime contract shows the one-time price and no renewal, never „pro Jahr“', async () => {
+    const s = await subscribe(h, 'kunde@example.de');
+    const id = await userId('kunde@example.de');
+    await h.db
+      .updateTable('subscriptions')
+      .set({ interval: 'lifetime', provider: 'app_store', store_price_cents: 2999 })
+      .where('user_id', '=', id)
+      .execute();
+    await addVehicle(s);
+    await drain();
+    const [l] = await lettersOf(id);
+    const snap = await letters.snapshot(l!.id);
+    expect(snap.contract).toMatchObject({
+      interval: 'lifetime',
+      provider: 'app_store',
+      priceCents: 2999,
+    });
+    const c = letterContent(snap);
+    const info = Object.fromEntries(c.info);
+    expect(info.Tarif).toBe('ParkShield – Lifetime');
+    expect(info.Preis).toBe('29,99 € einmalig (inkl. 19 % USt.)');
+    expect(info.Laufzeit).toBe('Unbefristet (kein Abo, keine Verlängerung)');
+    expect(info['Zahlung über']).toBe('Apple App Store');
+    expect(c.terms).toContain('Einmalzahlung');
+    expect(JSON.stringify(c)).not.toContain('pro Jahr');
+    expect(JSON.stringify(c)).not.toContain('/ Jahr');
   });
 
   it('plan benefits come from the pricing-page catalog of the single plan', () => {
@@ -326,7 +363,7 @@ const SNAPSHOT: LetterSnapshot = {
     plan: 'standard',
     planName: 'ParkShield',
     startedAt: '2026-11-17T09:00:00.000Z',
-    priceCents: 2000,
+    priceCents: 1999,
     renewalMode: 'annual',
   },
   vehicle: { plate: 'K-AB 1234', description: 'VW Golf, Blau' },
@@ -358,8 +395,8 @@ describe('letter layout and PDF', () => {
       z.y + 1 + (lines.length - 1) * GEOMETRY.addressLine + GEOMETRY.addressSize * 0.3528;
     expect(bottom).toBeLessThanOrEqual(f.y + f.h);
     expect(z.y + 1 + 5 * GEOMETRY.addressLine + 4).toBeLessThanOrEqual(f.y + f.h); // 6 lines fit
-    // The information block starts right of the window field.
-    expect(GEOMETRY.infoBlock.x).toBeGreaterThanOrEqual(f.x + f.w);
+    // The sticker picture starts right of the window field.
+    expect(GEOMETRY.stickerBox.x).toBeGreaterThanOrEqual(f.x + f.w);
   });
 
   it('renders the same file for the same snapshot (PDF snapshot)', async () => {
@@ -367,10 +404,22 @@ describe('letter layout and PDF', () => {
     const a = await renderLetterPdf({ snapshot: SNAPSHOT, images });
     const b = await renderLetterPdf({ snapshot: SNAPSHOT, images });
     expect(a.subarray(0, 5).toString()).toBe('%PDF-');
-    expect(a.equals(b)).toBe(true);
-    const pages = a.toString('latin1').match(/\/Type \/Page\b/g) ?? [];
-    expect(pages.length).toBeGreaterThanOrEqual(1);
-    expect(pages.length).toBeLessThanOrEqual(2);
+    // pdfkit names an embedded font subset with a random six-letter tag; everything else is equal.
+    const plain = (f: Buffer) => f.toString('latin1').replace(/\/[A-Z]{6}\+/g, '/XXXXXX+');
+    expect(plain(a)).toBe(plain(b));
+    // One page (redesign 2026-11-28), also with a five-line foreign address and all six services.
+    const pages = (f: Buffer) => (f.toString('latin1').match(/\/Type \/Page\b/g) ?? []).length;
+    expect(pages(a)).toBe(1);
+    const lifetime = await renderLetterPdf({
+      snapshot: {
+        ...SNAPSHOT,
+        contract: { ...SNAPSHOT.contract, interval: 'lifetime', provider: 'play_store' },
+        vehicle: { ...SNAPSHOT.vehicle, makeModel: 'VW Golf Variant', color: 'Blau' },
+        benefits: planBenefits('standard'),
+      },
+      images,
+    });
+    expect(pages(lifetime)).toBe(1);
   });
 
   it('footer shows only configured fields, the USt-IdNr. always when set', () => {

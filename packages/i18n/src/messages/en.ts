@@ -2287,7 +2287,6 @@ const en: typeof de = {
     signatureName: 'Name below the closing',
     greeting: "Salutation ('{name}' = customer name)",
     welcome: "Welcome text ('{plan}' = plan)",
-    nextSteps: "Next steps (one line per item, '{portalUrl}' = customer portal)",
     closing: 'Closing',
     footerVatId: 'Show VAT ID',
     footerTaxNumber: 'Show tax number',

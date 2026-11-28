@@ -2367,7 +2367,6 @@ const de = {
     signatureName: 'Name unter der Grußformel',
     greeting: "Anrede ('{name}' = Name der Kundin oder des Kunden)",
     welcome: "Begrüßungstext ('{plan}' = Tarif)",
-    nextSteps: "Nächste Schritte (eine Zeile pro Punkt, '{portalUrl}' = Kundenportal)",
     closing: 'Grußformel',
     footerVatId: 'USt-IdNr. anzeigen',
     footerTaxNumber: 'Steuernummer anzeigen',

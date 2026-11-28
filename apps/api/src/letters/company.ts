@@ -6,7 +6,7 @@ const text = (max: number) => z.string().trim().max(max);
 /**
  * Company data and letter texts printed on customer letters (ops → Einstellungen → Unternehmen).
  * Every field is configurable; the defaults are the registered business from the Impressum.
- * Placeholders in texts: {name} (customer name), {plan} (e.g. "ParkShield Plus"), {portalUrl}.
+ * Placeholders in texts: {name} (customer name), {plan} („ParkShield“), {portalUrl}.
  */
 export const CompanyData = z.object({
   name: text(120).min(2),
@@ -42,7 +42,11 @@ export const CompanyData = z.object({
   texts: z.object({
     greeting: text(120).min(2),
     welcome: text(1200).min(10),
-    nextSteps: text(1200).min(3),
+    /**
+     * Unused since the redesign of 2026-11-28 (the four steps are fixed in `letter.ts`, they describe
+     * the app); kept optional so stored versions still parse.
+     */
+    nextSteps: text(1200).optional(),
     closing: text(80).min(2),
   }),
 });
@@ -73,13 +77,7 @@ export const DEFAULT_COMPANY: CompanyData = {
     // No salutation (Herr/Frau) is stored, so the neutral form is the default.
     greeting: 'Guten Tag {name},',
     welcome:
-      'herzlich willkommen bei ParkShield und vielen Dank für Ihr Vertrauen. Ihr Tarif {plan} ist aktiv: Wer ein Problem an Ihrem geparkten Fahrzeug bemerkt, kann Sie ab sofort über den QR-Aufkleber erreichen, ohne Ihre Telefonnummer, Ihren Namen oder Ihr Kennzeichen zu sehen.',
-    nextSteps: [
-      'Melden Sie sich im Kundenportal an: {portalUrl}',
-      'Installieren Sie die ParkShield-App und erlauben Sie Mitteilungen; prüfen Sie Ihre Benachrichtigungswege (App, E-Mail, SMS).',
-      'Premium: Hinterlegen Sie Vertrauenspersonen, die einspringen, wenn Sie nicht reagieren.',
-      'Bringen Sie den Aufkleber gut sichtbar an und testen Sie ihn einmal mit „Aufkleber testen“.',
-    ].join('\n'),
+      'herzlich willkommen bei ParkShield und vielen Dank für Ihr Vertrauen. Ihr ParkShield ist aktiv: Wer ein Problem an Ihrem geparkten Fahrzeug bemerkt, erreicht Sie ab sofort über den Aufkleber (QR-Code oder NFC), ohne Ihre Telefonnummer, Ihren Namen oder Ihr Kennzeichen zu sehen.',
     closing: 'Mit freundlichen Grüßen',
   },
 };

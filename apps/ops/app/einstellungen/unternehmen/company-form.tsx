@@ -14,7 +14,9 @@ type Footer = {
   register: boolean;
   bank: boolean;
 };
-type Texts = { greeting: string; welcome: string; nextSteps: string; closing: string };
+// `nextSteps` is no longer printed (the welcome letter's four steps are fixed, 2026-11-28); a stored
+// value is sent back unchanged.
+type Texts = { greeting: string; welcome: string; nextSteps?: string; closing: string };
 type TextField =
   | 'name'
   | 'legalForm'
@@ -60,7 +62,7 @@ const GROUPS: { title: MessageKey; fields: TextField[] }[] = [
 ];
 const REQUIRED = new Set<TextField>(['name', 'street', 'postalCode', 'city', 'country', 'email']);
 const FOOTER: (keyof Footer)[] = ['vatId', 'taxNumber', 'owner', 'register', 'bank'];
-const TEXTS: (keyof Texts)[] = ['greeting', 'welcome', 'nextSteps', 'closing'];
+const TEXTS = ['greeting', 'welcome', 'closing'] as const;
 const footerKey = (k: keyof Footer) =>
   `opsCompany.footer${k[0]!.toUpperCase()}${k.slice(1)}` as MessageKey;
 
@@ -284,7 +286,7 @@ export function CompanyForm({ me, initial }: { me: StaffMe; initial: CompanyView
                       <Textarea
                         id={id}
                         required
-                        rows={k === 'nextSteps' ? 5 : 4}
+                        rows={4}
                         value={data.texts[k]}
                         onChange={(e) =>
                           setData({ ...data, texts: { ...data.texts, [k]: e.target.value } })

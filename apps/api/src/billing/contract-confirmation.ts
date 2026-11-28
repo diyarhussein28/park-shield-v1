@@ -1,8 +1,6 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { legalDoc, renewalRule, type LegalDoc } from '@parkshield/shared';
 import PDFDocument from 'pdfkit';
-import { winAnsi } from '../letters/letter-pdf';
+import { drawLogoMark, headingFonts, winAnsi } from '../core/pdf-brand';
 import { MAIL_ICONS, type MailIcon } from '../mail/icons';
 
 /**
@@ -65,7 +63,7 @@ export interface ContractConfirmationInput {
   lifetime?: boolean;
 }
 
-const STORE_NAME = { app_store: 'Apple App Store', play_store: 'Google Play' } as const;
+export const STORE_NAME = { app_store: 'Apple App Store', play_store: 'Google Play' } as const;
 const STORE_SELLER = { app_store: 'Apple', play_store: 'Google' } as const;
 const REFUND_ROUTE = {
   app_store: 'https://reportaproblem.apple.com',
@@ -211,6 +209,13 @@ const BENEFITS = {
   ],
 } as const;
 
+/** The term of the Lifetime plan (paid once), as the contract confirmation and the welcome letter say it. */
+export function lifetimeRule(locale: Locale): string {
+  return locale === 'de'
+    ? 'Einmalzahlung ohne feste Laufzeit und ohne Verlängerung: Der Vertrag gilt dauerhaft, solange ParkShield den Dienst anbietet. Es fallen keine weiteren Zahlungen an, eine Kündigung ist nicht nötig.'
+    : 'One-time payment without a fixed term and without renewal: the contract runs for good, as long as ParkShield offers the service. No further payments fall due; no cancellation is needed.';
+}
+
 export function contractConfirmationContent(i: ContractConfirmationInput): PdfContent {
   const de = i.locale === 'de';
   const l = i.locale;
@@ -221,11 +226,7 @@ export function contractConfirmationContent(i: ContractConfirmationInput): PdfCo
   const isForm = (h: string) => /Muster-Widerrufsformular|model withdrawal form/i.test(h);
   const policy = widerruf.sections.filter((s) => !isForm(s.heading));
   const life = i.lifetime === true;
-  const rule = life
-    ? de
-      ? 'Einmalzahlung ohne feste Laufzeit und ohne Verlängerung: Der Vertrag gilt dauerhaft, solange ParkShield den Dienst anbietet. Es fallen keine weiteren Zahlungen an, eine Kündigung ist nicht nötig.'
-      : 'One-time payment without a fixed term and without renewal: the contract runs for good, as long as ParkShield offers the service. No further payments fall due; no cancellation is needed.'
-    : renewalRule(l, { renewalMode: i.renewalMode });
+  const rule = life ? lifetimeRule(l) : renewalRule(l, { renewalMode: i.renewalMode });
   const c = i.company;
   const s = i.store ?? null;
 
@@ -529,24 +530,6 @@ const PANEL = '#f5f8ff';
 const LINE = '#e2e8f0';
 const GREEN = '#16a34a';
 
-const FONT_DIR = join(__dirname, '..', '..', 'assets', 'fonts');
-const HEAD = 'PS-Heading';
-const HEAD_X = 'PS-HeadingX';
-
-/** The ParkShield mark as on the website and in the app (`LogoMark`), drawn as vectors. */
-function drawLogoMark(doc: PDFKit.PDFDocument, x: number, y: number, size: number) {
-  doc.save();
-  doc.translate(x, y).scale(size / 32);
-  const grad = doc.linearGradient(0, 0, 32, 32).stop(0, '#3b82f6').stop(1, '#1d4ed8');
-  doc.path('M16 2 4 6.5v8.6C4 22.4 9.1 28.2 16 30c6.9-1.8 12-7.6 12-14.9V6.5L16 2Z').fill(grad);
-  doc.roundedRect(10, 10, 5, 5, 1).fill('#ffffff');
-  doc.roundedRect(17, 10, 5, 5, 1).fill('#facc15');
-  doc.roundedRect(10, 17, 5, 5, 1).fill('#ffffff');
-  doc.rect(17.5, 17.5, 2, 2).fill('#ffffff');
-  doc.rect(20.5, 20.5, 2, 2).fill('#ffffff');
-  doc.restore();
-}
-
 function drawIcon(
   doc: PDFKit.PDFDocument,
   name: MailIcon,
@@ -587,12 +570,9 @@ export function renderContractConfirmationPdf(
       CreationDate: meta.created,
     },
   });
-  const hasFonts = existsSync(join(FONT_DIR, 'PlusJakartaSans_800ExtraBold.ttf'));
-  if (hasFonts) {
-    doc.registerFont(HEAD, join(FONT_DIR, 'PlusJakartaSans_700Bold.ttf'));
-    doc.registerFont(HEAD_X, join(FONT_DIR, 'PlusJakartaSans_800ExtraBold.ttf'));
-  }
-  const head = (x = false) => (hasFonts ? (x ? HEAD_X : HEAD) : 'Helvetica-Bold');
+  const fonts = headingFonts(doc);
+  const hasFonts = fonts.hasFonts;
+  const head = (x = false) => (x ? fonts.extra : fonts.bold);
   // Helvetica is WinAnsi only; the heading font has every character we use.
   const ht = (s: string) => (hasFonts ? s : winAnsi(s));
   const W = doc.page.width;
