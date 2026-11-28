@@ -609,11 +609,17 @@ function PlanHeader({ price }: { price: string }) {
       <Text style={[typeScale.label, { color: c.muted, fontWeight: '400' }]}>
         {pt('landing.planFor')}
       </Text>
-      <Text style={[typeScale.body, { color: c.muted, marginTop: space.sm }]}>
-        {at > 0 && line.slice(0, at)}
+      {/* Price and „/ Jahr inkl. 19 % MwSt.“ side by side (the small text wraps on its own, never
+          under the big line height of the price). */}
+      <View style={s.priceRow}>
+        {at > 0 && (
+          <Text style={[typeScale.body, { color: c.muted }]}>{line.slice(0, at).trim()}</Text>
+        )}
         <Text style={[typeScale.title, s.price, { color: c.fg }]}>{price}</Text>
-        {at < 0 ? ` ${line}` : ` ${line.slice(at + price.length).trim()}`}
-      </Text>
+        <Text style={[typeScale.body, s.priceSuffix, { color: c.muted }]}>
+          {at < 0 ? line : line.slice(at + price.length).trim()}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -744,6 +750,14 @@ const s = StyleSheet.create({
   rule: { height: StyleSheet.hairlineWidth },
   facts: { gap: 4 },
   price: { fontSize: 40, lineHeight: 46 },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    flexWrap: 'wrap',
+    columnGap: space.sm,
+    marginTop: space.sm,
+  },
+  priceSuffix: { flexShrink: 1, marginBottom: 6 },
   link: { textDecorationLine: 'underline', fontWeight: '700' },
   secure: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   features: { gap: 8 },

@@ -1207,6 +1207,15 @@ under it „Ab dem 2. Jahr günstiger · kein Abo, nichts zu kündigen“, new k
 Tests: `portal-screens.test.tsx` checks that facts, declaration and both buttons are inside the card and in
 that order; app 194/194, typecheck green. **Needs a new EAS build** to reach testers.
 
+**Tested on the owner's Android (Galaxy S25, Expo Go against the local stack, 2026-11-28):** new account
+through all five sign-up steps, the card shows name, „Alles inklusive“, price, features, facts, declaration and
+both buttons; both buttons stay disabled until the declaration is ticked; the yearly button opened the
+(fake) checkout, the payment went through and the app showed „Willkommen bei ParkShield! Ihr Abo läuft.“;
+the contract confirmation with its PDF was sent. Fixed on the device: the price and „/ Jahr inkl. 19 % MwSt.“
+are now two elements side by side (with large phone fonts the small text broke under the big line height).
+Local quirk, not an app bug: `/dev/checkout` and its return use `WEB_BASE_URL` (the PC's LAN address), which
+the phone could not reach over Wi-Fi; the test used `adb reverse` and `localhost` instead.
+
 ## 30. Website hero: the Lifetime price under the yearly price (2026-11-28)
 
 Owner request: the hero showed only „19,99 € / Jahr inkl. 19 % MwSt.“, the Lifetime price only in the pricing
