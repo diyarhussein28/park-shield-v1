@@ -1213,4 +1213,4 @@ Owner request: the hero showed only „19,99 € / Jahr inkl. 19 % MwSt.“, the
 card further down. Now a second line sits directly under the hero price: „oder Lifetime: **29,99 €** einmalig ·
 kein Abo“ (en „or Lifetime: €29.99 once · no subscription“), new key `landing.heroLifetime`, component
 `HeroLifetime` in `apps/web/components/landing.tsx`, price from `LIFETIME_PRICE_CENTS`. It links to `#preise`
-(the pricing card with both buttons). Checked at 375 px and 1280 px, no horizontal scroll. Not deployed yet.
+(the pricing card with both buttons). Checked at 375 px and 1280 px, no horizontal scroll. Deployed 2026-11-28 (`11a941e`), live on test.park-shield.de and park-shield.de.
