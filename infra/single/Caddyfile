@@ -80,7 +80,10 @@
 	# /email/*: the logo in our e-mails (public static file, no data);
 	# /scanner-assets/*: the scan page's live chat client and captcha SDK (public static files, no data;
 	# without it the page asked for basic auth after „Senden“ and the chat could not load, 2026-11-26).
-	@scanner_web path /auth/open /s/* /antwort /antwort/* /v/* /k/* /app/* /notfallkontakt /.well-known/* /_next/* /email/* /scanner-assets/*
+	# /favicon.ico, /icons/*, /manifest.webmanifest: the site icons (public static files, no data). Chrome
+	# fetches them for history and address-bar suggestions without basic auth; the 401 kept the old cached
+	# shield next to test.park-shield.de (2026-11-28, docs/handover.md §31).
+	@scanner_web path /auth/open /s/* /antwort /antwort/* /v/* /k/* /app/* /notfallkontakt /.well-known/* /_next/* /email/* /scanner-assets/* /favicon.ico /icons/* /manifest.webmanifest
 	handle @scanner_web {
 		reverse_proxy 127.0.0.1:3000
 	}

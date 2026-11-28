@@ -1223,3 +1223,12 @@ card further down. Now a second line sits directly under the hero price: „oder
 kein Abo“ (en „or Lifetime: €29.99 once · no subscription“), new key `landing.heroLifetime`, component
 `HeroLifetime` in `apps/web/components/landing.tsx`, price from `LIFETIME_PRICE_CENTS`. It links to `#preise`
 (the pricing card with both buttons). Checked at 375 px and 1280 px, no horizontal scroll. Deployed 2026-11-28 (`11a941e`), live on test.park-shield.de and park-shield.de.
+
+## 31. Favicon on test.park-shield.de (2026-11-28)
+
+The owner still saw the old shield next to `test.park-shield.de` in Chrome's address-bar suggestions after
+§26. Cause: on the test domain every icon file sat behind the test site's basic auth
+(`/favicon.ico`, `/icons/*`, `/manifest.webmanifest` answered 401), and Chrome fetches icons for history and
+suggestions without those credentials, so it kept its cached old icon. `park-shield.de` was fine (200). The
+Caddyfile's `@scanner_web` matcher now lets these three public static paths through without basic auth.
+Chrome may need one visit (or clearing the site's browsing data) to replace its cached icon.
