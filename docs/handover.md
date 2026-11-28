@@ -1266,3 +1266,5 @@ purchases included. Also outdated texts: „Kundenportal“, „Premium: Vertrau
   Einstellungen → Unternehmen if wanted).
 - Shared PDF helpers moved to `apps/api/src/core/pdf-brand.ts` (logo mark, heading fonts, `winAnsi`), so
   letters and billing no longer import each other.
+
+**Deployed 2026-11-28 (`cac8777`)** to the test server.
