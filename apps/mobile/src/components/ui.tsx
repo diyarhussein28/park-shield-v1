@@ -61,7 +61,10 @@ export function P({
   return <Text style={[typeScale.body, { color: muted ? c.muted : c.fg }, style]}>{children}</Text>;
 }
 
-/** Primary · secondary · ghost · danger; 52 pt high, `lg` 56 pt (the alert's „Ich komme“). */
+/**
+ * Primary · secondary · ghost · danger · accent (the logo's yellow, the paywall's order button like the
+ * website's); 52 pt high, `lg` 56 pt (the alert's „Ich komme“).
+ */
 export function Button({
   label,
   onPress,
@@ -74,7 +77,7 @@ export function Button({
 }: {
   label: string;
   onPress: PressableProps['onPress'];
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'accent';
   size?: 'md' | 'lg';
   busy?: boolean;
   disabled?: boolean;
@@ -82,8 +85,22 @@ export function Button({
   testID?: string;
 }) {
   const c = useTheme();
-  const bg = variant === 'primary' ? c.primary : variant === 'danger' ? c.danger : 'transparent';
-  const fg = variant === 'primary' ? c.primaryFg : variant === 'danger' ? c.dangerFg : c.primary;
+  const bg =
+    variant === 'primary'
+      ? c.primary
+      : variant === 'danger'
+        ? c.danger
+        : variant === 'accent'
+          ? c.accent
+          : 'transparent';
+  const fg =
+    variant === 'primary'
+      ? c.primaryFg
+      : variant === 'danger'
+        ? c.dangerFg
+        : variant === 'accent'
+          ? c.accentFg
+          : c.primary;
   return (
     <Pressable
       testID={testID}

@@ -68,10 +68,11 @@ function useShine(reduced: boolean, width: number) {
 }
 
 /**
- * The lifetime offer right under the yearly „Zahlungspflichtig bestellen“ (owner decision 2026-11-26):
- * not a second plan card, one button in the accent yellow with a short shine, a badge „Nur 10 € mehr“
- * and two true facts (cheaper from the 2nd year, saved over 5 years). § 312j BGB: the button itself
- * names the obligation to pay and the one-time price. No timer, no false scarcity, no shaming „no“.
+ * The lifetime offer inside the plan card, right under the yearly „Zahlungspflichtig bestellen“ (owner
+ * decisions 2026-11-26 and 2026-11-28, like the website's pricing card): „oder“, then one outlined button
+ * in the accent yellow with a short shine, the small label „Nur 10 € mehr – dafür für immer“ above the
+ * § 312j text („Zahlungspflichtig bestellen – 29,99 € einmalig“), and one true line under it (cheaper
+ * from the 2nd year, nothing to cancel). No timer, no false scarcity, no shaming „no“.
  */
 export function LifetimeOffer({
   price,
@@ -95,6 +96,7 @@ export function LifetimeOffer({
   const { translateX, pop } = useShine(reduced, width);
   const facts = lifetimeFacts(yearCents, lifetimeCents);
   const label = t('lifetimePayButton', { price });
+  const badge = t('lifetimeBadge', { diff: facts.diff });
   return (
     <View style={s.wrap} testID="lifetime-offer">
       <View style={s.or} importantForAccessibility="no-hide-descendants">
@@ -102,49 +104,49 @@ export function LifetimeOffer({
         <Text style={[typeScale.caption, { color: c.muted }]}>{t('lifetimeOr')}</Text>
         <View style={[s.rule, { backgroundColor: c.border }]} />
       </View>
-      <View style={[s.box, { backgroundColor: c.accentSubtle, borderColor: c.accent }]}>
-        <View style={[s.badge, { backgroundColor: c.accent }]}>
-          <Icon name="shieldCheck" size={14} color={c.accentFg} />
-          <Text style={[typeScale.caption, s.badgeText, { color: c.accentFg }]}>
-            {t('lifetimeBadge', { diff: facts.diff })}
-          </Text>
-        </View>
-        <Text style={[typeScale.heading, { color: c.accentSubtleFg }]}>{t('lifetimeTitle')}</Text>
-        <Text style={[typeScale.label, { color: c.accentSubtleFg, fontWeight: '400' }]}>
-          {t('lifetimeSave', facts)}
-        </Text>
-        <Animated.View style={{ transform: [{ scale: pop }] }}>
-          <Pressable
-            testID="pay-lifetime"
-            accessibilityRole="button"
-            accessibilityLabel={label}
-            accessibilityHint={t('lifetimeNoRenew')}
-            accessibilityState={{ disabled: Boolean(disabled || busy), busy: Boolean(busy) }}
-            disabled={disabled || busy}
-            onPress={onPress}
-            onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
-            style={({ pressed }) => [
-              s.button,
-              { backgroundColor: c.accent, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 },
-            ]}
-          >
-            {!reduced && !disabled && (
-              <Animated.View
-                pointerEvents="none"
-                style={[s.shine, { transform: [{ translateX }, { skewX: '-20deg' }] }]}
-              />
-            )}
-            {busy ? (
-              <ActivityIndicator color={c.accentFg} />
-            ) : (
-              <Text style={[typeScale.body, s.buttonText, { color: c.accentFg }]}>{label}</Text>
-            )}
-          </Pressable>
-        </Animated.View>
-        <Text style={[typeScale.caption, { color: c.accentSubtleFg, textAlign: 'center' }]}>
-          {t('lifetimeNoRenew')}
-        </Text>
-      </View>
+      <Animated.View style={{ transform: [{ scale: pop }] }}>
+        <Pressable
+          testID="pay-lifetime"
+          accessibilityRole="button"
+          accessibilityLabel={`${badge}. ${label}`}
+          accessibilityHint={t('lifetimeNoRenew')}
+          accessibilityState={{ disabled: Boolean(disabled || busy), busy: Boolean(busy) }}
+          disabled={disabled || busy}
+          onPress={onPress}
+          onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
+          style={({ pressed }) => [
+            s.button,
+            {
+              backgroundColor: c.accentSubtle,
+              borderColor: c.accent,
+              opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
+            },
+          ]}
+        >
+          {!reduced && !disabled && (
+            <Animated.View
+              pointerEvents="none"
+              style={[s.shine, { transform: [{ translateX }, { skewX: '-20deg' }] }]}
+            />
+          )}
+          {busy ? (
+            <ActivityIndicator color={c.accentSubtleFg} />
+          ) : (
+            <>
+              <Text style={[typeScale.caption, s.badge, { color: c.accentSubtleFg }]}>{badge}</Text>
+              <View style={s.labelRow}>
+                <Text style={[typeScale.body, s.buttonText, { color: c.accentSubtleFg }]}>
+                  {label}
+                </Text>
+                <Icon name="arrowRight" size={18} color={c.accentSubtleFg} />
+              </View>
+            </>
+          )}
+        </Pressable>
+      </Animated.View>
+      <Text style={[typeScale.caption, { color: c.muted, textAlign: 'center' }]}>
+        {t('lifetimeLine', { year: facts.year })}
+      </Text>
     </View>
   );
 }
@@ -153,32 +155,26 @@ const s = StyleSheet.create({
   wrap: { gap: space.sm },
   or: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   rule: { flex: 1, height: StyleSheet.hairlineWidth },
-  box: { borderWidth: 2, borderRadius: radius.lg, padding: space.md, gap: space.sm },
-  badge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  badgeText: { fontWeight: '700' },
   button: {
-    minHeight: touch.button,
-    borderRadius: radius.md,
+    minHeight: touch.button + 8,
+    borderWidth: 2,
+    borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    gap: 2,
     overflow: 'hidden',
   },
-  buttonText: { fontWeight: '700', textAlign: 'center' },
+  badge: { fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4, textAlign: 'center' },
+  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  buttonText: { fontWeight: '700', textAlign: 'center', flexShrink: 1 },
   shine: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     left: 0,
     width: 48,
-    backgroundColor: 'rgba(255,255,255,0.45)',
+    backgroundColor: 'rgba(255,255,255,0.35)',
   },
 });

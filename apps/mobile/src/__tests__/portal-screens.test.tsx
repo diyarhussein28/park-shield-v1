@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
@@ -194,6 +194,24 @@ beforeEach(async () => {
   mockFiles.length = 0;
   await setSession(SESSION);
 });
+
+/** Depth-first position of the element with `testID` under `root` (for „A comes before B“). */
+interface TreeNode {
+  props: { testID?: unknown };
+  children: ReadonlyArray<TreeNode | string>;
+}
+function treeIndex(root: TreeNode, testID: string): number {
+  let i = 0;
+  let found = -1;
+  const walk = (n: TreeNode) => {
+    if (found >= 0) return;
+    if (n.props.testID === testID) found = i;
+    i++;
+    for (const ch of n.children) if (typeof ch !== 'string') walk(ch);
+  };
+  walk(root);
+  return found;
+}
 
 describe('vehicles', () => {
   it('lists the vehicles; a tap opens the vehicle', async () => {
@@ -526,7 +544,7 @@ describe('subscription and checkout in the app', () => {
     const pay = await screen.findByLabelText(t('payButton', { price: euro(1999, 'de') }));
     expect(pay.props.accessibilityState.disabled).toBe(true); // § 312j: only after the declaration
     // Price, term and renewal stay visible next to the button (§ 312j BGB).
-    expect(screen.getByTestId('price-line').props.children).toBe(
+    expect(screen.getByTestId('price-line').props.accessibilityLabel).toBe(
       `ParkShield · ${t('planPriceLine', { price: euro(1999, 'de') })}`,
     );
     expect(screen.getByText(texts.renewalRule, { exact: false })).toBeTruthy();
@@ -673,7 +691,17 @@ describe('subscription and checkout in the app', () => {
     expect(t('payButton', { price: euro(1999, 'de') })).toBe(
       `Zahlungspflichtig bestellen – ${euro(1999, 'de')} / Jahr`,
     );
-    expect(screen.getByTestId('plan-card')).toBeTruthy();
+    // One card like the website's (owner 2026-11-28): the plan, the § 312j facts, the declaration and
+    // both buttons all inside it, the buttons after the facts and the declaration.
+    const card = screen.getByTestId('plan-card');
+    for (const id of ['price-line', 'plan-features', 'pay-facts', 'immediate-start', 'pay'])
+      expect(within(card).getByTestId(id)).toBeTruthy();
+    expect(within(card).getByTestId('pay-lifetime')).toBeTruthy();
+    const at = (id: string) => treeIndex(card, id);
+    expect(at('pay-facts')).toBeLessThan(at('immediate-start'));
+    expect(at('immediate-start')).toBeLessThan(at('pay'));
+    expect(at('pay')).toBeLessThan(at('pay-lifetime'));
+    expect(screen.getByText(pt('landing.planFor'))).toBeTruthy();
     for (const k of [
       'planF1',
       'planF2',
@@ -709,12 +737,12 @@ describe('subscription and checkout in the app', () => {
     await render(<Plans />);
     const label = t('lifetimePayButton', { price: euro(2999, 'de') });
     expect(label).toBe(`Zahlungspflichtig bestellen – ${euro(2999, 'de')} einmalig`);
-    await screen.findByLabelText(label);
+    await screen.findByLabelText(`${t('lifetimeBadge', { diff: '10 €' })}. ${label}`);
     expect(screen.getByTestId('lifetime-offer')).toBeTruthy();
     // 29,99 € − 19,99 € = 10 € more; cheaper from the 2nd year; 5 × 19,99 € − 29,99 € = 69,96 € saved.
     expect(screen.getByText(t('lifetimeBadge', { diff: '10 €' }))).toBeTruthy();
-    expect(screen.getByText(t('lifetimeSave', { year: 2, saved: euro(6996, 'de') }))).toBeTruthy();
-    expect(screen.getByText(t('lifetimeNoRenew'))).toBeTruthy();
+    expect(screen.getByText(t('lifetimeLine', { year: 2 }))).toBeTruthy();
+    expect(screen.getByTestId('pay-lifetime').props.accessibilityHint).toBe(t('lifetimeNoRenew'));
     // Locked until the immediate-start declaration is ticked, like the yearly button.
     expect(screen.getByTestId('pay-lifetime').props.accessibilityState.disabled).toBe(true);
     await fireEvent.press(await screen.findByLabelText(texts.immediateStart.text));

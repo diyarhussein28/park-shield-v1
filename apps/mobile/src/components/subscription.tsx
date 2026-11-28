@@ -37,7 +37,7 @@ import {
   type SubscriptionSummary,
 } from '@/lib/portal';
 import { pt } from '@/lib/portal-i18n';
-import { type as typeScale } from '@/theme/tokens';
+import { radius, space, type as typeScale } from '@/theme/tokens';
 import { Badge, Check, Choice, Field } from './form';
 import { Icon } from './icons';
 import { LifetimeOffer } from './lifetime-offer';
@@ -199,10 +199,11 @@ interface CheckoutTexts {
 export type CheckoutState = 'idle' | 'confirming' | 'failed' | 'canceled' | 'failed_store';
 
 /**
- * § 312j BGB checkout (P3, P7): price, term and renewal stay visible right above the button, together
- * with the versioned immediate-start declaration (required, never pre-ticked), the personalised-sticker
- * notice (B3, no extra checkbox) and „Zahlungspflichtig bestellen“. AGB and privacy links stay visible;
- * the withdrawal notice and the voucher code fold away under „Details“.
+ * § 312j BGB checkout (P3, P7) as one plan card like the website's (owner 2026-11-28): the plan with
+ * its price and features, then price, term and renewal right above the buttons, together with the
+ * versioned immediate-start declaration (required, never pre-ticked) and the sticker notice (B3, no extra
+ * checkbox), then the yellow „Zahlungspflichtig bestellen“ and the Lifetime button. AGB and privacy links
+ * stay visible under the card; the withdrawal notice and the voucher code fold away under „Details“.
  *
  * In a real build with the store key (A2) the subscription is an Apple / Google in-app purchase
  * through RevenueCat: first `/v1/billing/store/prepare` (gates and the consent, exactly as on the
@@ -442,69 +443,90 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
           {t('payCanceled')}
         </Banner>
       )}
-      <View style={[s.summary, { backgroundColor: c.surface, borderColor: c.border }]}>
-        <Text style={{ color: c.fg, fontSize: 17, fontWeight: '700' }} testID="price-line">
-          {`${t('planName')} · ${t('planPriceLine', { price })}`}
-        </Text>
-        <P muted>{t('paywallYearly')}</P>
-        <P muted>{pt('checkout.summaryTerm')}</P>
-        <P muted>
-          <Text style={{ fontWeight: '700' }}>{pt('checkout.summaryRenewal')}:</Text>{' '}
-          {texts.renewalRule}
-        </P>
-        {/* TODO [LEGAL REVIEW] price breakdown (B2) */}
-        <P muted>{stickerValueText()}</P>
-      </View>
-      {!store && resubscribe && (
-        <>
-          <Choice
-            legend={pt('checkout.stickerQuestion')}
-            options={['keep', 'replace'] as const}
-            value={sticker}
-            disabled={busy}
-            onChange={(v) => {
-              setSticker(v);
-              setStickerMissing(false);
-            }}
-            label={(v) => (v === 'keep' ? pt('checkout.stickerYes') : pt('checkout.stickerNo'))}
-          />
-          {sticker === 'replace' && <P muted>{pt('checkout.stickerNoHint')}</P>}
-          {stickerMissing && <Banner tone="err">{pt('checkout.stickerRequired')}</Banner>}
-        </>
-      )}
-      {/* TODO [LEGAL REVIEW: mandatory immediate-start consent] text comes from legal_texts */}
-      <Check
-        label={texts.immediateStart.text}
-        checked={immediate}
-        onChange={setImmediate}
-        disabled={busy}
-        testID="immediate-start"
-      />
-      {/* TODO [LEGAL REVIEW] § 312g Abs. 2 Nr. 1 BGB: info line next to the consent, no checkbox (B3). */}
-      <View testID="sticker-notice">
-        <P muted>{t('stickerNotice')}</P>
-      </View>
-      {storeMissing && <Banner tone="warn">{t('storeUnavailable')}</Banner>}
-      {error && <Banner tone="err">{error}</Banner>}
-      {info && <Banner tone="info">{info}</Banner>}
-      {/* § 312j BGB: the button names the obligation to pay and the price. */}
-      <Button
-        label={t('payButton', { price })}
-        onPress={() => void submit('year')}
-        busy={busy && busyTerm === 'year'}
-        disabled={busy || !immediate || (store && (!pkg || pkg === 'error'))}
-        testID="pay"
-      />
-      {lifetimeOffered && (
-        <LifetimeOffer
-          price={lifePrice}
-          yearCents={yearCents}
-          lifetimeCents={lifeCents}
-          onPress={() => void submit('lifetime')}
-          busy={busy && busyTerm === 'lifetime'}
-          disabled={busy || !immediate}
+      {/* One card like the website's pricing card (owner 2026-11-28): the plan, then everything § 312j
+          BGB needs directly above the buttons, then both buttons. */}
+      <View
+        testID="plan-card"
+        style={[s.card, { backgroundColor: c.surface, borderColor: c.accent }]}
+      >
+        <PlanHeader price={price} />
+        <PlanFeatures />
+        <View style={[s.rule, { backgroundColor: c.border }]} />
+        {/* Price, term and renewal stay visible directly above „Zahlungspflichtig bestellen“. */}
+        <View style={s.facts} testID="pay-facts">
+          <Text style={[typeScale.caption, { color: c.muted }]}>
+            {`${t('paywallYearly')} · ${pt('checkout.summaryTerm')}`}
+          </Text>
+          <Text style={[typeScale.caption, { color: c.muted }]}>
+            <Text style={{ fontWeight: '700', color: c.fg }}>{pt('checkout.summaryRenewal')}:</Text>{' '}
+            {texts.renewalRule}
+          </Text>
+          {/* TODO [LEGAL REVIEW] price breakdown (B2) */}
+          <Text style={[typeScale.caption, { color: c.muted }]}>{stickerValueText()}</Text>
+        </View>
+        {!store && resubscribe && (
+          <>
+            <Choice
+              legend={pt('checkout.stickerQuestion')}
+              options={['keep', 'replace'] as const}
+              value={sticker}
+              disabled={busy}
+              onChange={(v) => {
+                setSticker(v);
+                setStickerMissing(false);
+              }}
+              label={(v) => (v === 'keep' ? pt('checkout.stickerYes') : pt('checkout.stickerNo'))}
+            />
+            {sticker === 'replace' && <P muted>{pt('checkout.stickerNoHint')}</P>}
+            {stickerMissing && <Banner tone="err">{pt('checkout.stickerRequired')}</Banner>}
+          </>
+        )}
+        {/* TODO [LEGAL REVIEW: mandatory immediate-start consent] text comes from legal_texts */}
+        <Check
+          label={texts.immediateStart.text}
+          checked={immediate}
+          onChange={setImmediate}
+          disabled={busy}
+          testID="immediate-start"
         />
-      )}
+        {/* TODO [LEGAL REVIEW] § 312g Abs. 2 Nr. 1 BGB: info line next to the consent, no checkbox (B3). */}
+        <View testID="sticker-notice">
+          <Text style={[typeScale.caption, { color: c.muted }]}>{t('stickerNotice')}</Text>
+        </View>
+        {storeMissing && <Banner tone="warn">{t('storeUnavailable')}</Banner>}
+        {error && <Banner tone="err">{error}</Banner>}
+        {info && <Banner tone="info">{info}</Banner>}
+        {/* § 312j BGB: the button names the obligation to pay and the price. */}
+        <Button
+          variant="accent"
+          label={t('payButton', { price })}
+          onPress={() => void submit('year')}
+          busy={busy && busyTerm === 'year'}
+          disabled={busy || !immediate || (store && (!pkg || pkg === 'error'))}
+          testID="pay"
+        />
+        {lifetimeOffered && (
+          <LifetimeOffer
+            price={lifePrice}
+            yearCents={yearCents}
+            lifetimeCents={lifeCents}
+            onPress={() => void submit('lifetime')}
+            busy={busy && busyTerm === 'lifetime'}
+            disabled={busy || !immediate}
+          />
+        )}
+        {/* QA 2026-11-25: the hint keeps its space once the box is ticked, so nothing below it jumps. */}
+        <View
+          testID="immediate-required"
+          style={{ opacity: immediate ? 0 : 1 }}
+          accessibilityElementsHidden={immediate}
+          importantForAccessibility={immediate ? 'no-hide-descendants' : 'auto'}
+        >
+          <Text style={[typeScale.caption, { color: c.muted, textAlign: 'center' }]}>
+            {pt('checkout.immediateRequired')}
+          </Text>
+        </View>
+      </View>
       <View style={s.secure}>
         <Icon name="lock" size={16} color={c.muted} />
         <Text style={[typeScale.caption, { color: c.muted, flexShrink: 1 }]}>
@@ -514,15 +536,6 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
               : t('payStoreSecureAndroid')
             : t('paySecure')}
         </Text>
-      </View>
-      {/* QA 2026-11-25: the hint keeps its space once the box is ticked, so nothing below it jumps. */}
-      <View
-        testID="immediate-required"
-        style={{ opacity: immediate ? 0 : 1 }}
-        accessibilityElementsHidden={immediate}
-        importantForAccessibility={immediate ? 'no-hide-descendants' : 'auto'}
-      >
-        <P muted>{pt('checkout.immediateRequired')}</P>
       </View>
       <P muted>
         <Text style={s.link} accessibilityRole="link" onPress={() => void openInBrowser('/agb')}>
@@ -573,6 +586,34 @@ export function CheckoutForm({ onPaid }: { onPaid: () => void }) {
           />
         )}
       </Collapsible>
+    </View>
+  );
+}
+
+/**
+ * The top of the plan card, like the website's: „ParkShield“, „Alles inklusive, für ein Fahrzeug“ and
+ * the price set large with „/ Jahr inkl. 19 % MwSt.“ (the store's own price when the store sells it).
+ */
+function PlanHeader({ price }: { price: string }) {
+  const c = useTheme();
+  const line = pt('landing.priceInclVat', { price });
+  const at = line.indexOf(price);
+  return (
+    <View
+      accessible
+      accessibilityLabel={`${t('planName')} · ${t('planPriceLine', { price })}`}
+      testID="price-line"
+      style={{ gap: 2 }}
+    >
+      <Text style={[typeScale.title, { color: c.fg }]}>{t('planName')}</Text>
+      <Text style={[typeScale.label, { color: c.muted, fontWeight: '400' }]}>
+        {pt('landing.planFor')}
+      </Text>
+      <Text style={[typeScale.body, { color: c.muted, marginTop: space.sm }]}>
+        {at > 0 && line.slice(0, at)}
+        <Text style={[typeScale.title, s.price, { color: c.fg }]}>{price}</Text>
+        {at < 0 ? ` ${line}` : ` ${line.slice(at + price.length).trim()}`}
+      </Text>
     </View>
   );
 }
@@ -699,7 +740,10 @@ const s = StyleSheet.create({
   info: { gap: 4 },
   line: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
   form: { gap: 12 },
-  summary: { gap: 2, borderWidth: 1, borderRadius: 12, padding: 12 },
+  card: { borderRadius: radius.lg, borderWidth: 2, padding: space.lg, gap: space.md },
+  rule: { height: StyleSheet.hairlineWidth },
+  facts: { gap: 4 },
+  price: { fontSize: 40, lineHeight: 46 },
   link: { textDecorationLine: 'underline', fontWeight: '700' },
   secure: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   features: { gap: 8 },
