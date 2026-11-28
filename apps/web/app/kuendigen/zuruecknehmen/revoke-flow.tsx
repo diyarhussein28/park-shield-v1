@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Card, Container, Heading, Notice, Stack, Text, useI18n } from '@parkshield/ui';
+import { Button, Card, Container, Notice, Stack, Text, useI18n } from '@parkshield/ui';
 import { useState } from 'react';
 import { PageShell } from '@/components/site-chrome';
 import { api } from '@/lib/api-client';
@@ -29,13 +29,10 @@ export function RevokeFlow() {
   }
 
   return (
-    <PageShell>
+    <PageShell title={t('cancel.revokeTitle')}>
       <Container className="max-w-2xl py-10">
         <Card>
           <Stack gap={4}>
-            <Heading level={1} className="text-2xl">
-              {t('cancel.revokeTitle')}
-            </Heading>
             {result === null && (
               <>
                 <Text>{t('cancel.revokeText')}</Text>

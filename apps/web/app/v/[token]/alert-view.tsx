@@ -101,13 +101,10 @@ export function AlertView({ token }: { token: string }) {
   const showConfirm = (confirming || (fromMail && !dismissed)) && !reportDone;
 
   return (
-    <PageShell>
+    <PageShell title={t('alertView.title')}>
       <Container className="max-w-2xl py-10">
         <Card>
           <Stack gap={4}>
-            <Heading level={1} className="text-2xl">
-              {t('alertView.title')}
-            </Heading>
             {invalid && <Notice tone="warning">{t('alertView.invalid')}</Notice>}
             {!data && !invalid && <Text muted>{t('reply.loading')}</Text>}
             {data && (

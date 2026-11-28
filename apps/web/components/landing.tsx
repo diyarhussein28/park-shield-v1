@@ -22,7 +22,7 @@ import { LogoMark } from './brand/logo';
 import { Icon, type IconName } from './icons';
 import { LandingDemo } from './landing-demo';
 import { useReveal } from './reveal';
-import { PageShell, WIDE } from './site-chrome';
+import { PageShell, Wave, WIDE } from './site-chrome';
 
 /*
  * The home page in the dark navy design (owner mockups 2026-11-27): one dark page (`ps-dark` tokens),
@@ -123,32 +123,6 @@ function FeatureList({ items }: { items: MessageKey[] }) {
         </li>
       ))}
     </ul>
-  );
-}
-
-/** The blue wave between two dark parts of the page (decoration only). */
-function Wave({ flip }: { flip?: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 1440 60"
-      preserveAspectRatio="none"
-      className={cx('block h-8 w-full text-blue-600 sm:h-12', flip && 'rotate-180')}
-    >
-      <path
-        d="M0 38C240 8 480 4 720 22s480 30 720 4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="6"
-      />
-      <path
-        d="M0 50C260 22 500 20 740 36s460 22 700 0"
-        fill="none"
-        stroke="currentColor"
-        strokeOpacity="0.35"
-        strokeWidth="3"
-      />
-    </svg>
   );
 }
 

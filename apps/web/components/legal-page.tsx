@@ -8,10 +8,9 @@ export function LegalPage({ slug, context }: { slug: LegalSlug; context?: LegalC
   const { locale, t } = useI18n();
   const doc = legalDoc(locale, slug, context);
   return (
-    <PageShell>
+    <PageShell title={doc.title}>
       <Container className="py-10">
         <Stack gap={6}>
-          <Heading level={1}>{doc.title}</Heading>
           <Notice tone="warning">
             {t('legal.draft')}
             {locale !== 'de' && ` ${t('legal.courtesy')}`}

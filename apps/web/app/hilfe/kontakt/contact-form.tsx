@@ -6,7 +6,6 @@ import {
   Card,
   Container,
   Field,
-  Heading,
   Input,
   Notice,
   Select,
@@ -72,14 +71,12 @@ export function ContactForm() {
   }
 
   return (
-    <PageShell>
+    <PageShell title={t('support.title')} intro={t('support.intro')}>
       <Container className="max-w-2xl py-10">
         <Stack gap={4}>
           <Link href="/hilfe" className="text-primary underline">
             {t('help.backToHelp')}
           </Link>
-          <Heading level={1}>{t('support.title')}</Heading>
-          <Text muted>{t('support.intro')}</Text>
           {done ? (
             <Notice tone="success" title={t('support.sentTitle')}>
               {t('support.sent', { ticket: done.ticket })}{' '}

@@ -30,7 +30,7 @@ test('strict CSP on the web and ops apps: pages hydrate, nothing is blocked (US-
   // Interactive after hydration: the search filters the help articles.
   await page.goto('/hilfe');
   await page.waitForLoadState('networkidle');
-  await page.getByLabel('Hilfe durchsuchen').fill('iPhone');
+  await page.getByLabel('Hilfe durchsuchen').fill('Fokus-Modus');
   await expect(page.getByText(/1 Treffer/)).toBeVisible();
 
   // A whole client-side form flow under CSP (the website's sign-in moved into the app, 2026-11-24).

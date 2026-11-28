@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, Container, Heading, Notice, Stack, Text, useI18n } from '@parkshield/ui';
+import { Card, Container, Notice, Stack, Text, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
 import { PageShell } from '@/components/site-chrome';
 import { useBrowserValue } from '@/lib/use-browser-value';
@@ -11,13 +11,10 @@ export function AppClaim() {
   const { t } = useI18n();
   const code = useBrowserValue(() => CODE.exec(window.location.hash)?.[1] ?? null, null);
   return (
-    <PageShell>
+    <PageShell title={t('appClaim.title')}>
       <Container className="max-w-2xl py-10">
         <Card>
           <Stack gap={4}>
-            <Heading level={1} className="text-2xl">
-              {t('appClaim.title')}
-            </Heading>
             {code ? (
               <>
                 <Text>{t('appClaim.lead')}</Text>

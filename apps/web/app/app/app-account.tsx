@@ -18,14 +18,11 @@ export function AppAccount({
   const { t } = useI18n();
   const items = ['appPage.item1', 'appPage.item2', 'appPage.item3', 'appPage.item4'] as const;
   return (
-    <PageShell>
+    <PageShell title={t('appPage.title')}>
       <Container className="max-w-2xl py-10">
         <Stack gap={6}>
           <Card>
             <Stack gap={4}>
-              <Heading level={1} className="text-2xl">
-                {t('appPage.title')}
-              </Heading>
               <Text>{t('appPage.lead')}</Text>
               <Heading level={2} className="text-lg">
                 {t('appPage.listTitle')}

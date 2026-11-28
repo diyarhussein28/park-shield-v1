@@ -5,7 +5,6 @@ import {
   Card,
   Container,
   Field,
-  Heading,
   Input,
   Notice,
   Stack,
@@ -53,13 +52,10 @@ export function WithdrawFlow({
 
   if (receivedAt) {
     return (
-      <PageShell>
+      <PageShell title={t('withdraw.receivedTitle')}>
         <Container className="max-w-2xl py-10">
           <Card>
             <Stack gap={4}>
-              <Heading level={1} className="text-2xl">
-                {t('withdraw.receivedTitle')}
-              </Heading>
               <Notice tone="success">{t('withdraw.receivedText', { date: receivedAt })}</Notice>
               <Text muted>{t('cancel.receivedSave')}</Text>
               <Button
@@ -77,13 +73,10 @@ export function WithdrawFlow({
   }
 
   return (
-    <PageShell>
+    <PageShell title={t('withdraw.title')}>
       <Container className="max-w-2xl py-10">
         <Card>
           <form onSubmit={submit} className="flex flex-col gap-5">
-            <Heading level={1} className="text-2xl">
-              {t('withdraw.title')}
-            </Heading>
             <Text>{t('withdraw.intro')}</Text>
             <Field label={t('withdraw.nameLabel')}>
               {({ id }) => (

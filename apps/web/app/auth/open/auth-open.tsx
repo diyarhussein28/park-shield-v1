@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, Container, Heading, Notice, Stack, Text, useI18n } from '@parkshield/ui';
+import { Card, Container, Notice, Stack, Text, useI18n } from '@parkshield/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { PageShell } from '@/components/site-chrome';
 import { useBrowserValue } from '@/lib/use-browser-value';
@@ -48,13 +48,10 @@ export function AuthOpen() {
   const href = f?.token && target ? `${target}?token=${encodeURIComponent(f.token)}` : null;
 
   return (
-    <PageShell>
+    <PageShell title={t('authOpen.title')}>
       <Container className="max-w-2xl py-10">
         <Card>
           <Stack gap={4}>
-            <Heading level={1} className="text-2xl">
-              {t('authOpen.title')}
-            </Heading>
             {f && !f.token ? (
               <Notice tone="warning">{t('authOpen.invalid')}</Notice>
             ) : (

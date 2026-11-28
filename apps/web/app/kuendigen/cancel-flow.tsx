@@ -5,7 +5,6 @@ import {
   Card,
   Container,
   Field,
-  Heading,
   Input,
   Notice,
   Select,
@@ -78,13 +77,10 @@ export function CancelFlow({ signedInContract }: { signedInContract: string | nu
 
   if (done) {
     return (
-      <PageShell>
+      <PageShell title={t('cancel.receivedTitle')}>
         <Container className="max-w-2xl py-10">
           <Card>
             <Stack gap={4}>
-              <Heading level={1} className="text-2xl">
-                {t('cancel.receivedTitle')}
-              </Heading>
               <Notice tone="success">{t('cancel.receivedText', { date: done.receivedAt })}</Notice>
               {done.endsAt && <Text>{t('cancel.endsText', { date: done.endsAt })}</Text>}
               <Text muted>{t('cancel.receivedSave')}</Text>
@@ -103,13 +99,10 @@ export function CancelFlow({ signedInContract }: { signedInContract: string | nu
   }
 
   return (
-    <PageShell>
+    <PageShell title={t('cancel.title')}>
       <Container className="max-w-2xl py-10">
         <Card>
           <form onSubmit={submit} className="flex flex-col gap-5">
-            <Heading level={1} className="text-2xl">
-              {t('cancel.title')}
-            </Heading>
             <Text>{t('cancel.intro')}</Text>
             {/* TODO [LEGAL REVIEW] § 312k BGB for App Store / Google Play subscriptions (A6). */}
             <Text muted data-testid="cancel-store-note">

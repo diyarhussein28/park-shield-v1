@@ -15,7 +15,7 @@ export function ArticleView({ slug }: { slug: string }) {
     3,
   );
   return (
-    <PageShell>
+    <PageShell title={text.title} intro={text.summary}>
       <Container className="max-w-3xl py-10">
         <Stack gap={6}>
           <nav aria-label={t('help.breadcrumb')}>
@@ -25,8 +25,6 @@ export function ArticleView({ slug }: { slug: string }) {
             › {t(`help.cat_${a.category}` as MessageKey)}
           </nav>
           <article className="flex flex-col gap-4">
-            <Heading level={1}>{text.title}</Heading>
-            <Text className="text-lg">{text.summary}</Text>
             {text.body.map((p) => (
               <Text key={p.slice(0, 32)}>{p}</Text>
             ))}

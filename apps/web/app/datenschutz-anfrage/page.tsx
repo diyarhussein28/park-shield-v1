@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Card, Container, Heading, Notice, Stack, Text, useI18n } from '@parkshield/ui';
+import { Button, Card, Container, Notice, Stack, Text, useI18n } from '@parkshield/ui';
 import { useState } from 'react';
 import { PageShell } from '@/components/site-chrome';
 import { api } from '@/lib/api-client';
@@ -23,13 +23,10 @@ export default function ConfirmPrivacyRequest() {
   }
 
   return (
-    <PageShell>
+    <PageShell title={t('privacy.confirmTitle')}>
       <Container className="max-w-xl py-10">
         <Card>
           <Stack gap={4}>
-            <Heading level={1} className="text-2xl">
-              {t('privacy.confirmTitle')}
-            </Heading>
             {type ? (
               <Notice tone="success">{t('privacy.confirmed', { type })}</Notice>
             ) : state === 'invalid' || token === null ? (

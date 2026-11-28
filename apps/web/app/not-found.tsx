@@ -1,6 +1,6 @@
 'use client';
 
-import { Container, Heading, Stack, Text, useI18n } from '@parkshield/ui';
+import { Container, Stack, Text, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
 import { PageShell } from '@/components/site-chrome';
 
@@ -8,10 +8,9 @@ import { PageShell } from '@/components/site-chrome';
 export default function NotFound() {
   const { t } = useI18n();
   return (
-    <PageShell>
+    <PageShell title={t('common.notFoundTitle')}>
       <Container className="py-12">
         <Stack gap={3}>
-          <Heading level={1}>{t('common.notFoundTitle')}</Heading>
           <Text>{t('common.notFoundText')}</Text>
           <div className="flex flex-wrap gap-4">
             <Link href="/" className="text-primary underline">

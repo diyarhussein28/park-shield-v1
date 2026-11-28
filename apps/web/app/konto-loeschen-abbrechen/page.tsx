@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Card, Container, Heading, Notice, Stack, Text, useI18n } from '@parkshield/ui';
+import { Button, Card, Container, Notice, Stack, Text, useI18n } from '@parkshield/ui';
 import Link from 'next/link';
 import { useState } from 'react';
 import { PageShell } from '@/components/site-chrome';
@@ -24,13 +24,10 @@ export default function CancelDeletion() {
   }
 
   return (
-    <PageShell>
+    <PageShell title={t('privacy.cancelTitle')}>
       <Container className="max-w-xl py-10">
         <Card>
           <Stack gap={4}>
-            <Heading level={1} className="text-2xl">
-              {t('privacy.cancelTitle')}
-            </Heading>
             {state === 'done' ? (
               <>
                 <Notice tone="success">{t('privacy.canceled')}</Notice>

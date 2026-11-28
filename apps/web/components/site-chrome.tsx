@@ -211,20 +211,80 @@ export function SiteFooter({ flush = false }: { flush?: boolean }) {
   );
 }
 
-/** `dark`: the page is dark to its end (home page), so the footer follows without a gap. */
+/** The blue wave between two parts of a page (decoration only, owner mockups 2026-11-27). */
+export function Wave({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 1440 60"
+      preserveAspectRatio="none"
+      className={cx('block h-8 w-full text-blue-600 sm:h-12', className)}
+    >
+      <path
+        d="M0 38C240 8 480 4 720 22s480 30 720 4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="6"
+      />
+      <path
+        d="M0 50C260 22 500 20 740 36s460 22 700 0"
+        fill="none"
+        stroke="currentColor"
+        strokeOpacity="0.35"
+        strokeWidth="3"
+      />
+    </svg>
+  );
+}
+
+/**
+ * The dark title band of every page except the home page (owner decision 2026-11-28: dark top, the
+ * text below on a light background). It carries the page's only `h1`, an optional intro and the wave.
+ */
+export function PageTitle({ title, intro }: { title: ReactNode; intro?: ReactNode }) {
+  return (
+    <div className="ps-dark on-dark relative isolate overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 -z-10 bg-gradient-to-br from-[#050b1a] via-[#0a1430] to-blue-950"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute -right-24 -top-24 -z-10 size-72 rounded-full bg-blue-600/25 blur-3xl"
+      />
+      <div className="mx-auto w-full max-w-3xl px-4 pb-8 pt-10 sm:pb-10 sm:pt-14">
+        <h1 className="text-3xl font-extrabold tracking-tight text-balance text-white hyphens-auto wrap-break-word sm:text-5xl">
+          {title}
+        </h1>
+        {intro && <p className="mt-3 max-w-2xl text-lg text-slate-200">{intro}</p>}
+      </div>
+      <Wave />
+    </div>
+  );
+}
+
+/**
+ * `dark`: the page is dark to its end (home page), so the footer follows without a gap. `title`: the
+ * dark title band with the page's `h1` (every other page), `intro` a line under it.
+ */
 export function PageShell({
   children,
   sticky,
   dark,
+  title,
+  intro,
 }: {
   children: ReactNode;
   sticky?: boolean;
   dark?: boolean;
+  title?: ReactNode;
+  intro?: ReactNode;
 }) {
   return (
     <>
       <SiteHeader sticky={sticky} />
       <main id="main" className={cx('min-h-[60vh]', dark && 'bg-[#0a1430]')}>
+        {title !== undefined && <PageTitle title={title} intro={intro} />}
         {children}
       </main>
       <SiteFooter flush={dark} />

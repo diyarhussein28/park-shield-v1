@@ -19,13 +19,9 @@ export function HelpIndex() {
   );
 
   return (
-    <PageShell>
+    <PageShell title={t('help.title')} intro={t('help.intro')}>
       <Container className="py-10">
         <Stack gap={6}>
-          <div>
-            <Heading level={1}>{t('help.title')}</Heading>
-            <Text muted>{t('help.intro')}</Text>
-          </div>
           <form role="search" onSubmit={(e) => e.preventDefault()} className="max-w-xl">
             <Field label={t('help.searchLabel')}>
               {({ id }) => (

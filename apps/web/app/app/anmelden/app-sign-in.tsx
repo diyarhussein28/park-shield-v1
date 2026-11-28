@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, Container, Heading, Notice, Stack, Text, useI18n } from '@parkshield/ui';
+import { Card, Container, Notice, Stack, Text, useI18n } from '@parkshield/ui';
 import { PageShell } from '@/components/site-chrome';
 import { useBrowserValue } from '@/lib/use-browser-value';
 
@@ -10,13 +10,10 @@ export function AppSignIn() {
   const { t } = useI18n();
   const token = useBrowserValue(() => TOKEN.exec(window.location.hash)?.[1] ?? null, null);
   return (
-    <PageShell>
+    <PageShell title={t('appLink.title')}>
       <Container className="max-w-2xl py-10">
         <Card>
           <Stack gap={4}>
-            <Heading level={1} className="text-2xl">
-              {t('appLink.title')}
-            </Heading>
             {token ? (
               <>
                 <Text>{t('appLink.lead')}</Text>
